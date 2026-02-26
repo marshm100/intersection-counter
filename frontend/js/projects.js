@@ -61,6 +61,7 @@ async function deleteProject(projectId, projectName) {
 function openProject(projectId) {
     AppState.currentProject = projectId;
     showPage('page-setup');
+    loadSetupPage();
 }
 
 function escapeHtml(text) {

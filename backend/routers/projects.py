@@ -21,6 +21,11 @@ class RenameProjectRequest(BaseModel):
     name: str
 
 
+class UpdateSettingsRequest(BaseModel):
+    num_legs: int | None = None
+    video_start_time: str | None = None
+
+
 @router.get("/projects")
 async def list_projects():
     projects = []
@@ -84,3 +89,15 @@ async def rename_project(project_id: str, req: RenameProjectRequest):
         raise HTTPException(status_code=404, detail="Project not found")
     set_project_info(project_id, "project_name", req.name)
     return {"project_id": project_id, "name": req.name}
+
+
+@router.put("/projects/{project_id}/settings")
+async def update_settings(project_id: str, req: UpdateSettingsRequest):
+    project_dir = PROJECTS_DIR / project_id
+    if not project_dir.exists():
+        raise HTTPException(status_code=404, detail="Project not found")
+    if req.num_legs is not None:
+        set_project_info(project_id, "num_legs", str(req.num_legs))
+    if req.video_start_time is not None:
+        set_project_info(project_id, "video_start_time", req.video_start_time)
+    return {"status": "ok"}
