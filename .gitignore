@@ -1,0 +1,10 @@
+data/
+models/*.pt
+models/*.onnx
+dist/
+build/
+__pycache__/
+*.pyc
+*.egg-info/
+.env
+*.db
