@@ -7,11 +7,7 @@ function showPage(pageId) {
     AppState.currentPage = pageId;
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        const health = await API.get('/api/health');
-        document.getElementById('status').textContent = 'Backend: ' + health.status;
-    } catch (e) {
-        document.getElementById('status').textContent = 'Backend: not connected';
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    showPage('page-projects');
+    loadProjectList();
 });

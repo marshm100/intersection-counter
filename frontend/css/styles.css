@@ -1,4 +1,32 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #333; }
+
 #app { max-width: 1400px; margin: 0 auto; padding: 20px; }
-h1 { margin-bottom: 10px; }
+
+header { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #ddd; }
+header h1 { font-size: 24px; }
+
+/* Page visibility */
+.page { display: none; }
+.page.active { display: block; }
+
+/* Project list */
+.project-controls { display: flex; gap: 10px; margin-bottom: 20px; }
+.project-controls input { flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+.project-controls button { padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.project-controls button:hover { background: #1d4ed8; }
+
+.project-list { display: flex; flex-direction: column; gap: 10px; }
+.project-card { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: white; border: 1px solid #ddd; border-radius: 6px; }
+.project-card .project-info { flex: 1; }
+.project-card .project-name { font-weight: 600; font-size: 16px; }
+.project-card .project-meta { font-size: 12px; color: #666; margin-top: 4px; }
+.project-card .project-actions { display: flex; gap: 8px; }
+.project-card .project-actions button { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+
+.btn-open { background: #2563eb; color: white; }
+.btn-open:hover { background: #1d4ed8; }
+.btn-delete { background: #ef4444; color: white; }
+.btn-delete:hover { background: #dc2626; }
+
+.empty-message { padding: 40px; text-align: center; color: #999; font-size: 16px; }
