@@ -88,6 +88,7 @@ async function loadSetupPage() {
     // Start calibration button
     const disabled = videoInfo ? '' : ' disabled';
     html += `<button class="btn-calibration"${disabled} onclick="startCalibration()">Start Calibration</button>`;
+    html += `<button class="btn-proceed"${disabled} onclick="proceedToProcessing()">Proceed to Processing</button>`;
 
     section.innerHTML = html;
 
@@ -142,6 +143,12 @@ async function startCalibration() {
     // so we rely on the backend project_info. For now, use a workaround:
     // The calibration page will handle status update. Just navigate.
     showPage('page-calibration');
+}
+
+async function proceedToProcessing() {
+    await saveSetupSettings();
+    showPage('page-processing');
+    loadProcessingPage();
 }
 
 function backToProjects() {

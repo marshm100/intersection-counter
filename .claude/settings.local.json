@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(py:*)",
+      "Bash(where:*)",
+      "Bash(/c/Users/onkar/AppData/Local/Programs/Python/Python312/python.exe:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}
