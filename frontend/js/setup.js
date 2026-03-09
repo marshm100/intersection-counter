@@ -143,6 +143,7 @@ async function startCalibration() {
     // so we rely on the backend project_info. For now, use a workaround:
     // The calibration page will handle status update. Just navigate.
     showPage('page-calibration');
+    loadCalibrationPage();
 }
 
 async function proceedToProcessing() {

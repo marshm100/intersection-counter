@@ -20,6 +20,7 @@ async function loadDashboardPage() {
     html += '<a href="#" class="back-link" onclick="showPage(\'page-processing\'); loadProcessingPage(); return false;">&larr; Back to Processing</a>';
     html += '<h2>Dashboard</h2>';
     html += '<button class="btn-proc btn-start" style="margin-left:auto" onclick="showPage(\'page-review\'); loadReviewPage()">Go to Review &rarr;</button>';
+    html += '<button class="btn-proc btn-start" style="margin-left:8px" onclick="showPage(\'page-export\'); loadExportPage()">Export &rarr;</button>';
     html += '</div>';
 
     const noEvents = data.totals.vehicles === 0 && data.totals.pedestrians === 0;
