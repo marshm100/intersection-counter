@@ -70,7 +70,7 @@ function _renderProcessingPage(section, data) {
         html += `<button class="btn-proc btn-cancel" onclick="cancelProcessing()">Cancel</button>`;
     }
     if (status === 'complete') {
-        html += `<button class="btn-proc btn-start" onclick="showPage('page-dashboard')">View Results</button>`;
+        html += `<button class="btn-proc btn-start" onclick="showPage('page-dashboard'); loadDashboardPage()">View Results</button>`;
     }
 
     html += '</div>';

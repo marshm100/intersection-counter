@@ -2,13 +2,15 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from backend.config import FRONTEND_DIR
-from backend.routers import projects, video, processing
+from backend.routers import projects, video, processing, dashboard, review
 
 app = FastAPI(title="Intersection Counter")
 
 app.include_router(projects.router, prefix="/api")
 app.include_router(video.router, prefix="/api")
 app.include_router(processing.router, prefix="/api")
+app.include_router(dashboard.router, prefix="/api")
+app.include_router(review.router, prefix="/api")
 
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
