@@ -8,3 +8,14 @@ __pycache__/
 *.egg-info/
 .env
 *.db
+
+# Video files (proprietary — never commit)
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Local Claude settings and copy artifacts
+.claude/
+requirements - Copy*.txt
+*.local - Copy*.json
