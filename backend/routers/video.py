@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
@@ -13,6 +14,7 @@ from backend.services.video_service import (
     get_video_info, get_frame_at_time,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -53,9 +55,14 @@ async def set_video(project_id: str, req: SetVideoRequest):
     try:
         info = get_video_info(req.path)
     except FileNotFoundError:
-        raise HTTPException(status_code=400, detail="Video file not found")
+        logger.error("Video file not found: %s", req.path)
+        raise HTTPException(status_code=400, detail=f"Video file not found: {req.path}")
     except ValueError as e:
+        logger.error("Cannot open video %s: %s", req.path, e)
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Unexpected error loading video %s", req.path)
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
 
     existing_path = get_project_info(project_id, "video_path")
     if existing_path and existing_path != info["path"] and not req.confirm:
@@ -79,6 +86,9 @@ async def set_video(project_id: str, req: SetVideoRequest):
     set_project_info(project_id, "video_codec", info["codec"])
     if info["creation_time"] is not None:
         set_project_info(project_id, "video_creation_time", info["creation_time"])
+
+    # Reset status to idle so stale error/complete states don't persist
+    set_project_info(project_id, "status", "idle")
 
     return info
 

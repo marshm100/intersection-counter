@@ -9,6 +9,9 @@
     let _currentLeg = null;  // leg being confirmed (drawn but not yet named)
     let _drawState = 'idle'; // 'idle' | 'awaiting_second'
     let _firstPoint = null;
+    let _currentSeconds = 5;
+    let _videoDuration = 0;
+    let _scrubTimer = null;
 
     async function loadCalibrationPage() {
         const pid = AppState.currentProject;
@@ -26,10 +29,12 @@
         }
 
         _numLegs = parseInt(project.num_legs || '4', 10);
+        _videoDuration = parseFloat(project.video_duration_seconds || '0');
         _legs = [];
         _currentLeg = null;
         _drawState = 'idle';
         _firstPoint = null;
+        _currentSeconds = 5;
 
         // Load existing calibration
         try {
@@ -59,6 +64,14 @@
                         Click two points on the frame to draw each leg's origin line.
                     </p>
                     <canvas id="calib-canvas" style="border:1px solid #d1d5db;cursor:crosshair;max-width:100%;display:block;"></canvas>
+                    <div class="calib-scrubber-row">
+                        <span class="calib-scrubber-time" id="calib-time-display">00:00:05</span>
+                        <input type="range" id="calib-scrubber"
+                            min="0" max="${Math.floor(_videoDuration)}" step="1"
+                            value="${_currentSeconds}"
+                            style="flex:1;" />
+                        <span style="font-size:12px;color:#9ca3af;">${_fmtTime(Math.floor(_videoDuration))}</span>
+                    </div>
                 </div>
                 <div class="calib-sidebar">
                     <div id="calib-leg-list"></div>
@@ -96,9 +109,33 @@
             document.getElementById('calib-status').textContent =
                 'Could not load video frame. Ensure a video is selected.';
         };
-        _img.src = `/api/projects/${pid}/video/frame?seconds=5&_t=${Date.now()}`;
+        _loadFrame(pid, _currentSeconds);
 
         _canvas.addEventListener('click', _onCanvasClick);
+
+        // Wire up scrubber
+        const scrubber = document.getElementById('calib-scrubber');
+        if (scrubber) {
+            scrubber.addEventListener('input', () => {
+                _currentSeconds = parseInt(scrubber.value, 10);
+                const display = document.getElementById('calib-time-display');
+                if (display) display.textContent = _fmtTime(_currentSeconds);
+                // Debounce: wait 300 ms after last move before fetching
+                clearTimeout(_scrubTimer);
+                _scrubTimer = setTimeout(() => _loadFrame(pid, _currentSeconds), 300);
+            });
+        }
+    }
+
+    function _loadFrame(pid, seconds) {
+        _img.src = `/api/projects/${pid}/video/frame?seconds=${seconds}&_t=${Date.now()}`;
+    }
+
+    function _fmtTime(totalSec) {
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
     }
 
     // ------------------------------------------------------------------ drawing

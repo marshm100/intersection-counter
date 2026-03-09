@@ -96,15 +96,22 @@ class ProcessingPipeline:
         self,
         frame_skip: int = 3,
         start_frame: int = 0,
+        end_frame: int | None = None,
         callback=None,
     ):
-        """Process the video file frame by frame."""
+        """Process the video file frame by frame.
+
+        end_frame: stop before this frame number (exclusive). None = process to end.
+        """
         cap = cv2.VideoCapture(self.video_path)
         if not cap.isOpened():
             raise RuntimeError(f"Cannot open video: {self.video_path}")
 
         try:
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            effective_end = end_frame if end_frame is not None else total_frames
+            range_total = max(1, effective_end - start_frame)
+
             self.is_running = True
             frame_number = 0
             last_checkpoint_video_time = 0.0
@@ -119,6 +126,9 @@ class ProcessingPipeline:
                 if self.pause_requested.is_set():
                     self._save_checkpoint(frame_number, frame_number / self.fps)
                     self.is_running = False
+                    break
+
+                if end_frame is not None and frame_number >= end_frame:
                     break
 
                 ret, frame = cap.read()
@@ -141,18 +151,17 @@ class ProcessingPipeline:
                     if callback and frames_processed % 10 == 0:
                         elapsed = time.time() - start_time
                         fps_proc = frames_processed / elapsed if elapsed > 0 else 0
+                        remaining = effective_end - frame_number
                         eta = (
-                            (total_frames - frame_number) / (fps_proc * frame_skip)
+                            remaining / (fps_proc * frame_skip)
                             if fps_proc > 0
                             else 0
                         )
                         callback({
                             "frame_number": frame_number,
-                            "total_frames": total_frames,
+                            "total_frames": effective_end,
                             "progress_pct": (
-                                frame_number / total_frames * 100
-                                if total_frames > 0
-                                else 0
+                                (frame_number - start_frame) / range_total * 100
                             ),
                             "timestamp_video": frame_number / self.fps,
                             "vehicle_count": self.vehicle_count,
@@ -164,7 +173,7 @@ class ProcessingPipeline:
 
                 frame_number += 1
 
-            self._finalize_all_active()
+            self._finalize_all_active(frame_number)
             self._save_checkpoint(frame_number, frame_number / self.fps)
 
         finally:
@@ -310,10 +319,10 @@ class ProcessingPipeline:
 
         self.vehicle_count += 1
 
-    def _finalize_all_active(self):
+    def _finalize_all_active(self, frame_number: int):
         """Finalize all remaining active vehicles (end of video or pause)."""
         for track_id in list(self.active_vehicles.keys()):
-            self._finalize_vehicle(track_id, self._frame_idx)
+            self._finalize_vehicle(track_id, frame_number)
 
     # -- Database writes ---------------------------------------------------
 

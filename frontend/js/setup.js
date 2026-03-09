@@ -102,14 +102,32 @@ async function loadSetupPage() {
 
 async function selectVideo() {
     const pid = AppState.currentProject;
-    const browse = await API.post(`/api/projects/${pid}/video/browse`);
+
+    let browse;
+    try {
+        browse = await API.post(`/api/projects/${pid}/video/browse`);
+    } catch (e) {
+        alert('Could not open file browser. Please try again.');
+        return;
+    }
     if (!browse.path) return;
 
-    let result = await API.post(`/api/projects/${pid}/video`, { path: browse.path, confirm: false });
+    let result;
+    try {
+        result = await API.post(`/api/projects/${pid}/video`, { path: browse.path, confirm: false });
+    } catch (e) {
+        alert(`Could not load video file.\n\nPath: ${browse.path}\n\nError: ${e.message}\n\nMake sure the file is accessible and is a valid MP4.`);
+        return;
+    }
 
     if (result.confirm_required) {
         if (!window.confirm(result.warning)) return;
-        result = await API.post(`/api/projects/${pid}/video`, { path: browse.path, confirm: true });
+        try {
+            result = await API.post(`/api/projects/${pid}/video`, { path: browse.path, confirm: true });
+        } catch (e) {
+            alert(`Failed to update video: ${e.message}`);
+            return;
+        }
     }
 
     await loadSetupPage();

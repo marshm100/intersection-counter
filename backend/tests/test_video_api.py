@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 from pathlib import Path
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from backend.app import app
 from backend.config import PROJECTS_DIR
@@ -188,7 +189,8 @@ class TestBrowseVideo:
     def test_browse_returns_null_in_headless(self):
         pid = _create_project("browse-headless")
         try:
-            r = client.post(f"/api/projects/{pid}/video/browse")
+            with patch("backend.routers.video._open_file_dialog", return_value=None):
+                r = client.post(f"/api/projects/{pid}/video/browse")
             assert r.status_code == 200
             assert r.json()["path"] is None
         finally:

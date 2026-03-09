@@ -6,6 +6,7 @@ from typing import Callable
 
 import cv2
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from backend.config import DEFAULT_FRAME_SKIP, PROJECTS_DIR
 from backend.database import get_all_project_info, get_db_path, get_connection, set_project_info
@@ -20,6 +21,12 @@ _pipelines: dict[str, ProcessingPipeline] = {}
 _progress: dict[str, dict] = {}
 _threads: dict[str, threading.Thread] = {}
 _state_lock = threading.Lock()
+
+
+def _time_str_to_seconds(t: str) -> int:
+    """Convert 'HH:MM' string to integer seconds."""
+    parts = t.strip().split(":")
+    return int(parts[0]) * 3600 + int(parts[1]) * 60
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +77,7 @@ def _make_progress_callback(project_id: str) -> Callable:
     return callback
 
 
-def _run_pipeline(project_id: str, start_frame: int = 0):
+def _run_pipeline(project_id: str, start_frame: int = 0, end_frame: int | None = None):
     """Thread target: run the pipeline, update status on finish."""
     try:
         with _state_lock:
@@ -82,6 +89,7 @@ def _run_pipeline(project_id: str, start_frame: int = 0):
         pipeline.process_video(
             frame_skip=DEFAULT_FRAME_SKIP,
             start_frame=start_frame,
+            end_frame=end_frame,
             callback=callback,
         )
 
@@ -104,21 +112,46 @@ def _run_pipeline(project_id: str, start_frame: int = 0):
 # Endpoints
 # ---------------------------------------------------------------------------
 
+class StartProcessingRequest(BaseModel):
+    count_start_time: str | None = None  # "HH:MM" offset from video start; None = 00:00
+    count_end_time:   str | None = None  # "HH:MM" offset from video start; None = end of video
+
+
 @router.post("/projects/{project_id}/processing/start")
-def start_processing(project_id: str):
+def start_processing(project_id: str, req: StartProcessingRequest = StartProcessingRequest()):
     with _state_lock:
         if project_id in _pipelines:
             raise HTTPException(status_code=409, detail="Processing already running.")
 
     prereqs = _load_prerequisites(project_id)
     db_path = str(get_db_path(project_id))
+    fps = prereqs["fps"]
+    info = get_all_project_info(project_id)
+    total_frames = int(info.get("video_total_frames", 0))
+
+    # Convert HH:MM time strings to frame numbers
+    start_frame = 0
+    if req.count_start_time:
+        start_frame = int(_time_str_to_seconds(req.count_start_time) * fps)
+        start_frame = max(0, min(start_frame, total_frames))
+
+    end_frame = None
+    if req.count_end_time:
+        end_frame = int(_time_str_to_seconds(req.count_end_time) * fps)
+        end_frame = max(start_frame + 1, min(end_frame, total_frames))
+
+    # Persist window so resume can reuse it
+    set_project_info(project_id, "count_start_time", req.count_start_time or "")
+    set_project_info(project_id, "count_end_time",   req.count_end_time   or "")
+    set_project_info(project_id, "count_start_frame", str(start_frame))
+    set_project_info(project_id, "count_end_frame",   str(end_frame) if end_frame is not None else "")
 
     pipeline = ProcessingPipeline(
         project_id=project_id,
         db_path=db_path,
         video_path=prereqs["video_path"],
         legs=prereqs["legs"],
-        fps=prereqs["fps"],
+        fps=fps,
         video_start_time=prereqs["video_start_time"],
     )
 
@@ -128,7 +161,7 @@ def start_processing(project_id: str):
     set_project_info(project_id, "status", "processing")
 
     thread = threading.Thread(
-        target=_run_pipeline, args=(project_id, 0), daemon=True
+        target=_run_pipeline, args=(project_id, start_frame, end_frame), daemon=True
     )
     with _state_lock:
         _threads[project_id] = thread
@@ -175,13 +208,18 @@ def resume_processing(project_id: str):
 
     start_frame = pipeline.resume_from_checkpoint()
 
+    # Restore the original count window end frame
+    info = get_all_project_info(project_id)
+    end_frame_str = info.get("count_end_frame", "")
+    end_frame = int(end_frame_str) if end_frame_str else None
+
     with _state_lock:
         _pipelines[project_id] = pipeline
 
     set_project_info(project_id, "status", "processing")
 
     thread = threading.Thread(
-        target=_run_pipeline, args=(project_id, start_frame), daemon=True
+        target=_run_pipeline, args=(project_id, start_frame, end_frame), daemon=True
     )
     with _state_lock:
         _threads[project_id] = thread
@@ -231,4 +269,6 @@ def processing_status(project_id: str):
         "is_running": is_running,
         "has_checkpoint": has_checkpoint,
         "progress": progress,
+        "count_start_time": info.get("count_start_time", ""),
+        "count_end_time": info.get("count_end_time", ""),
     }

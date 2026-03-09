@@ -27,6 +27,8 @@ function _renderProcessingPage(section, data) {
     const progress = data.progress || null;
     const isRunning = data.is_running || false;
     const hasCheckpoint = data.has_checkpoint || false;
+    const savedStart = data.count_start_time || '07:00';
+    const savedEnd   = data.count_end_time   || '09:00';
 
     let html = '';
 
@@ -54,6 +56,17 @@ function _renderProcessingPage(section, data) {
         html += _statsHtml(progress);
     }
     html += '</div>';
+
+    // Count window — shown when idle/error/complete (not while running/paused)
+    if (status === 'idle' || status === 'error' || status === 'complete') {
+        html += '<div class="count-window-row">';
+        html += '<span class="count-window-label">Count Window</span>';
+        html += `<input type="time" id="proc-start-time" value="${savedStart}" />`;
+        html += '<span class="count-window-sep">to</span>';
+        html += `<input type="time" id="proc-end-time" value="${savedEnd}" />`;
+        html += '<span class="count-window-hint">(HH:MM offset from video start)</span>';
+        html += '</div>';
+    }
 
     // Action buttons
     html += '<div class="processing-actions">';
@@ -157,8 +170,13 @@ async function _pollStatus() {
 
 async function startProcessing() {
     const pid = AppState.currentProject;
+    const startTime = document.getElementById('proc-start-time')?.value || null;
+    const endTime   = document.getElementById('proc-end-time')?.value   || null;
     try {
-        await API.post(`/api/projects/${pid}/processing/start`);
+        await API.post(`/api/projects/${pid}/processing/start`, {
+            count_start_time: startTime,
+            count_end_time:   endTime,
+        });
     } catch (e) {
         alert('Failed to start processing: ' + (e.message || e));
         return;
