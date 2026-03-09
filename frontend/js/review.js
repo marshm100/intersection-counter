@@ -1,5 +1,10 @@
 let _reviewFilters = { leg_id: '', movement: '', low_confidence: false };
 
+async function renderReviewPage() {
+    _reviewFilters = { leg_id: '', movement: '', low_confidence: false };
+    await loadReviewPage(1);
+}
+
 async function loadReviewPage(page = 1) {
     const pid = AppState.currentProject;
     if (!pid) { showPage('page-projects'); loadProjectList(); return; }

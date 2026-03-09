@@ -60,15 +60,29 @@ async function loadExportPage() {
 
     // Download button
     html += `<div style="margin-top:20px;">
-        <a href="/api/projects/${pid}/export/download"
-            download
-            class="btn-proc btn-start"
-            style="display:inline-block;text-decoration:none;padding:8px 20px;">
+        <button class="btn-proc btn-start" style="padding:8px 20px;"
+            onclick="downloadExcel(${pid})">
             Download Excel (.xlsx)
-        </a>
+        </button>
     </div>`;
 
     section.innerHTML = html;
+}
+
+async function downloadExcel(pid) {
+    try {
+        const r = await fetch(`/api/projects/${pid}/export/download`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `project_${pid}_tmc.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        alert('Download failed: ' + (e.message || e));
+    }
 }
 
 function _escExport(str) {

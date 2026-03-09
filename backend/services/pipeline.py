@@ -313,7 +313,7 @@ class ProcessingPipeline:
     def _finalize_all_active(self):
         """Finalize all remaining active vehicles (end of video or pause)."""
         for track_id in list(self.active_vehicles.keys()):
-            self._finalize_vehicle(track_id, -1)
+            self._finalize_vehicle(track_id, self._frame_idx)
 
     # -- Database writes ---------------------------------------------------
 
