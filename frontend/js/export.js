@@ -22,9 +22,9 @@ async function loadExportPage() {
 
     // Metadata
     html += '<div style="margin-bottom:16px;font-size:14px;color:#374151;">';
-    html += `<strong>${_escExport(data.project_name)}</strong>`;
+    html += `<strong>${escapeHtml(data.project_name)}</strong>`;
     if (data.video_start_time) {
-        html += ` &middot; ${_escExport(data.video_start_time.substring(0, 10))}`;
+        html += ` &middot; ${escapeHtml(data.video_start_time.substring(0, 10))}`;
     }
     html += ` &middot; ${data.leg_count} leg${data.leg_count !== 1 ? 's' : ''}`;
     html += ` &middot; ${data.total_vehicles} vehicles, ${data.total_pedestrians} pedestrians`;
@@ -38,7 +38,7 @@ async function loadExportPage() {
         let totThrough = 0, totLeft = 0, totRight = 0, totUTurn = 0, totTotal = 0;
         for (const row of data.tmc_matrix) {
             html += `<tr>
-                <td>${_escExport(row.label)}</td>
+                <td>${escapeHtml(row.label)}</td>
                 <td>${row.through}</td>
                 <td>${row.left}</td>
                 <td>${row.right}</td>
@@ -79,12 +79,9 @@ async function downloadExcel(pid) {
         a.href = url;
         a.download = `project_${pid}_tmc.xlsx`;
         a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch (e) {
         alert('Download failed: ' + (e.message || e));
     }
 }
 
-function _escExport(str) {
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}

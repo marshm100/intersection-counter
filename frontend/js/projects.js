@@ -38,9 +38,12 @@ async function loadProjectList() {
     section.innerHTML = html;
 
     const input = document.getElementById('new-project-name');
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') createProject();
-    });
+    input.removeEventListener('keydown', _onNewProjectKeydown);
+    input.addEventListener('keydown', _onNewProjectKeydown);
+}
+
+function _onNewProjectKeydown(e) {
+    if (e.key === 'Enter') createProject();
 }
 
 async function createProject() {
@@ -64,8 +67,3 @@ function openProject(projectId) {
     loadSetupPage();
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}

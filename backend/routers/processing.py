@@ -6,6 +6,7 @@ from typing import Callable
 
 import cv2
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from backend.config import DEFAULT_FRAME_SKIP, PROJECTS_DIR
@@ -19,14 +20,20 @@ router = APIRouter()
 # Module-level state
 _pipelines: dict[str, ProcessingPipeline] = {}
 _progress: dict[str, dict] = {}
+_preview_frames: dict[str, bytes] = {}
 _threads: dict[str, threading.Thread] = {}
 _state_lock = threading.Lock()
 
 
-def _time_str_to_seconds(t: str) -> int:
-    """Convert 'HH:MM' string to integer seconds."""
-    parts = t.strip().split(":")
-    return int(parts[0]) * 3600 + int(parts[1]) * 60
+def _time_str_to_seconds(t: str) -> int | None:
+    """Convert 'HH:MM' string to integer seconds. Returns None on invalid input."""
+    try:
+        parts = t.strip().split(":")
+        if len(parts) != 2:
+            return None
+        return int(parts[0]) * 3600 + int(parts[1]) * 60
+    except (ValueError, AttributeError):
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -72,8 +79,11 @@ def _load_prerequisites(project_id: str) -> dict:
 def _make_progress_callback(project_id: str) -> Callable:
     """Return a closure that stores progress data under _state_lock."""
     def callback(data: dict):
+        preview_jpeg = data.pop("preview_jpeg", None)
         with _state_lock:
             _progress[project_id] = data
+            if preview_jpeg is not None:
+                _preview_frames[project_id] = preview_jpeg
     return callback
 
 
@@ -126,18 +136,32 @@ def start_processing(project_id: str, req: StartProcessingRequest = StartProcess
     prereqs = _load_prerequisites(project_id)
     db_path = str(get_db_path(project_id))
     fps = prereqs["fps"]
+    if fps <= 0:
+        raise HTTPException(status_code=422, detail="Video has invalid FPS (0 or negative). The file may be corrupt.")
     info = get_all_project_info(project_id)
     total_frames = int(info.get("video_total_frames", 0))
 
     # Convert HH:MM time strings to frame numbers
     start_frame = 0
     if req.count_start_time:
-        start_frame = int(_time_str_to_seconds(req.count_start_time) * fps)
+        secs = _time_str_to_seconds(req.count_start_time)
+        if secs is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid count_start_time '{req.count_start_time}'. Expected HH:MM format."
+            )
+        start_frame = int(secs * fps)
         start_frame = max(0, min(start_frame, total_frames))
 
     end_frame = None
     if req.count_end_time:
-        end_frame = int(_time_str_to_seconds(req.count_end_time) * fps)
+        secs = _time_str_to_seconds(req.count_end_time)
+        if secs is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid count_end_time '{req.count_end_time}'. Expected HH:MM format."
+            )
+        end_frame = int(secs * fps)
         end_frame = max(start_frame + 1, min(end_frame, total_frames))
 
     # Persist window so resume can reuse it
@@ -247,6 +271,7 @@ def cancel_processing(project_id: str):
         _pipelines.pop(project_id, None)
         _threads.pop(project_id, None)
         _progress.pop(project_id, None)
+        _preview_frames.pop(project_id, None)
 
     set_project_info(project_id, "status", "idle")
     return {"status": "ok"}
@@ -272,3 +297,16 @@ def processing_status(project_id: str):
         "count_start_time": info.get("count_start_time", ""),
         "count_end_time": info.get("count_end_time", ""),
     }
+
+
+@router.get("/projects/{project_id}/processing/preview-frame")
+def processing_preview_frame(project_id: str):
+    with _state_lock:
+        jpeg = _preview_frames.get(project_id)
+    if jpeg is None:
+        raise HTTPException(status_code=404, detail="No preview available yet.")
+    return Response(
+        content=jpeg,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store, no-cache"},
+    )

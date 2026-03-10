@@ -111,6 +111,7 @@
         };
         _loadFrame(pid, _currentSeconds);
 
+        _canvas.removeEventListener('click', _onCanvasClick);
         _canvas.addEventListener('click', _onCanvasClick);
 
         // Wire up scrubber
@@ -215,7 +216,7 @@
                 <div style="margin-bottom:6px;">
                     <label style="font-size:13px;display:block;margin-bottom:3px;">Label</label>
                     <input type="text" id="leg-label-${leg.idx}"
-                        value="${_esc(leg.label)}"
+                        value="${escapeHtml(leg.label)}"
                         style="width:100%;box-sizing:border-box;"/>
                 </div>
                 <div style="margin-bottom:6px;">
@@ -278,7 +279,7 @@
     // ------------------------------------------------------------------ canvas rendering
 
     function _redraw() {
-        if (!_ctx || !_img.complete) return;
+        if (!_canvas || !_ctx || !_img.complete) return;
         _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
         _ctx.drawImage(_img, 0, 0);
 
@@ -345,7 +346,7 @@
             const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
             html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;">
                 <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                <span style="flex:1;">${_esc(leg.label)} (${_esc(leg.cardinal_direction)})</span>
+                <span style="flex:1;">${escapeHtml(leg.label)} (${escapeHtml(leg.cardinal_direction)})</span>
                 <button onclick="removeLeg(${leg.idx})"
                     style="font-size:11px;padding:1px 6px;color:#ef4444;background:none;border:1px solid #ef4444;border-radius:3px;cursor:pointer;">
                     Remove
@@ -394,14 +395,6 @@
         showPage('page-processing');
         loadProcessingPage();
     };
-
-    function _esc(str) {
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
 
     window.loadCalibrationPage = loadCalibrationPage;
 })();

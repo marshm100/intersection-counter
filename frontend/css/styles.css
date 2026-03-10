@@ -88,6 +88,7 @@ header h1 { font-size: 24px; }
 .stat-item { display: flex; flex-direction: column; align-items: center; min-width: 80px; }
 .stat-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
 .stat-value { font-size: 20px; font-weight: 600; color: #111; }
+.proc-preview-wrap { margin-bottom: 20px; border-radius: 4px; overflow: hidden; max-width: 640px; }
 
 .processing-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .btn-proc { padding: 10px 22px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; }

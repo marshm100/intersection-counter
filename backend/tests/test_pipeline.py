@@ -165,6 +165,7 @@ class TestPipelineInit:
         assert p.vehicle_count == 0
         assert p.pedestrian_count == 0
         assert p.error_count == 0
+        assert p.turn_counts == {"through": 0, "left": 0, "right": 0, "uturn": 0}
 
 
 # ---------------------------------------------------------------------------
@@ -402,6 +403,27 @@ class TestVehicleEventWriting:
         assert e["detection_confidence"] == pytest.approx(0.9)
         assert e["frame_number"] == 25
 
+    def test_event_fields_movement_uturn(self, pipeline_env):
+        """movement column may be 'u_turn' (underscore) — accept both spellings."""
+        p = _make_pipeline(pipeline_env)
+        p.active_vehicles[99] = {
+            "origin_leg_id": 1,
+            "reference_heading": 0.0,
+            "origin_frame": 5,
+            "trajectory": [(500, 780 - i * 20) for i in range(20)],
+            "confidences": [0.9] * 20,
+            "last_center": (500, 400),
+            "class_id": 2,
+            "class_name": "car",
+            "bbox_width": 100.0,
+            "bbox_height": 60.0,
+            "bbox_area": 6000.0,
+        }
+        p._finalize_vehicle(99, frame_number=25)
+        events = _get_vehicle_events(pipeline_env["db_path"])
+        assert len(events) == 1
+        assert events[0]["movement"] in ("through", "left", "right", "u_turn", "uturn")
+
     def test_timestamp_real_computed(self, pipeline_env):
         """When video_start_time is set, timestamp_real is computed."""
         p = _make_pipeline(pipeline_env, video_start_time="2024-06-15T08:00:00")
@@ -426,3 +448,141 @@ class TestVehicleEventWriting:
         assert len(events) == 1
         assert events[0]["timestamp_real"] is not None
         assert "2024-06-15" in events[0]["timestamp_real"]
+
+
+# ---------------------------------------------------------------------------
+# TestPipelineEdgeCases
+# ---------------------------------------------------------------------------
+
+class TestTurnCounts:
+    def test_turn_counts_incremented_on_finalize(self, pipeline_env):
+        """_finalize_vehicle increments turn_counts for a valid vehicle."""
+        p = _make_pipeline(pipeline_env)
+        p.active_vehicles[99] = {
+            "origin_leg_id": 1,
+            "reference_heading": 0.0,
+            "origin_frame": 5,
+            "trajectory": [(500, 780 - i * 20) for i in range(20)],
+            "confidences": [0.9] * 20,
+            "last_center": (500, 400),
+            "class_id": 2,
+            "class_name": "car",
+            "bbox_width": 100.0,
+            "bbox_height": 60.0,
+            "bbox_area": 6000.0,
+        }
+
+        p._finalize_vehicle(99, frame_number=25)
+
+        events = _get_vehicle_events(pipeline_env["db_path"])
+        assert len(events) == 1
+        movement = events[0]["movement"]
+
+        # Exactly one turn type should have been incremented
+        total = sum(p.turn_counts.values())
+        assert total == 1
+        if movement in p.turn_counts:
+            assert p.turn_counts[movement] == 1
+
+    def test_turn_counts_in_callback(self, pipeline_env):
+        """turn_counts key appears in the progress callback payload."""
+        p = _make_pipeline(pipeline_env)
+        mock_dets = _nb_through_detections(num_frames=20)
+        frame_idx = [0]
+
+        p._preprocessor = MagicMock()
+        p._preprocessor.preprocess = MagicMock(side_effect=lambda f: f)
+
+        p._detector = MagicMock()
+        def mock_detect(frame):
+            idx = frame_idx[0]
+            frame_idx[0] += 1
+            return mock_dets[idx] if idx < len(mock_dets) else []
+        p._detector.detect = mock_detect
+
+        p._tracker = MagicMock()
+        p._tracker.update = lambda dets, fn: [{**d, "track_id": 1} for d in dets]
+        p._tracker.get_state = MagicMock(return_value=b"")
+
+        payloads = []
+        p.process_video(frame_skip=1, callback=lambda d: payloads.append(d))
+
+        assert len(payloads) > 0
+        for payload in payloads:
+            assert "turn_counts" in payload
+            tc = payload["turn_counts"]
+            assert set(tc.keys()) == {"through", "left", "right", "uturn"}
+
+
+class TestPipelineEdgeCases:
+    def test_empty_video(self, pipeline_env):
+        """total_frames=0 → pipeline exits gracefully, no error, 0 events written."""
+        p = _make_pipeline(pipeline_env)
+        p._preprocessor = MagicMock()
+        p._preprocessor.preprocess = MagicMock(side_effect=lambda f: f)
+        p._detector = MagicMock()
+        p._detector.detect = MagicMock(return_value=[])
+        p._tracker = MagicMock()
+        p._tracker.update = MagicMock(return_value=[])
+        p._tracker.get_state = MagicMock(return_value=b"")
+
+        mock_cap = MagicMock()
+        mock_cap.isOpened.return_value = True
+        mock_cap.get.return_value = 0  # CAP_PROP_FRAME_COUNT = 0
+        mock_cap.read.return_value = (False, None)
+
+        with patch('backend.services.pipeline.cv2.VideoCapture', return_value=mock_cap):
+            p.process_video(frame_skip=1)
+
+        assert _count_vehicle_events(pipeline_env["db_path"]) == 0
+        assert p.error_count == 0
+
+    def test_no_detections_entire_video(self, pipeline_env):
+        """Detector returns [] every frame → 0 events, no crash."""
+        p = _make_pipeline(pipeline_env)
+        p._preprocessor = MagicMock()
+        p._preprocessor.preprocess = MagicMock(side_effect=lambda f: f)
+        p._detector = MagicMock()
+        p._detector.detect = MagicMock(return_value=[])
+        p._tracker = MagicMock()
+        p._tracker.update = MagicMock(return_value=[])
+        p._tracker.get_state = MagicMock(return_value=b"")
+
+        p.process_video(frame_skip=1)
+
+        assert _count_vehicle_events(pipeline_env["db_path"]) == 0
+        assert p.error_count == 0
+
+    def test_vehicle_trajectory_too_short(self, pipeline_env):
+        """Vehicle crosses origin but trajectory has only 2 points → classified as
+        insufficient_data → 0 events written, no crash."""
+        p = _make_pipeline(pipeline_env)
+
+        # Vehicle enters at y=850, crosses NB zone at y=800, appears at y=770,
+        # then immediately disappears.  Trajectory = [(500,770)] (1 post-cross point).
+        mock_dets = [
+            [_make_detection(500, 850)],  # frame 0: below zone
+            [_make_detection(500, 770)],  # frame 1: crosses zone, origin assigned, 1 traj point
+            [],                           # frame 2: vehicle lost → finalized with 1-point traj
+        ]
+        # Pad remaining frames with no detections
+        mock_dets += [[] for _ in range(27)]
+
+        frame_idx = [0]
+        p._preprocessor = MagicMock()
+        p._preprocessor.preprocess = MagicMock(side_effect=lambda f: f)
+        p._detector = MagicMock()
+
+        def mock_detect(frame):
+            idx = frame_idx[0]
+            frame_idx[0] += 1
+            return mock_dets[idx] if idx < len(mock_dets) else []
+
+        p._detector.detect = mock_detect
+        p._tracker = MagicMock()
+        p._tracker.update = lambda dets, fn: [{**d, "track_id": 1} for d in dets]
+        p._tracker.get_state = MagicMock(return_value=b"")
+
+        p.process_video(frame_skip=1)
+
+        assert _count_vehicle_events(pipeline_env["db_path"]) == 0

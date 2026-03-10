@@ -50,20 +50,20 @@ def save_calibration(project_id: str, body: CalibrationSaveRequest):
 
     conn = get_connection(project_id)
     try:
-        conn.execute("DELETE FROM legs")
-        for leg in body.legs:
-            conn.execute(
-                "INSERT INTO legs (label, cardinal_direction, sort_order, origin_zone, reference_heading) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (
-                    leg.label,
-                    leg.cardinal_direction,
-                    leg.sort_order,
-                    json.dumps(leg.origin_zone),
-                    leg.reference_heading,
-                ),
-            )
-        conn.commit()
+        with conn:
+            conn.execute("DELETE FROM legs")
+            for leg in body.legs:
+                conn.execute(
+                    "INSERT INTO legs (label, cardinal_direction, sort_order, origin_zone, reference_heading) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (
+                        leg.label,
+                        leg.cardinal_direction,
+                        leg.sort_order,
+                        json.dumps(leg.origin_zone),
+                        leg.reference_heading,
+                    ),
+                )
         rows = conn.execute(
             "SELECT leg_id, label, cardinal_direction, sort_order, origin_zone, reference_heading "
             "FROM legs ORDER BY sort_order"

@@ -70,7 +70,11 @@ def get_video_info(video_path: str) -> dict:
         fps = round(cap.get(cv2.CAP_PROP_FPS), 2)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fourcc_int = int(cap.get(cv2.CAP_PROP_FOURCC))
-        codec = "".join(chr((fourcc_int >> (8 * i)) & 0xFF) for i in range(4))
+        codec = "".join(
+            chr((fourcc_int >> (8 * i)) & 0xFF)
+            for i in range(4)
+            if ((fourcc_int >> (8 * i)) & 0xFF) != 0
+        )
 
         duration_seconds = round(total_frames / fps, 2) if fps > 0 else 0.0
         file_size = path.stat().st_size

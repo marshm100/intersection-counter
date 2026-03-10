@@ -108,6 +108,71 @@ class TestCrossingDirection:
         assert dir1 in ("enter", "exit")
         assert dir2 in ("enter", "exit")
 
+    # --- Heading-based tests (reference_heading provided) ---
+
+    def test_heading_north_vehicle_approaching(self):
+        # NB leg: reference_heading=0° (North). Vehicle moving upward (toward top of frame)
+        # dy < 0 in image coords → angle ≈ 0° → within ±90° of 0° → 'enter'
+        result = crossing_direction(
+            (500, 820), (500, 780),
+            (700, 800), (300, 800),
+            reference_heading=0.0,
+        )
+        assert result == "enter"
+
+    def test_heading_north_vehicle_receding(self):
+        # Same leg but vehicle moving south (away from intersection) → 'exit'
+        result = crossing_direction(
+            (500, 780), (500, 820),
+            (700, 800), (300, 800),
+            reference_heading=0.0,
+        )
+        assert result == "exit"
+
+    def test_heading_east_vehicle_approaching(self):
+        # EB leg: reference_heading=90° (East). Vehicle moving right (dx > 0) → 'enter'
+        result = crossing_direction(
+            (180, 500), (220, 500),
+            (200, 700), (200, 300),
+            reference_heading=90.0,
+        )
+        assert result == "enter"
+
+    def test_heading_east_vehicle_receding(self):
+        # Same leg but vehicle moving west (away from intersection) → 'exit'
+        result = crossing_direction(
+            (220, 500), (180, 500),
+            (200, 700), (200, 300),
+            reference_heading=90.0,
+        )
+        assert result == "exit"
+
+    def test_stationary_vehicle_defaults_to_enter(self):
+        # No movement → 'enter' by default
+        result = crossing_direction(
+            (500, 800), (500, 800),
+            (700, 800), (300, 800),
+            reference_heading=0.0,
+        )
+        assert result == "enter"
+
+    def test_orientation_independent_same_result_both_line_directions(self):
+        # The same vehicle crossing the same leg line should give 'enter' regardless
+        # of which direction the line was drawn during calibration.
+        # NB leg: reference_heading=0°, vehicle moving north.
+        result_fwd = crossing_direction(
+            (500, 820), (500, 780),
+            (700, 800), (300, 800),  # line drawn right-to-left
+            reference_heading=0.0,
+        )
+        result_rev = crossing_direction(
+            (500, 820), (500, 780),
+            (300, 800), (700, 800),  # line drawn left-to-right
+            reference_heading=0.0,
+        )
+        assert result_fwd == "enter"
+        assert result_rev == "enter"
+
 
 class TestDistancePointToLine:
     """Tests for distance_point_to_line()."""

@@ -94,10 +94,14 @@ async function loadSetupPage() {
 
     // Bind name input events
     const nameInput = document.getElementById('setup-project-name');
+    nameInput.removeEventListener('blur', saveProjectName);
+    nameInput.removeEventListener('keydown', _onSetupNameKeydown);
     nameInput.addEventListener('blur', saveProjectName);
-    nameInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.target.blur(); }
-    });
+    nameInput.addEventListener('keydown', _onSetupNameKeydown);
+}
+
+function _onSetupNameKeydown(e) {
+    if (e.key === 'Enter') { e.target.blur(); }
 }
 
 async function selectVideo() {

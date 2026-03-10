@@ -57,6 +57,14 @@ function _renderProcessingPage(section, data) {
     }
     html += '</div>';
 
+    // Live frame preview — shown while processing
+    if (status === 'processing') {
+        html += `<div class="proc-preview-wrap">
+            <img id="proc-preview" src="" alt=""
+                 style="display:none;max-width:100%;border-radius:4px;border:1px solid #e5e7eb;" />
+        </div>`;
+    }
+
     // Count window — shown when idle/error/complete (not while running/paused)
     if (status === 'idle' || status === 'error' || status === 'complete') {
         html += '<div class="count-window-row">';
@@ -95,12 +103,17 @@ function _statsHtml(progress) {
     const eta = progress.eta_seconds > 0
         ? _formatEta(progress.eta_seconds)
         : '—';
+    const tc = progress.turn_counts || {};
     return `
         <div class="stat-item"><span class="stat-label">Vehicles</span><span class="stat-value" id="proc-vehicles">${progress.vehicle_count}</span></div>
-        <div class="stat-item"><span class="stat-label">Pedestrians</span><span class="stat-value" id="proc-pedestrians">${progress.pedestrian_count}</span></div>
+        <div class="stat-item"><span class="stat-label">Peds</span><span class="stat-value" id="proc-pedestrians">${progress.pedestrian_count}</span></div>
         <div class="stat-item"><span class="stat-label">FPS</span><span class="stat-value" id="proc-fps">${(progress.fps_processing || 0).toFixed(1)}</span></div>
         <div class="stat-item"><span class="stat-label">Errors</span><span class="stat-value" id="proc-errors">${progress.error_count}</span></div>
         <div class="stat-item"><span class="stat-label">ETA</span><span class="stat-value" id="proc-eta">${eta}</span></div>
+        <div class="stat-item stat-through"><span class="stat-label">Through</span><span class="stat-value">${tc.through || 0}</span></div>
+        <div class="stat-item stat-left"><span class="stat-label">Left</span><span class="stat-value">${tc.left || 0}</span></div>
+        <div class="stat-item stat-right"><span class="stat-label">Right</span><span class="stat-value">${tc.right || 0}</span></div>
+        <div class="stat-item stat-uturn"><span class="stat-label">U-Turn</span><span class="stat-value">${tc.uturn || 0}</span></div>
     `;
 }
 
@@ -156,6 +169,16 @@ async function _pollStatus() {
     if (badge) {
         badge.className = `status-badge status-${status}`;
         badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    }
+
+    // Update live frame preview
+    if (status === 'processing') {
+        const preview = document.getElementById('proc-preview');
+        if (preview) {
+            preview.onload = () => { preview.style.display = 'block'; };
+            preview.onerror = () => { preview.style.display = 'none'; };
+            preview.src = `/api/projects/${pid}/processing/preview-frame?_t=${Date.now()}`;
+        }
     }
 
     if (status !== 'processing') {
@@ -227,3 +250,5 @@ function goBackFromProcessing() {
     showPage('page-setup');
     loadSetupPage();
 }
+
+registerTeardown('page-processing', _stopPolling);

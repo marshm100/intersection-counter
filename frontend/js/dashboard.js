@@ -45,7 +45,7 @@ async function loadDashboardPage() {
         let totThrough = 0, totLeft = 0, totRight = 0, totUTurn = 0, totOther = 0, totTotal = 0;
         for (const row of data.tmc_matrix) {
             html += `<tr>
-                <td>${_esc(row.leg_label)}</td>
+                <td>${escapeHtml(row.leg_label)}</td>
                 <td>${row.through}</td>
                 <td>${row.left}</td>
                 <td>${row.right}</td>
@@ -65,13 +65,14 @@ async function loadDashboardPage() {
 
     // Bar chart
     if (data.time_series.length > 0) {
-        const maxVehicles = Math.max(...data.time_series.map(r => r.vehicle_count), 1);
+        const counts = data.time_series.map(r => r.vehicle_count);
+        const maxVehicles = counts.length ? Math.max(...counts, 1) : 1;
         html += '<h3 style="font-size:14px;color:#6b7280;margin-bottom:8px;">Vehicles per interval</h3>';
         html += '<div class="bar-chart">';
         for (const row of data.time_series) {
             const pct = (row.vehicle_count / maxVehicles * 100).toFixed(1);
             html += `<div class="bar-chart-row">
-                <span class="bar-chart-label">${_esc(row.interval_start)}</span>
+                <span class="bar-chart-label">${escapeHtml(row.interval_start)}</span>
                 <div class="bar-chart-track"><div class="bar-fill" style="width:${pct}%"></div></div>
                 <span class="bar-count">${row.vehicle_count}</span>
             </div>`;
@@ -82,6 +83,3 @@ async function loadDashboardPage() {
     section.innerHTML = html;
 }
 
-function _esc(str) {
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}

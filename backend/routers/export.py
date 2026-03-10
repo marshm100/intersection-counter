@@ -1,9 +1,12 @@
+import logging
 import tempfile
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+
+logger = logging.getLogger(__name__)
 
 from backend.database import get_connection, get_all_project_info
 from backend.services.excel_export import generate_tmc_excel
@@ -72,7 +75,8 @@ def export_download(project_id: str):
     try:
         generate_tmc_excel(project_id, output_path)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Export failed: {exc}") from exc
+        logger.error("Export failed for project %s: %s", project_id, exc)
+        raise HTTPException(status_code=500, detail="Export failed. See server logs for details.") from exc
 
     return FileResponse(
         path=str(output_path),

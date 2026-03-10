@@ -61,10 +61,17 @@ class ProcessingPipeline:
         # Tracking state: track_id → vehicle info dict
         self.active_vehicles: dict[int, dict] = {}
 
+        # Latest tracked detections for frame preview
+        self._latest_tracks: list[dict] = []
+
         # Counters
         self.vehicle_count = 0
         self.pedestrian_count = 0
         self.error_count = 0
+        self.turn_counts: dict[str, int] = {"through": 0, "left": 0, "right": 0, "uturn": 0}
+
+        # Frame skip used during current process_video call (updates tracker frame_rate)
+        self._frame_skip: int = 1
 
         # Control
         self.pause_requested = threading.Event()
@@ -81,7 +88,8 @@ class ProcessingPipeline:
     @property
     def tracker(self) -> VehicleTracker:
         if self._tracker is None:
-            self._tracker = VehicleTracker(frame_rate=int(self.fps))
+            effective_fps = max(1, int(self.fps / self._frame_skip))
+            self._tracker = VehicleTracker(frame_rate=effective_fps)
         return self._tracker
 
     @property
@@ -111,6 +119,7 @@ class ProcessingPipeline:
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             effective_end = end_frame if end_frame is not None else total_frames
             range_total = max(1, effective_end - start_frame)
+            self._frame_skip = frame_skip
 
             self.is_running = True
             frame_number = 0
@@ -157,6 +166,13 @@ class ProcessingPipeline:
                             if fps_proc > 0
                             else 0
                         )
+                        from backend.services.frame_annotator import render_frame_preview
+                        try:
+                            preview_jpeg = render_frame_preview(
+                                frame, self._latest_tracks, self.origin_zones, self.legs
+                            )
+                        except Exception:
+                            preview_jpeg = None
                         callback({
                             "frame_number": frame_number,
                             "total_frames": effective_end,
@@ -169,6 +185,8 @@ class ProcessingPipeline:
                             "fps_processing": fps_proc,
                             "error_count": self.error_count,
                             "eta_seconds": eta,
+                            "turn_counts": dict(self.turn_counts),
+                            "preview_jpeg": preview_jpeg,
                         })
 
                 frame_number += 1
@@ -186,6 +204,7 @@ class ProcessingPipeline:
         processed = self.preprocessor.preprocess(frame)
         detections = self.detector.detect(processed)
         tracked = self.tracker.update(detections, frame_number)
+        self._latest_tracks = tracked
 
         current_track_ids = {t["track_id"] for t in tracked}
 
@@ -243,11 +262,12 @@ class ProcessingPipeline:
             line_end = tuple(zone[1])
 
             if did_cross_line(prev_center, curr_center, line_start, line_end):
+                leg = self.legs[i]
                 direction = crossing_direction(
-                    prev_center, curr_center, line_start, line_end
+                    prev_center, curr_center, line_start, line_end,
+                    reference_heading=leg.get("reference_heading"),
                 )
                 if direction == "enter":
-                    leg = self.legs[i]
                     vehicle = self.active_vehicles[track_id]
                     vehicle["origin_leg_id"] = leg["leg_id"]
                     vehicle["reference_heading"] = leg["reference_heading"]
@@ -303,10 +323,14 @@ class ProcessingPipeline:
             except (ValueError, TypeError):
                 pass
 
+        movement = classification["movement"]
+        if movement in self.turn_counts:
+            self.turn_counts[movement] += 1
+
         self._write_vehicle_event(
             track_id=track_id,
             origin_leg_id=vehicle["origin_leg_id"],
-            movement=classification["movement"],
+            movement=movement,
             trajectory_data=json.dumps(trajectory),
             trajectory_confidence=classification["confidence"],
             vehicle_class=vehicle_class["simplified_class"] or "unknown",

@@ -54,20 +54,31 @@ def did_cross_line(
 
 
 def crossing_direction(
-    prev_point: tuple, curr_point: tuple,
-    line_start: tuple, line_end: tuple,
+    prev_point: tuple,
+    curr_point: tuple,
+    line_start: tuple,
+    line_end: tuple,
+    reference_heading: float | None = None,
 ) -> str:
-    """Return 'enter' or 'exit' based on crossing direction.
+    """Return 'enter' or 'exit'.
 
-    Convention: the line's start→end direction defines left side (+1)
-    as intersection interior, right side (-1) as exterior.
-    - Right (-1) to left (+1): entering → 'enter'
-    - Left (+1) to right (-1): exiting  → 'exit'
+    If reference_heading is provided (degrees, 0=North, image convention),
+    compares vehicle movement vector against the expected approach direction.
+    A vehicle within ±90° of reference_heading is 'entering'.
+
+    Falls back to the original side-of-line check when reference_heading is None.
     """
+    if reference_heading is not None:
+        dx = curr_point[0] - prev_point[0]
+        dy = curr_point[1] - prev_point[1]
+        if dx == 0 and dy == 0:
+            return "enter"  # stationary — default to enter
+        movement_angle = math.degrees(math.atan2(dx, -dy)) % 360
+        diff = abs((movement_angle - reference_heading + 180) % 360 - 180)
+        return "enter" if diff <= 90 else "exit"
+    # Legacy fallback
     side = point_side_of_line(prev_point, line_start, line_end)
-    if side <= 0:
-        return "enter"
-    return "exit"
+    return "enter" if side <= 0 else "exit"
 
 
 def distance_point_to_line(
