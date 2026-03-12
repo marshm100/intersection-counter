@@ -7,11 +7,14 @@
     let _numLegs = 4;
     let _legs = [];          // confirmed legs
     let _currentLeg = null;  // leg being confirmed (drawn but not yet named)
-    let _drawState = 'idle'; // 'idle' | 'awaiting_second'
-    let _firstPoint = null;
+    let _drawState = 'idle'; // 'idle' only
     let _currentSeconds = 5;
     let _videoDuration = 0;
     let _scrubTimer = null;
+
+    let _dragLeg = null;    // { idx } — leg currently being dragged
+    let _dragMoved = false; // true if mousemove fired with significant movement
+    let _editingIdx = -1;   // idx of confirmed leg being edited (-1 = new leg)
 
     async function loadCalibrationPage() {
         const pid = AppState.currentProject;
@@ -33,8 +36,10 @@
         _legs = [];
         _currentLeg = null;
         _drawState = 'idle';
-        _firstPoint = null;
         _currentSeconds = 5;
+        _dragLeg = null;
+        _dragMoved = false;
+        _editingIdx = -1;
 
         // Load existing calibration
         try {
@@ -61,7 +66,7 @@
             <div class="calib-layout">
                 <div class="calib-canvas-wrap">
                     <p style="font-size:13px;color:#6b7280;margin-bottom:6px;">
-                        Click two points on the frame to draw each leg's origin line.
+                        Click once on each approach arm to place an origin node.
                     </p>
                     <canvas id="calib-canvas" style="border:1px solid #d1d5db;cursor:crosshair;max-width:100%;display:block;"></canvas>
                     <div class="calib-scrubber-row">
@@ -112,7 +117,13 @@
         _loadFrame(pid, _currentSeconds);
 
         _canvas.removeEventListener('click', _onCanvasClick);
+        _canvas.removeEventListener('mousedown', _onCanvasMousedown);
+        _canvas.removeEventListener('mousemove', _onCanvasMousemove);
+        _canvas.removeEventListener('mouseup',   _onCanvasMouseup);
         _canvas.addEventListener('click', _onCanvasClick);
+        _canvas.addEventListener('mousedown', _onCanvasMousedown);
+        _canvas.addEventListener('mousemove', _onCanvasMousemove);
+        _canvas.addEventListener('mouseup',   _onCanvasMouseup);
 
         // Wire up scrubber
         const scrubber = document.getElementById('calib-scrubber');
@@ -139,61 +150,109 @@
         return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
     }
 
+    // ------------------------------------------------------------------ coordinate helper
+
+    function _canvasCoords(e) {
+        const rect = _canvas.getBoundingClientRect();
+        return {
+            x: (e.clientX - rect.left) * (_canvas.width / rect.width),
+            y: (e.clientY - rect.top)  * (_canvas.height / rect.height),
+        };
+    }
+
     // ------------------------------------------------------------------ drawing
 
     function _onCanvasClick(e) {
         // If all legs are confirmed and no form is open, ignore clicks
-        if (_legs.length >= _numLegs && _drawState === 'idle' && !_currentLeg) return;
+        if (_legs.length >= _numLegs && !_currentLeg) return;
+        // Don't start a new leg while a form is open
+        if (_currentLeg) return;
 
-        const rect = _canvas.getBoundingClientRect();
-        const scaleX = _canvas.width / rect.width;
-        const scaleY = _canvas.height / rect.height;
-        const x = (e.clientX - rect.left) * scaleX;
-        const y = (e.clientY - rect.top) * scaleY;
+        const { x, y } = _canvasCoords(e);
 
-        if (_drawState === 'idle') {
-            _drawState = 'awaiting_second';
-            _firstPoint = [x, y];
-            _updateStatus();
-            _redraw();
-        } else if (_drawState === 'awaiting_second') {
-            const p1 = _firstPoint;
-            const p2 = [x, y];
-            _firstPoint = null;
-            _drawState = 'idle';
+        // If click landed on a confirmed node, mouseup already opened edit form
+        if (_legs.some(l => Math.hypot(x - l.origin_zone[0][0], y - l.origin_zone[0][1]) <= 16)) return;
 
-            const heading = _computeHeading(p1, p2, _canvas.width, _canvas.height);
-            _currentLeg = {
-                idx: _legs.length,
-                label: `Leg ${_legs.length + 1}`,
-                cardinal_direction: 'N',
-                sort_order: _legs.length,
-                origin_zone: [p1, p2],
-                reference_heading: heading,
-            };
+        const heading = _computeNodeHeading([x, y], _canvas.width, _canvas.height);
+        _currentLeg = {
+            idx: _legs.length,
+            label: `Leg ${_legs.length + 1}`,
+            cardinal_direction: 'N',
+            sort_order: _legs.length,
+            origin_zone: [[x, y]],
+            reference_heading: heading,
+        };
 
-            _redraw();
-            _showLegForm(_currentLeg);
-            _updateStatus();
+        _redraw();
+        _showLegForm(_currentLeg);
+        _updateStatus();
+    }
+
+    function _onCanvasMousedown(e) {
+        if (_currentLeg) return;
+        const { x, y } = _canvasCoords(e);
+        for (const leg of _legs) {
+            const [nx, ny] = leg.origin_zone[0];
+            if (Math.hypot(x - nx, y - ny) <= 16) {
+                _dragLeg = { idx: leg.idx };
+                _dragMoved = false;
+                _canvas.style.cursor = 'grabbing';
+                e.preventDefault();
+                return;
+            }
         }
     }
 
-    function _computeHeading(p1, p2, imgW, imgH) {
-        const dx = p2[0] - p1[0];
-        const dy = p2[1] - p1[1];
-        // Two candidate normals (perpendiculars to the line)
-        const n1 = [-dy, dx];
-        const n2 = [dy, -dx];
-        // Pick the one pointing toward the image centre (inward)
-        const cx = imgW / 2 - (p1[0] + p2[0]) / 2;
-        const cy = imgH / 2 - (p1[1] + p2[1]) / 2;
-        const normal = (n1[0] * cx + n1[1] * cy >= 0) ? n1 : n2;
-        // Convert to compass heading: 0°=North(up), CW positive, y-axis points down
-        const heading = (Math.atan2(normal[0], -normal[1]) * 180 / Math.PI + 360) % 360;
+    function _onCanvasMousemove(e) {
+        const { x, y } = _canvasCoords(e);
+        if (_dragLeg) {
+            const cx = Math.max(0, Math.min(_canvas.width, x));
+            const cy = Math.max(0, Math.min(_canvas.height, y));
+            const leg = _legs.find(l => l.idx === _dragLeg.idx);
+            if (leg) {
+                leg.origin_zone = [[cx, cy]];
+                leg.reference_heading = _computeNodeHeading([cx, cy], _canvas.width, _canvas.height);
+                _dragMoved = true;
+                _redraw();
+            }
+            return;
+        }
+        // Hover cursor
+        if (_currentLeg) return;
+        const onNode = _legs.some(l => Math.hypot(x - l.origin_zone[0][0], y - l.origin_zone[0][1]) <= 16);
+        _canvas.style.cursor = onNode ? 'grab' : 'crosshair';
+    }
+
+    function _onCanvasMouseup() {
+        if (!_dragLeg) return;
+        const { idx } = _dragLeg;
+        const wasDrag = _dragMoved;
+        _dragLeg = null;
+        _dragMoved = false;
+        _canvas.style.cursor = 'crosshair';
+        if (!wasDrag) {
+            _editLeg(idx);
+        } else {
+            _updateLegList();
+        }
+    }
+
+    function _computeNodeHeading(p, imgW, imgH) {
+        // Direction from node toward image center = expected approach heading
+        const cx = imgW / 2 - p[0];
+        const cy = imgH / 2 - p[1];
+        const heading = (Math.atan2(cx, -cy) * 180 / Math.PI + 360) % 360;
         return Math.round(heading * 10) / 10;
     }
 
     // ------------------------------------------------------------------ form
+
+    function _editLeg(idx) {
+        if (_currentLeg) return;
+        _editingIdx = idx;
+        const leg = _legs.find(l => l.idx === idx);
+        if (leg) _showLegForm(leg);
+    }
 
     function _showLegForm(leg) {
         const formDiv = document.getElementById('calib-form');
@@ -208,6 +267,8 @@
         const dirOptions = dirs.map(d =>
             `<option value="${d}"${d === leg.cardinal_direction ? ' selected' : ''}>${dirLabels[d]}</option>`
         ).join('');
+
+        const isEdit = _editingIdx >= 0;
 
         formDiv.style.display = '';
         formDiv.innerHTML = `
@@ -229,7 +290,7 @@
                 <button onclick="confirmLeg(${leg.idx})"
                     class="btn-proc btn-start"
                     style="font-size:13px;padding:4px 12px;">
-                    Confirm Leg ${leg.idx + 1}
+                    ${isEdit ? 'Update' : 'Confirm'} Leg ${leg.idx + 1}
                 </button>
                 <button onclick="cancelLeg()"
                     class="btn-proc btn-cancel"
@@ -240,26 +301,31 @@
     }
 
     window.confirmLeg = function (legIdx) {
-        if (!_currentLeg || _currentLeg.idx !== legIdx) return;
+        const isEdit = _editingIdx >= 0 && _editingIdx === legIdx;
+        const source = isEdit ? _legs.find(l => l.idx === legIdx) : _currentLeg;
+        if (!source) return;
+
         const labelEl = document.getElementById(`leg-label-${legIdx}`);
-        const dirEl = document.getElementById(`leg-dir-${legIdx}`);
-        _currentLeg.label = (labelEl ? labelEl.value.trim() : '') || `Leg ${legIdx + 1}`;
-        _currentLeg.cardinal_direction = dirEl ? dirEl.value : 'N';
-        _legs.push({ ..._currentLeg });
-        _currentLeg = null;
+        const dirEl   = document.getElementById(`leg-dir-${legIdx}`);
+        source.label              = (labelEl?.value.trim()) || `Leg ${legIdx + 1}`;
+        source.cardinal_direction = dirEl?.value || 'N';
+
+        if (!isEdit) {
+            _legs.push({ ...source });
+            _currentLeg = null;
+        }
+        _editingIdx = -1;
         document.getElementById('calib-form').style.display = 'none';
         _redraw();
         _updateLegList();
         _updateStatus();
-        if (_legs.length >= _numLegs) {
-            document.getElementById('calib-save-btn').disabled = false;
-        }
+        if (_legs.length >= _numLegs) document.getElementById('calib-save-btn').disabled = false;
     };
 
     window.cancelLeg = function () {
         _currentLeg = null;
+        _editingIdx = -1;
         _drawState = 'idle';
-        _firstPoint = null;
         document.getElementById('calib-form').style.display = 'none';
         _redraw();
         _updateStatus();
@@ -276,6 +342,8 @@
         if (procBtn) procBtn.style.display = 'none';
     };
 
+    window.editLeg = _editLeg;
+
     // ------------------------------------------------------------------ canvas rendering
 
     function _redraw() {
@@ -284,51 +352,29 @@
         _ctx.drawImage(_img, 0, 0);
 
         for (const leg of _legs) {
-            _drawLine(leg.origin_zone[0], leg.origin_zone[1],
-                LEG_COLORS[leg.idx % LEG_COLORS.length], leg.label);
-        }
-
-        if (_firstPoint) {
-            _ctx.beginPath();
-            _ctx.arc(_firstPoint[0], _firstPoint[1], 6, 0, 2 * Math.PI);
-            _ctx.fillStyle = '#ffffff';
-            _ctx.fill();
-            _ctx.strokeStyle = '#374151';
-            _ctx.lineWidth = 2;
-            _ctx.stroke();
+            _drawNode(leg.origin_zone[0], LEG_COLORS[leg.idx % LEG_COLORS.length], leg.label);
         }
 
         if (_currentLeg) {
-            _drawLine(_currentLeg.origin_zone[0], _currentLeg.origin_zone[1],
+            _drawNode(_currentLeg.origin_zone[0],
                 LEG_COLORS[_currentLeg.idx % LEG_COLORS.length], '');
         }
     }
 
-    function _drawLine(p1, p2, color, label) {
+    function _drawNode(p, color, label) {
         _ctx.beginPath();
-        _ctx.moveTo(p1[0], p1[1]);
-        _ctx.lineTo(p2[0], p2[1]);
-        _ctx.strokeStyle = color;
-        _ctx.lineWidth = 3;
-        _ctx.setLineDash([]);
-        _ctx.stroke();
-
-        for (const pt of [p1, p2]) {
-            _ctx.beginPath();
-            _ctx.arc(pt[0], pt[1], 6, 0, 2 * Math.PI);
-            _ctx.fillStyle = color;
-            _ctx.fill();
-        }
+        _ctx.arc(p[0], p[1], 12, 0, 2 * Math.PI);
+        _ctx.fillStyle = color;
+        _ctx.fill();
 
         if (label) {
-            const mx = (p1[0] + p2[0]) / 2 + 6;
-            const my = (p1[1] + p2[1]) / 2 - 6;
-            _ctx.font = 'bold 14px sans-serif';
-            _ctx.lineWidth = 3;
-            _ctx.strokeStyle = '#000000';
-            _ctx.strokeText(label, mx, my);
             _ctx.fillStyle = '#ffffff';
-            _ctx.fillText(label, mx, my);
+            _ctx.font = 'bold 13px sans-serif';
+            _ctx.textAlign = 'center';
+            _ctx.textBaseline = 'middle';
+            _ctx.fillText(label, p[0], p[1]);
+            _ctx.textAlign = 'left';
+            _ctx.textBaseline = 'alphabetic';
         }
     }
 
@@ -346,7 +392,11 @@
             const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
             html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;">
                 <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                <span style="flex:1;">${escapeHtml(leg.label)} (${escapeHtml(leg.cardinal_direction)})</span>
+                <span style="flex:1;">${escapeHtml(leg.label)} (${escapeHtml(leg.cardinal_direction)}) ${leg.reference_heading}°</span>
+                <button onclick="editLeg(${leg.idx})"
+                    style="font-size:11px;padding:1px 6px;color:#3b82f6;background:none;border:1px solid #3b82f6;border-radius:3px;cursor:pointer;">
+                    Edit
+                </button>
                 <button onclick="removeLeg(${leg.idx})"
                     style="font-size:11px;padding:1px 6px;color:#ef4444;background:none;border:1px solid #ef4444;border-radius:3px;cursor:pointer;">
                     Remove
@@ -359,14 +409,14 @@
     function _updateStatus() {
         const el = document.getElementById('calib-status');
         if (!el) return;
-        if (_drawState === 'awaiting_second') {
-            el.textContent = `Leg ${_legs.length + 1}: click the second point to complete the line.`;
-        } else if (_currentLeg) {
+        if (_currentLeg) {
             el.textContent = 'Fill in leg details and click Confirm.';
+        } else if (_editingIdx >= 0) {
+            el.textContent = `Editing Leg ${_editingIdx + 1}. Update details and click Update.`;
         } else if (_legs.length >= _numLegs) {
-            el.textContent = `All ${_numLegs} legs drawn. Click Save Calibration to confirm.`;
+            el.textContent = `All ${_numLegs} legs placed. Click Save Calibration to confirm.`;
         } else {
-            el.textContent = `Draw leg ${_legs.length + 1} of ${_numLegs}: click the first point.`;
+            el.textContent = `Place node ${_legs.length + 1} of ${_numLegs}: click on an approach arm.`;
         }
     }
 

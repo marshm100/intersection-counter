@@ -1,17 +1,22 @@
 """Processing router — start, pause, resume, cancel, and status for the AI pipeline."""
 
+import asyncio
 import logging
+import queue
 import threading
+import time
 from typing import Callable
 
 import cv2
+import numpy as np
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from backend.config import DEFAULT_FRAME_SKIP, PROJECTS_DIR
 from backend.database import get_all_project_info, get_db_path, get_connection, set_project_info
 from backend.services.checkpoint import CheckpointManager
+from backend.services.frame_annotator import render_frame_preview
 from backend.services.pipeline import ProcessingPipeline
 
 logger = logging.getLogger(__name__)
@@ -22,7 +27,32 @@ _pipelines: dict[str, ProcessingPipeline] = {}
 _progress: dict[str, dict] = {}
 _preview_frames: dict[str, bytes] = {}
 _threads: dict[str, threading.Thread] = {}
+_preview_queues: dict[str, queue.Queue] = {}
 _state_lock = threading.Lock()
+
+
+def _make_placeholder_jpeg() -> bytes:
+    """Return a black 640×360 JPEG with a 'Starting...' label."""
+    img = np.zeros((360, 640, 3), dtype=np.uint8)
+    cv2.putText(img, "Starting...", (230, 190),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.2, (100, 100, 100), 2, cv2.LINE_AA)
+    _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 50])
+    return buf.tobytes()
+
+
+def _preview_worker(project_id: str, q: queue.Queue) -> None:
+    """Encode preview frames in a dedicated thread so the pipeline is never blocked."""
+    while True:
+        item = q.get()
+        if item is None:   # sentinel → exit
+            break
+        raw_frame, tracks, origin_zones, legs = item
+        try:
+            jpeg = render_frame_preview(raw_frame, tracks, origin_zones, legs)
+            with _state_lock:
+                _preview_frames[project_id] = jpeg
+        except Exception:
+            pass
 
 
 def _time_str_to_seconds(t: str) -> int | None:
@@ -76,14 +106,21 @@ def _load_prerequisites(project_id: str) -> dict:
     }
 
 
-def _make_progress_callback(project_id: str) -> Callable:
-    """Return a closure that stores progress data under _state_lock."""
+def _make_progress_callback(project_id: str, legs: list[dict]) -> Callable:
+    """Return a closure that stores progress data and queues preview encoding."""
     def callback(data: dict):
-        preview_jpeg = data.pop("preview_jpeg", None)
+        raw_frame = data.pop("raw_frame", None)
+        tracks = data.pop("tracks", None)
+        origin_zones = data.pop("origin_zones", None)
         with _state_lock:
             _progress[project_id] = data
-            if preview_jpeg is not None:
-                _preview_frames[project_id] = preview_jpeg
+        if raw_frame is not None:
+            q = _preview_queues.get(project_id)
+            if q is not None:
+                try:
+                    q.put_nowait((raw_frame, tracks or [], origin_zones or [], legs))
+                except queue.Full:
+                    pass   # preview thread is behind — drop frame, that's fine
     return callback
 
 
@@ -95,7 +132,7 @@ def _run_pipeline(project_id: str, start_frame: int = 0, end_frame: int | None =
         if pipeline is None:
             return
 
-        callback = _make_progress_callback(project_id)
+        callback = _make_progress_callback(project_id, pipeline.legs)
         pipeline.process_video(
             frame_skip=DEFAULT_FRAME_SKIP,
             start_frame=start_frame,
@@ -113,6 +150,10 @@ def _run_pipeline(project_id: str, start_frame: int = 0, end_frame: int | None =
         logger.error("Pipeline error for project %s: %s", project_id, exc)
         set_project_info(project_id, "status", "error")
     finally:
+        # Stop the preview worker thread
+        q = _preview_queues.pop(project_id, None)
+        if q is not None:
+            q.put(None)   # sentinel
         with _state_lock:
             _pipelines.pop(project_id, None)
             _threads.pop(project_id, None)
@@ -131,7 +172,12 @@ class StartProcessingRequest(BaseModel):
 def start_processing(project_id: str, req: StartProcessingRequest = StartProcessingRequest()):
     with _state_lock:
         if project_id in _pipelines:
-            raise HTTPException(status_code=409, detail="Processing already running.")
+            thread = _threads.get(project_id)
+            if thread is not None and thread.is_alive():
+                raise HTTPException(status_code=409, detail="Processing already running.")
+            # Stale entry (thread dead or missing) — clean up and allow restart
+            _pipelines.pop(project_id, None)
+            _threads.pop(project_id, None)
 
     prereqs = _load_prerequisites(project_id)
     db_path = str(get_db_path(project_id))
@@ -179,10 +225,18 @@ def start_processing(project_id: str, req: StartProcessingRequest = StartProcess
         video_start_time=prereqs["video_start_time"],
     )
 
+    placeholder = _make_placeholder_jpeg()
+    preview_q: queue.Queue = queue.Queue(maxsize=1)
     with _state_lock:
         _pipelines[project_id] = pipeline
+        _preview_frames[project_id] = placeholder
+    _preview_queues[project_id] = preview_q
 
     set_project_info(project_id, "status", "processing")
+
+    threading.Thread(
+        target=_preview_worker, args=(project_id, preview_q), daemon=True
+    ).start()
 
     thread = threading.Thread(
         target=_run_pipeline, args=(project_id, start_frame, end_frame), daemon=True
@@ -237,10 +291,18 @@ def resume_processing(project_id: str):
     end_frame_str = info.get("count_end_frame", "")
     end_frame = int(end_frame_str) if end_frame_str else None
 
+    placeholder = _make_placeholder_jpeg()
+    preview_q: queue.Queue = queue.Queue(maxsize=1)
     with _state_lock:
         _pipelines[project_id] = pipeline
+        _preview_frames[project_id] = placeholder
+    _preview_queues[project_id] = preview_q
 
     set_project_info(project_id, "status", "processing")
+
+    threading.Thread(
+        target=_preview_worker, args=(project_id, preview_q), daemon=True
+    ).start()
 
     thread = threading.Thread(
         target=_run_pipeline, args=(project_id, start_frame, end_frame), daemon=True
@@ -266,6 +328,10 @@ def cancel_processing(project_id: str):
 
     db_path = str(get_db_path(project_id))
     CheckpointManager(db_path).clear_checkpoint()
+
+    q = _preview_queues.pop(project_id, None)
+    if q is not None:
+        q.put(None)   # sentinel — stop preview worker
 
     with _state_lock:
         _pipelines.pop(project_id, None)
@@ -297,6 +363,41 @@ def processing_status(project_id: str):
         "count_start_time": info.get("count_start_time", ""),
         "count_end_time": info.get("count_end_time", ""),
     }
+
+
+@router.get("/projects/{project_id}/processing/preview-stream")
+async def processing_preview_stream(project_id: str):
+    """MJPEG stream: yields latest JPEG frame every ~40 ms (≤25 fps).
+    Closes automatically ~2 s after processing stops."""
+    async def generate():
+        last_sent: bytes | None = None
+        idle_since: float | None = None
+
+        while True:
+            frame: bytes | None = _preview_frames.get(project_id)
+            is_running: bool = project_id in _pipelines
+
+            if frame is not None and frame is not last_sent:
+                last_sent = frame
+                idle_since = None
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+                )
+
+            if not is_running:
+                if idle_since is None:
+                    idle_since = time.time()
+                elif time.time() - idle_since > 2.0:
+                    break
+
+            await asyncio.sleep(0.04)   # 25 fps cap
+
+    return StreamingResponse(
+        generate(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={"Cache-Control": "no-cache, no-store"},
+    )
 
 
 @router.get("/projects/{project_id}/processing/preview-frame")

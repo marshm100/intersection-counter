@@ -34,6 +34,9 @@ TRAJECTORY_UTURN_MIN_ANGLE = 135
 TRAJECTORY_MIN_POINTS = 5
 TRAJECTORY_MIN_DISTANCE_PX = 50
 
+# Origin assignment
+ORIGIN_ASSIGN_MIN_FRAMES = 5   # trajectory points needed before assigning origin
+
 # Ensure directories exist
 DATA_DIR.mkdir(exist_ok=True)
 PROJECTS_DIR.mkdir(exist_ok=True)

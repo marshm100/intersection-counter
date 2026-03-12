@@ -11,7 +11,7 @@ class LegInput(BaseModel):
     label: str
     cardinal_direction: str
     sort_order: int
-    origin_zone: List[List[float]]  # [[x1,y1],[x2,y2]]
+    origin_zone: List[List[float]]   # [[x, y]] — one point
     reference_heading: float
 
 

@@ -23,12 +23,13 @@ async function loadProcessingPage() {
 }
 
 function _renderProcessingPage(section, data) {
+    const pid = AppState.currentProject;
     const status = data.status || 'idle';
     const progress = data.progress || null;
     const isRunning = data.is_running || false;
     const hasCheckpoint = data.has_checkpoint || false;
-    const savedStart = data.count_start_time || '07:00';
-    const savedEnd   = data.count_end_time   || '09:00';
+    const savedStart = data.count_start_time || '00:00';
+    const savedEnd   = data.count_end_time   || '23:59';
 
     let html = '';
 
@@ -57,11 +58,22 @@ function _renderProcessingPage(section, data) {
     }
     html += '</div>';
 
-    // Live frame preview — shown while processing
+    // Live stream while processing; static last-frame while paused
     if (status === 'processing') {
+        const streamUrl = `/api/projects/${pid}/processing/preview-stream?_t=${Date.now()}`;
         html += `<div class="proc-preview-wrap">
-            <img id="proc-preview" src="" alt=""
-                 style="display:none;max-width:100%;border-radius:4px;border:1px solid #e5e7eb;" />
+            <img id="proc-preview"
+                 src="${streamUrl}"
+                 alt=""
+                 style="width:100%;border-radius:4px;border:1px solid #e5e7eb;" />
+        </div>`;
+    } else if (status === 'paused') {
+        const frameUrl = `/api/projects/${pid}/processing/preview-frame?_t=${Date.now()}`;
+        html += `<div class="proc-preview-wrap">
+            <img id="proc-preview"
+                 src="${frameUrl}"
+                 alt=""
+                 style="width:100%;border-radius:4px;border:1px solid #e5e7eb;opacity:0.7;" />
         </div>`;
     }
 
@@ -114,6 +126,10 @@ function _statsHtml(progress) {
         <div class="stat-item stat-left"><span class="stat-label">Left</span><span class="stat-value">${tc.left || 0}</span></div>
         <div class="stat-item stat-right"><span class="stat-label">Right</span><span class="stat-value">${tc.right || 0}</span></div>
         <div class="stat-item stat-uturn"><span class="stat-label">U-Turn</span><span class="stat-value">${tc.uturn || 0}</span></div>
+        <div class="stat-item"><span class="stat-label">Tracked</span><span class="stat-value">${progress.n_tracks_total||0}</span></div>
+        <div class="stat-item"><span class="stat-label">Assigned</span><span class="stat-value">${progress.n_crossed_enter||0}</span></div>
+        <div class="stat-item"><span class="stat-label">Unmatched</span><span class="stat-value">${progress.n_crossed_exit||0}</span></div>
+        <div class="stat-item"><span class="stat-label">Too short</span><span class="stat-value">${progress.n_insufficient_data||0}</span></div>
     `;
 }
 
@@ -169,16 +185,6 @@ async function _pollStatus() {
     if (badge) {
         badge.className = `status-badge status-${status}`;
         badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-    }
-
-    // Update live frame preview
-    if (status === 'processing') {
-        const preview = document.getElementById('proc-preview');
-        if (preview) {
-            preview.onload = () => { preview.style.display = 'block'; };
-            preview.onerror = () => { preview.style.display = 'none'; };
-            preview.src = `/api/projects/${pid}/processing/preview-frame?_t=${Date.now()}`;
-        }
     }
 
     if (status !== 'processing') {

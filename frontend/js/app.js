@@ -23,7 +23,26 @@ function escapeHtml(str) {
         .replace(/"/g, '&quot;');
 }
 
+function saveLastProject(projectId) {
+    localStorage.setItem('lastProjectId', projectId);
+}
+
+async function maybeRestoreLastProject() {
+    const lastId = localStorage.getItem('lastProjectId');
+    if (!lastId) { loadProjectList(); return; }
+    try {
+        const res = await fetch(`/api/projects/${lastId}/processing/status`);
+        if (!res.ok) { localStorage.removeItem('lastProjectId'); loadProjectList(); return; }
+        AppState.currentProject = lastId;
+        showPage('page-processing');
+        loadProcessingPage();
+    } catch {
+        localStorage.removeItem('lastProjectId');
+        loadProjectList();
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     showPage('page-projects');
-    loadProjectList();
+    maybeRestoreLastProject();
 });

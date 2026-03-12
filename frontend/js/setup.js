@@ -170,11 +170,14 @@ async function startCalibration() {
 
 async function proceedToProcessing() {
     await saveSetupSettings();
+    const pid = AppState.currentProject;
+    saveLastProject(pid);
     showPage('page-processing');
     loadProcessingPage();
 }
 
 function backToProjects() {
+    localStorage.removeItem('lastProjectId');
     AppState.currentProject = null;
     showPage('page-projects');
     loadProjectList();

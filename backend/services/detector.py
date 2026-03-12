@@ -3,6 +3,7 @@
 import os
 
 import numpy as np
+import torch
 
 # PyTorch 2.6+ defaults weights_only=True which breaks ultralytics model loading.
 os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
@@ -20,6 +21,12 @@ from backend.config import (
 ALL_CLASSES = {**VEHICLE_CLASSES, **PEDESTRIAN_CLASSES}
 
 
+def _resolve_device() -> str:
+    if torch.cuda.is_available():
+        return "cuda"
+    return "cpu"
+
+
 class VehicleDetector:
     """Wraps YOLOv8 inference for vehicle and pedestrian detection."""
 
@@ -32,6 +39,7 @@ class VehicleDetector:
         Model auto-downloads on first use.
         """
         self.model = YOLO(model_path or YOLO_MODEL)
+        self._device = _resolve_device()
 
     def detect(self, frame: np.ndarray) -> list[dict]:
         """Run detection on a single frame.
@@ -44,7 +52,7 @@ class VehicleDetector:
             conf=YOLO_CONFIDENCE_THRESHOLD,
             iou=YOLO_IOU_THRESHOLD,
             classes=self.RELEVANT_CLASSES,
-            device="cpu",
+            device=self._device,
             verbose=False,
         )
 

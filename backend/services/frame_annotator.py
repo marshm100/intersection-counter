@@ -23,14 +23,14 @@ def render_frame_preview(
     origin_zones: list[list[list[float]]],
     legs: list[dict],
 ) -> bytes:
-    """Draw bounding boxes and origin zones onto frame, return JPEG bytes.
+    """Draw bounding boxes and origin node dots onto frame, return JPEG bytes.
 
     Args:
         frame: Raw BGR frame from cv2.
         tracked: List of track dicts with keys: track_id, class_name, is_vehicle,
                  bbox (x1, y1, x2, y2 or similar), center.
-        origin_zones: List of zones, each [[x1,y1],[x2,y2]].
-        legs: List of leg dicts (used only for count; index maps to LEG_COLORS_BGR).
+        origin_zones: List of zones, each [[x, y]] (single node point).
+        legs: List of leg dicts with cardinal_direction; index maps to LEG_COLORS_BGR.
 
     Returns:
         JPEG-encoded bytes.
@@ -49,14 +49,18 @@ def render_frame_preview(
         new_h = int(h * scale)
         img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-    # Draw origin zones as thick colored lines
+    # Draw origin nodes as filled colored circles
     for i, zone in enumerate(origin_zones):
-        if len(zone) < 2:
+        if not zone:
             continue
         color = LEG_COLORS_BGR[i % len(LEG_COLORS_BGR)]
-        p1 = (int(zone[0][0] * scale), int(zone[0][1] * scale))
-        p2 = (int(zone[1][0] * scale), int(zone[1][1] * scale))
-        cv2.line(img, p1, p2, color, thickness=3)
+        px = int(zone[0][0] * scale)
+        py = int(zone[0][1] * scale)
+        cv2.circle(img, (px, py), 14, color, -1)
+        label = legs[i].get("cardinal_direction", "") if i < len(legs) else ""
+        if label:
+            cv2.putText(img, label[:2], (px - 8, py + 5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
 
     # Draw tracked detections
     for t in tracked:

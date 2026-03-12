@@ -1,11 +1,12 @@
 """Main video processing pipeline.
 
-Orchestrates: preprocess → detect → track → origin crossing →
+Orchestrates: preprocess → detect → track → origin assignment →
 trajectory building → finalization → database write.
 """
 
 import json
 import logging
+import math
 import pickle
 import threading
 import time
@@ -13,11 +14,10 @@ from datetime import datetime, timedelta
 
 import cv2
 
-from backend.config import CHECKPOINT_INTERVAL_SECONDS
+from backend.config import CHECKPOINT_INTERVAL_SECONDS, ORIGIN_ASSIGN_MIN_FRAMES
 from backend.services.checkpoint import CheckpointManager
 from backend.services.classifier import classify_vehicle
 from backend.services.detector import VehicleDetector
-from backend.services.origin_detector import crossing_direction, did_cross_line
 from backend.services.preprocessor import AdaptivePreprocessor
 from backend.services.tracker import VehicleTracker
 from backend.services.trajectory_classifier import classify_trajectory
@@ -44,14 +44,6 @@ class ProcessingPipeline:
         self.fps = fps
         self.video_start_time = video_start_time
 
-        # Parse origin zones from legs
-        self.origin_zones: list[list[list[float]]] = []
-        for leg in legs:
-            zone = leg["origin_zone"]
-            if isinstance(zone, str):
-                zone = json.loads(zone)
-            self.origin_zones.append(zone)
-
         # Components (lazy-loaded to avoid loading YOLO in tests)
         self._detector: VehicleDetector | None = None
         self._tracker: VehicleTracker | None = None
@@ -69,6 +61,10 @@ class ProcessingPipeline:
         self.pedestrian_count = 0
         self.error_count = 0
         self.turn_counts: dict[str, int] = {"through": 0, "left": 0, "right": 0, "uturn": 0}
+        self.n_tracks_total: int = 0
+        self.n_crossed_enter: int = 0    # vehicles assigned to a node
+        self.n_crossed_exit: int = 0     # no node matched (diff > 90°)
+        self.n_insufficient_data: int = 0
 
         # Frame skip used during current process_video call (updates tracker frame_rate)
         self._frame_skip: int = 1
@@ -157,7 +153,7 @@ class ProcessingPipeline:
                         self._save_checkpoint(frame_number, video_time)
                         last_checkpoint_video_time = video_time
 
-                    if callback and frames_processed % 10 == 0:
+                    if callback:
                         elapsed = time.time() - start_time
                         fps_proc = frames_processed / elapsed if elapsed > 0 else 0
                         remaining = effective_end - frame_number
@@ -166,13 +162,7 @@ class ProcessingPipeline:
                             if fps_proc > 0
                             else 0
                         )
-                        from backend.services.frame_annotator import render_frame_preview
-                        try:
-                            preview_jpeg = render_frame_preview(
-                                frame, self._latest_tracks, self.origin_zones, self.legs
-                            )
-                        except Exception:
-                            preview_jpeg = None
+                        origin_zones = [leg.get("origin_zone", []) for leg in self.legs]
                         callback({
                             "frame_number": frame_number,
                             "total_frames": effective_end,
@@ -186,7 +176,13 @@ class ProcessingPipeline:
                             "error_count": self.error_count,
                             "eta_seconds": eta,
                             "turn_counts": dict(self.turn_counts),
-                            "preview_jpeg": preview_jpeg,
+                            "n_tracks_total": self.n_tracks_total,
+                            "n_crossed_enter": self.n_crossed_enter,
+                            "n_crossed_exit": self.n_crossed_exit,
+                            "n_insufficient_data": self.n_insufficient_data,
+                            "raw_frame": frame.copy(),
+                            "tracks": list(self._latest_tracks),
+                            "origin_zones": origin_zones,
                         })
 
                 frame_number += 1
@@ -226,54 +222,57 @@ class ProcessingPipeline:
                 "origin_frame": None,
                 "trajectory": [],
                 "confidences": [],
-                "last_center": None,
                 "class_id": detection["class_id"],
                 "class_name": detection["class_name"],
                 "bbox_width": detection["bbox_width"],
                 "bbox_height": detection["bbox_height"],
                 "bbox_area": detection["bbox_area"],
             }
+            self.n_tracks_total += 1
 
         vehicle = self.active_vehicles[track_id]
-        prev_center = vehicle["last_center"]
-        vehicle["last_center"] = center
+        vehicle["trajectory"].append(center)
         vehicle["confidences"].append(detection["confidence"])
         vehicle["bbox_width"] = detection["bbox_width"]
         vehicle["bbox_height"] = detection["bbox_height"]
         vehicle["bbox_area"] = detection["bbox_area"]
 
         if vehicle["origin_leg_id"] is None:
-            if prev_center is not None:
-                self._check_origin_crossing(
-                    track_id, prev_center, center, frame_number
-                )
+            if len(vehicle["trajectory"]) >= ORIGIN_ASSIGN_MIN_FRAMES:
+                self._assign_origin(track_id, frame_number)
+
+    def _assign_origin(self, track_id: int, frame_number: int):
+        vehicle = self.active_vehicles[track_id]
+        traj = vehicle["trajectory"]
+
+        start = traj[0]
+        end = traj[min(ORIGIN_ASSIGN_MIN_FRAMES - 1, len(traj) - 1)]
+        dx = end[0] - start[0]
+        dy = end[1] - start[1]
+        if dx == 0 and dy == 0:
+            return
+
+        movement_heading = math.degrees(math.atan2(dx, -dy)) % 360
+
+        best_idx = None
+        best_diff = float("inf")
+        for i, leg in enumerate(self.legs):
+            ref = leg.get("reference_heading")
+            if ref is None:
+                continue
+            diff = abs((movement_heading - ref + 180) % 360 - 180)
+            if diff < best_diff:
+                best_diff = diff
+                best_idx = i
+
+        if best_idx is not None and best_diff <= 90:
+            leg = self.legs[best_idx]
+            vehicle["origin_leg_id"] = leg["leg_id"]
+            vehicle["reference_heading"] = leg["reference_heading"]
+            vehicle["origin_frame"] = frame_number
+            self.n_crossed_enter += 1
         else:
-            vehicle["trajectory"].append(center)
-
-    def _check_origin_crossing(
-        self,
-        track_id: int,
-        prev_center: tuple,
-        curr_center: tuple,
-        frame_number: int,
-    ):
-        for i, zone in enumerate(self.origin_zones):
-            line_start = tuple(zone[0])
-            line_end = tuple(zone[1])
-
-            if did_cross_line(prev_center, curr_center, line_start, line_end):
-                leg = self.legs[i]
-                direction = crossing_direction(
-                    prev_center, curr_center, line_start, line_end,
-                    reference_heading=leg.get("reference_heading"),
-                )
-                if direction == "enter":
-                    vehicle = self.active_vehicles[track_id]
-                    vehicle["origin_leg_id"] = leg["leg_id"]
-                    vehicle["reference_heading"] = leg["reference_heading"]
-                    vehicle["origin_frame"] = frame_number
-                    vehicle["trajectory"].append(curr_center)
-                    return
+            self.n_crossed_exit += 1
 
     # -- Finalization ------------------------------------------------------
 
@@ -295,6 +294,7 @@ class ProcessingPipeline:
         )
 
         if classification["movement"] == "insufficient_data":
+            self.n_insufficient_data += 1
             return
 
         avg_conf = (

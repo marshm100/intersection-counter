@@ -154,11 +154,12 @@ class TestPipelineInit:
         # Detector should NOT be loaded yet
         assert p._detector is None
 
-    def test_origin_zones_parsed(self, pipeline_env):
+    def test_diagnostic_counters_initialized(self, pipeline_env):
         p = _make_pipeline(pipeline_env)
-        assert len(p.origin_zones) == 2
-        assert p.origin_zones[0] == [[700, 800], [300, 800]]
-        assert p.origin_zones[1] == [[200, 700], [200, 300]]
+        assert p.n_tracks_total == 0
+        assert p.n_crossed_enter == 0
+        assert p.n_crossed_exit == 0
+        assert p.n_insufficient_data == 0
 
     def test_initial_counts_zero(self, pipeline_env):
         p = _make_pipeline(pipeline_env)
