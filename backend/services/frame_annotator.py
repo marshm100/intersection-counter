@@ -1,7 +1,7 @@
 """Frame annotation for live processing preview.
 
-Renders bounding boxes, track IDs, and origin zone lines onto a video frame
-and returns the result as JPEG bytes.
+Renders bounding boxes, track IDs, origin zone lines, and trajectory polylines
+onto a video frame and returns the result as JPEG bytes.
 """
 
 import numpy as np
@@ -14,6 +14,15 @@ LEG_COLORS_BGR = [
     (11,  158, 245),  # amber → BGR
 ]
 
+MOVEMENT_COLORS_BGR = {
+    "through": (94, 197, 34),    # green
+    "left":    (246, 130, 59),   # blue
+    "right":   (11, 158, 245),   # orange/amber
+    "uturn":   (68, 68, 239),    # red
+}
+TRACKING_COLOR_BGR = (180, 180, 180)     # gray — active, origin assigned
+UNASSIGNED_COLOR_BGR = (100, 100, 100)   # dark gray — no origin yet
+
 PREVIEW_MAX_WIDTH = 640
 
 
@@ -22,21 +31,12 @@ def render_frame_preview(
     tracked: list[dict],
     origin_zones: list[list[list[float]]],
     legs: list[dict],
+    active_trajectories: dict[int, dict] | None = None,
+    finalized_trajectories: list[dict] | None = None,
 ) -> bytes:
-    """Draw bounding boxes and origin node dots onto frame, return JPEG bytes.
+    """Draw bounding boxes, origin nodes, and trajectory polylines onto frame.
 
-    Args:
-        frame: Raw BGR frame from cv2.
-        tracked: List of track dicts with keys: track_id, class_name, is_vehicle,
-                 bbox (x1, y1, x2, y2 or similar), center.
-        origin_zones: List of zones, each [[x, y]] (single node point).
-        legs: List of leg dicts with cardinal_direction; index maps to LEG_COLORS_BGR.
-
-    Returns:
-        JPEG-encoded bytes.
-
-    Raises:
-        ValueError: If cv2.imencode fails.
+    Returns JPEG-encoded bytes.
     """
     img = frame.copy()
     h, w = img.shape[:2]
@@ -51,16 +51,46 @@ def render_frame_preview(
 
     # Draw origin nodes as filled colored circles
     for i, zone in enumerate(origin_zones):
-        if not zone:
+        try:
+            if not zone or not zone[0] or len(zone[0]) < 2:
+                continue
+            color = LEG_COLORS_BGR[i % len(LEG_COLORS_BGR)]
+            px = int(zone[0][0] * scale)
+            py = int(zone[0][1] * scale)
+            cv2.circle(img, (px, py), 14, color, -1)
+            label = legs[i].get("cardinal_direction", "") if i < len(legs) else ""
+            if label:
+                cv2.putText(img, label[:2], (px - 8, py + 5),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+        except (IndexError, TypeError, ValueError):
             continue
-        color = LEG_COLORS_BGR[i % len(LEG_COLORS_BGR)]
-        px = int(zone[0][0] * scale)
-        py = int(zone[0][1] * scale)
-        cv2.circle(img, (px, py), 14, color, -1)
-        label = legs[i].get("cardinal_direction", "") if i < len(legs) else ""
-        if label:
-            cv2.putText(img, label[:2], (px - 8, py + 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+
+    # Draw finalized trajectories (movement color, thicker)
+    if finalized_trajectories:
+        for ftraj in finalized_trajectories:
+            traj = ftraj.get("trajectory", [])
+            if len(traj) < 2:
+                continue
+            movement = ftraj.get("movement", "")
+            color = MOVEMENT_COLORS_BGR.get(movement, TRACKING_COLOR_BGR)
+            pts = np.array(
+                [[int(p[0] * scale), int(p[1] * scale)] for p in traj],
+                dtype=np.int32,
+            )
+            cv2.polylines(img, [pts], isClosed=False, color=color, thickness=3, lineType=cv2.LINE_AA)
+
+    # Draw active trajectories (gray/dark gray, thinner)
+    if active_trajectories:
+        for _tid, info in active_trajectories.items():
+            traj = info.get("trajectory", [])
+            if len(traj) < 2:
+                continue
+            color = TRACKING_COLOR_BGR if info.get("origin_leg_id") else UNASSIGNED_COLOR_BGR
+            pts = np.array(
+                [[int(p[0] * scale), int(p[1] * scale)] for p in traj],
+                dtype=np.int32,
+            )
+            cv2.polylines(img, [pts], isClosed=False, color=color, thickness=2, lineType=cv2.LINE_AA)
 
     # Draw tracked detections
     for t in tracked:

@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS vehicle_events (
     timestamp_video REAL NOT NULL,
     timestamp_real TEXT DEFAULT NULL,
     frame_number INTEGER NOT NULL,
+    start_frame INTEGER DEFAULT NULL,
     manually_edited INTEGER DEFAULT 0,
     FOREIGN KEY (origin_leg_id) REFERENCES legs(leg_id)
 );
@@ -90,6 +91,12 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
+
+    # Migration: add start_frame column if missing (existing DBs)
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(vehicle_events)").fetchall()]
+    if "start_frame" not in cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN start_frame INTEGER DEFAULT NULL")
+
     return conn
 
 

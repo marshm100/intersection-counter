@@ -24,7 +24,7 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
     info = get_all_project_info(project_id)
     project_name: str = info.get("project_name", project_id)
     video_start_time: str = info.get("video_start_time", "")
-    interval_minutes: int = int(info.get("interval_minutes", DEFAULT_INTERVAL_MINUTES))
+    interval_minutes: int = max(1, int(info.get("interval_minutes", DEFAULT_INTERVAL_MINUTES)))
 
     conn = get_connection(project_id)
     try:

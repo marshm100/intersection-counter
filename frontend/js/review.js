@@ -13,7 +13,7 @@ async function loadReviewPage(page = 1) {
     section.innerHTML = '<p class="empty-message">Loading...</p>';
 
     let params = `page=${page}&page_size=50`;
-    if (_reviewFilters.leg_id) params += `&leg_id=${_reviewFilters.leg_id}`;
+    if (_reviewFilters.leg_id) params += `&leg_id=${encodeURIComponent(_reviewFilters.leg_id)}`;
     if (_reviewFilters.movement) params += `&movement=${encodeURIComponent(_reviewFilters.movement)}`;
     if (_reviewFilters.low_confidence) params += `&low_confidence=true`;
 

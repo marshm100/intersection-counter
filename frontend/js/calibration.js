@@ -189,12 +189,25 @@
     }
 
     function _onCanvasMousedown(e) {
-        if (_currentLeg) return;
         const { x, y } = _canvasCoords(e);
+
+        // Check confirmed legs first
         for (const leg of _legs) {
             const [nx, ny] = leg.origin_zone[0];
             if (Math.hypot(x - nx, y - ny) <= 16) {
-                _dragLeg = { idx: leg.idx };
+                _dragLeg = { idx: leg.idx, isCurrentLeg: false };
+                _dragMoved = false;
+                _canvas.style.cursor = 'grabbing';
+                e.preventDefault();
+                return;
+            }
+        }
+
+        // Check unconfirmed leg
+        if (_currentLeg) {
+            const [nx, ny] = _currentLeg.origin_zone[0];
+            if (Math.hypot(x - nx, y - ny) <= 16) {
+                _dragLeg = { idx: _currentLeg.idx, isCurrentLeg: true };
                 _dragMoved = false;
                 _canvas.style.cursor = 'grabbing';
                 e.preventDefault();
@@ -208,29 +221,40 @@
         if (_dragLeg) {
             const cx = Math.max(0, Math.min(_canvas.width, x));
             const cy = Math.max(0, Math.min(_canvas.height, y));
-            const leg = _legs.find(l => l.idx === _dragLeg.idx);
-            if (leg) {
-                leg.origin_zone = [[cx, cy]];
-                leg.reference_heading = _computeNodeHeading([cx, cy], _canvas.width, _canvas.height);
+            const target = _dragLeg.isCurrentLeg
+                ? _currentLeg
+                : _legs.find(l => l.idx === _dragLeg.idx);
+            if (target) {
+                target.origin_zone = [[cx, cy]];
+                target.reference_heading = _computeNodeHeading([cx, cy], _canvas.width, _canvas.height);
                 _dragMoved = true;
                 _redraw();
+                // Update heading display in form if open
+                const headingEl = document.getElementById('calib-heading-display');
+                if (headingEl) headingEl.innerHTML = `Reference heading: <strong>${target.reference_heading}°</strong>`;
             }
             return;
         }
         // Hover cursor
-        if (_currentLeg) return;
-        const onNode = _legs.some(l => Math.hypot(x - l.origin_zone[0][0], y - l.origin_zone[0][1]) <= 16);
+        let onNode = _legs.some(l => Math.hypot(x - l.origin_zone[0][0], y - l.origin_zone[0][1]) <= 16);
+        if (!onNode && _currentLeg) {
+            const [nx, ny] = _currentLeg.origin_zone[0];
+            onNode = Math.hypot(x - nx, y - ny) <= 16;
+        }
         _canvas.style.cursor = onNode ? 'grab' : 'crosshair';
     }
 
     function _onCanvasMouseup() {
         if (!_dragLeg) return;
-        const { idx } = _dragLeg;
+        const { idx, isCurrentLeg } = _dragLeg;
         const wasDrag = _dragMoved;
         _dragLeg = null;
         _dragMoved = false;
         _canvas.style.cursor = 'crosshair';
-        if (!wasDrag) {
+        if (isCurrentLeg) {
+            // Unconfirmed leg — form is already open, just update list if dragged
+            if (wasDrag) _updateLegList();
+        } else if (!wasDrag) {
             _editLeg(idx);
         } else {
             _updateLegList();
@@ -259,10 +283,10 @@
         const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
         const dirs = ['N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW'];
         const dirLabels = {
-            N: 'N — Northbound', S: 'S — Southbound',
-            E: 'E — Eastbound', W: 'W — Westbound',
-            NE: 'NE — Northeastbound', NW: 'NW — Northwestbound',
-            SE: 'SE — Southeastbound', SW: 'SW — Southwestbound',
+            N: 'N — Southbound', S: 'S — Northbound',
+            E: 'E — Westbound', W: 'W — Eastbound',
+            NE: 'NE — Southwestbound', NW: 'NW — Southeastbound',
+            SE: 'SE — Northwestbound', SW: 'SW — Northeastbound',
         };
         const dirOptions = dirs.map(d =>
             `<option value="${d}"${d === leg.cardinal_direction ? ' selected' : ''}>${dirLabels[d]}</option>`
@@ -284,7 +308,7 @@
                     <label style="font-size:13px;display:block;margin-bottom:3px;">Cardinal Direction</label>
                     <select id="leg-dir-${leg.idx}" style="width:100%;">${dirOptions}</select>
                 </div>
-                <div style="margin-bottom:8px;font-size:12px;color:#6b7280;">
+                <div id="calib-heading-display" style="margin-bottom:8px;font-size:12px;color:#6b7280;">
                     Reference heading: <strong>${leg.reference_heading}°</strong>
                 </div>
                 <button onclick="confirmLeg(${leg.idx})"
@@ -447,4 +471,14 @@
     };
 
     window.loadCalibrationPage = loadCalibrationPage;
+
+    registerTeardown('page-calibration', function() {
+        clearTimeout(_scrubTimer);
+        _scrubTimer = null;
+        _currentLeg = null;
+        _editingIdx = -1;
+        _img = null;
+        _canvas = null;
+        _ctx = null;
+    });
 })();

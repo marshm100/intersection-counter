@@ -1,4 +1,5 @@
 let _processingPollTimer = null;
+let _previewPollTimer = null;
 
 async function loadProcessingPage() {
     const pid = AppState.currentProject;
@@ -19,6 +20,9 @@ async function loadProcessingPage() {
 
     if (statusData.status === 'processing') {
         _startPolling();
+        _startPreviewPolling(pid);
+    } else if (statusData.status === 'paused') {
+        _startPreviewPolling(pid);
     }
 }
 
@@ -29,7 +33,7 @@ function _renderProcessingPage(section, data) {
     const isRunning = data.is_running || false;
     const hasCheckpoint = data.has_checkpoint || false;
     const savedStart = data.count_start_time || '00:00';
-    const savedEnd   = data.count_end_time   || '23:59';
+    const savedEnd   = data.count_end_time   || '';
 
     let html = '';
 
@@ -58,22 +62,39 @@ function _renderProcessingPage(section, data) {
     }
     html += '</div>';
 
-    // Live stream while processing; static last-frame while paused
-    if (status === 'processing') {
-        const streamUrl = `/api/projects/${pid}/processing/preview-stream?_t=${Date.now()}`;
+    // Preview image — polled via setInterval for both processing and paused states
+    if (status === 'processing' || status === 'paused') {
+        const opacity = status === 'paused' ? '0.7' : '1';
         html += `<div class="proc-preview-wrap">
             <img id="proc-preview"
-                 src="${streamUrl}"
+                 src=""
                  alt=""
-                 style="width:100%;border-radius:4px;border:1px solid #e5e7eb;" />
+                 style="width:100%;border-radius:4px;border:1px solid #e5e7eb;opacity:${opacity};" />
         </div>`;
-    } else if (status === 'paused') {
-        const frameUrl = `/api/projects/${pid}/processing/preview-frame?_t=${Date.now()}`;
-        html += `<div class="proc-preview-wrap">
-            <img id="proc-preview"
-                 src="${frameUrl}"
-                 alt=""
-                 style="width:100%;border-radius:4px;border:1px solid #e5e7eb;opacity:0.7;" />
+    }
+
+    // Review panel — shown when processing is complete
+    if (status === 'complete' && progress) {
+        const totalFrames = progress.total_frames || 0;
+        const fps = progress.fps_processing || 30;
+        const videoDuration = totalFrames > 0 ? totalFrames / 30 : 0;  // approximate
+        html += `<div class="review-panel">
+            <h3>Video Review</h3>
+            <div class="proc-preview-wrap">
+                <img id="review-preview" src="" alt="Review frame"
+                     style="width:100%;border-radius:4px;border:1px solid #e5e7eb;" />
+            </div>
+            <div class="review-controls">
+                <input type="range" id="review-slider" class="review-slider"
+                       min="0" max="${totalFrames}" value="0" step="1" />
+                <div class="review-time-row">
+                    <span id="review-time" class="review-time">0:00 / ${_formatVideoTime(videoDuration)}</span>
+                    <label class="review-toggle-label">
+                        <input type="checkbox" id="review-traj-toggle" checked />
+                        Show trajectories
+                    </label>
+                </div>
+            </div>
         </div>`;
     }
 
@@ -104,11 +125,78 @@ function _renderProcessingPage(section, data) {
     }
     if (status === 'complete') {
         html += `<button class="btn-proc btn-start" onclick="showPage('page-dashboard'); loadDashboardPage()">View Results</button>`;
+        html += `<button class="btn-proc btn-resume" onclick="startProcessing()">Re-process</button>`;
     }
 
     html += '</div>';
 
     section.innerHTML = html;
+
+    // Wire up review panel if present
+    if (status === 'complete' && progress) {
+        _initReviewPanel();
+    }
+}
+
+let _reviewDebounceTimer = null;
+
+function _initReviewPanel() {
+    const slider = document.getElementById('review-slider');
+    const toggle = document.getElementById('review-traj-toggle');
+    if (!slider) return;
+
+    // Fetch initial frame
+    _fetchReviewFrame(0);
+
+    slider.addEventListener('input', () => {
+        if (_reviewDebounceTimer) clearTimeout(_reviewDebounceTimer);
+        _reviewDebounceTimer = setTimeout(() => {
+            _fetchReviewFrame(parseInt(slider.value));
+        }, 100);
+    });
+
+    if (toggle) {
+        toggle.addEventListener('change', () => {
+            _fetchReviewFrame(parseInt(slider.value));
+        });
+    }
+}
+
+async function _fetchReviewFrame(frameNum) {
+    const pid = AppState.currentProject;
+    if (!pid) return;
+    const img = document.getElementById('review-preview');
+    if (!img) return;
+    const toggle = document.getElementById('review-traj-toggle');
+    const showTraj = toggle ? toggle.checked : true;
+    const slider = document.getElementById('review-slider');
+    const totalFrames = slider ? parseInt(slider.max) : 0;
+
+    try {
+        const resp = await fetch(
+            `/api/projects/${pid}/review-frame?frame=${frameNum}&show_trajectories=${showTraj}`
+        );
+        if (!resp.ok) return;
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const old = img.src;
+        img.src = url;
+        if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
+    } catch (_) {}
+
+    // Update time display
+    const timeEl = document.getElementById('review-time');
+    if (timeEl && totalFrames > 0) {
+        const currentSec = frameNum / 30;  // approximate fps
+        const totalSec = totalFrames / 30;
+        timeEl.textContent = `${_formatVideoTime(currentSec)} / ${_formatVideoTime(totalSec)}`;
+    }
+}
+
+function _formatVideoTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function _statsHtml(progress) {
@@ -116,21 +204,42 @@ function _statsHtml(progress) {
         ? _formatEta(progress.eta_seconds)
         : '—';
     const tc = progress.turn_counts || {};
-    return `
-        <div class="stat-item"><span class="stat-label">Vehicles</span><span class="stat-value" id="proc-vehicles">${progress.vehicle_count}</span></div>
-        <div class="stat-item"><span class="stat-label">Peds</span><span class="stat-value" id="proc-pedestrians">${progress.pedestrian_count}</span></div>
-        <div class="stat-item"><span class="stat-label">FPS</span><span class="stat-value" id="proc-fps">${(progress.fps_processing || 0).toFixed(1)}</span></div>
-        <div class="stat-item"><span class="stat-label">Errors</span><span class="stat-value" id="proc-errors">${progress.error_count}</span></div>
-        <div class="stat-item"><span class="stat-label">ETA</span><span class="stat-value" id="proc-eta">${eta}</span></div>
-        <div class="stat-item stat-through"><span class="stat-label">Through</span><span class="stat-value">${tc.through || 0}</span></div>
-        <div class="stat-item stat-left"><span class="stat-label">Left</span><span class="stat-value">${tc.left || 0}</span></div>
-        <div class="stat-item stat-right"><span class="stat-label">Right</span><span class="stat-value">${tc.right || 0}</span></div>
-        <div class="stat-item stat-uturn"><span class="stat-label">U-Turn</span><span class="stat-value">${tc.uturn || 0}</span></div>
+
+    // General stats row
+    let html = `
+        <div class="stat-item"><span class="stat-label">Vehicles</span><span class="stat-value">${progress.vehicle_count}</span></div>
+        <div class="stat-item"><span class="stat-label">FPS</span><span class="stat-value">${(progress.fps_processing || 0).toFixed(1)}</span></div>
+        <div class="stat-item"><span class="stat-label">Errors</span><span class="stat-value">${progress.error_count}</span></div>
+        <div class="stat-item"><span class="stat-label">ETA</span><span class="stat-value">${eta}</span></div>
         <div class="stat-item"><span class="stat-label">Tracked</span><span class="stat-value">${progress.n_tracks_total||0}</span></div>
         <div class="stat-item"><span class="stat-label">Assigned</span><span class="stat-value">${progress.n_crossed_enter||0}</span></div>
         <div class="stat-item"><span class="stat-label">Unmatched</span><span class="stat-value">${progress.n_crossed_exit||0}</span></div>
         <div class="stat-item"><span class="stat-label">Too short</span><span class="stat-value">${progress.n_insufficient_data||0}</span></div>
     `;
+
+    // Per-leg turn counts
+    const legIds = Object.keys(tc);
+    // Guard: skip if keys look like movement names (old flat format)
+    const isNewFormat = legIds.length > 0 && typeof tc[legIds[0]] === 'object' && tc[legIds[0]] !== null;
+    if (isNewFormat) {
+        html += '<div class="leg-counts-grid">';
+        for (const legId of legIds) {
+            const leg = tc[legId];
+            const c = leg.counts || {};
+            html += `<div class="leg-counts-card">
+                <div class="leg-counts-title">${leg.label || leg.cardinal || legId}</div>
+                <div class="leg-counts-row">
+                    <span class="lc-item"><span class="lc-label">L</span>${c.left||0}</span>
+                    <span class="lc-item"><span class="lc-label">T</span>${c.through||0}</span>
+                    <span class="lc-item"><span class="lc-label">R</span>${c.right||0}</span>
+                    <span class="lc-item"><span class="lc-label">U</span>${c.uturn||0}</span>
+                </div>
+            </div>`;
+        }
+        html += '</div>';
+    }
+
+    return html;
 }
 
 function _formatEta(seconds) {
@@ -153,6 +262,37 @@ function _stopPolling() {
         clearInterval(_processingPollTimer);
         _processingPollTimer = null;
     }
+}
+
+function _startPreviewPolling(pid) {
+    _stopPreviewPolling();
+    _fetchPreviewFrame(pid);
+    _previewPollTimer = setInterval(() => _fetchPreviewFrame(pid), 500);
+}
+
+function _stopPreviewPolling() {
+    if (_previewPollTimer !== null) {
+        clearInterval(_previewPollTimer);
+        _previewPollTimer = null;
+    }
+    const img = document.getElementById('proc-preview');
+    if (img && img.src && img.src.startsWith('blob:')) {
+        URL.revokeObjectURL(img.src);
+    }
+}
+
+async function _fetchPreviewFrame(pid) {
+    const img = document.getElementById('proc-preview');
+    if (!img) { _stopPreviewPolling(); return; }
+    try {
+        const resp = await fetch(`/api/projects/${pid}/processing/preview-frame?_t=${Date.now()}`);
+        if (!resp.ok) return;
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const old = img.src;
+        img.src = url;
+        if (old.startsWith('blob:')) URL.revokeObjectURL(old);
+    } catch (_) {}
 }
 
 async function _pollStatus() {
@@ -189,10 +329,14 @@ async function _pollStatus() {
 
     if (status !== 'processing') {
         _stopPolling();
+        _stopPreviewPolling();
         // Re-render buttons for new state
         const section = document.getElementById('page-processing');
         if (section) {
             _renderProcessingPage(section, data);
+            if (status === 'paused') {
+                _startPreviewPolling(AppState.currentProject);
+            }
         }
     }
 }
@@ -203,8 +347,8 @@ async function startProcessing() {
     const endTime   = document.getElementById('proc-end-time')?.value   || null;
     try {
         await API.post(`/api/projects/${pid}/processing/start`, {
-            count_start_time: startTime,
-            count_end_time:   endTime,
+            count_start_time: startTime || null,
+            count_end_time:   endTime   || null,
         });
     } catch (e) {
         alert('Failed to start processing: ' + (e.message || e));
@@ -212,6 +356,7 @@ async function startProcessing() {
     }
     await loadProcessingPage();
     _startPolling();
+    _startPreviewPolling(pid);
 }
 
 async function pauseProcessing() {
@@ -223,7 +368,9 @@ async function pauseProcessing() {
         return;
     }
     _stopPolling();
+    _stopPreviewPolling();
     await loadProcessingPage();
+    _startPreviewPolling(pid);
 }
 
 async function resumeProcessing() {
@@ -236,6 +383,7 @@ async function resumeProcessing() {
     }
     await loadProcessingPage();
     _startPolling();
+    _startPreviewPolling(pid);
 }
 
 async function cancelProcessing() {
@@ -248,13 +396,20 @@ async function cancelProcessing() {
         return;
     }
     _stopPolling();
+    _stopPreviewPolling();
     await loadProcessingPage();
 }
 
 function goBackFromProcessing() {
     _stopPolling();
+    _stopPreviewPolling();
     showPage('page-setup');
     loadSetupPage();
 }
 
-registerTeardown('page-processing', _stopPolling);
+function _stopAllProcessingTimers() {
+    _stopPolling();
+    _stopPreviewPolling();
+}
+
+registerTeardown('page-processing', _stopAllProcessingTimers);

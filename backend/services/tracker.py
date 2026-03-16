@@ -5,7 +5,13 @@ import pickle
 import numpy as np
 import supervision as sv
 
-from backend.config import PEDESTRIAN_CLASSES, VEHICLE_CLASSES
+from backend.config import (
+    PEDESTRIAN_CLASSES,
+    TRACKER_ACTIVATION_THRESHOLD,
+    TRACKER_LOST_BUFFER,
+    TRACKER_MATCH_THRESHOLD,
+    VEHICLE_CLASSES,
+)
 
 ALL_CLASSES = {**VEHICLE_CLASSES, **PEDESTRIAN_CLASSES}
 
@@ -15,9 +21,9 @@ class VehicleTracker:
 
     def __init__(
         self,
-        track_activation_threshold: float = 0.25,
-        lost_track_buffer: int = 90,
-        minimum_matching_threshold: float = 0.8,
+        track_activation_threshold: float = TRACKER_ACTIVATION_THRESHOLD,
+        lost_track_buffer: int = TRACKER_LOST_BUFFER,
+        minimum_matching_threshold: float = TRACKER_MATCH_THRESHOLD,
         frame_rate: int = 30,
     ):
         """Initialize ByteTrack tracker via supervision library."""

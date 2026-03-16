@@ -166,7 +166,10 @@ class TestPipelineInit:
         assert p.vehicle_count == 0
         assert p.pedestrian_count == 0
         assert p.error_count == 0
-        assert p.turn_counts == {"through": 0, "left": 0, "right": 0, "uturn": 0}
+        assert p.turn_counts == {
+            1: {"through": 0, "left": 0, "right": 0, "uturn": 0},
+            2: {"through": 0, "left": 0, "right": 0, "uturn": 0},
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -479,11 +482,12 @@ class TestTurnCounts:
         assert len(events) == 1
         movement = events[0]["movement"]
 
-        # Exactly one turn type should have been incremented
-        total = sum(p.turn_counts.values())
+        # Exactly one turn type should have been incremented in leg 1
+        leg_counts = p.turn_counts[1]
+        total = sum(leg_counts.values())
         assert total == 1
-        if movement in p.turn_counts:
-            assert p.turn_counts[movement] == 1
+        if movement in leg_counts:
+            assert leg_counts[movement] == 1
 
     def test_turn_counts_in_callback(self, pipeline_env):
         """turn_counts key appears in the progress callback payload."""
@@ -512,7 +516,14 @@ class TestTurnCounts:
         for payload in payloads:
             assert "turn_counts" in payload
             tc = payload["turn_counts"]
-            assert set(tc.keys()) == {"through", "left", "right", "uturn"}
+            # Keys are stringified leg IDs
+            assert "1" in tc
+            assert "2" in tc
+            for leg_id, leg_data in tc.items():
+                assert "label" in leg_data
+                assert "cardinal" in leg_data
+                assert "counts" in leg_data
+                assert set(leg_data["counts"].keys()) == {"through", "left", "right", "uturn"}
 
 
 class TestPipelineEdgeCases:

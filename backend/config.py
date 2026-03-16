@@ -34,6 +34,11 @@ TRAJECTORY_UTURN_MIN_ANGLE = 135
 TRAJECTORY_MIN_POINTS = 5
 TRAJECTORY_MIN_DISTANCE_PX = 50
 
+# Tracker tuning
+TRACKER_LOST_BUFFER = 150            # frames before dropping track (5s at 30fps)
+TRACKER_MATCH_THRESHOLD = 0.7        # IoU matching (was 0.8 — too aggressive)
+TRACKER_ACTIVATION_THRESHOLD = 0.25  # unchanged
+
 # Origin assignment
 ORIGIN_ASSIGN_MIN_FRAMES = 5   # trajectory points needed before assigning origin
 

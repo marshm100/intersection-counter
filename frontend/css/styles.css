@@ -187,6 +187,55 @@ header h1 { font-size: 24px; }
     font-size: 0.82em;
 }
 
+/* Per-leg turn count cards */
+.leg-counts-grid { display: flex; gap: 12px; flex-wrap: wrap; width: 100%; margin-top: 12px; }
+.leg-counts-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 14px; min-width: 130px; }
+.leg-counts-title { font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.leg-counts-row { display: flex; gap: 12px; }
+.lc-item { display: flex; align-items: baseline; gap: 3px; font-size: 18px; font-weight: 600; color: #111; }
+.lc-label { font-size: 11px; font-weight: 500; color: #6b7280; }
+
+/* Review panel */
+.review-panel {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+.review-panel h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #444;
+}
+.review-controls {
+    margin-top: 8px;
+}
+.review-slider {
+    width: 100%;
+    cursor: pointer;
+    accent-color: #2563eb;
+}
+.review-time-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+}
+.review-time {
+    font-size: 13px;
+    font-family: monospace;
+    color: #374151;
+}
+.review-toggle-label {
+    font-size: 13px;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
 .calib-scrubber-row {
     display: flex;
     align-items: center;

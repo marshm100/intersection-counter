@@ -1,6 +1,7 @@
 """Processing router — start, pause, resume, cancel, and status for the AI pipeline."""
 
 import asyncio
+import json
 import logging
 import queue
 import threading
@@ -46,13 +47,35 @@ def _preview_worker(project_id: str, q: queue.Queue) -> None:
         item = q.get()
         if item is None:   # sentinel → exit
             break
-        raw_frame, tracks, origin_zones, legs = item
+        # Drain queue — keep only the latest frame
+        while True:
+            try:
+                newer = q.get_nowait()
+                if newer is None:
+                    item = None
+                    break
+                item = newer
+            except queue.Empty:
+                break
+        if item is None:
+            break
+        raw_frame, tracks, origin_zones, legs, active_traj, finalized_traj = item
         try:
-            jpeg = render_frame_preview(raw_frame, tracks, origin_zones, legs)
-            with _state_lock:
-                _preview_frames[project_id] = jpeg
-        except Exception:
-            pass
+            jpeg = render_frame_preview(
+                raw_frame, tracks, origin_zones, legs,
+                active_trajectories=active_traj,
+                finalized_trajectories=finalized_traj,
+            )
+        except Exception as e:
+            logger.warning("Preview annotation error: %s", e)
+            # Fallback: encode raw frame without annotations
+            try:
+                _, buf = cv2.imencode(".jpg", raw_frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                jpeg = buf.tobytes()
+            except Exception:
+                continue
+        with _state_lock:
+            _preview_frames[project_id] = jpeg
 
 
 def _time_str_to_seconds(t: str) -> int | None:
@@ -61,7 +84,10 @@ def _time_str_to_seconds(t: str) -> int | None:
         parts = t.strip().split(":")
         if len(parts) != 2:
             return None
-        return int(parts[0]) * 3600 + int(parts[1]) * 60
+        h, m = int(parts[0]), int(parts[1])
+        if h < 0 or h > 23 or m < 0 or m > 59:
+            return None
+        return h * 3600 + m * 60
     except (ValueError, AttributeError):
         return None
 
@@ -85,9 +111,15 @@ def _load_prerequisites(project_id: str) -> dict:
     conn = get_connection(project_id)
     try:
         conn.row_factory = __import__("sqlite3").Row
-        legs = [dict(row) for row in conn.execute(
+        legs_raw = [dict(row) for row in conn.execute(
             "SELECT * FROM legs ORDER BY sort_order"
         ).fetchall()]
+        legs = []
+        for leg in legs_raw:
+            oz = leg.get("origin_zone")
+            if isinstance(oz, str):
+                leg["origin_zone"] = json.loads(oz)
+            legs.append(leg)
     finally:
         conn.close()
 
@@ -96,6 +128,7 @@ def _load_prerequisites(project_id: str) -> dict:
 
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     cap.release()
 
     return {
@@ -103,6 +136,7 @@ def _load_prerequisites(project_id: str) -> dict:
         "video_start_time": info.get("video_start_time"),
         "legs": legs,
         "fps": fps,
+        "total_frames": total_frames,
     }
 
 
@@ -112,13 +146,18 @@ def _make_progress_callback(project_id: str, legs: list[dict]) -> Callable:
         raw_frame = data.pop("raw_frame", None)
         tracks = data.pop("tracks", None)
         origin_zones = data.pop("origin_zones", None)
+        active_trajectories = data.pop("active_trajectories", None)
+        finalized_trajectories = data.pop("finalized_trajectories", None)
         with _state_lock:
             _progress[project_id] = data
         if raw_frame is not None:
             q = _preview_queues.get(project_id)
             if q is not None:
                 try:
-                    q.put_nowait((raw_frame, tracks or [], origin_zones or [], legs))
+                    q.put_nowait((
+                        raw_frame, tracks or [], origin_zones or [], legs,
+                        active_trajectories or {}, finalized_trajectories or [],
+                    ))
                 except queue.Full:
                     pass   # preview thread is behind — drop frame, that's fine
     return callback
@@ -178,14 +217,14 @@ def start_processing(project_id: str, req: StartProcessingRequest = StartProcess
             # Stale entry (thread dead or missing) — clean up and allow restart
             _pipelines.pop(project_id, None)
             _threads.pop(project_id, None)
+            set_project_info(project_id, "status", "idle")
 
     prereqs = _load_prerequisites(project_id)
     db_path = str(get_db_path(project_id))
     fps = prereqs["fps"]
     if fps <= 0:
         raise HTTPException(status_code=422, detail="Video has invalid FPS (0 or negative). The file may be corrupt.")
-    info = get_all_project_info(project_id)
-    total_frames = int(info.get("video_total_frames", 0))
+    total_frames = prereqs["total_frames"]
 
     # Convert HH:MM time strings to frame numbers
     start_frame = 0
@@ -197,7 +236,8 @@ def start_processing(project_id: str, req: StartProcessingRequest = StartProcess
                 detail=f"Invalid count_start_time '{req.count_start_time}'. Expected HH:MM format."
             )
         start_frame = int(secs * fps)
-        start_frame = max(0, min(start_frame, total_frames))
+        if total_frames > 0:
+            start_frame = max(0, min(start_frame, total_frames))
 
     end_frame = None
     if req.count_end_time:
@@ -208,7 +248,11 @@ def start_processing(project_id: str, req: StartProcessingRequest = StartProcess
                 detail=f"Invalid count_end_time '{req.count_end_time}'. Expected HH:MM format."
             )
         end_frame = int(secs * fps)
-        end_frame = max(start_frame + 1, min(end_frame, total_frames))
+        if total_frames > 0:
+            end_frame = max(start_frame + 1, min(end_frame, total_frames))
+
+    if end_frame is not None and end_frame <= start_frame:
+        raise HTTPException(status_code=422, detail="End time must be after start time.")
 
     # Persist window so resume can reuse it
     set_project_info(project_id, "count_start_time", req.count_start_time or "")
@@ -226,7 +270,7 @@ def start_processing(project_id: str, req: StartProcessingRequest = StartProcess
     )
 
     placeholder = _make_placeholder_jpeg()
-    preview_q: queue.Queue = queue.Queue(maxsize=1)
+    preview_q: queue.Queue = queue.Queue(maxsize=2)
     with _state_lock:
         _pipelines[project_id] = pipeline
         _preview_frames[project_id] = placeholder
@@ -271,7 +315,12 @@ def resume_processing(project_id: str):
 
     with _state_lock:
         if project_id in _pipelines:
-            raise HTTPException(status_code=409, detail="Processing already running.")
+            thread = _threads.get(project_id)
+            if thread is not None and thread.is_alive():
+                raise HTTPException(status_code=409, detail="Processing already running.")
+            # Stale entry (thread dead or missing) — clean up and allow restart
+            _pipelines.pop(project_id, None)
+            _threads.pop(project_id, None)
 
     prereqs = _load_prerequisites(project_id)
 
@@ -292,7 +341,7 @@ def resume_processing(project_id: str):
     end_frame = int(end_frame_str) if end_frame_str else None
 
     placeholder = _make_placeholder_jpeg()
-    preview_q: queue.Queue = queue.Queue(maxsize=1)
+    preview_q: queue.Queue = queue.Queue(maxsize=2)
     with _state_lock:
         _pipelines[project_id] = pipeline
         _preview_frames[project_id] = placeholder
@@ -355,6 +404,11 @@ def processing_status(project_id: str):
 
     has_checkpoint = CheckpointManager(db_path).has_checkpoint()
 
+    # Auto-heal: DB says "processing" but no pipeline is running → crashed
+    if status == "processing" and not is_running:
+        status = "error"
+        set_project_info(project_id, "status", "error")
+
     return {
         "status": status,
         "is_running": is_running,
@@ -406,6 +460,84 @@ def processing_preview_frame(project_id: str):
         jpeg = _preview_frames.get(project_id)
     if jpeg is None:
         raise HTTPException(status_code=404, detail="No preview available yet.")
+    return Response(
+        content=jpeg,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store, no-cache"},
+    )
+
+
+@router.get("/projects/{project_id}/review-frame")
+def review_frame(project_id: str, frame: int = 0, show_trajectories: bool = True):
+    """Return a JPEG of a specific video frame with optional trajectory overlays."""
+    import sqlite3 as _sqlite3
+
+    info = get_all_project_info(project_id)
+    video_path = info.get("video_path")
+    if not video_path:
+        raise HTTPException(status_code=400, detail="No video path configured.")
+
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise HTTPException(status_code=500, detail="Cannot open video file.")
+
+    try:
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        frame_num = max(0, min(frame, total_frames - 1))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
+        ret, img = cap.read()
+        if not ret or img is None:
+            raise HTTPException(status_code=500, detail="Could not read frame.")
+    finally:
+        cap.release()
+
+    # Load legs and origin zones from DB
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = _sqlite3.Row
+        legs_raw = [dict(row) for row in conn.execute(
+            "SELECT * FROM legs ORDER BY sort_order"
+        ).fetchall()]
+        legs = []
+        origin_zones = []
+        for leg in legs_raw:
+            oz = leg.get("origin_zone")
+            if isinstance(oz, str):
+                leg["origin_zone"] = json.loads(oz)
+            legs.append(leg)
+            origin_zones.append(leg.get("origin_zone", []))
+
+        finalized_trajectories = []
+        if show_trajectories:
+            rows = conn.execute(
+                """SELECT trajectory_data, movement, origin_leg_id, start_frame, frame_number
+                   FROM vehicle_events
+                   WHERE start_frame IS NOT NULL
+                     AND start_frame <= ? AND frame_number >= ?""",
+                (frame_num, frame_num),
+            ).fetchall()
+            for row in rows:
+                traj = json.loads(row["trajectory_data"])
+                total_pts = len(traj)
+                duration = row["frame_number"] - row["start_frame"]
+                if duration > 0 and total_pts > 1:
+                    progress = (frame_num - row["start_frame"]) / duration
+                    pts_to_show = max(2, int(total_pts * min(1.0, progress)))
+                    visible_traj = traj[:pts_to_show]
+                else:
+                    visible_traj = traj
+                finalized_trajectories.append({
+                    "trajectory": visible_traj,
+                    "movement": row["movement"],
+                    "origin_leg_id": row["origin_leg_id"],
+                })
+    finally:
+        conn.close()
+
+    jpeg = render_frame_preview(
+        img, [], origin_zones, legs,
+        finalized_trajectories=finalized_trajectories if show_trajectories else None,
+    )
     return Response(
         content=jpeg,
         media_type="image/jpeg",

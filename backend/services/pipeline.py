@@ -8,6 +8,7 @@ import json
 import logging
 import math
 import pickle
+import sqlite3
 import threading
 import time
 from datetime import datetime, timedelta
@@ -56,11 +57,17 @@ class ProcessingPipeline:
         # Latest tracked detections for frame preview
         self._latest_tracks: list[dict] = []
 
+        # Recently finalized vehicles for trajectory visualization
+        self._recently_finalized: list[dict] = []
+
         # Counters
         self.vehicle_count = 0
         self.pedestrian_count = 0
         self.error_count = 0
-        self.turn_counts: dict[str, int] = {"through": 0, "left": 0, "right": 0, "uturn": 0}
+        self.turn_counts: dict[int, dict[str, int]] = {
+            leg["leg_id"]: {"through": 0, "left": 0, "right": 0, "uturn": 0}
+            for leg in self.legs
+        }
         self.n_tracks_total: int = 0
         self.n_crossed_enter: int = 0    # vehicles assigned to a node
         self.n_crossed_exit: int = 0     # no node matched (diff > 90°)
@@ -175,7 +182,14 @@ class ProcessingPipeline:
                             "fps_processing": fps_proc,
                             "error_count": self.error_count,
                             "eta_seconds": eta,
-                            "turn_counts": dict(self.turn_counts),
+                            "turn_counts": {
+                                str(leg["leg_id"]): {
+                                    "label": leg["label"],
+                                    "cardinal": leg.get("cardinal_direction", ""),
+                                    "counts": dict(self.turn_counts[leg["leg_id"]])
+                                }
+                                for leg in self.legs
+                            },
                             "n_tracks_total": self.n_tracks_total,
                             "n_crossed_enter": self.n_crossed_enter,
                             "n_crossed_exit": self.n_crossed_exit,
@@ -183,6 +197,18 @@ class ProcessingPipeline:
                             "raw_frame": frame.copy(),
                             "tracks": list(self._latest_tracks),
                             "origin_zones": origin_zones,
+                            "active_trajectories": {
+                                tid: {
+                                    "trajectory": v["trajectory"],
+                                    "origin_leg_id": v["origin_leg_id"],
+                                }
+                                for tid, v in self.active_vehicles.items()
+                                if len(v["trajectory"]) >= 2
+                            },
+                            "finalized_trajectories": [
+                                f for f in self._recently_finalized
+                                if frame_number - f["finalized_frame"] < 60
+                            ],
                         })
 
                 frame_number += 1
@@ -220,6 +246,7 @@ class ProcessingPipeline:
                 "origin_leg_id": None,
                 "reference_heading": None,
                 "origin_frame": None,
+                "start_frame": frame_number,
                 "trajectory": [],
                 "confidences": [],
                 "class_id": detection["class_id"],
@@ -324,8 +351,11 @@ class ProcessingPipeline:
                 pass
 
         movement = classification["movement"]
-        if movement in self.turn_counts:
-            self.turn_counts[movement] += 1
+        origin_leg_id = vehicle["origin_leg_id"]
+        if origin_leg_id in self.turn_counts:
+            leg_counts = self.turn_counts[origin_leg_id]
+            if movement in leg_counts:
+                leg_counts[movement] += 1
 
         self._write_vehicle_event(
             track_id=track_id,
@@ -339,9 +369,20 @@ class ProcessingPipeline:
             timestamp_video=timestamp_video,
             timestamp_real=timestamp_real,
             frame_number=frame_number,
+            start_frame=vehicle.get("start_frame", 0),
         )
 
         self.vehicle_count += 1
+
+        # Buffer for trajectory visualization
+        self._recently_finalized.append({
+            "trajectory": trajectory,
+            "movement": movement,
+            "origin_leg_id": origin_leg_id,
+            "finalized_frame": frame_number,
+        })
+        if len(self._recently_finalized) > 20:
+            self._recently_finalized = self._recently_finalized[-20:]
 
     def _finalize_all_active(self, frame_number: int):
         """Finalize all remaining active vehicles (end of video or pause)."""
@@ -351,8 +392,6 @@ class ProcessingPipeline:
     # -- Database writes ---------------------------------------------------
 
     def _write_vehicle_event(self, **kwargs):
-        import sqlite3
-
         conn = sqlite3.connect(self.db_path)
         conn.execute("PRAGMA journal_mode=WAL")
         try:
@@ -361,8 +400,8 @@ class ProcessingPipeline:
                    (vehicle_track_id, origin_leg_id, movement, trajectory_data,
                     trajectory_confidence, vehicle_class, fhwa_class,
                     detection_confidence, timestamp_video, timestamp_real,
-                    frame_number)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    frame_number, start_frame)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     kwargs["track_id"],
                     kwargs["origin_leg_id"],
@@ -375,6 +414,7 @@ class ProcessingPipeline:
                     kwargs["timestamp_video"],
                     kwargs["timestamp_real"],
                     kwargs["frame_number"],
+                    kwargs.get("start_frame", 0),
                 ),
             )
             conn.commit()
@@ -413,7 +453,7 @@ class ProcessingPipeline:
         self.pedestrian_count = checkpoint["pedestrian_count"]
         self.error_count = checkpoint["error_count"]
 
-        if checkpoint["tracker_state"] and self._tracker is not None:
+        if checkpoint["tracker_state"]:
             try:
                 self.tracker.load_state(checkpoint["tracker_state"])
             except Exception as e:
@@ -430,4 +470,11 @@ class ProcessingPipeline:
 
         overlap_frames = int(60 * self.fps)
         start_frame = max(0, checkpoint["frame_number"] - overlap_frames)
+
+        # Delete events in the overlap region to prevent duplicates on resume
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("DELETE FROM vehicle_events WHERE frame_number >= ?", (start_frame,))
+        conn.commit()
+        conn.close()
+
         return start_frame
