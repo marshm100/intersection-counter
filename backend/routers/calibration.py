@@ -81,4 +81,20 @@ def save_calibration(project_id: str, body: CalibrationSaveRequest):
             "origin_zone": json.loads(row[4]) if row[4] else None,
             "reference_heading": row[5],
         })
-    return {"legs": saved}
+
+    # Warn if all reference headings are suspiciously close
+    warnings = []
+    headings = [l["reference_heading"] for l in saved if l["reference_heading"] is not None]
+    if len(headings) >= 2:
+        max_spread = max(
+            abs((h1 - h2 + 180) % 360 - 180)
+            for i, h1 in enumerate(headings)
+            for h2 in headings[i + 1:]
+        )
+        if max_spread < 30:
+            warnings.append(
+                "All reference headings are within 30° of each other. "
+                "This likely means all vehicles will be assigned to the same leg."
+            )
+
+    return {"legs": saved, "warnings": warnings}

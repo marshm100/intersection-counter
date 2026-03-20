@@ -107,6 +107,16 @@ function _renderProcessingPage(section, data) {
         html += `<input type="time" id="proc-end-time" value="${savedEnd}" />`;
         html += '<span class="count-window-hint">(HH:MM offset from video start)</span>';
         html += '</div>';
+        html += '<div class="count-window-row">';
+        html += '<span class="count-window-label">Frame Skip</span>';
+        html += `<select id="proc-frame-skip">
+            <option value="1">1 (every frame)</option>
+            <option value="2">2 (every 2nd)</option>
+            <option value="3" selected>3 (every 3rd)</option>
+            <option value="5">5 (every 5th)</option>
+        </select>`;
+        html += '<span class="count-window-hint">(higher = faster but less precise)</span>';
+        html += '</div>';
     }
 
     // Action buttons
@@ -291,7 +301,7 @@ async function _fetchPreviewFrame(pid) {
         const url = URL.createObjectURL(blob);
         const old = img.src;
         img.src = url;
-        if (old.startsWith('blob:')) URL.revokeObjectURL(old);
+        if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
     } catch (_) {}
 }
 
@@ -330,13 +340,21 @@ async function _pollStatus() {
     if (status !== 'processing') {
         _stopPolling();
         _stopPreviewPolling();
-        // Re-render buttons for new state
-        const section = document.getElementById('page-processing');
-        if (section) {
-            _renderProcessingPage(section, data);
+        // Update action buttons in-place to avoid full DOM churn
+        const actionsDiv = document.querySelector('.processing-actions');
+        if (actionsDiv) {
+            let btns = '';
             if (status === 'paused') {
+                btns = `<button class="btn-proc btn-resume" onclick="resumeProcessing()">Resume</button>
+                        <button class="btn-proc btn-cancel" onclick="cancelProcessing()">Cancel</button>`;
                 _startPreviewPolling(AppState.currentProject);
+            } else if (status === 'complete') {
+                btns = `<button class="btn-proc btn-start" onclick="showPage('page-dashboard'); loadDashboardPage()">View Results</button>
+                        <button class="btn-proc btn-resume" onclick="startProcessing()">Re-process</button>`;
+            } else if (status === 'error') {
+                btns = `<button class="btn-proc btn-start" onclick="startProcessing()">Start Processing</button>`;
             }
+            actionsDiv.innerHTML = btns;
         }
     }
 }
@@ -345,10 +363,13 @@ async function startProcessing() {
     const pid = AppState.currentProject;
     const startTime = document.getElementById('proc-start-time')?.value || null;
     const endTime   = document.getElementById('proc-end-time')?.value   || null;
+    const frameSkipEl = document.getElementById('proc-frame-skip');
+    const frameSkip = frameSkipEl ? parseInt(frameSkipEl.value, 10) : null;
     try {
         await API.post(`/api/projects/${pid}/processing/start`, {
             count_start_time: startTime || null,
             count_end_time:   endTime   || null,
+            frame_skip: frameSkip,
         });
     } catch (e) {
         alert('Failed to start processing: ' + (e.message || e));

@@ -163,7 +163,8 @@ def _make_progress_callback(project_id: str, legs: list[dict]) -> Callable:
     return callback
 
 
-def _run_pipeline(project_id: str, start_frame: int = 0, end_frame: int | None = None):
+def _run_pipeline(project_id: str, start_frame: int = 0, end_frame: int | None = None,
+                   frame_skip: int = DEFAULT_FRAME_SKIP):
     """Thread target: run the pipeline, update status on finish."""
     try:
         with _state_lock:
@@ -173,7 +174,7 @@ def _run_pipeline(project_id: str, start_frame: int = 0, end_frame: int | None =
 
         callback = _make_progress_callback(project_id, pipeline.legs)
         pipeline.process_video(
-            frame_skip=DEFAULT_FRAME_SKIP,
+            frame_skip=frame_skip,
             start_frame=start_frame,
             end_frame=end_frame,
             callback=callback,
@@ -205,6 +206,7 @@ def _run_pipeline(project_id: str, start_frame: int = 0, end_frame: int | None =
 class StartProcessingRequest(BaseModel):
     count_start_time: str | None = None  # "HH:MM" offset from video start; None = 00:00
     count_end_time:   str | None = None  # "HH:MM" offset from video start; None = end of video
+    frame_skip: int | None = None        # 1-5; None = use DEFAULT_FRAME_SKIP
 
 
 @router.post("/projects/{project_id}/processing/start")
@@ -254,9 +256,13 @@ def start_processing(project_id: str, req: StartProcessingRequest = StartProcess
     if end_frame is not None and end_frame <= start_frame:
         raise HTTPException(status_code=422, detail="End time must be after start time.")
 
+    # Resolve frame_skip
+    frame_skip = req.frame_skip if req.frame_skip and 1 <= req.frame_skip <= 5 else DEFAULT_FRAME_SKIP
+
     # Persist window so resume can reuse it
     set_project_info(project_id, "count_start_time", req.count_start_time or "")
     set_project_info(project_id, "count_end_time",   req.count_end_time   or "")
+    set_project_info(project_id, "frame_skip", str(frame_skip))
     set_project_info(project_id, "count_start_frame", str(start_frame))
     set_project_info(project_id, "count_end_frame",   str(end_frame) if end_frame is not None else "")
 
@@ -283,7 +289,7 @@ def start_processing(project_id: str, req: StartProcessingRequest = StartProcess
     ).start()
 
     thread = threading.Thread(
-        target=_run_pipeline, args=(project_id, start_frame, end_frame), daemon=True
+        target=_run_pipeline, args=(project_id, start_frame, end_frame, frame_skip), daemon=True
     )
     with _state_lock:
         _threads[project_id] = thread
@@ -335,10 +341,12 @@ def resume_processing(project_id: str):
 
     start_frame = pipeline.resume_from_checkpoint()
 
-    # Restore the original count window end frame
+    # Restore the original count window end frame and frame_skip
     info = get_all_project_info(project_id)
     end_frame_str = info.get("count_end_frame", "")
     end_frame = int(end_frame_str) if end_frame_str else None
+    frame_skip_str = info.get("frame_skip", "")
+    frame_skip = int(frame_skip_str) if frame_skip_str else DEFAULT_FRAME_SKIP
 
     placeholder = _make_placeholder_jpeg()
     preview_q: queue.Queue = queue.Queue(maxsize=2)
@@ -354,7 +362,7 @@ def resume_processing(project_id: str):
     ).start()
 
     thread = threading.Thread(
-        target=_run_pipeline, args=(project_id, start_frame, end_frame), daemon=True
+        target=_run_pipeline, args=(project_id, start_frame, end_frame, frame_skip), daemon=True
     )
     with _state_lock:
         _threads[project_id] = thread

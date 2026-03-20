@@ -5,6 +5,7 @@ movement as through, left turn, right turn, or U-turn based on the net
 heading change between entry and exit.
 """
 
+import logging
 import math
 
 from backend.config import (
@@ -14,6 +15,8 @@ from backend.config import (
     TRAJECTORY_TURN_MIN_ANGLE,
     TRAJECTORY_UTURN_MIN_ANGLE,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def compute_heading(p1: tuple, p2: tuple) -> float:
@@ -186,6 +189,13 @@ def classify_trajectory(
             movement = "right"
 
     confidence = _compute_confidence(net_change)
+
+    logger.debug(
+        "classify: movement=%s net_heading=%.1f straightness=%.2f "
+        "curvature=%.1f dist=%.1f pts=%d ref_heading=%.1f",
+        movement, net_change, straightness, curvature,
+        path_dist, num_points, reference_heading,
+    )
 
     return {
         "movement": movement,

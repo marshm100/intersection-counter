@@ -74,6 +74,18 @@ async function loadReviewPage(page = 1) {
     }
 
     section.innerHTML = html;
+
+    // Delegate edit button clicks to avoid inline onclick with user data
+    section.addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-review-edit');
+        if (btn) {
+            _startEdit(
+                parseInt(btn.dataset.eventId, 10),
+                btn.dataset.movement,
+                btn.dataset.vehicleClass,
+            );
+        }
+    });
 }
 
 function _buildLegOptions(events) {
@@ -97,7 +109,10 @@ function _reviewRow(ev) {
         <td${trajClass}>${(ev.trajectory_confidence * 100).toFixed(0)}%</td>
         <td>${ev.timestamp_video != null ? ev.timestamp_video.toFixed(1) + 's' : '—'}</td>
         <td id="rv-edited-${ev.event_id}">${ev.manually_edited ? '✓' : ''}</td>
-        <td><button class="btn-edit" onclick="_startEdit(${ev.event_id}, '${_escR(ev.movement)}', '${_escR(ev.vehicle_class)}')">Edit</button></td>
+        <td><button class="btn-edit btn-review-edit"
+            data-event-id="${ev.event_id}"
+            data-movement="${_escR(ev.movement)}"
+            data-vehicle-class="${_escR(ev.vehicle_class)}">Edit</button></td>
     </tr>`;
 }
 
@@ -120,7 +135,9 @@ function _startEdit(eventId, movement, vehicleClass) {
         <option value="unknown"${vehicleClass==='unknown'?' selected':''}>Unknown</option>
     </select>`;
     actCell.innerHTML = `<button class="btn-save" onclick="_saveEdit(${eventId})">Save</button>
-        <button class="btn-cancel-edit" onclick="_cancelEdit(${eventId}, '${movement}', '${vehicleClass}')">Cancel</button>`;
+        <button class="btn-cancel-edit" data-event-id="${eventId}"
+            data-movement="${_escR(movement)}" data-vehicle-class="${_escR(vehicleClass)}"
+            onclick="var b=this; _cancelEdit(parseInt(b.dataset.eventId),b.dataset.movement,b.dataset.vehicleClass)">Cancel</button>`;
 }
 
 async function _saveEdit(eventId) {
@@ -148,7 +165,10 @@ function _cancelEdit(eventId, movement, vehicleClass) {
     document.getElementById(`rv-mov-${eventId}`).textContent = movement;
     document.getElementById(`rv-cls-${eventId}`).textContent = vehicleClass;
     const row = document.getElementById(`review-row-${eventId}`);
-    row.querySelector('td:last-child').innerHTML = `<button class="btn-edit" onclick="_startEdit(${eventId}, '${movement}', '${vehicleClass}')">Edit</button>`;
+    row.querySelector('td:last-child').innerHTML = `<button class="btn-edit btn-review-edit"
+        data-event-id="${eventId}"
+        data-movement="${_escR(movement)}"
+        data-vehicle-class="${_escR(vehicleClass)}">Edit</button>`;
 }
 
 function _escR(str) {

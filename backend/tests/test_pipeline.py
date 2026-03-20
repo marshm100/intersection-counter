@@ -598,3 +598,248 @@ class TestPipelineEdgeCases:
         p.process_video(frame_skip=1)
 
         assert _count_vehicle_events(pipeline_env["db_path"]) == 0
+
+
+# ---------------------------------------------------------------------------
+# TestTrackStitching
+# ---------------------------------------------------------------------------
+
+class TestTrackStitching:
+    def test_stitch_merges_fragmented_track(self, pipeline_env):
+        """Vehicle tracked as id=1 for 10 frames, lost, reappears as id=2 nearby → stitched."""
+        p = _make_pipeline(pipeline_env)
+
+        # Phase 1: track_id=1, moving north (y decreasing)
+        # Phase 2: track_id=2, same vehicle continuing north after a gap
+        all_dets = []
+        # Frames 0-9: track 1, y: 850 → 490
+        for i in range(10):
+            y = 850 - i * 40
+            all_dets.append(([_make_detection(500, y)], 1))
+        # Frames 10-12: vehicle lost (no detections for track 1)
+        for _ in range(3):
+            all_dets.append(([], None))
+        # Frames 13-22: track 2 appears at roughly where track 1 left off
+        for i in range(10):
+            y = 490 - 40 - (i * 40)  # continues from where track 1 left off
+            all_dets.append(([_make_detection(500, y)], 2))
+        # Pad to 30 frames
+        while len(all_dets) < 30:
+            all_dets.append(([], None))
+
+        frame_idx = [0]
+        p._preprocessor = MagicMock()
+        p._preprocessor.preprocess = MagicMock(side_effect=lambda f: f)
+
+        p._detector = MagicMock()
+        def mock_detect(frame):
+            idx = frame_idx[0]
+            frame_idx[0] += 1
+            return all_dets[idx][0] if idx < len(all_dets) else []
+        p._detector.detect = mock_detect
+
+        p._tracker = MagicMock()
+        def mock_update(dets, fn):
+            idx = frame_idx[0] - 1  # detect already incremented
+            if idx < len(all_dets) and all_dets[idx][1] is not None:
+                return [{**d, "track_id": all_dets[idx][1]} for d in dets]
+            return []
+        p._tracker.update = mock_update
+        p._tracker.get_state = MagicMock(return_value=b"")
+
+        p.process_video(frame_skip=1)
+
+        # Should be stitched: only 1 track total (not 2)
+        assert p.n_tracks_total == 1
+        # Should produce 1 event (the merged track)
+        assert _count_vehicle_events(pipeline_env["db_path"]) >= 1
+
+    def test_stitch_rejects_distant_track(self, pipeline_env):
+        """New track too far away → not stitched, counted as separate."""
+        p = _make_pipeline(pipeline_env)
+
+        all_dets = []
+        # Track 1: 10 frames moving north at x=100
+        for i in range(10):
+            all_dets.append(([_make_detection(100, 850 - i * 40)], 1))
+        # 3-frame gap
+        for _ in range(3):
+            all_dets.append(([], None))
+        # Track 2: appears at x=500 (too far from x=100)
+        for i in range(10):
+            all_dets.append(([_make_detection(500, 850 - i * 40)], 2))
+        while len(all_dets) < 30:
+            all_dets.append(([], None))
+
+        frame_idx = [0]
+        p._preprocessor = MagicMock()
+        p._preprocessor.preprocess = MagicMock(side_effect=lambda f: f)
+
+        p._detector = MagicMock()
+        def mock_detect(frame):
+            idx = frame_idx[0]
+            frame_idx[0] += 1
+            return all_dets[idx][0] if idx < len(all_dets) else []
+        p._detector.detect = mock_detect
+
+        p._tracker = MagicMock()
+        def mock_update(dets, fn):
+            idx = frame_idx[0] - 1
+            if idx < len(all_dets) and all_dets[idx][1] is not None:
+                return [{**d, "track_id": all_dets[idx][1]} for d in dets]
+            return []
+        p._tracker.update = mock_update
+        p._tracker.get_state = MagicMock(return_value=b"")
+
+        p.process_video(frame_skip=1)
+        # Should NOT be stitched: 2 separate tracks
+        assert p.n_tracks_total == 2
+
+    def test_lost_buffer_drains_on_finalize_all(self, pipeline_env):
+        """_finalize_all_active drains both active_vehicles and _recently_lost."""
+        p = _make_pipeline(pipeline_env)
+        p._recently_lost[10] = {
+            "vehicle": {
+                "origin_leg_id": 1,
+                "reference_heading": 0.0,
+                "origin_frame": 5,
+                "origin_attempt_failed": False,
+                "start_frame": 0,
+                "trajectory": [(500, 780 - i * 20) for i in range(20)],
+                "confidences": [0.9] * 20,
+                "class_id": 2,
+                "class_name": "car",
+                "bbox_width": 100.0,
+                "bbox_height": 60.0,
+                "bbox_area": 6000.0,
+            },
+            "lost_frame": 100,
+            "last_center": (500, 400),
+            "exit_heading": 0.0,
+        }
+        p._finalize_all_active(frame_number=200)
+        assert len(p._recently_lost) == 0
+        assert _count_vehicle_events(pipeline_env["db_path"]) >= 1
+
+
+# ---------------------------------------------------------------------------
+# TestOriginCounterFix
+# ---------------------------------------------------------------------------
+
+class TestOriginCounterFix:
+    def test_n_crossed_exit_not_inflated(self, pipeline_env):
+        """n_crossed_exit increments only once per vehicle, not on every re-attempt."""
+        p = _make_pipeline(pipeline_env)
+
+        # Vehicle moving east-to-west — heading ~270° which won't match NB(0) or EB(90)
+        # within 90°. So origin assignment will fail.
+        p.active_vehicles[42] = {
+            "origin_leg_id": None,
+            "reference_heading": None,
+            "origin_frame": None,
+            "origin_attempt_failed": False,
+            "start_frame": 0,
+            "trajectory": [],
+            "confidences": [],
+            "class_id": 2,
+            "class_name": "car",
+            "bbox_width": 100.0,
+            "bbox_height": 60.0,
+            "bbox_area": 6000.0,
+        }
+
+        # Simulate 30 points moving southwest (heading ~225°, doesn't match NB=0 or EB=90)
+        for i in range(30):
+            det = _make_detection(500 - i * 20, 400 + i * 20)
+            det["track_id"] = 42
+            p._process_vehicle(42, det, frame_number=i)
+
+        # Origin assignment runs at frames 5, 10, 15, 20, 25 — all fail.
+        # Without the fix, n_crossed_exit would be 5. With the fix, it's 1.
+        assert p.n_crossed_exit == 1
+
+
+# ---------------------------------------------------------------------------
+# TestProgressiveClassification
+# ---------------------------------------------------------------------------
+
+class TestProgressiveClassification:
+    def test_tentative_classification_set(self, pipeline_env):
+        """After enough trajectory points, tentative_classification is populated."""
+        p = _make_pipeline(pipeline_env)
+
+        # Vehicle going north with origin assigned
+        p.active_vehicles[7] = {
+            "origin_leg_id": 1,
+            "reference_heading": 0.0,
+            "origin_frame": 0,
+            "origin_attempt_failed": False,
+            "start_frame": 0,
+            "trajectory": [(500, 800 - i * 10) for i in range(9)],  # 9 points already
+            "confidences": [0.9] * 9,
+            "class_id": 2,
+            "class_name": "car",
+            "bbox_width": 100.0,
+            "bbox_height": 60.0,
+            "bbox_area": 6000.0,
+        }
+
+        # Add point 10 (triggers progressive at len % 10 == 0)
+        det = _make_detection(500, 800 - 9 * 10)
+        p._process_vehicle(7, det, frame_number=10)
+
+        vehicle = p.active_vehicles[7]
+        assert "tentative_classification" in vehicle
+        assert vehicle["tentative_classification"]["movement"] in (
+            "through", "left", "right", "uturn", "insufficient_data"
+        )
+
+    def test_tentative_in_callback_payload(self, pipeline_env):
+        """Active trajectories in callback include tentative_movement."""
+        p = _make_pipeline(pipeline_env)
+
+        # Set up vehicle with tentative classification
+        p.active_vehicles[7] = {
+            "origin_leg_id": 1,
+            "reference_heading": 0.0,
+            "origin_frame": 0,
+            "origin_attempt_failed": False,
+            "start_frame": 0,
+            "trajectory": [(500, 800 - i * 10) for i in range(20)],
+            "confidences": [0.9] * 20,
+            "tentative_classification": {"movement": "through", "confidence": 0.85},
+            "class_id": 2,
+            "class_name": "car",
+            "bbox_width": 100.0,
+            "bbox_height": 60.0,
+            "bbox_area": 6000.0,
+        }
+
+        # Build a minimal mock to trigger one callback
+        mock_dets = [[_make_detection(500, 600)]] + [[] for _ in range(29)]
+        frame_idx = [0]
+        p._preprocessor = MagicMock()
+        p._preprocessor.preprocess = MagicMock(side_effect=lambda f: f)
+        p._detector = MagicMock()
+        def mock_detect(frame):
+            idx = frame_idx[0]
+            frame_idx[0] += 1
+            return mock_dets[idx] if idx < len(mock_dets) else []
+        p._detector.detect = mock_detect
+        p._tracker = MagicMock()
+        p._tracker.update = lambda dets, fn: [{**d, "track_id": 7} for d in dets]
+        p._tracker.get_state = MagicMock(return_value=b"")
+
+        payloads = []
+        p.process_video(frame_skip=1, callback=lambda d: payloads.append(d))
+
+        # Find a payload where track 7 is in active_trajectories
+        found = False
+        for payload in payloads:
+            at = payload.get("active_trajectories", {})
+            if 7 in at:
+                assert "tentative_movement" in at[7]
+                assert "tentative_confidence" in at[7]
+                found = True
+                break
+        assert found, "Track 7 should appear in at least one callback's active_trajectories"

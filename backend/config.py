@@ -11,7 +11,7 @@ FRONTEND_DIR = APP_DIR / "frontend"
 PROJECTS_DIR = DATA_DIR / "projects"
 
 # Video processing
-DEFAULT_FRAME_SKIP = 1
+DEFAULT_FRAME_SKIP = 3
 DEFAULT_INTERVAL_MINUTES = 15
 MAX_PRESCAN_SECONDS = 600
 PRESCAN_CONFIDENCE_THRESHOLD = 0.90
@@ -28,16 +28,21 @@ PEDESTRIAN_CLASSES = {0: "person", 1: "bicycle"}
 
 # Trajectory classification thresholds (degrees)
 TRAJECTORY_THROUGH_MAX_ANGLE = 30
-TRAJECTORY_TURN_MIN_ANGLE = 45
+TRAJECTORY_TURN_MIN_ANGLE = 35
 TRAJECTORY_TURN_MAX_ANGLE = 135
 TRAJECTORY_UTURN_MIN_ANGLE = 135
-TRAJECTORY_MIN_POINTS = 5
-TRAJECTORY_MIN_DISTANCE_PX = 50
+TRAJECTORY_MIN_POINTS = 3
+TRAJECTORY_MIN_DISTANCE_PX = 30
 
 # Tracker tuning
 TRACKER_LOST_BUFFER = 150            # frames before dropping track (5s at 30fps)
-TRACKER_MATCH_THRESHOLD = 0.7        # IoU matching (was 0.8 — too aggressive)
+TRACKER_MATCH_THRESHOLD = 0.5        # IoU matching (was 0.7 — lowered to reduce fragmentation at frame_skip=3)
 TRACKER_ACTIVATION_THRESHOLD = 0.25  # unchanged
+
+# Track stitching — merge fragmented tracks across ByteTrack ID switches
+STITCH_MAX_GAP_FRAMES = 45       # max effective-frames gap to attempt stitching (~4.5s at frame_skip=3)
+STITCH_MAX_DISTANCE_PX = 150     # max px between lost endpoint and new startpoint
+STITCH_HEADING_TOLERANCE = 60    # max heading difference (degrees)
 
 # Origin assignment
 ORIGIN_ASSIGN_MIN_FRAMES = 5   # trajectory points needed before assigning origin

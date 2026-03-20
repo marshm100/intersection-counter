@@ -85,7 +85,13 @@ def render_frame_preview(
             traj = info.get("trajectory", [])
             if len(traj) < 2:
                 continue
-            color = TRACKING_COLOR_BGR if info.get("origin_leg_id") else UNASSIGNED_COLOR_BGR
+            tentative = info.get("tentative_movement")
+            if tentative and tentative != "insufficient_data":
+                color = MOVEMENT_COLORS_BGR.get(tentative, TRACKING_COLOR_BGR)
+            elif info.get("origin_leg_id"):
+                color = TRACKING_COLOR_BGR
+            else:
+                color = UNASSIGNED_COLOR_BGR
             pts = np.array(
                 [[int(p[0] * scale), int(p[1] * scale)] for p in traj],
                 dtype=np.int32,

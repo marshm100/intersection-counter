@@ -15,7 +15,13 @@ from datetime import datetime, timedelta
 
 import cv2
 
-from backend.config import CHECKPOINT_INTERVAL_SECONDS, ORIGIN_ASSIGN_MIN_FRAMES
+from backend.config import (
+    CHECKPOINT_INTERVAL_SECONDS,
+    ORIGIN_ASSIGN_MIN_FRAMES,
+    STITCH_MAX_DISTANCE_PX,
+    STITCH_MAX_GAP_FRAMES,
+    STITCH_HEADING_TOLERANCE,
+)
 from backend.services.checkpoint import CheckpointManager
 from backend.services.classifier import classify_vehicle
 from backend.services.detector import VehicleDetector
@@ -53,6 +59,9 @@ class ProcessingPipeline:
 
         # Tracking state: track_id → vehicle info dict
         self.active_vehicles: dict[int, dict] = {}
+
+        # Recently lost tracks awaiting possible stitching
+        self._recently_lost: dict[int, dict] = {}
 
         # Latest tracked detections for frame preview
         self._latest_tracks: list[dict] = []
@@ -201,6 +210,8 @@ class ProcessingPipeline:
                                 tid: {
                                     "trajectory": v["trajectory"],
                                     "origin_leg_id": v["origin_leg_id"],
+                                    "tentative_movement": v.get("tentative_classification", {}).get("movement"),
+                                    "tentative_confidence": v.get("tentative_classification", {}).get("confidence"),
                                 }
                                 for tid, v in self.active_vehicles.items()
                                 if len(v["trajectory"]) >= 2
@@ -236,16 +247,20 @@ class ProcessingPipeline:
 
         lost_ids = set(self.active_vehicles.keys()) - current_track_ids
         for track_id in lost_ids:
-            self._finalize_vehicle(track_id, frame_number)
+            self._move_to_lost_buffer(track_id, frame_number)
+        self._expire_lost_tracks(frame_number)
 
     def _process_vehicle(self, track_id: int, detection: dict, frame_number: int):
         center = tuple(detection["center"])
 
         if track_id not in self.active_vehicles:
+            if self._try_stitch(track_id, detection, frame_number):
+                return
             self.active_vehicles[track_id] = {
                 "origin_leg_id": None,
                 "reference_heading": None,
                 "origin_frame": None,
+                "origin_attempt_failed": False,
                 "start_frame": frame_number,
                 "trajectory": [],
                 "confidences": [],
@@ -265,8 +280,17 @@ class ProcessingPipeline:
         vehicle["bbox_area"] = detection["bbox_area"]
 
         if vehicle["origin_leg_id"] is None:
-            if len(vehicle["trajectory"]) >= ORIGIN_ASSIGN_MIN_FRAMES:
+            n_pts = len(vehicle["trajectory"])
+            if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES and n_pts % 5 == 0:
                 self._assign_origin(track_id, frame_number)
+
+        # Progressive classification
+        if (vehicle["origin_leg_id"] is not None
+                and len(vehicle["trajectory"]) >= 8
+                and len(vehicle["trajectory"]) % 10 == 0):
+            vehicle["tentative_classification"] = classify_trajectory(
+                vehicle["trajectory"], vehicle["reference_heading"]
+            )
 
     def _assign_origin(self, track_id: int, frame_number: int):
         vehicle = self.active_vehicles[track_id]
@@ -299,17 +323,109 @@ class ProcessingPipeline:
             vehicle["origin_frame"] = frame_number
             self.n_crossed_enter += 1
         else:
-            self.n_crossed_exit += 1
+            if not vehicle.get("origin_attempt_failed"):
+                self.n_crossed_exit += 1
+                vehicle["origin_attempt_failed"] = True
+
+    # -- Track stitching ---------------------------------------------------
+
+    def _move_to_lost_buffer(self, track_id: int, frame_number: int):
+        """Move an active vehicle to the recently-lost buffer for stitching."""
+        if track_id not in self.active_vehicles:
+            return
+        vehicle = self.active_vehicles.pop(track_id)
+        traj = vehicle["trajectory"]
+        exit_heading = None
+        if len(traj) >= 2:
+            tail = traj[-min(5, len(traj)):]
+            dx = tail[-1][0] - tail[0][0]
+            dy = tail[-1][1] - tail[0][1]
+            if dx != 0 or dy != 0:
+                exit_heading = math.degrees(math.atan2(dx, -dy)) % 360
+        self._recently_lost[track_id] = {
+            "vehicle": vehicle,
+            "lost_frame": frame_number,
+            "last_center": traj[-1] if traj else (0, 0),
+            "exit_heading": exit_heading,
+        }
+
+    def _expire_lost_tracks(self, frame_number: int):
+        """Finalize tracks that have been lost longer than the stitch window."""
+        expired = [
+            tid for tid, lost in self._recently_lost.items()
+            if frame_number - lost["lost_frame"] > STITCH_MAX_GAP_FRAMES
+        ]
+        for tid in expired:
+            lost = self._recently_lost.pop(tid)
+            self._finalize_vehicle_data(tid, lost["vehicle"], frame_number)
+
+    def _try_stitch(self, new_track_id: int, detection: dict, frame_number: int) -> bool:
+        """Try to merge a new detection into a recently-lost track."""
+        det_center = tuple(detection["center"])
+        best_id = None
+        best_dist = float("inf")
+
+        for old_id, lost in self._recently_lost.items():
+            # Temporal check
+            if frame_number - lost["lost_frame"] > STITCH_MAX_GAP_FRAMES:
+                continue
+            # Class check
+            if lost["vehicle"]["class_id"] != detection["class_id"]:
+                continue
+            # Spatial check
+            lc = lost["last_center"]
+            dist = math.hypot(det_center[0] - lc[0], det_center[1] - lc[1])
+            if dist > STITCH_MAX_DISTANCE_PX:
+                continue
+            # Heading check
+            if lost["exit_heading"] is not None:
+                dx = det_center[0] - lc[0]
+                dy = det_center[1] - lc[1]
+                if dx != 0 or dy != 0:
+                    approach_heading = math.degrees(math.atan2(dx, -dy)) % 360
+                    hdiff = abs((approach_heading - lost["exit_heading"] + 180) % 360 - 180)
+                    if hdiff > STITCH_HEADING_TOLERANCE:
+                        continue
+            if dist < best_dist:
+                best_dist = dist
+                best_id = old_id
+
+        if best_id is None:
+            return False
+
+        lost = self._recently_lost.pop(best_id)
+        vehicle = lost["vehicle"]
+        vehicle["trajectory"].append(det_center)
+        vehicle["confidences"].append(detection["confidence"])
+        vehicle["bbox_width"] = detection["bbox_width"]
+        vehicle["bbox_height"] = detection["bbox_height"]
+        vehicle["bbox_area"] = detection["bbox_area"]
+        self.active_vehicles[new_track_id] = vehicle
+        logger.debug(
+            "Stitched track %d → %d (gap=%d frames, dist=%.1f px)",
+            best_id, new_track_id,
+            frame_number - lost["lost_frame"], best_dist,
+        )
+        return True
 
     # -- Finalization ------------------------------------------------------
 
     def _finalize_vehicle(self, track_id: int, frame_number: int):
         if track_id not in self.active_vehicles:
             return
-
         vehicle = self.active_vehicles.pop(track_id)
+        self._finalize_vehicle_data(track_id, vehicle, frame_number)
 
+    def _finalize_vehicle_data(self, track_id: int, vehicle: dict, frame_number: int):
+        """Finalize a vehicle dict (from active_vehicles or recently_lost)."""
         if vehicle["origin_leg_id"] is None:
+            n_pts = len(vehicle.get("trajectory", []))
+            if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES:
+                self.n_insufficient_data += 1
+                logger.debug(
+                    "Track %d discarded: no origin assigned (%d points)",
+                    track_id, n_pts,
+                )
             return
 
         trajectory = vehicle["trajectory"]
@@ -318,6 +434,17 @@ class ProcessingPipeline:
 
         classification = classify_trajectory(
             trajectory, vehicle["reference_heading"]
+        )
+
+        logger.debug(
+            "Track %d classification: %s (heading_change=%.1f, straightness=%.2f, "
+            "distance=%.1f, points=%d, ref_heading=%.1f)",
+            track_id, classification["movement"],
+            classification["net_heading_change"],
+            classification["path_straightness"],
+            classification["path_distance"],
+            classification["num_points"],
+            vehicle.get("reference_heading", 0) or 0,
         )
 
         if classification["movement"] == "insufficient_data":
@@ -385,9 +512,12 @@ class ProcessingPipeline:
             self._recently_finalized = self._recently_finalized[-20:]
 
     def _finalize_all_active(self, frame_number: int):
-        """Finalize all remaining active vehicles (end of video or pause)."""
+        """Finalize all remaining active vehicles and lost-buffer tracks."""
         for track_id in list(self.active_vehicles.keys()):
             self._finalize_vehicle(track_id, frame_number)
+        for track_id in list(self._recently_lost.keys()):
+            lost = self._recently_lost.pop(track_id)
+            self._finalize_vehicle_data(track_id, lost["vehicle"], frame_number)
 
     # -- Database writes ---------------------------------------------------
 
@@ -426,7 +556,10 @@ class ProcessingPipeline:
     def _save_checkpoint(self, frame_number: int, video_time: float):
         try:
             tracker_state = self.tracker.get_state() if self._tracker else b""
-            active_traj = pickle.dumps(self.active_vehicles)
+            active_traj = pickle.dumps({
+                "active_vehicles": self.active_vehicles,
+                "recently_lost": self._recently_lost,
+            })
             self._checkpoint_mgr.save_checkpoint(
                 frame_number=frame_number,
                 timestamp_video=video_time,
@@ -461,12 +594,20 @@ class ProcessingPipeline:
 
         if checkpoint["active_trajectories"]:
             try:
-                self.active_vehicles = pickle.loads(  # noqa: S301
+                data = pickle.loads(  # noqa: S301
                     checkpoint["active_trajectories"]
                 )
+                if isinstance(data, dict) and "active_vehicles" in data:
+                    self.active_vehicles = data["active_vehicles"]
+                    self._recently_lost = data.get("recently_lost", {})
+                else:
+                    # Legacy format: plain active_vehicles dict
+                    self.active_vehicles = data
+                    self._recently_lost = {}
             except Exception as e:
                 logger.warning("Could not restore trajectories: %s", e)
                 self.active_vehicles = {}
+                self._recently_lost = {}
 
         overlap_frames = int(60 * self.fps)
         start_frame = max(0, checkpoint["frame_number"] - overlap_frames)

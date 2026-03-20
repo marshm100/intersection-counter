@@ -6,13 +6,16 @@ import webview
 PORT = 5000
 
 if __name__ == "__main__":
-    proc = subprocess.Popen([
-        sys.executable, "-m", "uvicorn",
-        "backend.app:app",
-        "--host", "127.0.0.1",
-        "--port", str(PORT),
-        "--reload",
-    ])
+    creation_flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    proc = subprocess.Popen(
+        [
+            sys.executable, "-m", "uvicorn",
+            "backend.app:app",
+            "--host", "127.0.0.1",
+            "--port", str(PORT),
+        ],
+        creationflags=creation_flags,
+    )
     try:
         time.sleep(1.5)  # give uvicorn time to bind before opening window
         webview.create_window(
