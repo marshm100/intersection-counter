@@ -229,9 +229,9 @@
                 target.reference_heading = _computeNodeHeading([cx, cy], _canvas.width, _canvas.height);
                 _dragMoved = true;
                 _redraw();
-                // Update heading display in form if open
-                const headingEl = document.getElementById('calib-heading-display');
-                if (headingEl) headingEl.innerHTML = `Reference heading: <strong>${target.reference_heading}°</strong>`;
+                // Update heading input in form if open
+                const headingInp = document.getElementById(`leg-heading-${target.idx}`);
+                if (headingInp) headingInp.value = target.reference_heading;
             }
             return;
         }
@@ -309,7 +309,16 @@
                     <select id="leg-dir-${leg.idx}" style="width:100%;">${dirOptions}</select>
                 </div>
                 <div id="calib-heading-display" style="margin-bottom:8px;font-size:12px;color:#6b7280;">
-                    Reference heading: <strong>${leg.reference_heading}°</strong>
+                    <label style="display:block;margin-bottom:3px;">Reference heading</label>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <button type="button" onclick="rotateHeading(${leg.idx}, -15)"
+                            style="font-size:11px;padding:2px 6px;cursor:pointer;">-15°</button>
+                        <input type="number" id="leg-heading-${leg.idx}" value="${leg.reference_heading}"
+                            min="0" max="360" step="1" style="width:70px;text-align:center;"
+                            onchange="previewHeading(${leg.idx})" />
+                        <button type="button" onclick="rotateHeading(${leg.idx}, 15)"
+                            style="font-size:11px;padding:2px 6px;cursor:pointer;">+15°</button>
+                    </div>
                 </div>
                 <button onclick="confirmLeg(${leg.idx})"
                     class="btn-proc btn-start"
@@ -333,6 +342,11 @@
         const dirEl   = document.getElementById(`leg-dir-${legIdx}`);
         source.label              = (labelEl?.value.trim()) || `Leg ${legIdx + 1}`;
         source.cardinal_direction = dirEl?.value || 'N';
+        const headingEl = document.getElementById(`leg-heading-${legIdx}`);
+        if (headingEl) {
+            let h = parseFloat(headingEl.value) || 0;
+            source.reference_heading = ((h % 360) + 360) % 360;
+        }
 
         if (!isEdit) {
             _legs.push({ ...source });
@@ -368,6 +382,35 @@
 
     window.editLeg = _editLeg;
 
+    window.rotateHeading = function (legIdx, delta) {
+        const target = (_currentLeg && _currentLeg.idx === legIdx)
+            ? _currentLeg
+            : _legs.find(l => l.idx === legIdx);
+        if (!target) return;
+        let h = (target.reference_heading + delta) % 360;
+        if (h < 0) h += 360;
+        h = Math.round(h * 10) / 10;
+        target.reference_heading = h;
+        const inp = document.getElementById(`leg-heading-${legIdx}`);
+        if (inp) inp.value = h;
+        _redraw();
+    };
+
+    window.previewHeading = function (legIdx) {
+        const target = (_currentLeg && _currentLeg.idx === legIdx)
+            ? _currentLeg
+            : _legs.find(l => l.idx === legIdx);
+        if (!target) return;
+        const inp = document.getElementById(`leg-heading-${legIdx}`);
+        if (!inp) return;
+        let h = parseFloat(inp.value) || 0;
+        h = ((h % 360) + 360) % 360;
+        h = Math.round(h * 10) / 10;
+        target.reference_heading = h;
+        inp.value = h;
+        _redraw();
+    };
+
     // ------------------------------------------------------------------ canvas rendering
 
     function _redraw() {
@@ -376,20 +419,45 @@
         _ctx.drawImage(_img, 0, 0);
 
         for (const leg of _legs) {
-            _drawNode(leg.origin_zone[0], LEG_COLORS[leg.idx % LEG_COLORS.length], leg.label);
+            _drawNode(leg.origin_zone[0], LEG_COLORS[leg.idx % LEG_COLORS.length], leg.label, leg.reference_heading);
         }
 
         if (_currentLeg) {
             _drawNode(_currentLeg.origin_zone[0],
-                LEG_COLORS[_currentLeg.idx % LEG_COLORS.length], '');
+                LEG_COLORS[_currentLeg.idx % LEG_COLORS.length], '', _currentLeg.reference_heading);
         }
     }
 
-    function _drawNode(p, color, label) {
+    function _drawNode(p, color, label, heading) {
         _ctx.beginPath();
         _ctx.arc(p[0], p[1], 12, 0, 2 * Math.PI);
         _ctx.fillStyle = color;
         _ctx.fill();
+
+        // Draw reference heading arrow (direction vehicle approaches from)
+        if (heading != null) {
+            const arrowLen = 40;
+            // heading: 0=N(up), 90=E(right) — convert to canvas angle
+            const rad = (heading - 90) * Math.PI / 180;
+            const ax = p[0] + Math.cos(rad) * arrowLen;
+            const ay = p[1] + Math.sin(rad) * arrowLen;
+            _ctx.beginPath();
+            _ctx.moveTo(p[0], p[1]);
+            _ctx.lineTo(ax, ay);
+            _ctx.strokeStyle = color;
+            _ctx.lineWidth = 2.5;
+            _ctx.stroke();
+            // Arrowhead
+            const headLen = 10;
+            const aHead1 = rad + Math.PI * 0.8;
+            const aHead2 = rad - Math.PI * 0.8;
+            _ctx.beginPath();
+            _ctx.moveTo(ax, ay);
+            _ctx.lineTo(ax + Math.cos(aHead1) * headLen, ay + Math.sin(aHead1) * headLen);
+            _ctx.moveTo(ax, ay);
+            _ctx.lineTo(ax + Math.cos(aHead2) * headLen, ay + Math.sin(aHead2) * headLen);
+            _ctx.stroke();
+        }
 
         if (label) {
             _ctx.fillStyle = '#ffffff';
