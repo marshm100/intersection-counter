@@ -216,8 +216,8 @@ class TestPipelineProcessing:
     def test_vehicle_never_crosses_origin(self, pipeline_env):
         """Vehicle stays below origin zone → 0 events."""
         p = _make_pipeline(pipeline_env)
-        # Vehicle at y=900, never crosses y=800 zone
-        mock_dets = [[_make_detection(500, 900 + i)] for i in range(20)]
+        # Vehicle moves southwest (heading ~225°) — doesn't match NB(0°) or EB(90°)
+        mock_dets = [[_make_detection(500 - i * 2, 900 + i * 2)] for i in range(20)]
         frame_idx = [0]
 
         p._preprocessor = MagicMock()
@@ -843,3 +843,58 @@ class TestProgressiveClassification:
                 found = True
                 break
         assert found, "Track 7 should appear in at least one callback's active_trajectories"
+
+
+# ---------------------------------------------------------------------------
+# TestFatalErrorHandling
+# ---------------------------------------------------------------------------
+
+class TestFatalErrorHandling:
+    def test_fatal_error_not_swallowed(self, pipeline_env):
+        """MemoryError during frame processing is re-raised, not swallowed."""
+        p = _make_pipeline(pipeline_env)
+
+        p._preprocessor = MagicMock()
+        p._preprocessor.preprocess = MagicMock(side_effect=lambda f: f)
+
+        p._detector = MagicMock()
+        p._detector.detect = MagicMock(side_effect=MemoryError("out of memory"))
+
+        p._tracker = MagicMock()
+        p._tracker.update = MagicMock(return_value=[])
+        p._tracker.get_state = MagicMock(return_value=b"")
+
+        with pytest.raises(MemoryError):
+            p.process_video(frame_skip=1)
+
+    def test_consecutive_errors_abort(self, pipeline_env):
+        """RuntimeError on every frame → pipeline aborts after MAX_CONSECUTIVE_ERRORS."""
+        from backend.services.pipeline import MAX_CONSECUTIVE_ERRORS
+
+        p = _make_pipeline(pipeline_env)
+
+        p._preprocessor = MagicMock()
+        p._preprocessor.preprocess = MagicMock(side_effect=lambda f: f)
+
+        p._detector = MagicMock()
+        p._detector.detect = MagicMock(side_effect=RuntimeError("bad frame"))
+
+        p._tracker = MagicMock()
+        p._tracker.update = MagicMock(return_value=[])
+        p._tracker.get_state = MagicMock(return_value=b"")
+
+        # Mock a video with more frames than MAX_CONSECUTIVE_ERRORS
+        mock_cap = MagicMock()
+        mock_cap.isOpened.return_value = True
+        mock_cap.get.return_value = MAX_CONSECUTIVE_ERRORS + 10
+        read_count = [0]
+        def mock_read():
+            read_count[0] += 1
+            if read_count[0] <= MAX_CONSECUTIVE_ERRORS + 10:
+                return True, np.zeros((480, 640, 3), dtype=np.uint8)
+            return False, None
+        mock_cap.read = mock_read
+
+        with patch('backend.services.pipeline.cv2.VideoCapture', return_value=mock_cap):
+            with pytest.raises(RuntimeError, match="consecutive"):
+                p.process_video(frame_skip=1)

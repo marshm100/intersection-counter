@@ -25,11 +25,18 @@ from backend.config import (
 from backend.services.checkpoint import CheckpointManager
 from backend.services.classifier import classify_vehicle
 from backend.services.detector import VehicleDetector
+from backend.services.origin_detector import closest_zone, crossing_direction, did_cross_line
 from backend.services.preprocessor import AdaptivePreprocessor
 from backend.services.tracker import VehicleTracker
 from backend.services.trajectory_classifier import classify_trajectory
 
 logger = logging.getLogger(__name__)
+
+# Exceptions that indicate unrecoverable system-level failures.
+# These must NOT be swallowed by the per-frame error handler.
+_FATAL_ERRORS = (MemoryError, OSError, SystemExit)
+
+MAX_CONSECUTIVE_ERRORS = 50
 
 
 class ProcessingPipeline:
@@ -137,6 +144,7 @@ class ProcessingPipeline:
             frame_number = 0
             last_checkpoint_video_time = 0.0
             frames_processed = 0
+            consecutive_errors = 0
             start_time = time.time()
 
             if start_frame > 0:
@@ -160,9 +168,20 @@ class ProcessingPipeline:
                     try:
                         self._process_single_frame(frame, frame_number)
                         frames_processed += 1
+                        consecutive_errors = 0
                     except Exception as e:
+                        if isinstance(e, _FATAL_ERRORS):
+                            raise
+                        if "CUDA out of memory" in str(e):
+                            raise
                         logger.error("Error processing frame %d: %s", frame_number, e)
                         self.error_count += 1
+                        consecutive_errors += 1
+                        if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                            raise RuntimeError(
+                                f"Pipeline aborted: {MAX_CONSECUTIVE_ERRORS} consecutive "
+                                f"frame errors. Last error: {e}"
+                            ) from e
 
                     video_time = frame_number / self.fps
                     if video_time - last_checkpoint_video_time >= CHECKPOINT_INTERVAL_SECONDS:
@@ -281,7 +300,7 @@ class ProcessingPipeline:
 
         if vehicle["origin_leg_id"] is None:
             n_pts = len(vehicle["trajectory"])
-            if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES and n_pts % 5 == 0:
+            if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES and n_pts % 3 == 0:
                 self._assign_origin(track_id, frame_number)
 
         # Progressive classification
@@ -296,6 +315,27 @@ class ProcessingPipeline:
         vehicle = self.active_vehicles[track_id]
         traj = vehicle["trajectory"]
 
+        # --- Spatial check: did the trajectory cross any origin zone line? ---
+        for leg in self.legs:
+            zone = leg.get("origin_zone")
+            if not zone or len(zone) < 2:
+                continue
+            line_start = tuple(zone[0])
+            line_end = tuple(zone[1])
+            for i in range(1, len(traj)):
+                if did_cross_line(traj[i - 1], traj[i], line_start, line_end):
+                    direction = crossing_direction(
+                        traj[i - 1], traj[i], line_start, line_end,
+                        reference_heading=leg.get("reference_heading"),
+                    )
+                    if direction == "enter":
+                        vehicle["origin_leg_id"] = leg["leg_id"]
+                        vehicle["reference_heading"] = leg["reference_heading"]
+                        vehicle["origin_frame"] = frame_number
+                        self.n_crossed_enter += 1
+                        return
+
+        # --- Fallback: heading-based matching ---
         start = traj[0]
         end = traj[min(ORIGIN_ASSIGN_MIN_FRAMES - 1, len(traj) - 1)]
         dx = end[0] - start[0]
@@ -451,6 +491,9 @@ class ProcessingPipeline:
             self.n_insufficient_data += 1
             return
 
+        movement = classification["movement"]
+        origin_leg_id = vehicle["origin_leg_id"]
+
         avg_conf = (
             sum(vehicle["confidences"]) / len(vehicle["confidences"])
             if vehicle["confidences"]
@@ -476,9 +519,6 @@ class ProcessingPipeline:
                 ).isoformat()
             except (ValueError, TypeError):
                 pass
-
-        movement = classification["movement"]
-        origin_leg_id = vehicle["origin_leg_id"]
         if origin_leg_id in self.turn_counts:
             leg_counts = self.turn_counts[origin_leg_id]
             if movement in leg_counts:

@@ -9,6 +9,7 @@ from backend.database import (
     get_connection, get_project_dir,
     set_project_info, get_project_info, get_all_project_info
 )
+from backend.routers.processing import stop_pipeline
 
 router = APIRouter()
 
@@ -78,6 +79,7 @@ async def delete_project(project_id: str):
     project_dir = PROJECTS_DIR / project_id
     if not project_dir.exists():
         raise HTTPException(status_code=404, detail="Project not found")
+    stop_pipeline(project_id)
     shutil.rmtree(project_dir)
     return {"deleted": True}
 

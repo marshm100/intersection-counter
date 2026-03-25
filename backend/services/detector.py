@@ -14,6 +14,7 @@ from backend.config import (
     PEDESTRIAN_CLASSES,
     VEHICLE_CLASSES,
     YOLO_CONFIDENCE_THRESHOLD,
+    YOLO_IMGSZ,
     YOLO_IOU_THRESHOLD,
     YOLO_MODEL,
 )
@@ -51,6 +52,7 @@ class VehicleDetector:
             frame,
             conf=YOLO_CONFIDENCE_THRESHOLD,
             iou=YOLO_IOU_THRESHOLD,
+            imgsz=YOLO_IMGSZ,
             classes=self.RELEVANT_CLASSES,
             device=self._device,
             verbose=False,

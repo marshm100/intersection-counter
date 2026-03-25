@@ -10,6 +10,7 @@ router = APIRouter()
 
 VALID_MOVEMENTS = {"through", "left", "right", "u_turn"}
 VALID_CLASSES = {"car", "motorcycle", "bus", "truck", "unknown"}
+_PATCH_COLUMNS = {"movement": "movement", "vehicle_class": "vehicle_class"}
 
 _EVENT_FIELDS = (
     "event_id", "vehicle_track_id", "origin_leg_id", "leg_label",
@@ -100,19 +101,21 @@ def patch_event(project_id: str, event_id: int, body: PatchEventBody):
         if not existing:
             raise HTTPException(status_code=404, detail="Event not found")
 
-        updates = []
+        sets = []
         params = []
-        if body.movement is not None:
-            updates.append("movement = ?")
-            params.append(body.movement)
-        if body.vehicle_class is not None:
-            updates.append("vehicle_class = ?")
-            params.append(body.vehicle_class)
+        for field, column in _PATCH_COLUMNS.items():
+            value = getattr(body, field)
+            if value is not None:
+                sets.append(f"{column} = ?")
+                params.append(value)
 
-        if updates:
-            updates.append("manually_edited = 1")
+        if sets:
+            sets.append("manually_edited = 1")
             params.append(event_id)
-            conn.execute(f"UPDATE vehicle_events SET {', '.join(updates)} WHERE event_id = ?", params)
+            conn.execute(
+                "UPDATE vehicle_events SET " + ", ".join(sets) + " WHERE event_id = ?",
+                params,
+            )
             conn.commit()
 
         row = conn.execute(

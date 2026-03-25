@@ -305,14 +305,14 @@ class TestClassifyTrajectory:
     # --- Edge cases ---
 
     def test_too_few_points(self):
-        traj = [(100, 100), (200, 200)]
+        traj = [(100, 100)]
         r = classify_trajectory(traj, reference_heading=0)
         assert r["movement"] == "insufficient_data"
         assert r["confidence"] == 0.0
 
     def test_too_short_distance(self):
-        # 10+ points but all very close together (< 30px total)
-        traj = [(100 + i * 0.2, 100) for i in range(15)]
+        # 10+ points but all very close together (< 15px total)
+        traj = [(100 + i * 0.1, 100) for i in range(15)]
         r = classify_trajectory(traj, reference_heading=0)
         assert r["movement"] == "insufficient_data"
 

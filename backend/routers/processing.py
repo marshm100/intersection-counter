@@ -371,9 +371,11 @@ def resume_processing(project_id: str):
     return {"status": "ok", "start_frame": start_frame}
 
 
-@router.post("/projects/{project_id}/processing/cancel")
-def cancel_processing(project_id: str):
-    """Idempotent cancel: pause if running, clear checkpoint, reset to idle."""
+def stop_pipeline(project_id: str) -> None:
+    """Stop a running pipeline and clean up module-level state for *project_id*.
+
+    Idempotent — safe to call even when no pipeline is running.
+    """
     with _state_lock:
         pipeline = _pipelines.get(project_id)
         thread = _threads.get(project_id)
@@ -382,9 +384,6 @@ def cancel_processing(project_id: str):
         pipeline.pause()
         if thread is not None:
             thread.join(timeout=5)
-
-    db_path = str(get_db_path(project_id))
-    CheckpointManager(db_path).clear_checkpoint()
 
     q = _preview_queues.pop(project_id, None)
     if q is not None:
@@ -395,6 +394,15 @@ def cancel_processing(project_id: str):
         _threads.pop(project_id, None)
         _progress.pop(project_id, None)
         _preview_frames.pop(project_id, None)
+
+
+@router.post("/projects/{project_id}/processing/cancel")
+def cancel_processing(project_id: str):
+    """Idempotent cancel: pause if running, clear checkpoint, reset to idle."""
+    stop_pipeline(project_id)
+
+    db_path = str(get_db_path(project_id))
+    CheckpointManager(db_path).clear_checkpoint()
 
     set_project_info(project_id, "status", "idle")
     return {"status": "ok"}

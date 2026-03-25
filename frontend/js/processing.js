@@ -237,7 +237,7 @@ function _statsHtml(progress) {
             const leg = tc[legId];
             const c = leg.counts || {};
             html += `<div class="leg-counts-card">
-                <div class="leg-counts-title">${leg.label || leg.cardinal || legId}</div>
+                <div class="leg-counts-title">${escapeHtml(leg.label || leg.cardinal || legId)}</div>
                 <div class="leg-counts-row">
                     <span class="lc-item"><span class="lc-label">L</span>${c.left||0}</span>
                     <span class="lc-item"><span class="lc-label">T</span>${c.through||0}</span>

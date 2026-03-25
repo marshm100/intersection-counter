@@ -37,12 +37,13 @@ def compute_net_heading_change(
     Positive = turned right (clockwise), Negative = turned left (CCW).
     """
     n = len(trajectory)
-    # Entry heading: from first point to a point a few steps ahead
-    entry_end_idx = min(5, n - 1)
+    # Adaptive window: use ~20% of trajectory for entry/exit heading,
+    # clamped to avoid overlap on short trajectories
+    window = max(1, min(n // 5, 5))
+    entry_end_idx = min(window, n - 1)
     entry_heading = compute_heading(trajectory[0], trajectory[entry_end_idx])
 
-    # Exit heading: from a point near the end to the last point
-    exit_start_idx = max(0, n - 5)
+    exit_start_idx = max(entry_end_idx, n - 1 - window)
     exit_heading = compute_heading(trajectory[exit_start_idx], trajectory[-1])
 
     # Net change normalized to [-180, +180]
