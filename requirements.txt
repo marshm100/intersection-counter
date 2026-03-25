@@ -1,7 +1,7 @@
 fastapi==0.104.1
 uvicorn==0.24.0
 opencv-python-headless==4.8.1.78
-ultralytics==8.0.227
+ultralytics>=8.3
 openpyxl==3.1.2
 numpy==1.26.2
 scipy==1.11.4

@@ -1,4 +1,4 @@
-"""YOLOv8 vehicle detector wrapper."""
+"""YOLO vehicle detector wrapper."""
 
 import os
 
@@ -29,36 +29,22 @@ def _resolve_device() -> str:
 
 
 class VehicleDetector:
-    """Wraps YOLOv8 inference for vehicle and pedestrian detection."""
+    """Wraps YOLO inference for vehicle and pedestrian detection."""
 
     RELEVANT_CLASSES = sorted(set(VEHICLE_CLASSES.keys()) | set(PEDESTRIAN_CLASSES.keys()))
 
     def __init__(self, model_path: str | None = None):
-        """Load the YOLOv8 model.
+        """Load the YOLO model.
 
-        Default to YOLO_MODEL from config (yolov8n.pt).
+        Defaults to YOLO_MODEL from config.
         Model auto-downloads on first use.
         """
         self.model = YOLO(model_path or YOLO_MODEL)
         self._device = _resolve_device()
 
-    def detect(self, frame: np.ndarray) -> list[dict]:
-        """Run detection on a single frame.
-
-        Returns list of detection dicts with bbox, center, class info,
-        confidence, and size metrics.
-        """
-        results = self.model(
-            frame,
-            conf=YOLO_CONFIDENCE_THRESHOLD,
-            iou=YOLO_IOU_THRESHOLD,
-            imgsz=YOLO_IMGSZ,
-            classes=self.RELEVANT_CLASSES,
-            device=self._device,
-            verbose=False,
-        )
-
-        boxes = results[0].boxes
+    def _parse_results(self, results) -> list[dict]:
+        """Extract detection dicts from a single YOLO Results object."""
+        boxes = results.boxes
         if boxes is None or len(boxes) == 0:
             return []
 
@@ -86,9 +72,40 @@ class VehicleDetector:
             })
         return detections
 
-    def detect_batch(self, frames: list[np.ndarray]) -> list[list[dict]]:
-        """Run detection on multiple frames.
+    def detect(self, frame: np.ndarray) -> list[dict]:
+        """Run detection on a single frame.
 
-        Returns list of detection lists (one per frame).
+        Returns list of detection dicts with bbox, center, class info,
+        confidence, and size metrics.
+
+        YOLO26 uses NMS-free end-to-end inference by default (one-to-one head).
         """
-        return [self.detect(frame) for frame in frames]
+        results = self.model(
+            frame,
+            conf=YOLO_CONFIDENCE_THRESHOLD,
+            iou=YOLO_IOU_THRESHOLD,
+            imgsz=YOLO_IMGSZ,
+            classes=self.RELEVANT_CLASSES,
+            device=self._device,
+            verbose=False,
+        )
+        return self._parse_results(results[0])
+
+    def detect_batch(self, frames: list[np.ndarray]) -> list[list[dict]]:
+        """Run detection on multiple frames using true batch inference.
+
+        Passes all frames to the model in a single call for GPU-parallel
+        processing, then parses each result individually.
+        """
+        if not frames:
+            return []
+        results = self.model(
+            frames,
+            conf=YOLO_CONFIDENCE_THRESHOLD,
+            iou=YOLO_IOU_THRESHOLD,
+            imgsz=YOLO_IMGSZ,
+            classes=self.RELEVANT_CLASSES,
+            device=self._device,
+            verbose=False,
+        )
+        return [self._parse_results(r) for r in results]

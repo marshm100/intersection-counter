@@ -19,8 +19,8 @@ CHECKPOINT_INTERVAL_SECONDS = 120
 MAX_CONCURRENT_PIPELINES = 2
 
 # Detection
-YOLO_MODEL = "yolov8s.pt"
-YOLO_CONFIDENCE_THRESHOLD = 0.20
+YOLO_MODEL = "yolo26s.pt"
+YOLO_CONFIDENCE_THRESHOLD = 0.15
 YOLO_IOU_THRESHOLD = 0.45
 YOLO_IMGSZ = 640
 
@@ -38,17 +38,12 @@ TRAJECTORY_MIN_DISTANCE_PX = 15
 TRAJECTORY_CURVATURE_THRESHOLD = 40  # cumulative curvature tiebreaker for ambiguous zone
 
 # Tracker tuning
-TRACKER_LOST_BUFFER = 150            # frames before dropping track (5s at 30fps)
-TRACKER_MATCH_THRESHOLD = 0.6        # IoU matching — permissive to handle frame_skip position jumps
+TRACKER_LOST_BUFFER = 90             # frames before dropping track (3s at 30fps — fewer stale candidates)
+TRACKER_MATCH_THRESHOLD = 0.4        # IoU matching — stricter to prevent ID swaps between nearby vehicles
 TRACKER_ACTIVATION_THRESHOLD = 0.25  # unchanged
 
-# Track stitching — merge fragmented tracks across ByteTrack ID switches
-STITCH_MAX_GAP_FRAMES = 45       # max effective-frames gap to attempt stitching (~4.5s at frame_skip=3)
-STITCH_MAX_DISTANCE_PX = 150     # max px between lost endpoint and new startpoint
-STITCH_HEADING_TOLERANCE = 60    # max heading difference (degrees)
-
 # Origin assignment
-ORIGIN_ASSIGN_MIN_FRAMES = 3   # trajectory points needed before assigning origin
+ORIGIN_ASSIGN_MIN_FRAMES = 2   # trajectory points needed before assigning origin
 
 # Ensure directories exist
 DATA_DIR.mkdir(exist_ok=True)

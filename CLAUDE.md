@@ -17,6 +17,10 @@ Replaces commercial tools (GoodVision, Miovision). Internal tool for traffic eng
 - Processing: NEVER stop for single-frame errors.
 - Python 3.11+ with type hints.
 
+## Server
+py start_server.py
+# Runs on http://127.0.0.1:5000 — do NOT use port 8000 or any other port
+
 ## Testing
 python -m pytest backend/tests/ -v
 

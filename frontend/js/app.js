@@ -91,6 +91,85 @@ async function restoreAppState() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Global background processing banner
+// ---------------------------------------------------------------------------
+
+let _bgPollTimer = null;
+let _bgLastStatus = null;
+let _bgCompleteTimeout = null;
+
+function _startBackgroundPoll() {
+    if (_bgPollTimer) return;
+    _bgPollTimer = setInterval(_bgPollStatus, 3000);
+}
+
+function _stopBackgroundPoll() {
+    if (_bgPollTimer) { clearInterval(_bgPollTimer); _bgPollTimer = null; }
+}
+
+function _showBanner(progress) {
+    const el = document.getElementById('processing-banner');
+    if (!el) return;
+    const pct = Math.min(100, progress.progress_pct || 0);
+    el.className = 'processing-banner';
+    el.innerHTML =
+        '<span class="banner-label">Processing...</span>' +
+        '<div class="banner-progress"><div class="banner-fill" style="width:' + pct.toFixed(1) + '%"></div></div>' +
+        '<span class="banner-pct">' + pct.toFixed(1) + '%</span>' +
+        '<span class="banner-action">View</span>';
+    el.onclick = function() {
+        showPage('page-processing');
+        if (typeof loadProcessingPage === 'function') loadProcessingPage();
+    };
+}
+
+function _showCompleteBanner() {
+    const el = document.getElementById('processing-banner');
+    if (!el) return;
+    el.className = 'processing-banner complete';
+    el.innerHTML =
+        '<span class="banner-label">Processing complete</span>' +
+        '<span class="banner-action">View Results</span>';
+    el.onclick = function() {
+        _hideBanner();
+        showPage('page-dashboard');
+        if (typeof loadDashboardPage === 'function') loadDashboardPage();
+    };
+}
+
+function _hideBanner() {
+    const el = document.getElementById('processing-banner');
+    if (!el) return;
+    el.className = 'processing-banner hidden';
+    el.onclick = null;
+}
+
+async function _bgPollStatus() {
+    const pid = AppState.currentProject;
+    if (!pid) { _hideBanner(); return; }
+    if (AppState.currentPage === 'page-processing') { _hideBanner(); return; }
+
+    try {
+        const data = await fetch(`/api/projects/${pid}/processing/status`);
+        if (!data.ok) return;
+        const json = await data.json();
+        const status = json.status || 'idle';
+
+        if (status === 'processing' && json.progress) {
+            if (_bgCompleteTimeout) { clearTimeout(_bgCompleteTimeout); _bgCompleteTimeout = null; }
+            _showBanner(json.progress);
+        } else if (_bgLastStatus === 'processing' && status === 'complete') {
+            _showCompleteBanner();
+            _bgCompleteTimeout = setTimeout(_hideBanner, 8000);
+        } else {
+            _hideBanner();
+        }
+        _bgLastStatus = status;
+    } catch { /* ignore network errors */ }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     restoreAppState();
+    _startBackgroundPoll();
 });

@@ -29,6 +29,7 @@ _progress: dict[str, dict] = {}
 _preview_frames: dict[str, bytes] = {}
 _threads: dict[str, threading.Thread] = {}
 _preview_queues: dict[str, queue.Queue] = {}
+_preview_viewers: dict[str, int] = {}  # project_id -> active stream connection count
 _state_lock = threading.Lock()
 
 # Batch processing queue
@@ -97,6 +98,39 @@ def _time_str_to_seconds(t: str) -> int | None:
 
 
 # ---------------------------------------------------------------------------
+# Startup: heal stale "processing" status left by killed pipelines
+# ---------------------------------------------------------------------------
+
+def _heal_stale_status():
+    """Reset any 'processing' status to 'interrupted' on server start.
+
+    When uvicorn reloads, all pipeline threads die but the DB still says
+    'processing'. This marks them as 'interrupted' so the user can decide
+    to resume or reprocess.
+    """
+    if not PROJECTS_DIR.exists():
+        return
+    for d in PROJECTS_DIR.iterdir():
+        if not d.is_dir() or not (d / "project.db").exists():
+            continue
+        try:
+            conn = get_connection(d.name)
+            row = conn.execute(
+                "SELECT value FROM project_info WHERE key = 'status'"
+            ).fetchone()
+            if row and row[0] == "processing":
+                conn.execute(
+                    "UPDATE project_info SET value = 'interrupted' WHERE key = 'status'"
+                )
+                conn.commit()
+                logger.info("Healed stale 'processing' status for project %s", d.name)
+        except Exception:
+            pass
+
+_heal_stale_status()
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -154,7 +188,7 @@ def _make_progress_callback(project_id: str, legs: list[dict]) -> Callable:
         finalized_trajectories = data.pop("finalized_trajectories", None)
         with _state_lock:
             _progress[project_id] = data
-        if raw_frame is not None:
+        if raw_frame is not None and _preview_viewers.get(project_id, 0) > 0:
             q = _preview_queues.get(project_id)
             if q is not None:
                 try:
@@ -349,20 +383,14 @@ def pause_processing(project_id: str):
 
 @router.post("/projects/{project_id}/processing/resume")
 def resume_processing(project_id: str):
+    # Stop any existing pipeline first (handles stale threads from prior runs)
+    stop_pipeline(project_id)
+
     db_path = str(get_db_path(project_id))
     ckpt_mgr = CheckpointManager(db_path)
 
     if not ckpt_mgr.has_checkpoint():
         raise HTTPException(status_code=400, detail="No checkpoint to resume from.")
-
-    with _state_lock:
-        if project_id in _pipelines:
-            thread = _threads.get(project_id)
-            if thread is not None and thread.is_alive():
-                raise HTTPException(status_code=409, detail="Processing already running.")
-            # Stale entry (thread dead or missing) — clean up and allow restart
-            _pipelines.pop(project_id, None)
-            _threads.pop(project_id, None)
 
     prereqs = _load_prerequisites(project_id)
 
@@ -444,6 +472,25 @@ def cancel_processing(project_id: str):
     return {"status": "ok"}
 
 
+@router.post("/projects/{project_id}/processing/reprocess")
+def reprocess(project_id: str):
+    """Clear all results and checkpoint so the user can start fresh with new algorithms."""
+    stop_pipeline(project_id)
+
+    conn = get_connection(project_id)
+    try:
+        with conn:
+            conn.execute("DELETE FROM vehicle_events")
+            conn.execute("DELETE FROM pedestrian_events")
+            conn.execute("DELETE FROM low_confidence_segments")
+            conn.execute("DELETE FROM checkpoint")
+    finally:
+        conn.close()
+
+    set_project_info(project_id, "status", "idle")
+    return {"status": "ok"}
+
+
 @router.get("/projects/{project_id}/processing/status")
 def processing_status(project_id: str):
     db_path = str(get_db_path(project_id))
@@ -456,10 +503,10 @@ def processing_status(project_id: str):
 
     has_checkpoint = CheckpointManager(db_path).has_checkpoint()
 
-    # Auto-heal: DB says "processing" but no pipeline is running → crashed
+    # Auto-heal: DB says "processing" but no pipeline is running → interrupted
     if status == "processing" and not is_running:
-        status = "error"
-        set_project_info(project_id, "status", "error")
+        status = "interrupted"
+        set_project_info(project_id, "status", "interrupted")
 
     return {
         "status": status,
@@ -476,28 +523,38 @@ async def processing_preview_stream(project_id: str):
     """MJPEG stream: yields latest JPEG frame every ~33 ms (≤30 fps).
     Closes automatically ~2 s after processing stops."""
     async def generate():
-        last_sent: bytes | None = None
-        idle_since: float | None = None
+        with _state_lock:
+            _preview_viewers[project_id] = _preview_viewers.get(project_id, 0) + 1
+        try:
+            last_sent: bytes | None = None
+            idle_since: float | None = None
 
-        while True:
-            frame: bytes | None = _preview_frames.get(project_id)
-            is_running: bool = project_id in _pipelines
+            while True:
+                frame: bytes | None = _preview_frames.get(project_id)
+                is_running: bool = project_id in _pipelines
 
-            if frame is not None and frame is not last_sent:
-                last_sent = frame
-                idle_since = None
-                yield (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
-                )
+                if frame is not None and frame is not last_sent:
+                    last_sent = frame
+                    idle_since = None
+                    yield (
+                        b"--frame\r\n"
+                        b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+                    )
 
-            if not is_running:
-                if idle_since is None:
-                    idle_since = time.time()
-                elif time.time() - idle_since > 2.0:
-                    break
+                if not is_running:
+                    if idle_since is None:
+                        idle_since = time.time()
+                    elif time.time() - idle_since > 2.0:
+                        break
 
-            await asyncio.sleep(0.033)  # 30 fps cap
+                await asyncio.sleep(0.033)  # 30 fps cap
+        finally:
+            with _state_lock:
+                count = _preview_viewers.get(project_id, 1) - 1
+                if count <= 0:
+                    _preview_viewers.pop(project_id, None)
+                else:
+                    _preview_viewers[project_id] = count
 
     return StreamingResponse(
         generate(),
@@ -691,8 +748,8 @@ def batch_status():
 
         # Auto-heal
         if status == "processing" and not is_running:
-            status = "error"
-            set_project_info(d.name, "status", "error")
+            status = "interrupted"
+            set_project_info(d.name, "status", "interrupted")
 
         queue_pos = None
         if d.name in _batch_queue:

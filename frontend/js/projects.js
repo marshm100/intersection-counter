@@ -35,7 +35,7 @@ async function loadProjectList() {
             const statusClass = 'status-' + (p.status || 'idle');
             html += `<div class="project-card" id="pcard-${p.project_id}">`;
             html += '<div class="project-info">';
-            html += `<div class="project-name">${escapeHtml(p.name)}</div>`;
+            html += `<div class="project-name">${escapeHtml(p.name || '(Untitled)')}</div>`;
             html += `<div class="project-meta">`;
             html += `<span class="status-badge ${statusClass}">${escapeHtml(p.status || 'idle')}</span>`;
             if (!p.has_video) html += ' <span class="setup-hint">needs video</span>';

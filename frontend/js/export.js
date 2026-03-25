@@ -33,26 +33,33 @@ async function loadExportPage() {
     // TMC preview table
     if (data.tmc_matrix.length > 0) {
         html += '<table class="tmc-table">';
-        html += '<thead><tr><th>Leg</th><th>Through</th><th>Left</th><th>Right</th><th>U-Turn</th><th>Total</th></tr></thead>';
+        const hasOther = data.tmc_matrix.some(row => (row.other || 0) > 0);
+        html += '<thead><tr><th>Leg</th><th>Through</th><th>Left</th><th>Right</th><th>U-Turn</th>';
+        if (hasOther) html += '<th>Other</th>';
+        html += '<th>Total</th></tr></thead>';
         html += '<tbody>';
-        let totThrough = 0, totLeft = 0, totRight = 0, totUTurn = 0, totTotal = 0;
+        let totThrough = 0, totLeft = 0, totRight = 0, totUTurn = 0, totOther = 0, totTotal = 0;
         for (const row of data.tmc_matrix) {
             html += `<tr>
                 <td>${escapeHtml(row.label)}</td>
                 <td>${row.through}</td>
                 <td>${row.left}</td>
                 <td>${row.right}</td>
-                <td>${row.u_turn}</td>
-                <td>${row.total}</td>
+                <td>${row.u_turn}</td>`;
+            if (hasOther) html += `<td>${row.other || 0}</td>`;
+            html += `<td>${row.total}</td>
             </tr>`;
             totThrough += row.through;
             totLeft += row.left;
             totRight += row.right;
             totUTurn += row.u_turn;
+            totOther += (row.other || 0);
             totTotal += row.total;
         }
         html += '</tbody>';
-        html += `<tfoot><tr><td>Total</td><td>${totThrough}</td><td>${totLeft}</td><td>${totRight}</td><td>${totUTurn}</td><td>${totTotal}</td></tr></tfoot>`;
+        html += `<tfoot><tr><td>Total</td><td>${totThrough}</td><td>${totLeft}</td><td>${totRight}</td><td>${totUTurn}</td>`;
+        if (hasOther) html += `<td>${totOther}</td>`;
+        html += `<td>${totTotal}</td></tr></tfoot>`;
         html += '</table>';
     } else {
         html += '<p class="empty-message">No events to export. Run processing first.</p>';

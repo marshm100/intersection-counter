@@ -89,6 +89,9 @@ async function loadSetupPage() {
     const disabled = videoInfo ? '' : ' disabled';
     html += `<button class="btn-calibration"${disabled} onclick="startCalibration()">Start Calibration</button>`;
     html += `<button class="btn-proceed"${disabled} onclick="proceedToProcessing()">Proceed to Processing</button>`;
+    if (!videoInfo) {
+        html += '<p style="font-size:12px;color:#9ca3af;margin-top:6px;">Select a video file to enable calibration.</p>';
+    }
 
     section.innerHTML = html;
 

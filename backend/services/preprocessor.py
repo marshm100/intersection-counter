@@ -75,7 +75,7 @@ class AdaptivePreprocessor:
         low_contrast = assessment["is_low_contrast"]
 
         if condition == "day" and not low_contrast:
-            return frame
+            return frame.copy()
 
         if condition == "day" and low_contrast:
             return self._apply_clahe_lab(frame)
@@ -91,7 +91,7 @@ class AdaptivePreprocessor:
         if condition == "overexposed":
             return self._gamma_correction(frame, 1.5)
 
-        return frame
+        return frame.copy()
 
     def _apply_clahe_lab(self, frame: np.ndarray) -> np.ndarray:
         """Apply CLAHE to the L channel of LAB color space."""

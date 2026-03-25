@@ -33,17 +33,19 @@ def export_preview(project_id: str):
 
     tmc: dict = {}
     for row in legs:
-        tmc[row[0]] = {"leg_id": row[0], "label": row[1], "through": 0, "left": 0, "right": 0, "u_turn": 0, "total": 0}
+        tmc[row[0]] = {"leg_id": row[0], "label": row[1], "through": 0, "left": 0, "right": 0, "u_turn": 0, "other": 0, "total": 0}
 
     for origin_leg_id, movement in event_rows:
         if origin_leg_id not in tmc:
             tmc[origin_leg_id] = {
                 "leg_id": origin_leg_id,
                 "label": f"Leg {origin_leg_id}",
-                "through": 0, "left": 0, "right": 0, "u_turn": 0, "total": 0,
+                "through": 0, "left": 0, "right": 0, "u_turn": 0, "other": 0, "total": 0,
             }
         if movement in ("through", "left", "right", "u_turn"):
             tmc[origin_leg_id][movement] += 1
+        else:
+            tmc[origin_leg_id]["other"] += 1
         tmc[origin_leg_id]["total"] += 1
 
     matrix = sorted(tmc.values(), key=lambda x: next(

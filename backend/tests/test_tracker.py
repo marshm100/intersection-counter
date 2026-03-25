@@ -105,22 +105,22 @@ class TestTrackerUpdate:
 
     def test_track_survives_gap(self):
         tracker = VehicleTracker()
-        # Vehicle visible for 5 frames
+        # Vehicle visible for 10 frames to establish a strong track
         first_id = None
-        for i in range(5):
-            dets = [make_detection(100 + i * 10, 200, 200 + i * 10, 280)]
+        for i in range(10):
+            dets = [make_detection(100 + i * 5, 200, 200 + i * 5, 280)]
             results = tracker.update(dets, frame_number=i)
             if results:
                 first_id = results[0]["track_id"]
         assert first_id is not None
 
         # Disappears for 3 frames
-        for i in range(5, 8):
+        for i in range(10, 13):
             tracker.update([], frame_number=i)
 
         # Reappears at roughly the same position
-        dets = [make_detection(145, 200, 245, 280)]
-        results = tracker.update(dets, frame_number=8)
+        dets = [make_detection(150, 200, 250, 280)]
+        results = tracker.update(dets, frame_number=13)
         assert len(results) == 1
         # Should maintain the same track_id (within lost_track_buffer=90)
         assert results[0]["track_id"] == first_id

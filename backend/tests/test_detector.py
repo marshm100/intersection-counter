@@ -1,4 +1,4 @@
-"""Tests for YOLOv8 vehicle detector wrapper."""
+"""Tests for YOLO vehicle detector wrapper."""
 
 import cv2
 import numpy as np

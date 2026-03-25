@@ -1,4 +1,9 @@
 let _processingPollTimer = null;
+let _scrubDebounceTimer = null;
+let _videoFps = 30;
+let _videoDuration = 0;
+let _videoTotalFrames = 0;
+let _followProcessing = true;
 
 async function loadProcessingPage() {
     const pid = AppState.currentProject;
@@ -15,13 +20,22 @@ async function loadProcessingPage() {
         return;
     }
 
+    // Fetch video metadata for scrubber range
+    try {
+        const videoInfo = await API.get(`/api/projects/${pid}/video`);
+        _videoFps = videoInfo.fps || 30;
+        _videoDuration = videoInfo.duration_seconds || 0;
+        _videoTotalFrames = videoInfo.total_frames || 0;
+    } catch (_) {
+        _videoFps = 30;
+        _videoDuration = 0;
+        _videoTotalFrames = 0;
+    }
+
     _renderProcessingPage(section, statusData);
 
     if (statusData.status === 'processing') {
         _startPolling();
-        _startPreviewPolling(pid);
-    } else if (statusData.status === 'paused') {
-        _startPreviewPolling(pid);
     }
 }
 
@@ -38,7 +52,9 @@ function _renderProcessingPage(section, data) {
 
     // Header
     html += '<div class="processing-header">';
-    html += '<a href="#" class="back-link" onclick="goBackFromProcessing(); return false;">&larr; Back to Setup</a>';
+    html += '<a href="#" class="back-link" onclick="goHomeFromProcessing(); return false;">&larr; Home</a>';
+    html += ' &middot; ';
+    html += '<a href="#" class="back-link" onclick="goBackFromProcessing(); return false;">Back to Setup</a>';
     html += '<h2>Processing</h2>';
     html += '</div>';
 
@@ -61,44 +77,56 @@ function _renderProcessingPage(section, data) {
     }
     html += '</div>';
 
-    // Preview image — polled via setInterval for both processing and paused states
-    if (status === 'processing' || status === 'paused') {
-        const opacity = status === 'paused' ? '0.7' : '1';
-        html += `<div class="proc-preview-wrap">
-            <img id="proc-preview"
-                 src=""
-                 alt=""
-                 style="width:100%;border-radius:4px;border:1px solid #e5e7eb;opacity:${opacity};" />
-        </div>`;
-    }
-
-    // Review panel — shown when processing is complete
-    if (status === 'complete' && progress) {
-        const totalFrames = progress.total_frames || 0;
-        const fps = progress.fps_processing || 30;
-        const videoDuration = totalFrames > 0 ? totalFrames / 30 : 0;  // approximate
+    // Video scrubber — shown whenever we have video metadata
+    if (_videoDuration > 0) {
+        const maxSeconds = Math.floor(_videoDuration);
+        const isComplete = status === 'complete';
+        const isActive = status === 'processing' || status === 'paused';
         html += `<div class="review-panel">
-            <h3>Video Review</h3>
             <div class="proc-preview-wrap">
-                <img id="review-preview" src="" alt="Review frame"
+                <img id="proc-scrub-preview" src="" alt="Video frame"
                      style="width:100%;border-radius:4px;border:1px solid #e5e7eb;" />
             </div>
             <div class="review-controls">
-                <input type="range" id="review-slider" class="review-slider"
-                       min="0" max="${totalFrames}" value="0" step="1" />
+                <input type="range" id="proc-scrubber" class="review-slider"
+                       min="0" max="${maxSeconds}" value="0" step="1" />
                 <div class="review-time-row">
-                    <span id="review-time" class="review-time">0:00 / ${_formatVideoTime(videoDuration)}</span>
-                    <label class="review-toggle-label">
-                        <input type="checkbox" id="review-traj-toggle" checked />
+                    <span id="proc-scrub-time" class="review-time">0:00 / ${_formatVideoTime(_videoDuration)}</span>
+                    <span style="display:flex;gap:12px;align-items:center;">`;
+        if (isActive) {
+            html += `<label class="review-toggle-label">
+                        <input type="checkbox" id="proc-follow-toggle" ${_followProcessing ? 'checked' : ''} />
+                        Follow processing
+                     </label>`;
+        }
+        if (isComplete) {
+            html += `<label class="review-toggle-label">
+                        <input type="checkbox" id="proc-traj-toggle" checked />
                         Show trajectories
-                    </label>
+                     </label>`;
+        }
+        html += `   </span>
                 </div>
             </div>
         </div>`;
     }
 
-    // Count window — shown when idle/error/complete (not while running/paused)
-    if (status === 'idle' || status === 'error' || status === 'complete') {
+    // Prerequisites check — guide user if project isn't ready
+    if (status === 'created') {
+        html += '<div class="alert-info" style="background:#eff6ff;border:1px solid #93c5fd;padding:12px 16px;border-radius:6px;margin-bottom:12px;color:#1e40af;">';
+        html += 'Set up a video file and calibrate the intersection before processing. ';
+        html += '<a href="#" onclick="goBackFromProcessing(); return false;">Go to Setup &rarr;</a>';
+        html += '</div>';
+    }
+
+    // Interrupted message
+    if (status === 'interrupted') {
+        html += '<div class="alert-info" style="background:#fef3c7;border:1px solid #f59e0b;padding:12px 16px;border-radius:6px;margin-bottom:12px;color:#92400e;">';
+        html += 'Processing was interrupted (server restarted). You can resume from the checkpoint or reprocess from the start with the latest algorithms.';
+        html += '</div>';
+    }
+
+    if (status === 'idle' || status === 'error' || status === 'complete' || status === 'interrupted') {
         html += '<div class="count-window-row">';
         html += '<span class="count-window-label">Count Window</span>';
         html += `<input type="time" id="proc-start-time" value="${savedStart}" />`;
@@ -107,14 +135,14 @@ function _renderProcessingPage(section, data) {
         html += '<span class="count-window-hint">(HH:MM offset from video start)</span>';
         html += '</div>';
         html += '<div class="count-window-row">';
-        html += '<span class="count-window-label">Frame Skip</span>';
+        html += '<span class="count-window-label">Preview Skip</span>';
         html += `<select id="proc-frame-skip">
             <option value="1">1 (every frame)</option>
             <option value="2">2 (every 2nd)</option>
             <option value="3" selected>3 (every 3rd)</option>
             <option value="5">5 (every 5th)</option>
         </select>`;
-        html += '<span class="count-window-hint">(higher = faster but less precise)</span>';
+        html += '<span class="count-window-hint">(higher = fewer preview updates)</span>';
         html += '</div>';
     }
 
@@ -132,79 +160,100 @@ function _renderProcessingPage(section, data) {
         html += `<button class="btn-proc btn-resume" onclick="resumeProcessing()">Resume</button>`;
         html += `<button class="btn-proc btn-cancel" onclick="cancelProcessing()">Cancel</button>`;
     }
+    if (status === 'interrupted') {
+        html += `<button class="btn-proc btn-resume" onclick="resumeProcessing()">Resume from Checkpoint</button>`;
+        html += `<button class="btn-proc btn-start" onclick="reprocessFromStart()">Reprocess from Start</button>`;
+    }
     if (status === 'complete') {
         html += `<button class="btn-proc btn-start" onclick="showPage('page-dashboard'); loadDashboardPage()">View Results</button>`;
-        html += `<button class="btn-proc btn-resume" onclick="startProcessing()">Re-process</button>`;
+        html += `<button class="btn-proc btn-resume" onclick="reprocessFromStart()">Reprocess from Start</button>`;
     }
 
     html += '</div>';
 
     section.innerHTML = html;
 
-    // Wire up review panel if present
-    if (status === 'complete' && progress) {
-        _initReviewPanel();
-    }
+    // Wire up scrubber
+    _initScrubber(status);
 }
 
-let _reviewDebounceTimer = null;
-
-function _initReviewPanel() {
-    const slider = document.getElementById('review-slider');
-    const toggle = document.getElementById('review-traj-toggle');
-    if (!slider) return;
+function _initScrubber(status) {
+    const scrubber = document.getElementById('proc-scrubber');
+    if (!scrubber) return;
 
     // Fetch initial frame
-    _fetchReviewFrame(0);
+    _fetchScrubFrame(0);
 
-    slider.addEventListener('input', () => {
-        if (_reviewDebounceTimer) clearTimeout(_reviewDebounceTimer);
-        _reviewDebounceTimer = setTimeout(() => {
-            _fetchReviewFrame(parseInt(slider.value));
+    scrubber.addEventListener('input', () => {
+        // Manual scrub disables follow mode
+        const followToggle = document.getElementById('proc-follow-toggle');
+        if (followToggle && followToggle.checked) {
+            followToggle.checked = false;
+            _followProcessing = false;
+        }
+        if (_scrubDebounceTimer) clearTimeout(_scrubDebounceTimer);
+        _scrubDebounceTimer = setTimeout(() => {
+            _fetchScrubFrame(parseInt(scrubber.value));
         }, 100);
     });
 
-    if (toggle) {
-        toggle.addEventListener('change', () => {
-            _fetchReviewFrame(parseInt(slider.value));
+    // Follow toggle
+    const followToggle = document.getElementById('proc-follow-toggle');
+    if (followToggle) {
+        followToggle.addEventListener('change', () => {
+            _followProcessing = followToggle.checked;
+        });
+    }
+
+    // Trajectory toggle (only present when complete)
+    const trajToggle = document.getElementById('proc-traj-toggle');
+    if (trajToggle) {
+        trajToggle.addEventListener('change', () => {
+            _fetchScrubFrame(parseInt(scrubber.value));
         });
     }
 }
 
-async function _fetchReviewFrame(frameNum) {
+async function _fetchScrubFrame(seconds) {
     const pid = AppState.currentProject;
     if (!pid) return;
-    const img = document.getElementById('review-preview');
+    const img = document.getElementById('proc-scrub-preview');
     if (!img) return;
-    const toggle = document.getElementById('review-traj-toggle');
-    const showTraj = toggle ? toggle.checked : true;
-    const slider = document.getElementById('review-slider');
-    const totalFrames = slider ? parseInt(slider.max) : 0;
+
+    const trajToggle = document.getElementById('proc-traj-toggle');
+    const showTraj = trajToggle ? trajToggle.checked : false;
+
+    let url;
+    if (showTraj) {
+        // Use review-frame endpoint with frame number for trajectory overlay
+        const frameNum = Math.round(seconds * _videoFps);
+        url = `/api/projects/${pid}/review-frame?frame=${frameNum}&show_trajectories=true`;
+    } else {
+        url = `/api/projects/${pid}/video/frame?seconds=${seconds}&_t=${Date.now()}`;
+    }
 
     try {
-        const resp = await fetch(
-            `/api/projects/${pid}/review-frame?frame=${frameNum}&show_trajectories=${showTraj}`
-        );
+        const resp = await fetch(url);
         if (!resp.ok) return;
         const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
+        const blobUrl = URL.createObjectURL(blob);
         const old = img.src;
-        img.src = url;
+        img.src = blobUrl;
         if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
     } catch (_) {}
 
     // Update time display
-    const timeEl = document.getElementById('review-time');
-    if (timeEl && totalFrames > 0) {
-        const currentSec = frameNum / 30;  // approximate fps
-        const totalSec = totalFrames / 30;
-        timeEl.textContent = `${_formatVideoTime(currentSec)} / ${_formatVideoTime(totalSec)}`;
+    const timeEl = document.getElementById('proc-scrub-time');
+    if (timeEl) {
+        timeEl.textContent = `${_formatVideoTime(seconds)} / ${_formatVideoTime(_videoDuration)}`;
     }
 }
 
 function _formatVideoTime(seconds) {
-    const m = Math.floor(seconds / 60);
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
@@ -273,21 +322,6 @@ function _stopPolling() {
     }
 }
 
-function _startPreviewPolling(pid) {
-    _stopPreviewPolling();
-    const img = document.getElementById('proc-preview');
-    if (img) {
-        img.src = `/api/projects/${pid}/processing/preview-stream`;
-    }
-}
-
-function _stopPreviewPolling() {
-    const img = document.getElementById('proc-preview');
-    if (img) {
-        img.src = '';
-    }
-}
-
 async function _pollStatus() {
     const pid = AppState.currentProject;
     if (!pid) { _stopPolling(); return; }
@@ -311,6 +345,16 @@ async function _pollStatus() {
         if (fill) fill.style.width = pct.toFixed(2) + '%';
         if (pctEl) pctEl.textContent = pct.toFixed(1) + '%';
         if (statsEl) statsEl.innerHTML = _statsHtml(progress);
+
+        // Follow mode: auto-advance scrubber to current processing position
+        if (_followProcessing && progress.current_frame != null && _videoFps > 0) {
+            const currentSec = Math.floor(progress.current_frame / _videoFps);
+            const scrubber = document.getElementById('proc-scrubber');
+            if (scrubber && parseInt(scrubber.value) !== currentSec) {
+                scrubber.value = currentSec;
+                _fetchScrubFrame(currentSec);
+            }
+        }
     }
 
     // Update badge
@@ -322,7 +366,6 @@ async function _pollStatus() {
 
     if (status !== 'processing') {
         _stopPolling();
-        _stopPreviewPolling();
         // Update action buttons in-place to avoid full DOM churn
         const actionsDiv = document.querySelector('.processing-actions');
         if (actionsDiv) {
@@ -330,14 +373,20 @@ async function _pollStatus() {
             if (status === 'paused') {
                 btns = `<button class="btn-proc btn-resume" onclick="resumeProcessing()">Resume</button>
                         <button class="btn-proc btn-cancel" onclick="cancelProcessing()">Cancel</button>`;
-                _startPreviewPolling(AppState.currentProject);
             } else if (status === 'complete') {
                 btns = `<button class="btn-proc btn-start" onclick="showPage('page-dashboard'); loadDashboardPage()">View Results</button>
-                        <button class="btn-proc btn-resume" onclick="startProcessing()">Re-process</button>`;
+                        <button class="btn-proc btn-resume" onclick="reprocessFromStart()">Reprocess from Start</button>`;
+            } else if (status === 'interrupted') {
+                btns = `<button class="btn-proc btn-resume" onclick="resumeProcessing()">Resume from Checkpoint</button>
+                        <button class="btn-proc btn-start" onclick="reprocessFromStart()">Reprocess from Start</button>`;
             } else if (status === 'error') {
                 btns = `<button class="btn-proc btn-start" onclick="startProcessing()">Start Processing</button>`;
             }
             actionsDiv.innerHTML = btns;
+        }
+        // When complete, reload to show trajectory toggle
+        if (status === 'complete') {
+            await loadProcessingPage();
         }
     }
 }
@@ -348,6 +397,7 @@ async function startProcessing() {
     const endTime   = document.getElementById('proc-end-time')?.value   || null;
     const frameSkipEl = document.getElementById('proc-frame-skip');
     const frameSkip = frameSkipEl ? parseInt(frameSkipEl.value, 10) : null;
+    _followProcessing = true;
     try {
         await API.post(`/api/projects/${pid}/processing/start`, {
             count_start_time: startTime || null,
@@ -360,7 +410,6 @@ async function startProcessing() {
     }
     await loadProcessingPage();
     _startPolling();
-    _startPreviewPolling(pid);
 }
 
 async function pauseProcessing() {
@@ -372,9 +421,7 @@ async function pauseProcessing() {
         return;
     }
     _stopPolling();
-    _stopPreviewPolling();
     await loadProcessingPage();
-    _startPreviewPolling(pid);
 }
 
 async function resumeProcessing() {
@@ -387,7 +434,19 @@ async function resumeProcessing() {
     }
     await loadProcessingPage();
     _startPolling();
-    _startPreviewPolling(pid);
+}
+
+async function reprocessFromStart() {
+    if (!window.confirm('Clear all results and reprocess from the beginning?')) return;
+    const pid = AppState.currentProject;
+    try {
+        await API.post(`/api/projects/${pid}/processing/reprocess`);
+    } catch (e) {
+        alert('Failed to clear results: ' + (e.message || e));
+        return;
+    }
+    // Now start fresh
+    await startProcessing();
 }
 
 async function cancelProcessing() {
@@ -400,20 +459,24 @@ async function cancelProcessing() {
         return;
     }
     _stopPolling();
-    _stopPreviewPolling();
     await loadProcessingPage();
+}
+
+function goHomeFromProcessing() {
+    _stopPolling();
+    AppState.currentProject = null;
+    showPage('page-projects');
+    loadProjectList();
 }
 
 function goBackFromProcessing() {
     _stopPolling();
-    _stopPreviewPolling();
     showPage('page-setup');
     loadSetupPage();
 }
 
 function _stopAllProcessingTimers() {
     _stopPolling();
-    _stopPreviewPolling();
 }
 
 registerTeardown('page-processing', _stopAllProcessingTimers);

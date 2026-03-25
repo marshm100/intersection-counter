@@ -484,7 +484,7 @@
             const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
             html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;">
                 <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                <span style="flex:1;">${escapeHtml(leg.label)} (${escapeHtml(leg.cardinal_direction)}) ${leg.reference_heading}°</span>
+                <span style="flex:1;">${escapeHtml(leg.label)} (${escapeHtml(leg.cardinal_direction)}) ${Number(leg.reference_heading).toFixed(1)}°</span>
                 <button onclick="editLeg(${leg.idx})"
                     style="font-size:11px;padding:1px 6px;color:#3b82f6;background:none;border:1px solid #3b82f6;border-radius:3px;cursor:pointer;">
                     Edit
