@@ -52,15 +52,15 @@ def make_turn_trajectory(
     entry_dx = math.sin(entry_rad)
     entry_dy = -math.cos(entry_rad)
 
-    # Perpendicular direction to find center of turning circle
-    # Right turn: center is to the right of the direction of travel
-    # Left turn: center is to the left
-    if turn_angle_deg >= 0:  # right turn
-        perp_dx = entry_dy   # rotate 90° CW in image coords: (dx,dy) -> (dy, -dx)
-        perp_dy = -entry_dx
-    else:  # left turn
-        perp_dx = -entry_dy  # rotate 90° CCW: (dx,dy) -> (-dy, dx)
+    # Perpendicular direction to find center of turning circle.
+    # In image coords (y-down), "visual right" from direction (dx, dy) is (-dy, dx)
+    # and "visual left" is (dy, -dx).
+    if turn_angle_deg >= 0:  # right turn: center to the right
+        perp_dx = -entry_dy
         perp_dy = entry_dx
+    else:  # left turn: center to the left
+        perp_dx = entry_dy
+        perp_dy = -entry_dx
 
     # Arc center
     cx = start[0] + radius * perp_dx
@@ -402,3 +402,93 @@ class TestClassifyTrajectoryBatch:
         assert results[1]["movement"] == "left"
         assert results[2]["movement"] == "right"
         assert results[3]["movement"] == "uturn"
+
+
+# ---------------------------------------------------------------------------
+# TestGradualTurns — sweeping turns with large radius
+# ---------------------------------------------------------------------------
+
+class TestGradualTurns:
+    """Gradual, sweeping turns that the old classifier missed."""
+
+    def test_gradual_right_90_large_radius(self):
+        """Wide, sweeping 90° right turn (radius=600) — must classify as right."""
+        traj = make_turn_trajectory(
+            (500, 800), entry_heading_deg=0, turn_angle_deg=90,
+            num_points=40, radius=600,
+        )
+        r = classify_trajectory(traj, reference_heading=0)
+        assert r["movement"] == "right"
+
+    def test_gradual_left_90_large_radius(self):
+        """Wide, sweeping 90° left turn (radius=600) — must classify as left."""
+        traj = make_turn_trajectory(
+            (500, 800), entry_heading_deg=0, turn_angle_deg=-90,
+            num_points=40, radius=600,
+        )
+        r = classify_trajectory(traj, reference_heading=0)
+        assert r["movement"] == "left"
+
+    def test_gradual_right_60(self):
+        """Moderate 60° right turn — must classify as right, not through."""
+        traj = make_turn_trajectory(
+            (500, 800), entry_heading_deg=0, turn_angle_deg=60,
+            num_points=30, radius=500,
+        )
+        r = classify_trajectory(traj, reference_heading=0)
+        assert r["movement"] == "right"
+
+    def test_gradual_left_60(self):
+        """Moderate 60° left turn — must classify as left, not through."""
+        traj = make_turn_trajectory(
+            (500, 800), entry_heading_deg=0, turn_angle_deg=-60,
+            num_points=30, radius=500,
+        )
+        r = classify_trajectory(traj, reference_heading=0)
+        assert r["movement"] == "left"
+
+    def test_gradual_right_45(self):
+        """45° right turn — borderline but should be right with curvature."""
+        traj = make_turn_trajectory(
+            (500, 800), entry_heading_deg=0, turn_angle_deg=45,
+            num_points=30, radius=400,
+        )
+        r = classify_trajectory(traj, reference_heading=0)
+        assert r["movement"] == "right"
+
+    def test_gradual_left_45(self):
+        """45° left turn — borderline but should be left with curvature."""
+        traj = make_turn_trajectory(
+            (500, 800), entry_heading_deg=0, turn_angle_deg=-45,
+            num_points=30, radius=400,
+        )
+        r = classify_trajectory(traj, reference_heading=0)
+        assert r["movement"] == "left"
+
+    def test_all_four_directions_gradual_right(self):
+        """Gradual 90° right from all four cardinal directions."""
+        for heading in [0, 90, 180, 270]:
+            traj = make_turn_trajectory(
+                (500, 500), entry_heading_deg=heading, turn_angle_deg=90,
+                num_points=40, radius=500,
+            )
+            r = classify_trajectory(traj, reference_heading=heading)
+            assert r["movement"] == "right", (
+                f"heading={heading}: expected right, got {r['movement']} "
+                f"(net={r['net_heading_change']:.1f})"
+            )
+
+    def test_noisy_entry_still_classifies_correctly(self):
+        """Noisy first few points shouldn't matter — entry heading from reference."""
+        traj = make_turn_trajectory(
+            (500, 800), entry_heading_deg=0, turn_angle_deg=-90,
+            num_points=30, radius=300,
+        )
+        # Add heavy jitter to first 5 points only
+        import random
+        rng = random.Random(99)
+        for i in range(5):
+            x, y = traj[i]
+            traj[i] = (x + rng.uniform(-20, 20), y + rng.uniform(-20, 20))
+        r = classify_trajectory(traj, reference_heading=0)
+        assert r["movement"] == "left"

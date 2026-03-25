@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from backend.config import DEFAULT_FRAME_SKIP, PROJECTS_DIR
+from backend.config import DEFAULT_FRAME_SKIP, MAX_CONCURRENT_PIPELINES, PROJECTS_DIR
 from backend.database import get_all_project_info, get_db_path, get_connection, set_project_info
 from backend.services.checkpoint import CheckpointManager
 from backend.services.frame_annotator import render_frame_preview
@@ -30,6 +30,10 @@ _preview_frames: dict[str, bytes] = {}
 _threads: dict[str, threading.Thread] = {}
 _preview_queues: dict[str, queue.Queue] = {}
 _state_lock = threading.Lock()
+
+# Batch processing queue
+_batch_queue: list[str] = []
+_batch_params: dict[str, dict] = {}  # project_id -> {frame_skip}
 
 
 def _make_placeholder_jpeg() -> bytes:
@@ -163,6 +167,36 @@ def _make_progress_callback(project_id: str, legs: list[dict]) -> Callable:
     return callback
 
 
+def _start_next_queued() -> None:
+    """Start next queued project if under the concurrency limit. Called from _run_pipeline's finally block."""
+    with _state_lock:
+        active = sum(1 for t in _threads.values() if t.is_alive())
+        while _batch_queue and active < MAX_CONCURRENT_PIPELINES:
+            next_id = _batch_queue.pop(0)
+            params = _batch_params.pop(next_id, {})
+            # Verify project dir still exists (user might have deleted it while queued)
+            project_dir = PROJECTS_DIR / next_id
+            if not project_dir.exists():
+                continue
+            active += 1
+            # Release lock before starting (start_processing acquires it internally)
+            break
+        else:
+            return
+
+    # Start outside the lock
+    try:
+        frame_skip = params.get("frame_skip")
+        req = StartProcessingRequest(frame_skip=frame_skip)
+        start_processing(next_id, req)
+        logger.info("Batch queue: auto-started project %s", next_id)
+    except Exception as e:
+        logger.error("Batch queue: failed to start project %s: %s", next_id, e)
+        set_project_info(next_id, "status", "error")
+        # Try next in queue
+        _start_next_queued()
+
+
 def _run_pipeline(project_id: str, start_frame: int = 0, end_frame: int | None = None,
                    frame_skip: int = DEFAULT_FRAME_SKIP):
     """Thread target: run the pipeline, update status on finish."""
@@ -197,6 +231,8 @@ def _run_pipeline(project_id: str, start_frame: int = 0, end_frame: int | None =
         with _state_lock:
             _pipelines.pop(project_id, None)
             _threads.pop(project_id, None)
+        # Auto-start next queued project
+        _start_next_queued()
 
 
 # ---------------------------------------------------------------------------
@@ -437,7 +473,7 @@ def processing_status(project_id: str):
 
 @router.get("/projects/{project_id}/processing/preview-stream")
 async def processing_preview_stream(project_id: str):
-    """MJPEG stream: yields latest JPEG frame every ~40 ms (≤25 fps).
+    """MJPEG stream: yields latest JPEG frame every ~33 ms (≤30 fps).
     Closes automatically ~2 s after processing stops."""
     async def generate():
         last_sent: bytes | None = None
@@ -461,7 +497,7 @@ async def processing_preview_stream(project_id: str):
                 elif time.time() - idle_since > 2.0:
                     break
 
-            await asyncio.sleep(0.04)   # 25 fps cap
+            await asyncio.sleep(0.033)  # 30 fps cap
 
     return StreamingResponse(
         generate(),
@@ -559,3 +595,124 @@ def review_frame(project_id: str, frame: int = 0, show_trajectories: bool = True
         media_type="image/jpeg",
         headers={"Cache-Control": "no-store, no-cache"},
     )
+
+
+# ---------------------------------------------------------------------------
+# Batch processing endpoints
+# ---------------------------------------------------------------------------
+
+class BatchStartRequest(BaseModel):
+    project_ids: list[str]
+    frame_skip: int | None = None
+
+
+@router.post("/processing/batch-start")
+def batch_start(req: BatchStartRequest):
+    """Start processing for multiple projects with a concurrency limit."""
+    started: list[str] = []
+    queued: list[str] = []
+    skipped: list[dict] = []
+
+    frame_skip = req.frame_skip if req.frame_skip and 1 <= req.frame_skip <= 5 else DEFAULT_FRAME_SKIP
+
+    for pid in req.project_ids:
+        project_dir = PROJECTS_DIR / pid
+        if not project_dir.exists():
+            skipped.append({"project_id": pid, "reason": "Project not found"})
+            continue
+
+        # Check has video and legs
+        info = get_all_project_info(pid)
+        if not info.get("video_path"):
+            skipped.append({"project_id": pid, "reason": "No video configured"})
+            continue
+
+        conn = get_connection(pid)
+        try:
+            leg_count = conn.execute("SELECT COUNT(*) FROM legs").fetchone()[0]
+        finally:
+            conn.close()
+        if leg_count == 0:
+            skipped.append({"project_id": pid, "reason": "No legs configured (needs calibration)"})
+            continue
+
+        # Already running?
+        with _state_lock:
+            if pid in _pipelines:
+                thread = _threads.get(pid)
+                if thread is not None and thread.is_alive():
+                    skipped.append({"project_id": pid, "reason": "Already processing"})
+                    continue
+
+        status = info.get("status", "")
+        if status in ("complete",):
+            skipped.append({"project_id": pid, "reason": "Already complete"})
+            continue
+
+        # Check concurrency limit
+        with _state_lock:
+            active = sum(1 for t in _threads.values() if t.is_alive())
+
+        if active < MAX_CONCURRENT_PIPELINES:
+            try:
+                start_req = StartProcessingRequest(frame_skip=frame_skip)
+                start_processing(pid, start_req)
+                started.append(pid)
+            except Exception as e:
+                skipped.append({"project_id": pid, "reason": str(e)})
+        else:
+            _batch_queue.append(pid)
+            _batch_params[pid] = {"frame_skip": frame_skip}
+            set_project_info(pid, "status", "queued")
+            queued.append(pid)
+
+    return {"started": started, "queued": queued, "skipped": skipped}
+
+
+@router.get("/processing/batch-status")
+def batch_status():
+    """Return status and progress for all projects in one call."""
+    projects = []
+    if not PROJECTS_DIR.exists():
+        return {"projects": projects, "queue_length": len(_batch_queue), "active_count": 0}
+
+    for d in PROJECTS_DIR.iterdir():
+        if not d.is_dir() or not (d / "project.db").exists():
+            continue
+        try:
+            info = get_all_project_info(d.name)
+        except Exception:
+            continue
+
+        status = info.get("status", "idle")
+        with _state_lock:
+            is_running = d.name in _pipelines
+            progress = _progress.get(d.name)
+
+        # Auto-heal
+        if status == "processing" and not is_running:
+            status = "error"
+            set_project_info(d.name, "status", "error")
+
+        queue_pos = None
+        if d.name in _batch_queue:
+            queue_pos = _batch_queue.index(d.name) + 1
+
+        entry = {
+            "project_id": d.name,
+            "name": info.get("project_name", ""),
+            "status": status,
+            "progress_pct": 0.0,
+            "queue_position": queue_pos,
+        }
+        if progress:
+            entry["progress_pct"] = progress.get("progress_pct", 0.0)
+            entry["vehicle_count"] = progress.get("vehicle_count", 0)
+            entry["fps"] = progress.get("fps", 0.0)
+
+        projects.append(entry)
+
+    with _state_lock:
+        active_count = sum(1 for t in _threads.values() if t.is_alive())
+
+    return {"projects": projects, "queue_length": len(_batch_queue), "active_count": active_count}

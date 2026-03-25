@@ -16,6 +16,7 @@ DEFAULT_INTERVAL_MINUTES = 15
 MAX_PRESCAN_SECONDS = 600
 PRESCAN_CONFIDENCE_THRESHOLD = 0.90
 CHECKPOINT_INTERVAL_SECONDS = 120
+MAX_CONCURRENT_PIPELINES = 2
 
 # Detection
 YOLO_MODEL = "yolov8s.pt"
@@ -28,12 +29,13 @@ VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 PEDESTRIAN_CLASSES = {0: "person", 1: "bicycle"}
 
 # Trajectory classification thresholds (degrees)
-TRAJECTORY_THROUGH_MAX_ANGLE = 30
+TRAJECTORY_THROUGH_MAX_ANGLE = 25
 TRAJECTORY_TURN_MIN_ANGLE = 35
 TRAJECTORY_TURN_MAX_ANGLE = 135
 TRAJECTORY_UTURN_MIN_ANGLE = 135
 TRAJECTORY_MIN_POINTS = 2
 TRAJECTORY_MIN_DISTANCE_PX = 15
+TRAJECTORY_CURVATURE_THRESHOLD = 40  # cumulative curvature tiebreaker for ambiguous zone
 
 # Tracker tuning
 TRACKER_LOST_BUFFER = 150            # frames before dropping track (5s at 30fps)

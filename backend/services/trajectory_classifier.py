@@ -1,14 +1,17 @@
 """Trajectory-based turn classification.
 
 Analyzes a vehicle's tracked center-point trajectory to classify the
-movement as through, left turn, right turn, or U-turn based on the net
-heading change between entry and exit.
+movement as through, left turn, right turn, or U-turn.  Uses the
+calibrated reference_heading as the known entry direction and computes
+the exit heading from the trajectory's tail, so gradual sweeping turns
+are captured correctly.
 """
 
 import logging
 import math
 
 from backend.config import (
+    TRAJECTORY_CURVATURE_THRESHOLD,
     TRAJECTORY_MIN_DISTANCE_PX,
     TRAJECTORY_MIN_POINTS,
     TRAJECTORY_THROUGH_MAX_ANGLE,
@@ -31,23 +34,24 @@ def compute_heading(p1: tuple, p2: tuple) -> float:
 def compute_net_heading_change(
     trajectory: list[tuple], reference_heading: float
 ) -> float:
-    """Net heading change between trajectory entry and exit.
+    """Net heading change: exit heading vs calibrated entry heading.
+
+    Uses the calibrated reference_heading as the known entry direction
+    rather than estimating it from noisy early trajectory points.
 
     Returns degrees in [-180, +180].
     Positive = turned right (clockwise), Negative = turned left (CCW).
     """
     n = len(trajectory)
-    # Adaptive window: use ~20% of trajectory for entry/exit heading,
-    # clamped to avoid overlap on short trajectories
-    window = max(1, min(n // 5, 5))
-    entry_end_idx = min(window, n - 1)
-    entry_heading = compute_heading(trajectory[0], trajectory[entry_end_idx])
-
-    exit_start_idx = max(entry_end_idx, n - 1 - window)
+    # Exit window: ~20% of trajectory, up to 7 points.  Larger than the old
+    # 5-point cap to capture more of the final direction on long trajectories,
+    # but small enough that the chord closely approximates the tangent.
+    window = max(1, min(n // 5, 7))
+    exit_start_idx = max(0, n - 1 - window)
     exit_heading = compute_heading(trajectory[exit_start_idx], trajectory[-1])
 
-    # Net change normalized to [-180, +180]
-    change = exit_heading - entry_heading
+    # Net change = how far exit deviated from the calibrated entry heading
+    change = exit_heading - reference_heading
     change = (change + 180) % 360 - 180
     return change
 
@@ -106,11 +110,12 @@ def _distance_to_nearest_boundary(angle: float) -> tuple[float, float]:
     """Compute distance from angle to nearest classification boundary.
 
     Returns (distance, half_zone_width) for confidence scoring.
-    Boundaries: 0 (through center), ±30 (through/ambiguous), ±45 (turn start),
+    Boundaries: 0 (through center), ±25 (through/ambiguous), ±35 (turn start),
     ±135 (turn/uturn), ±180 (uturn center).
     """
     abs_angle = abs(angle)
-    boundaries = [0, 30, 45, 135, 180]
+    boundaries = [0, TRAJECTORY_THROUGH_MAX_ANGLE, TRAJECTORY_TURN_MIN_ANGLE,
+                  TRAJECTORY_UTURN_MIN_ANGLE, 180]
 
     min_dist = float("inf")
     for b in boundaries:
@@ -119,14 +124,14 @@ def _distance_to_nearest_boundary(angle: float) -> tuple[float, float]:
             min_dist = d
 
     # Half zone widths for each region
-    if abs_angle <= 30:
-        half_width = 15.0  # through zone: 0-30, center at 0
-    elif abs_angle <= 45:
-        half_width = 7.5  # ambiguous zone: 30-45
-    elif abs_angle <= 135:
-        half_width = 45.0  # turn zone: 45-135, center at 90
+    if abs_angle <= TRAJECTORY_THROUGH_MAX_ANGLE:
+        half_width = TRAJECTORY_THROUGH_MAX_ANGLE / 2.0
+    elif abs_angle <= TRAJECTORY_TURN_MIN_ANGLE:
+        half_width = (TRAJECTORY_TURN_MIN_ANGLE - TRAJECTORY_THROUGH_MAX_ANGLE) / 2.0
+    elif abs_angle <= TRAJECTORY_UTURN_MIN_ANGLE:
+        half_width = (TRAJECTORY_UTURN_MIN_ANGLE - TRAJECTORY_TURN_MIN_ANGLE) / 2.0
     else:
-        half_width = 22.5  # uturn zone: 135-180, center at ~157
+        half_width = (180 - TRAJECTORY_UTURN_MIN_ANGLE) / 2.0
 
     return min_dist, half_width
 
@@ -168,26 +173,27 @@ def classify_trajectory(
     straightness = compute_path_straightness(trajectory)
     abs_change = abs(net_change)
 
-    # 3. U-turn: |net| >= 135°
+    # 3. Classification using reference-anchored heading change
+    #    and cumulative curvature as tiebreaker for ambiguous cases.
+
+    # U-turn: |net| >= 135°
     if abs_change >= TRAJECTORY_UTURN_MIN_ANGLE:
         movement = "uturn"
-    # 4. Through: |net| <= 30° AND straightness > 0.85
-    elif abs_change <= TRAJECTORY_THROUGH_MAX_ANGLE and straightness > 0.85:
+    # Clear through: |net| <= 25°
+    elif abs_change <= TRAJECTORY_THROUGH_MAX_ANGLE:
         movement = "through"
-    # 5. Left: net < -45° AND net > -135°
+    # Clear left: -35° > net > -135°
     elif net_change < -TRAJECTORY_TURN_MIN_ANGLE and net_change > -TRAJECTORY_UTURN_MIN_ANGLE:
         movement = "left"
-    # 6. Right: net > +45° AND net < +135°
+    # Clear right: 35° < net < 135°
     elif net_change > TRAJECTORY_TURN_MIN_ANGLE and net_change < TRAJECTORY_UTURN_MIN_ANGLE:
         movement = "right"
-    # 7. Ambiguous — pick nearest classification
+    # Ambiguous zone (25-35°): use curvature to decide
     else:
-        if abs_change < TRAJECTORY_TURN_MIN_ANGLE:
-            movement = "through"
-        elif net_change < 0:
-            movement = "left"
+        if curvature > TRAJECTORY_CURVATURE_THRESHOLD:
+            movement = "left" if net_change < 0 else "right"
         else:
-            movement = "right"
+            movement = "through"
 
     confidence = _compute_confidence(net_change)
 

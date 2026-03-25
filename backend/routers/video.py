@@ -133,3 +133,27 @@ async def browse_video(project_id: str):
 
     path = await asyncio.to_thread(_open_file_dialog)
     return {"path": path}
+
+
+def _open_multi_file_dialog() -> list[str]:
+    """Open native file dialog for multiple video files. Returns list of paths."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        paths = filedialog.askopenfilenames(
+            filetypes=[("MP4 Video", "*.mp4"), ("All Files", "*.*")]
+        )
+        root.destroy()
+        return list(paths) if paths else []
+    except Exception:
+        return []
+
+
+@router.post("/video/browse-multi")
+async def browse_multi_video():
+    """Open native multi-file dialog (not project-scoped). Returns list of paths."""
+    paths = await asyncio.to_thread(_open_multi_file_dialog)
+    return {"paths": paths}

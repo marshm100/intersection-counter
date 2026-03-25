@@ -1,22 +1,9 @@
-import pytest
 import shutil
 from fastapi.testclient import TestClient
 from backend.app import app
 from backend.config import PROJECTS_DIR
 
 client = TestClient(app)
-
-@pytest.fixture(autouse=True)
-def cleanup():
-    """Remove any test projects before and after tests."""
-    yield
-    # Clean up projects created during tests
-    if PROJECTS_DIR.exists():
-        for d in PROJECTS_DIR.iterdir():
-            if d.is_dir() and d.name.startswith("test") is False:
-                # Only clean up short hex-style IDs (8 chars) to avoid nuking non-test data
-                if len(d.name) == 8:
-                    shutil.rmtree(d, ignore_errors=True)
 
 def test_list_empty():
     response = client.get("/api/projects")

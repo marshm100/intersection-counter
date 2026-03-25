@@ -1,5 +1,4 @@
 let _processingPollTimer = null;
-let _previewPollTimer = null;
 
 async function loadProcessingPage() {
     const pid = AppState.currentProject;
@@ -276,33 +275,17 @@ function _stopPolling() {
 
 function _startPreviewPolling(pid) {
     _stopPreviewPolling();
-    _fetchPreviewFrame(pid);
-    _previewPollTimer = setInterval(() => _fetchPreviewFrame(pid), 500);
+    const img = document.getElementById('proc-preview');
+    if (img) {
+        img.src = `/api/projects/${pid}/processing/preview-stream`;
+    }
 }
 
 function _stopPreviewPolling() {
-    if (_previewPollTimer !== null) {
-        clearInterval(_previewPollTimer);
-        _previewPollTimer = null;
-    }
     const img = document.getElementById('proc-preview');
-    if (img && img.src && img.src.startsWith('blob:')) {
-        URL.revokeObjectURL(img.src);
+    if (img) {
+        img.src = '';
     }
-}
-
-async function _fetchPreviewFrame(pid) {
-    const img = document.getElementById('proc-preview');
-    if (!img) { _stopPreviewPolling(); return; }
-    try {
-        const resp = await fetch(`/api/projects/${pid}/processing/preview-frame?_t=${Date.now()}`);
-        if (!resp.ok) return;
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
-        const old = img.src;
-        img.src = url;
-        if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
-    } catch (_) {}
 }
 
 async function _pollStatus() {
