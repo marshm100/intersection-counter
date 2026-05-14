@@ -26,6 +26,7 @@ def isolate_projects_dir(tmp_path_factory):
     import backend.routers.videos      # v3 plural router
     import backend.routers.processing
     import backend.routers.calibration  # v3 reads videos table via list_videos
+    import backend.routers.intersections  # v3 intersection-card router
 
     backend.database.PROJECTS_DIR = tmp
     backend.routers.projects.PROJECTS_DIR = tmp
@@ -33,6 +34,7 @@ def isolate_projects_dir(tmp_path_factory):
     backend.routers.videos.PROJECTS_DIR = tmp
     backend.routers.processing.PROJECTS_DIR = tmp
     backend.routers.calibration.PROJECTS_DIR = tmp
+    backend.routers.intersections.PROJECTS_DIR = tmp
 
     yield tmp
 
@@ -44,3 +46,4 @@ def isolate_projects_dir(tmp_path_factory):
     backend.routers.videos.PROJECTS_DIR = original
     backend.routers.processing.PROJECTS_DIR = original
     backend.routers.calibration.PROJECTS_DIR = original
+    backend.routers.intersections.PROJECTS_DIR = original
