@@ -222,7 +222,10 @@ def test_resume_ok():
             assert r.status_code == 200
             body = r.json()
             assert body["status"] == "ok"
-            assert body["start_frame"] == 940
+            # start_frame is now an internal detail of the orchestrator thread
+            # (it calls resume_from_checkpoint per-video). The endpoint instead
+            # reports resume_video_id when applicable.
+            assert "resume_video_id" in body
     finally:
         os.unlink(video)
 

@@ -41,12 +41,22 @@ _batch_params: dict[str, dict] = {}  # project_id -> {frame_skip}
 
 
 def _make_placeholder_jpeg() -> bytes:
-    """Return a black 640×360 JPEG with a 'Starting...' label."""
-    img = np.zeros((360, 640, 3), dtype=np.uint8)
-    cv2.putText(img, "Starting...", (230, 190),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.2, (100, 100, 100), 2, cv2.LINE_AA)
-    _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 50])
-    return buf.tobytes()
+    """Return a black 640×360 JPEG with a 'Starting...' label.
+
+    Returns b"" on encode failure rather than raising — the placeholder is
+    cosmetic, never load-bearing, and a failure here shouldn't prevent
+    processing from starting.
+    """
+    try:
+        img = np.zeros((360, 640, 3), dtype=np.uint8)
+        cv2.putText(img, "Starting...", (230, 190),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (100, 100, 100), 2, cv2.LINE_AA)
+        result = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 50])
+        if not result or len(result) < 2 or result[1] is None:
+            return b""
+        return result[1].tobytes()
+    except Exception:
+        return b""
 
 
 def _preview_worker(project_id: str, q: queue.Queue) -> None:

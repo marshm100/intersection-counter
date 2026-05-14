@@ -1,6 +1,9 @@
 data/
 models/*.pt
 models/*.onnx
+# YOLO can auto-download weights into the repo root — never commit them
+*.pt
+*.onnx
 dist/
 build/
 __pycache__/

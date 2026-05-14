@@ -17,7 +17,6 @@ from dataclasses import asdict, dataclass, field
 
 import cv2
 import numpy as np
-from sklearn.cluster import DBSCAN
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +108,10 @@ def cluster_entry_points(
     """
     if not trajectories:
         return {}
+
+    # Lazy sklearn import — keeps it out of the module import path so test
+    # collection works without sklearn fully resolved.
+    from sklearn.cluster import DBSCAN
 
     tids = list(trajectories.keys())
     entries = np.array([

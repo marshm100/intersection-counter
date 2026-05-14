@@ -24,12 +24,14 @@ def test_create_database():
     tables = [row[0] for row in cursor.fetchall()]
     conn.close()
     assert 'project_info' in tables
+    assert 'videos' in tables
     assert 'legs' in tables
     assert 'vehicle_events' in tables
     assert 'checkpoint' in tables
     assert 'low_confidence_segments' in tables
     # pedestrian_events removed (pedestrians out of scope for v2)
-    assert len(tables) == 5
+    # videos table added (multi-video support)
+    assert len(tables) == 6
 
 def test_wal_mode():
     conn = get_connection(TEST_PROJECT)
