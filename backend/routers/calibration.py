@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from typing import List
 
 from backend.config import PROJECTS_DIR
-from backend.database import get_connection, get_project_info
+from backend.database import get_connection, get_project_info, list_videos
 from backend.services.auto_calibrator import auto_calibrate
 
 logger = logging.getLogger(__name__)
@@ -174,7 +174,13 @@ def start_auto_calibration(project_id: str, body: StartAutoBody):
     """Start an async auto-calibration job. Returns job_id for polling."""
     _require_project(project_id)
 
-    video_path = get_project_info(project_id, "video_path")
+    # Prefer the multi-video table (first video by sort_order); fall back to
+    # the legacy single-video project_info path so older projects still work.
+    videos = list_videos(project_id)
+    if videos:
+        video_path = videos[0]["path"]
+    else:
+        video_path = get_project_info(project_id, "video_path")
     if not video_path:
         raise HTTPException(status_code=400, detail="No video set for this project")
 

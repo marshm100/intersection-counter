@@ -90,6 +90,23 @@ header h1 { font-size: 24px; }
 .meta-label { font-size: 13px; color: #666; }
 .meta-value { font-size: 13px; font-weight: 500; }
 
+/* Multi-video processing-page label */
+.video-progress-label { margin: 8px 0 6px 0; font-size: 13px; color: #444; }
+
+/* Multi-video list */
+.video-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.video-list { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.video-card { display: flex; gap: 16px; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; background: #fafafa; }
+.video-card .video-thumbnail { max-width: 200px; flex: 0 0 200px; height: auto; }
+.video-card-body { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 6px; }
+.video-card-title { font-weight: 600; font-size: 14px; word-break: break-all; }
+.video-card-meta { font-size: 12px; color: #6b7280; }
+.video-card-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.video-start-label { font-size: 13px; color: #444; }
+.video-card-controls input[type=datetime-local] { padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+.btn-remove-video { padding: 4px 10px; background: #fee2e2; color: #991b1b; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.btn-remove-video:hover { background: #fecaca; }
+
 .settings-row { margin-top: 16px; }
 .settings-row label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; }
 .helper-text { display: block; font-size: 12px; color: #888; margin-bottom: 6px; }

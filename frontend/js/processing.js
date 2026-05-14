@@ -63,6 +63,14 @@ function _renderProcessingPage(section, data) {
     html += `<span class="status-badge status-${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
     html += '</div>';
 
+    // Multi-video label: "Video 2 of 3 — filename.mp4"
+    if (progress && progress.total_videos && progress.total_videos > 1) {
+        const idx = (progress.video_index || 0) + 1;
+        const total = progress.total_videos;
+        const fname = progress.video_filename ? ' — ' + escapeHtml(progress.video_filename) : '';
+        html += `<div class="video-progress-label">Video ${idx} of ${total}${fname}</div>`;
+    }
+
     // Progress bar
     const pct = progress ? Math.min(100, progress.progress_pct || 0) : 0;
     html += '<div class="progress-container">';

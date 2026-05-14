@@ -1,3 +1,9 @@
+// Setup page — multi-video edition.
+//
+// Loads the project, lists attached videos via the new /videos endpoint, and
+// auto-migrates legacy single-video projects (those whose video lives in
+// project_info.video_path but not yet in the videos table).
+
 async function loadSetupPage() {
     const pid = AppState.currentProject;
     if (!pid) {
@@ -8,7 +14,6 @@ async function loadSetupPage() {
 
     const section = document.getElementById('page-setup');
     let project = {};
-    let videoInfo = null;
 
     try {
         project = await API.get(`/api/projects/${pid}`);
@@ -17,19 +22,32 @@ async function loadSetupPage() {
         return;
     }
 
+    // Fetch multi-video list. If empty AND the legacy /video has a value,
+    // migrate it into the videos table so the rest of the UI is one code path.
+    let videos = [];
     try {
-        videoInfo = await API.get(`/api/projects/${pid}/video`);
+        videos = await API.get(`/api/projects/${pid}/videos`);
     } catch (e) {
-        videoInfo = null;
+        videos = [];
+    }
+    if (videos.length === 0) {
+        let legacy = null;
+        try { legacy = await API.get(`/api/projects/${pid}/video`); }
+        catch (e) { legacy = null; }
+        if (legacy && legacy.path) {
+            try {
+                await API.post(`/api/projects/${pid}/videos`, { path: legacy.path });
+                videos = await API.get(`/api/projects/${pid}/videos`);
+            } catch (e) { /* ignore — still show empty state */ }
+        }
     }
 
     const projectName = project.project_name || '';
     const numLegs = project.num_legs || '4';
-    const videoStartTime = project.video_start_time || '';
 
     let html = '';
 
-    // Header with back button and project name
+    // Header
     html += '<div class="setup-header">';
     html += '<a href="#" class="back-link" onclick="backToProjects(); return false;">&larr; Back to Projects</a>';
     html += '<div class="setup-name-row">';
@@ -37,38 +55,23 @@ async function loadSetupPage() {
     html += '</div>';
     html += '</div>';
 
-    // Video section
+    // Videos section
     html += '<div class="setup-section">';
-    html += '<h3>Video</h3>';
-    html += `<button class="video-select-btn" onclick="selectVideo()">Select Video File</button>`;
+    html += '<h3>Videos</h3>';
+    html += '<div class="video-actions">';
+    html += '<button class="video-select-btn" onclick="addVideos()">+ Add Videos</button>';
+    html += '<span class="helper-text">You can attach multiple recordings of the same intersection (e.g. morning + evening peak).</span>';
+    html += '</div>';
 
-    if (videoInfo) {
-        // Auto-populate start time from creation_time if we don't have one saved yet
-        let defaultStartTime = videoStartTime;
-        if (!defaultStartTime && videoInfo.creation_time) {
-            defaultStartTime = videoInfo.creation_time.substring(0, 16);
+    if (videos.length === 0) {
+        html += '<p class="empty-message" style="margin-top:12px;">No videos attached yet. Click "Add Videos" to choose one or more files.</p>';
+    } else {
+        html += '<div class="video-list">';
+        for (const v of videos) {
+            html += _videoCardHtml(pid, v);
         }
-
-        html += '<div class="video-info-panel">';
-        html += `<img class="video-thumbnail" src="/api/projects/${pid}/video/frame?seconds=0" alt="Video thumbnail" />`;
-        html += '<div class="metadata-grid">';
-        html += `<div class="meta-row"><span class="meta-label">Filename</span><span class="meta-value">${escapeHtml(videoInfo.filename)}</span></div>`;
-        html += `<div class="meta-row"><span class="meta-label">Duration</span><span class="meta-value">${escapeHtml(videoInfo.duration_formatted)}</span></div>`;
-        html += `<div class="meta-row"><span class="meta-label">Resolution</span><span class="meta-value">${videoInfo.width} x ${videoInfo.height}</span></div>`;
-        html += `<div class="meta-row"><span class="meta-label">FPS</span><span class="meta-value">${videoInfo.fps}</span></div>`;
-        html += `<div class="meta-row"><span class="meta-label">File Size</span><span class="meta-value">${escapeHtml(videoInfo.file_size_formatted)}</span></div>`;
-        html += `<div class="meta-row"><span class="meta-label">Codec</span><span class="meta-value">${escapeHtml(videoInfo.codec)}</span></div>`;
-        html += '</div>';
-        html += '</div>';
-
-        // Settings that depend on video
-        html += '<div class="settings-row">';
-        html += '<label for="setup-start-time">Recording Start Time</label>';
-        html += '<span class="helper-text">(When did the camera start recording?)</span>';
-        html += `<input type="datetime-local" id="setup-start-time" value="${escapeAttr(defaultStartTime)}" onchange="saveSetupSettings()" />`;
         html += '</div>';
     }
-
     html += '</div>';
 
     // Intersection config
@@ -85,17 +88,17 @@ async function loadSetupPage() {
     html += '</div>';
     html += '</div>';
 
-    // Start calibration button
-    const disabled = videoInfo ? '' : ' disabled';
+    // Action buttons
+    const disabled = videos.length === 0 ? ' disabled' : '';
     html += `<button class="btn-calibration"${disabled} onclick="startCalibration()">Start Calibration</button>`;
     html += `<button class="btn-proceed"${disabled} onclick="proceedToProcessing()">Proceed to Processing</button>`;
-    if (!videoInfo) {
-        html += '<p style="font-size:12px;color:#9ca3af;margin-top:6px;">Select a video file to enable calibration.</p>';
+    if (videos.length === 0) {
+        html += '<p style="font-size:12px;color:#9ca3af;margin-top:6px;">Attach at least one video to enable calibration.</p>';
     }
 
     section.innerHTML = html;
 
-    // Bind name input events
+    // Name input bindings
     const nameInput = document.getElementById('setup-project-name');
     nameInput.removeEventListener('blur', saveProjectName);
     nameInput.removeEventListener('keydown', _onSetupNameKeydown);
@@ -103,41 +106,107 @@ async function loadSetupPage() {
     nameInput.addEventListener('keydown', _onSetupNameKeydown);
 }
 
+function _videoCardHtml(pid, v) {
+    // recording_start_time is stored UTC ISO; <input type=datetime-local> wants
+    // "YYYY-MM-DDTHH:MM" without timezone, so slice the first 16 chars when present.
+    const startTime = v.recording_start_time ? String(v.recording_start_time).substring(0, 16)
+                    : v.creation_time ? String(v.creation_time).substring(0, 16)
+                    : '';
+    const durationMin = v.duration_seconds ? (v.duration_seconds / 60).toFixed(1) : '?';
+    const sizeMb = v.file_size_bytes ? (v.file_size_bytes / (1024 * 1024)).toFixed(1) : '?';
+
+    return `
+    <div class="video-card" data-video-id="${v.video_id}">
+        <img class="video-thumbnail"
+             src="/api/projects/${pid}/videos/${v.video_id}/frame?seconds=0"
+             alt="Video thumbnail" />
+        <div class="video-card-body">
+            <div class="video-card-title">${escapeHtml(v.filename)}</div>
+            <div class="video-card-meta">
+                ${durationMin} min &middot;
+                ${v.width}&times;${v.height} &middot;
+                ${v.fps} fps &middot;
+                ${sizeMb} MB
+            </div>
+            <div class="video-card-controls">
+                <label class="video-start-label">Recording start:</label>
+                <input type="datetime-local"
+                       value="${escapeAttr(startTime)}"
+                       onchange="saveVideoStartTime(${v.video_id}, this.value)" />
+                <button class="btn-remove-video"
+                        onclick="removeVideo(${v.video_id}, '${escapeAttr(v.filename)}')">Remove</button>
+            </div>
+        </div>
+    </div>`;
+}
+
 function _onSetupNameKeydown(e) {
     if (e.key === 'Enter') { e.target.blur(); }
 }
 
-async function selectVideo() {
+async function addVideos() {
     const pid = AppState.currentProject;
 
+    // Open multi-file dialog. If only one file is chosen, that's fine — the
+    // result is just a 1-element list.
     let browse;
     try {
-        browse = await API.post(`/api/projects/${pid}/video/browse`);
+        browse = await API.post(`/api/projects/${pid}/videos/browse-multi`);
     } catch (e) {
         alert('Could not open file browser. Please try again.');
         return;
     }
-    if (!browse.path) return;
+    const paths = (browse && browse.paths) ? browse.paths : [];
+    if (paths.length === 0) return;
 
+    // Attach each in turn. Errors per-file are surfaced but don't stop the batch.
+    const errors = [];
+    for (const path of paths) {
+        try {
+            await API.post(`/api/projects/${pid}/videos`, { path });
+        } catch (e) {
+            errors.push(`${path}: ${e.message || e}`);
+        }
+    }
+    if (errors.length > 0) {
+        alert(`Some files could not be attached:\n\n${errors.join('\n')}`);
+    }
+    await loadSetupPage();
+}
+
+async function removeVideo(videoId, filename) {
+    const pid = AppState.currentProject;
+    if (!window.confirm(`Remove "${filename}" from this project?`)) return;
+
+    // First call (no confirm) — backend returns a warning if there are events.
     let result;
     try {
-        result = await API.post(`/api/projects/${pid}/video`, { path: browse.path, confirm: false });
+        result = await API.del(`/api/projects/${pid}/videos/${videoId}`);
     } catch (e) {
-        alert(`Could not load video file.\n\nPath: ${browse.path}\n\nError: ${e.message}\n\nMake sure the file is accessible and is a valid MP4.`);
+        alert(`Failed to remove video: ${e.message || e}`);
         return;
     }
-
-    if (result.confirm_required) {
-        if (!window.confirm(result.warning)) return;
+    if (result && result.confirm_required) {
+        if (!window.confirm(result.warning + '\n\nProceed?')) return;
         try {
-            result = await API.post(`/api/projects/${pid}/video`, { path: browse.path, confirm: true });
+            await API.del(`/api/projects/${pid}/videos/${videoId}?confirm=true`);
         } catch (e) {
-            alert(`Failed to update video: ${e.message}`);
+            alert(`Failed to remove video: ${e.message || e}`);
             return;
         }
     }
-
     await loadSetupPage();
+}
+
+async function saveVideoStartTime(videoId, value) {
+    const pid = AppState.currentProject;
+    try {
+        await API.put(`/api/projects/${pid}/videos/${videoId}/start_time`,
+                      { recording_start_time: value || null });
+    } catch (e) {
+        // Non-fatal — value just doesn't persist
+        console.error('Failed to save start time:', e);
+    }
 }
 
 async function saveProjectName() {
@@ -150,23 +219,16 @@ async function saveProjectName() {
 async function saveSetupSettings() {
     const pid = AppState.currentProject;
     const numLegsEl = document.getElementById('setup-num-legs');
-    const startTimeEl = document.getElementById('setup-start-time');
     const settings = {};
     if (numLegsEl) settings.num_legs = parseInt(numLegsEl.value, 10);
-    if (startTimeEl) settings.video_start_time = startTimeEl.value;
     await API.put(`/api/projects/${pid}/settings`, settings);
 }
 
 async function startCalibration() {
     await saveSetupSettings();
     const pid = AppState.currentProject;
-    await API.put(`/api/projects/${pid}/settings`, { num_legs: parseInt(document.getElementById('setup-num-legs').value, 10) });
-    // Update project status
-    await API.put(`/api/projects/${pid}/name`, { name: document.getElementById('setup-project-name').value.trim() });
-    // Set status to configured via a direct project_info update (reuse settings or a separate call)
-    // We'll save status through a simple approach - POST to settings doesn't cover status,
-    // so we rely on the backend project_info. For now, use a workaround:
-    // The calibration page will handle status update. Just navigate.
+    await API.put(`/api/projects/${pid}/name`,
+                  { name: document.getElementById('setup-project-name').value.trim() });
     showPage('page-calibration');
     loadCalibrationPage();
 }
