@@ -10,7 +10,6 @@ os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
 from ultralytics import YOLO  # noqa: E402
 
 from backend.config import (
-    PEDESTRIAN_CLASSES,
     VEHICLE_CLASSES,
     YOLO_CONFIDENCE_THRESHOLD,
     YOLO_IMGSZ,
@@ -19,13 +18,17 @@ from backend.config import (
 )
 from backend.services.device import detect_device
 
-ALL_CLASSES = {**VEHICLE_CLASSES, **PEDESTRIAN_CLASSES}
+ALL_CLASSES = VEHICLE_CLASSES
 
 
 class VehicleDetector:
-    """Wraps YOLO inference for vehicle and pedestrian detection."""
+    """Wraps YOLO inference for vehicle detection.
 
-    RELEVANT_CLASSES = sorted(set(VEHICLE_CLASSES.keys()) | set(PEDESTRIAN_CLASSES.keys()))
+    Pedestrians are out of scope for v2 per PRD — only vehicle classes are
+    passed to YOLO so the detector never produces pedestrian detections.
+    """
+
+    RELEVANT_CLASSES = sorted(VEHICLE_CLASSES.keys())
 
     def __init__(self, model_path: str | None = None):
         """Load the YOLO model.
@@ -62,7 +65,6 @@ class VehicleDetector:
                 "bbox_height": h,
                 "bbox_area": w * h,
                 "is_vehicle": class_id in VEHICLE_CLASSES,
-                "is_pedestrian": class_id in PEDESTRIAN_CLASSES,
             })
         return detections
 

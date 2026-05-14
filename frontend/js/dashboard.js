@@ -23,7 +23,7 @@ async function loadDashboardPage() {
     html += '<button class="btn-proc btn-start" style="margin-left:8px" onclick="showPage(\'page-export\'); loadExportPage()">Export &rarr;</button>';
     html += '</div>';
 
-    const noEvents = data.totals.vehicles === 0 && data.totals.pedestrians === 0;
+    const noEvents = data.totals.vehicles === 0;
 
     if (noEvents) {
         html += '<p class="empty-message">No events recorded yet.</p>';
@@ -32,7 +32,7 @@ async function loadDashboardPage() {
     }
 
     // Totals
-    html += `<p style="margin-bottom:16px;font-size:15px;">${data.totals.vehicles} vehicles, ${data.totals.pedestrians} pedestrians</p>`;
+    html += `<p style="margin-bottom:16px;font-size:15px;">${data.totals.vehicles} vehicles</p>`;
 
     // TMC table
     if (data.tmc_matrix.length > 0) {

@@ -22,7 +22,6 @@ PROJECT_ID = "test-dashboard-project"
 def _setup(interval_minutes: int | None = None):
     conn = get_connection(PROJECT_ID)
     conn.execute("DELETE FROM vehicle_events")
-    conn.execute("DELETE FROM pedestrian_events")
     conn.execute("DELETE FROM legs")
     conn.execute("DELETE FROM project_info")
     conn.commit()
@@ -50,14 +49,6 @@ def _insert_vehicle_event(conn, origin_leg_id: int, movement: str, timestamp_vid
     conn.commit()
 
 
-def _insert_ped_event(conn, crossing_leg_id: int, timestamp_video: float):
-    conn.execute(
-        "INSERT INTO pedestrian_events (crossing_leg_id, confidence, timestamp_video, frame_number) VALUES (?, ?, ?, ?)",
-        (crossing_leg_id, 0.8, timestamp_video, 1),
-    )
-    conn.commit()
-
-
 # ---------------------------------------------------------------------------
 # 1. Empty — no events
 # ---------------------------------------------------------------------------
@@ -69,7 +60,7 @@ def test_dashboard_empty():
     body = r.json()
     assert body["tmc_matrix"] == []
     assert body["time_series"] == []
-    assert body["totals"] == {"vehicles": 0, "pedestrians": 0}
+    assert body["totals"] == {"vehicles": 0}
 
 
 # ---------------------------------------------------------------------------
@@ -126,15 +117,12 @@ def test_dashboard_totals():
     leg_id = _insert_leg(conn, "North", 1)
     for _ in range(5):
         _insert_vehicle_event(conn, leg_id, "through", 0.0)
-    for _ in range(2):
-        _insert_ped_event(conn, leg_id, 0.0)
     conn.close()
 
     r = client.get(f"/api/projects/{PROJECT_ID}/dashboard")
     assert r.status_code == 200
     totals = r.json()["totals"]
     assert totals["vehicles"] == 5
-    assert totals["pedestrians"] == 2
 
 
 # ---------------------------------------------------------------------------

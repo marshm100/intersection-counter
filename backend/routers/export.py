@@ -27,7 +27,6 @@ def export_preview(project_id: str):
         event_rows = conn.execute(
             "SELECT origin_leg_id, movement FROM vehicle_events"
         ).fetchall()
-        ped_count = conn.execute("SELECT COUNT(*) FROM pedestrian_events").fetchone()[0]
     finally:
         conn.close()
 
@@ -57,7 +56,6 @@ def export_preview(project_id: str):
         "video_start_time": info.get("video_start_time", ""),
         "tmc_matrix": matrix,
         "total_vehicles": int(sum(v["total"] for v in tmc.values())),
-        "total_pedestrians": int(ped_count),
         "leg_count": int(len(legs)),
     }
 

@@ -24,9 +24,8 @@ YOLO_CONFIDENCE_THRESHOLD = 0.15
 YOLO_IOU_THRESHOLD = 0.45
 YOLO_IMGSZ = 640
 
-# Classification mapping
+# Classification mapping (pedestrians out of scope for v2 per PRD)
 VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
-PEDESTRIAN_CLASSES = {0: "person", 1: "bicycle"}
 
 # Trajectory classification thresholds (degrees)
 TRAJECTORY_THROUGH_MAX_ANGLE = 25

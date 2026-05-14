@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import pytest
 
-from backend.config import PEDESTRIAN_CLASSES, VEHICLE_CLASSES
+from backend.config import VEHICLE_CLASSES
 from backend.services.detector import VehicleDetector
 
 
@@ -25,7 +25,7 @@ def make_traffic_scene():
 
 REQUIRED_KEYS = {
     "bbox", "center", "class_id", "class_name", "confidence",
-    "bbox_width", "bbox_height", "bbox_area", "is_vehicle", "is_pedestrian",
+    "bbox_width", "bbox_height", "bbox_area", "is_vehicle",
 }
 
 
@@ -39,7 +39,8 @@ class TestDetectorInit:
         assert detector.model is not None
 
     def test_relevant_classes(self):
-        assert VehicleDetector.RELEVANT_CLASSES == [0, 1, 2, 3, 5, 7]
+        # Pedestrians (classes 0=person, 1=bicycle) are out of scope for v2.
+        assert VehicleDetector.RELEVANT_CLASSES == [2, 3, 5, 7]
 
 
 # ---------------------------------------------------------------------------
@@ -79,15 +80,12 @@ class TestDetect:
             assert x1 < x2
             assert y1 < y2
 
-    def test_flags_exclusive(self, detector):
+    def test_is_vehicle_flag(self, detector):
         frame = make_traffic_scene()
         result = detector.detect(frame)
         for det in result:
             cid = det["class_id"]
             assert det["is_vehicle"] == (cid in VEHICLE_CLASSES)
-            assert det["is_pedestrian"] == (cid in PEDESTRIAN_CLASSES)
-            # No class is in both maps
-            assert not (det["is_vehicle"] and det["is_pedestrian"])
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +123,3 @@ class TestDetectOnSyntheticScene:
 class TestClassMapping:
     def test_vehicle_class_names(self):
         assert VEHICLE_CLASSES == {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
-
-    def test_pedestrian_class_names(self):
-        assert PEDESTRIAN_CLASSES == {0: "person", 1: "bicycle"}

@@ -206,8 +206,8 @@ def test_resume_ok():
         conn.execute(
             "INSERT OR REPLACE INTO checkpoint "
             "(id, frame_number, timestamp_video, tracker_state, active_trajectories, "
-            "vehicle_count, pedestrian_count, error_count, updated_at) "
-            "VALUES (1, 1000, 33.3, NULL, NULL, 5, 0, 0, '2024-01-01T00:00:00')"
+            "vehicle_count, error_count, updated_at) "
+            "VALUES (1, 1000, 33.3, NULL, NULL, 5, 0, '2024-01-01T00:00:00')"
         )
         conn.commit()
         conn.close()
@@ -266,7 +266,6 @@ def test_status_progress_populated():
         "total_frames": 54000,
         "progress_pct": 8.33,
         "vehicle_count": 47,
-        "pedestrian_count": 3,
         "fps_processing": 12.5,
         "error_count": 0,
         "eta_seconds": 3480.0,

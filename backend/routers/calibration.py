@@ -118,7 +118,6 @@ def save_calibration(project_id: str, body: CalibrationSaveRequest):
     try:
         with conn:
             conn.execute("DELETE FROM vehicle_events")
-            conn.execute("DELETE FROM pedestrian_events")
             conn.execute("DELETE FROM low_confidence_segments")
             conn.execute("DELETE FROM checkpoint")
             conn.execute("DELETE FROM legs")

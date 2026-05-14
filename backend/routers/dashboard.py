@@ -44,26 +44,15 @@ def get_dashboard(project_id: str):
             (interval_minutes,),
         ).fetchall()
 
-        # --- Pedestrian time series ---
-        p_rows = conn.execute(
-            """
-            SELECT CAST(timestamp_video / (? * 60) AS INTEGER) AS bucket, COUNT(*) AS cnt
-            FROM pedestrian_events GROUP BY bucket ORDER BY bucket
-            """,
-            (interval_minutes,),
-        ).fetchall()
-
         # --- Totals ---
         total_vehicles = conn.execute("SELECT COUNT(*) FROM vehicle_events").fetchone()[0]
-        total_pedestrians = conn.execute("SELECT COUNT(*) FROM pedestrian_events").fetchone()[0]
     finally:
         conn.close()
 
     # Build aligned time series
     v_dict = {bucket: cnt for bucket, cnt in v_rows}
-    p_dict = {bucket: cnt for bucket, cnt in p_rows}
 
-    all_buckets = sorted(set(v_dict.keys()) | set(p_dict.keys()))
+    all_buckets = sorted(v_dict.keys())
 
     # Determine label format from max bucket value
     max_seconds = (max(all_buckets) + 1) * interval_minutes * 60 if all_buckets else 0
@@ -84,7 +73,6 @@ def get_dashboard(project_id: str):
         {
             "interval_start": _bucket_label(b),
             "vehicle_count": v_dict.get(b, 0),
-            "pedestrian_count": p_dict.get(b, 0),
         }
         for b in all_buckets
     ]
@@ -92,6 +80,6 @@ def get_dashboard(project_id: str):
     return {
         "tmc_matrix": tmc_matrix,
         "time_series": time_series,
-        "totals": {"vehicles": total_vehicles, "pedestrians": total_pedestrians},
+        "totals": {"vehicles": total_vehicles},
         "interval_minutes": interval_minutes,
     }

@@ -26,10 +26,10 @@ def test_create_database():
     assert 'project_info' in tables
     assert 'legs' in tables
     assert 'vehicle_events' in tables
-    assert 'pedestrian_events' in tables
     assert 'checkpoint' in tables
     assert 'low_confidence_segments' in tables
-    assert len(tables) == 6
+    # pedestrian_events removed (pedestrians out of scope for v2)
+    assert len(tables) == 5
 
 def test_wal_mode():
     conn = get_connection(TEST_PROJECT)

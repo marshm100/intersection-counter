@@ -36,16 +36,6 @@ CREATE TABLE IF NOT EXISTS vehicle_events (
     FOREIGN KEY (origin_leg_id) REFERENCES legs(leg_id)
 );
 
-CREATE TABLE IF NOT EXISTS pedestrian_events (
-    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    crossing_leg_id INTEGER NOT NULL,
-    confidence REAL NOT NULL,
-    timestamp_video REAL NOT NULL,
-    timestamp_real TEXT DEFAULT NULL,
-    frame_number INTEGER NOT NULL,
-    FOREIGN KEY (crossing_leg_id) REFERENCES legs(leg_id)
-);
-
 CREATE TABLE IF NOT EXISTS checkpoint (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     frame_number INTEGER NOT NULL,
@@ -53,7 +43,6 @@ CREATE TABLE IF NOT EXISTS checkpoint (
     tracker_state BLOB,
     active_trajectories BLOB,
     vehicle_count INTEGER NOT NULL DEFAULT 0,
-    pedestrian_count INTEGER NOT NULL DEFAULT 0,
     error_count INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
 );

@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.config import PEDESTRIAN_CLASSES, VEHICLE_CLASSES
+from backend.config import VEHICLE_CLASSES
 from backend.services.tracker import VehicleTracker
 
 
@@ -18,15 +18,12 @@ def make_detection(x1, y1, x2, y2, class_id=2, confidence=0.9):
         "bbox": [x1, y1, x2, y2],
         "center": [cx, cy],
         "class_id": class_id,
-        "class_name": VEHICLE_CLASSES.get(
-            class_id, PEDESTRIAN_CLASSES.get(class_id, f"class_{class_id}")
-        ),
+        "class_name": VEHICLE_CLASSES.get(class_id, f"class_{class_id}"),
         "confidence": confidence,
         "bbox_width": w,
         "bbox_height": h,
         "bbox_area": w * h,
         "is_vehicle": class_id in VEHICLE_CLASSES,
-        "is_pedestrian": class_id in PEDESTRIAN_CLASSES,
     }
 
 
@@ -45,7 +42,7 @@ def make_moving_vehicle(
 
 REQUIRED_KEYS = {
     "track_id", "bbox", "center", "class_id", "class_name",
-    "confidence", "is_vehicle", "is_pedestrian",
+    "confidence", "is_vehicle",
     "bbox_width", "bbox_height", "bbox_area",
 }
 
@@ -125,13 +122,7 @@ class TestTrackerUpdate:
         # Should maintain the same track_id (within lost_track_buffer=90)
         assert results[0]["track_id"] == first_id
 
-    def test_pedestrian_tracking(self):
-        tracker = VehicleTracker()
-        dets = [make_detection(300, 400, 340, 500, class_id=0, confidence=0.8)]
-        results = tracker.update(dets, frame_number=0)
-        assert len(results) == 1
-        assert results[0]["is_pedestrian"] is True
-        assert results[0]["is_vehicle"] is False
+# Pedestrian tracking test removed: pedestrians out of scope for v2.
 
 
 # ---------------------------------------------------------------------------
@@ -214,8 +205,4 @@ class TestClassMapping:
         results = tracker.update(dets, frame_number=0)
         assert results[0]["class_name"] == "car"
 
-    def test_pedestrian_class_name_in_tracked(self):
-        tracker = VehicleTracker()
-        dets = [make_detection(300, 400, 340, 500, class_id=0)]
-        results = tracker.update(dets, frame_number=0)
-        assert results[0]["class_name"] == "person"
+    # Pedestrian class-name test removed: pedestrians out of scope for v2.

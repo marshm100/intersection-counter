@@ -27,7 +27,6 @@ class CheckpointManager:
         tracker_state: bytes,
         active_trajectories: bytes,
         vehicle_count: int,
-        pedestrian_count: int,
         error_count: int,
     ) -> None:
         """Save checkpoint (upsert — always id=1)."""
@@ -37,11 +36,11 @@ class CheckpointManager:
             conn.execute(
                 """INSERT OR REPLACE INTO checkpoint
                    (id, frame_number, timestamp_video, tracker_state,
-                    active_trajectories, vehicle_count, pedestrian_count,
+                    active_trajectories, vehicle_count,
                     error_count, updated_at)
-                   VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (1, ?, ?, ?, ?, ?, ?, ?)""",
                 (frame_number, timestamp_video, tracker_state,
-                 active_trajectories, vehicle_count, pedestrian_count,
+                 active_trajectories, vehicle_count,
                  error_count, now),
             )
             conn.commit()
@@ -64,7 +63,6 @@ class CheckpointManager:
                 "tracker_state": row["tracker_state"],
                 "active_trajectories": row["active_trajectories"],
                 "vehicle_count": row["vehicle_count"],
-                "pedestrian_count": row["pedestrian_count"],
                 "error_count": row["error_count"],
                 "updated_at": row["updated_at"],
             }

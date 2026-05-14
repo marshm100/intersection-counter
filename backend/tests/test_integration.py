@@ -54,7 +54,6 @@ def _make_detection(x: float, y: float, w: float = 100, h: float = 60,
         "bbox_height": float(h),
         "bbox_area": float(w * h),
         "is_vehicle": class_id in (2, 3, 5, 7),
-        "is_pedestrian": class_id in (0, 1),
     }
 
 

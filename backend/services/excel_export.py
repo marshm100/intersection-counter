@@ -16,7 +16,7 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
     Returns the path to the written file.
 
     Sheet 1 "TMC Summary"  — header rows + TMC matrix with column totals.
-    Sheet 2 "Time Series"  — 15-min interval rows (vehicles + pedestrians).
+    Sheet 2 "Time Series"  — 15-min interval rows (vehicles only — pedestrians out of scope for v2).
     Sheet 3 "Raw Events"   — all vehicle_events rows for QA.
 
     All cell values are hard-coded integers (int()), no formulas.
@@ -37,10 +37,6 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
             "fhwa_class, detection_confidence, trajectory_confidence, "
             "timestamp_video, frame_number, manually_edited "
             "FROM vehicle_events ORDER BY timestamp_video"
-        ).fetchall()
-
-        ped_events = conn.execute(
-            "SELECT timestamp_video FROM pedestrian_events ORDER BY timestamp_video"
         ).fetchall()
     finally:
         conn.close()
@@ -64,21 +60,18 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
 
     # --- Build time series ---
     vehicle_times = [evt[8] for evt in events]
-    ped_times = [row[0] for row in ped_events]
 
     time_series = []
-    if vehicle_times or ped_times:
-        all_times = vehicle_times + ped_times
-        min_t = min(all_times)
+    if vehicle_times:
+        min_t = min(vehicle_times)
         interval_sec = interval_minutes * 60
-        max_t = max(all_times)
+        max_t = max(vehicle_times)
         t = min_t
         while t <= max_t:
             end_t = t + interval_sec
             veh_count = int(sum(1 for ts in vehicle_times if t <= ts < end_t))
-            ped_count = int(sum(1 for ts in ped_times if t <= ts < end_t))
             label = _format_time(t, video_start_time)
-            time_series.append({"label": label, "vehicles": veh_count, "pedestrians": ped_count})
+            time_series.append({"label": label, "vehicles": veh_count})
             t = end_t
 
     # --- Build workbook ---
@@ -139,11 +132,11 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
 
     # ---- Sheet 2: Time Series ----
     ws2 = wb.create_sheet("Time Series")
-    ws2.append(["Time", "Vehicles", "Pedestrians"])
-    for col in range(1, 4):
+    ws2.append(["Time", "Vehicles"])
+    for col in range(1, 3):
         ws2.cell(row=1, column=col).font = Font(bold=True)
     for row in time_series:
-        ws2.append([row["label"], int(row["vehicles"]), int(row["pedestrians"])])
+        ws2.append([row["label"], int(row["vehicles"])])
 
     # ---- Sheet 3: Raw Events ----
     ws3 = wb.create_sheet("Raw Events")

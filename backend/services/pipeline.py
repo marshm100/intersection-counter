@@ -73,7 +73,6 @@ class ProcessingPipeline:
 
         # Counters
         self.vehicle_count = 0
-        self.pedestrian_count = 0
         self.error_count = 0
         self.turn_counts: dict[int, dict[str, int]] = {
             leg["leg_id"]: {"through": 0, "left": 0, "right": 0, "uturn": 0}
@@ -203,7 +202,6 @@ class ProcessingPipeline:
                             ),
                             "timestamp_video": frame_number / self.fps,
                             "vehicle_count": self.vehicle_count,
-                            "pedestrian_count": self.pedestrian_count,
                             "fps_processing": fps_proc,
                             "error_count": self.error_count,
                             "eta_seconds": eta,
@@ -509,7 +507,6 @@ class ProcessingPipeline:
                 tracker_state=tracker_state,
                 active_trajectories=active_traj,
                 vehicle_count=self.vehicle_count,
-                pedestrian_count=self.pedestrian_count,
                 error_count=self.error_count,
             )
         except Exception as e:
@@ -526,7 +523,6 @@ class ProcessingPipeline:
             return 0
 
         self.vehicle_count = checkpoint["vehicle_count"]
-        self.pedestrian_count = checkpoint["pedestrian_count"]
         self.error_count = checkpoint["error_count"]
 
         if checkpoint["tracker_state"]:

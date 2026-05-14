@@ -6,14 +6,13 @@ import numpy as np
 import supervision as sv
 
 from backend.config import (
-    PEDESTRIAN_CLASSES,
     TRACKER_ACTIVATION_THRESHOLD,
     TRACKER_LOST_BUFFER,
     TRACKER_MATCH_THRESHOLD,
     VEHICLE_CLASSES,
 )
 
-ALL_CLASSES = {**VEHICLE_CLASSES, **PEDESTRIAN_CLASSES}
+ALL_CLASSES = VEHICLE_CLASSES
 
 
 class VehicleTracker:
@@ -76,7 +75,6 @@ class VehicleTracker:
                     "class_name": ALL_CLASSES.get(cid, f"class_{cid}"),
                     "confidence": conf,
                     "is_vehicle": cid in VEHICLE_CLASSES,
-                    "is_pedestrian": cid in PEDESTRIAN_CLASSES,
                     "bbox_width": float(w),
                     "bbox_height": float(h),
                     "bbox_area": float(w * h),

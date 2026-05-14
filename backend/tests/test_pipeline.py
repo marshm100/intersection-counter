@@ -110,7 +110,6 @@ def _make_detection(x, y, w=100, h=60, class_id=2, confidence=0.9):
         "bbox_height": float(h),
         "bbox_area": float(w * h),
         "is_vehicle": class_id in (2, 3, 5, 7),
-        "is_pedestrian": class_id in (0, 1),
     }
 
 
@@ -164,7 +163,6 @@ class TestPipelineInit:
     def test_initial_counts_zero(self, pipeline_env):
         p = _make_pipeline(pipeline_env)
         assert p.vehicle_count == 0
-        assert p.pedestrian_count == 0
         assert p.error_count == 0
         assert p.turn_counts == {
             1: {"through": 0, "left": 0, "right": 0, "uturn": 0},
@@ -337,7 +335,6 @@ class TestPipelineCheckpointIntegration:
         """Save checkpoint, then restore counts and start_frame."""
         p = _make_pipeline(pipeline_env)
         p.vehicle_count = 10
-        p.pedestrian_count = 3
         p.error_count = 1
         p.active_vehicles = {1: {"trajectory": [(100, 200)]}}
 
@@ -347,7 +344,6 @@ class TestPipelineCheckpointIntegration:
         start_frame = p2.resume_from_checkpoint()
 
         assert p2.vehicle_count == 10
-        assert p2.pedestrian_count == 3
         assert p2.error_count == 1
         # Rewind by 60s * 30fps = 1800 frames → max(0, 900-1800) = 0
         assert start_frame == 0

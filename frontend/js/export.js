@@ -27,7 +27,7 @@ async function loadExportPage() {
         html += ` &middot; ${escapeHtml(data.video_start_time.substring(0, 10))}`;
     }
     html += ` &middot; ${data.leg_count} leg${data.leg_count !== 1 ? 's' : ''}`;
-    html += ` &middot; ${data.total_vehicles} vehicles, ${data.total_pedestrians} pedestrians`;
+    html += ` &middot; ${data.total_vehicles} vehicles`;
     html += '</div>';
 
     // TMC preview table
