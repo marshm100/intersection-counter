@@ -5,9 +5,16 @@ Localhost web app: traffic video → AI detection/tracking → trajectory-based 
 Replaces commercial tools (GoodVision, Miovision). Internal tool for traffic engineers.
 Runs locally on the engineer's machine. No cloud, no auth, no internet required after install.
 
+## Data model (v3)
+Project → Intersection-Day (one card per intersection × date) → Camera (1+ per card) → Clip/Video (1+ per camera).
+Legs are per-camera (each camera sees the intersection from its own angle). Trims are wall-clock processing
+windows scoped to an intersection-day. Cross-camera dedup collapses parallel-overlap duplicates.
+See docs/Implementation_Plan_v3.md.
+
 ## Docs
 - docs/PRD_v2.md — Requirements and business rules
-- docs/Implementation_Plan_v2.md — Step-by-step build order with function signatures
+- docs/Implementation_Plan_v2.md — Earlier multi-video plan (v2)
+- docs/Implementation_Plan_v3.md — Current plan (multi-intersection, multi-camera, multi-trim)
 - docs/TDD.md — Architecture, data flow, concurrency design
 
 ## Hard Constraints
