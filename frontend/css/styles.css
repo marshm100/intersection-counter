@@ -124,6 +124,40 @@ header h1 { font-size: 24px; }
                                     border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
 .intersection-card-actions button:hover { background: #1d4ed8; }
 
+/* v3 intersection detail view (Phase 7) */
+.isect-detail-header { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.isect-detail-title { margin: 0; font-size: 22px; }
+.isect-detail-date { color: #6b7280; font-weight: 400; font-size: 16px; }
+.v3-subtabbar { display: flex; gap: 4px; border-bottom: 1px solid #e5e7eb; margin-bottom: 14px; }
+.v3-subtab { padding: 8px 14px; background: transparent; border: none; border-bottom: 2px solid transparent;
+             cursor: pointer; font-size: 13px; color: #6b7280; font-weight: 500; }
+.v3-subtab:hover { color: #111827; }
+.v3-subtab.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+.settings-pane { max-width: 540px; }
+.settings-pane .settings-row { margin-top: 14px; }
+.settings-pane .settings-row input { padding: 6px 10px; font-size: 14px; }
+
+.cameras-table, .trims-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cameras-table th, .cameras-table td,
+.trims-table th, .trims-table td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+.cameras-table thead th, .trims-table thead th { background: #f9fafb; color: #6b7280; font-weight: 600; }
+.status-ok { color: #16a34a; font-weight: 500; }
+.status-warn { color: #ca8a04; font-weight: 500; }
+.status-error { color: #dc2626; font-weight: 500; }
+
+.trims-actions { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.coverage-list { padding-left: 18px; font-size: 12px; color: #6b7280; }
+.coverage-list li { margin-bottom: 3px; }
+
+.isect-detail-footer { display: flex; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e5e7eb; }
+.btn-confirm-process { padding: 10px 18px; background: #16a34a; color: white; border: none;
+                        border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; }
+.btn-confirm-process:hover { background: #15803d; }
+.btn-secondary { padding: 10px 18px; background: #e5e7eb; color: #374151; border: none;
+                 border-radius: 4px; cursor: pointer; font-size: 14px; }
+.btn-secondary:hover { background: #d1d5db; }
+
 /* Multi-video list */
 .video-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .video-list { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }

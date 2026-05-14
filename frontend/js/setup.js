@@ -9,6 +9,12 @@ let _v3ActiveTab = 'videos';
 let _v3Project = null;
 let _v3Videos = [];
 
+// Intersection-detail drill-in state (Phase 7).
+// When non-null, the Intersections tab shows the detail view instead of the grid.
+let _v3OpenIntersectionId = null;
+let _v3IntersectionDetail = null;
+let _v3DetailSubTab = 'settings';
+
 async function loadSetupPage() {
     const pid = AppState.currentProject;
     if (!pid) { showPage('page-projects'); loadProjectList(); return; }
@@ -257,6 +263,12 @@ async function v3SaveLabels() {
 // --- Intersections tab (Phase 7 fleshes out) --------------------------
 
 async function _renderIntersectionsTab(host) {
+    // When a card is opened, switch into the detail view.
+    if (_v3OpenIntersectionId !== null) {
+        await _renderIntersectionDetail(host);
+        return;
+    }
+
     const pid = AppState.currentProject;
     host.innerHTML = '<p class="empty-message">Loading intersections...</p>';
     let intersections;
@@ -289,13 +301,376 @@ async function _renderIntersectionsTab(host) {
             </div>`;
     }
     html += '</div>';
-    html += '<p class="helper-text" style="margin-top:12px;">Detailed intersection configuration (calibration, trims, processing) lands in Phase 7. For now, "Open" is a placeholder.</p>';
     host.innerHTML = html;
 }
 
-function v3OpenIntersection(iid) {
-    // Phase 7 will replace this with a real sub-tab view.
-    alert(`Intersection ${iid} detail panel is coming in Phase 7.`);
+async function v3OpenIntersection(iid) {
+    _v3OpenIntersectionId = iid;
+    _v3DetailSubTab = 'settings';
+    await _renderIntersectionsTab(document.getElementById('v3-tab-content'));
+}
+
+function v3CloseIntersection() {
+    _v3OpenIntersectionId = null;
+    _v3IntersectionDetail = null;
+    _renderIntersectionsTab(document.getElementById('v3-tab-content'));
+}
+
+async function _renderIntersectionDetail(host) {
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    host.innerHTML = '<p class="empty-message">Loading intersection...</p>';
+
+    try {
+        _v3IntersectionDetail = await API.get(`/api/projects/${pid}/intersections/${iid}`);
+    } catch (e) {
+        host.innerHTML = '<p class="empty-message">Could not load intersection.</p>';
+        return;
+    }
+
+    const i = _v3IntersectionDetail.intersection;
+    const subTabs = [
+        { id: 'settings', label: 'Intersection settings' },
+        { id: 'cameras',  label: 'Cameras' },
+        { id: 'trims',    label: 'Clip trim' },
+    ];
+
+    let html = '';
+    html += `<div class="isect-detail-header">`;
+    html += `<a href="#" class="back-link" onclick="v3CloseIntersection(); return false;">&larr; Back to intersections</a>`;
+    html += `<h2 class="isect-detail-title">${escapeHtml(i.name)} <span class="isect-detail-date">— ${escapeHtml(i.date)}</span></h2>`;
+    html += `</div>`;
+
+    html += '<div class="v3-subtabbar">' + subTabs.map(t =>
+        `<button class="v3-subtab ${_v3DetailSubTab === t.id ? 'active' : ''}"
+                 onclick="v3SwitchDetailSubTab('${t.id}')">${t.label}</button>`
+    ).join('') + '</div>';
+
+    html += `<div id="v3-detail-subcontent"></div>`;
+    html += `<div class="isect-detail-footer">
+        <button class="btn-confirm-process" onclick="v3ConfirmProcess()">Confirm &amp; process</button>
+        <button class="btn-secondary" onclick="v3CloseIntersection()">Done</button>
+    </div>`;
+    host.innerHTML = html;
+
+    await _renderDetailSubTab();
+}
+
+async function v3SwitchDetailSubTab(tabId) {
+    _v3DetailSubTab = tabId;
+    const bar = document.querySelector('.v3-subtabbar');
+    if (bar) {
+        bar.querySelectorAll('.v3-subtab').forEach(b => {
+            b.classList.toggle('active', b.textContent.toLowerCase().startsWith(_subTabHeader(tabId)));
+        });
+    }
+    await _renderDetailSubTab();
+}
+
+function _subTabHeader(tabId) {
+    return ({ settings: 'intersection', cameras: 'cameras', trims: 'clip' })[tabId] || tabId;
+}
+
+async function _renderDetailSubTab() {
+    const host = document.getElementById('v3-detail-subcontent');
+    if (!host) return;
+    if (_v3DetailSubTab === 'settings') {
+        await _renderSettingsSubTab(host);
+    } else if (_v3DetailSubTab === 'cameras') {
+        await _renderCamerasSubTab(host);
+    } else if (_v3DetailSubTab === 'trims') {
+        await _renderTrimsSubTab(host);
+    }
+}
+
+// --- Sub-tab: Intersection settings -----------------------------------
+
+async function _renderSettingsSubTab(host) {
+    const i = _v3IntersectionDetail.intersection;
+    host.innerHTML = `
+        <div class="settings-pane">
+            <div class="settings-row">
+                <label for="isect-name">Intersection name</label>
+                <input type="text" id="isect-name" value="${escapeAttr(i.name)}"
+                       onchange="v3PatchIntersection({name: this.value})" />
+            </div>
+            <div class="settings-row">
+                <label for="isect-leg-count">Number of legs</label>
+                <input type="number" id="isect-leg-count" min="2" max="8" value="${i.leg_count}"
+                       onchange="v3PatchIntersection({leg_count: parseInt(this.value, 10)})" />
+                <span class="helper-text">Default 4. T-junctions use 3; complex intersections may have 5+.</span>
+            </div>
+            <div class="settings-row">
+                <label>Cameras</label>
+                <span>${_v3IntersectionDetail.cameras.length} configured</span>
+            </div>
+            <div class="settings-row">
+                <label>Trims</label>
+                <span>${_v3IntersectionDetail.trims.length} defined</span>
+            </div>
+        </div>`;
+}
+
+async function v3PatchIntersection(body) {
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    try {
+        const updated = await API.patch(`/api/projects/${pid}/intersections/${iid}`, body);
+        if (_v3IntersectionDetail) _v3IntersectionDetail.intersection = updated;
+    } catch (e) {
+        alert(`Failed to save: ${e.message || e}`);
+    }
+}
+
+// --- Sub-tab: Cameras --------------------------------------------------
+
+async function _renderCamerasSubTab(host) {
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    host.innerHTML = '<p class="empty-message">Loading cameras...</p>';
+
+    let cameras;
+    try {
+        cameras = await API.get(`/api/projects/${pid}/intersections/${iid}/cameras`);
+    } catch (e) {
+        host.innerHTML = '<p class="empty-message">Could not load cameras.</p>';
+        return;
+    }
+
+    // For each camera, query its calibration so we can show "configured / not yet"
+    const calibrated = {};
+    for (const c of cameras) {
+        try {
+            const r = await API.get(`/api/projects/${pid}/cameras/${c.camera_id}/calibration`);
+            calibrated[c.camera_id] = r.legs.length > 0;
+        } catch (e) {
+            calibrated[c.camera_id] = false;
+        }
+    }
+
+    if (cameras.length === 0) {
+        host.innerHTML = '<p class="empty-message">No cameras for this intersection. Attach videos with this intersection name in the Videos tab.</p>';
+        return;
+    }
+
+    let html = '<table class="cameras-table">';
+    html += '<thead><tr><th>Camera label</th><th>Videos</th><th>Calibration</th><th>Actions</th></tr></thead><tbody>';
+    for (const c of cameras) {
+        const isCalibrated = calibrated[c.camera_id];
+        html += `<tr>
+            <td>
+                <input type="text" class="cell-input" value="${escapeAttr(c.label)}"
+                    onchange="v3RenameCamera(${c.camera_id}, this.value)" />
+            </td>
+            <td>${(c.videos || []).length}</td>
+            <td>${isCalibrated ? '<span class="status-ok">✓ Configured</span>' : '<span class="status-warn">Not configured</span>'}</td>
+            <td>
+                <button onclick="v3CalibrateCamera(${c.camera_id})">${isCalibrated ? 'Recalibrate' : 'Calibrate'}</button>
+                <button class="btn-remove-video" onclick="v3DeleteCamera(${c.camera_id}, '${escapeAttr(c.label)}')">Remove</button>
+            </td>
+        </tr>`;
+    }
+    html += '</tbody></table>';
+    host.innerHTML = html;
+}
+
+async function v3RenameCamera(camId, label) {
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    try {
+        await API.patch(
+            `/api/projects/${pid}/intersections/${iid}/cameras/${camId}`,
+            { label },
+        );
+    } catch (e) {
+        alert(`Failed to rename: ${e.message || e}`);
+    }
+}
+
+async function v3DeleteCamera(camId, label) {
+    if (!window.confirm(`Remove camera "${label}"? Its calibration and events will be deleted.`)) return;
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    try {
+        await API.del(`/api/projects/${pid}/intersections/${iid}/cameras/${camId}`);
+    } catch (e) {
+        alert(`Failed to delete: ${e.message || e}`);
+        return;
+    }
+    await _renderCamerasSubTab(document.getElementById('v3-detail-subcontent'));
+}
+
+function v3CalibrateCamera(camId) {
+    // Stash the camera_id in AppState so the existing calibration page can
+    // detect v3 camera-scoped mode. Full camera-aware calibration UI lives
+    // in Phase 10's polish pass; for now we navigate to the calibration
+    // page and the user works with the camera-scoped endpoints.
+    AppState.currentCameraId = camId;
+    showPage('page-calibration');
+    if (typeof loadCalibrationPage === 'function') {
+        loadCalibrationPage();
+    }
+}
+
+// --- Sub-tab: Clip trim -----------------------------------------------
+
+async function _renderTrimsSubTab(host) {
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    host.innerHTML = '<p class="empty-message">Loading trims...</p>';
+
+    let trims, report;
+    try {
+        [trims, report] = await Promise.all([
+            API.get(`/api/projects/${pid}/intersections/${iid}/trims`),
+            API.get(`/api/projects/${pid}/intersections/${iid}/coverage-report`),
+        ]);
+    } catch (e) {
+        host.innerHTML = '<p class="empty-message">Could not load trims.</p>';
+        return;
+    }
+
+    let html = `<div class="trims-actions">
+        <button onclick="v3AddTrim()">+ Add trim</button>
+        <span class="helper-text">Each trim is a wall-clock window (HH:MM:SS) processed across all cameras at this intersection.</span>
+    </div>`;
+
+    if (trims.length === 0) {
+        html += '<p class="empty-message">No trims defined. Add at least one to enable processing.</p>';
+        host.innerHTML = html;
+        return;
+    }
+
+    html += '<table class="trims-table">';
+    html += '<thead><tr><th>Start</th><th>End</th><th>Coverage</th><th>Actions</th></tr></thead><tbody>';
+    const reportByTrim = {};
+    for (const r of (report.per_trim || [])) reportByTrim[r.trim_id] = r;
+    for (const t of trims) {
+        const r = reportByTrim[t.trim_id];
+        const status = r
+            ? (r.is_fully_covered
+                ? '<span class="status-ok">Fully covered</span>'
+                : `<span class="status-error">Gaps: ${r.gaps.length}</span>`)
+            : '—';
+        html += `<tr>
+            <td>
+                <input type="time" step="1" class="cell-input"
+                    value="${escapeAttr(t.start_wallclock)}"
+                    onchange="v3PatchTrim(${t.trim_id}, {start_wallclock: this.value + (this.value.length===5?':00':'')})" />
+            </td>
+            <td>
+                <input type="time" step="1" class="cell-input"
+                    value="${escapeAttr(t.end_wallclock)}"
+                    onchange="v3PatchTrim(${t.trim_id}, {end_wallclock: this.value + (this.value.length===5?':00':'')})" />
+            </td>
+            <td>${status}</td>
+            <td>
+                <button class="btn-remove-video" onclick="v3DeleteTrim(${t.trim_id})">Remove</button>
+            </td>
+        </tr>`;
+    }
+    html += '</tbody></table>';
+
+    // Coverage visualizer (text-mode for Phase 7; richer Gantt comes in Phase 10)
+    html += '<h4 style="margin-top:16px;">Per-camera coverage</h4>';
+    if (!report.per_camera || report.per_camera.length === 0) {
+        html += '<p class="helper-text">No cameras with usable video metadata yet.</p>';
+    } else {
+        html += '<ul class="coverage-list">';
+        for (const cam of report.per_camera) {
+            html += `<li>Camera ${cam.camera_id}: ` + cam.intervals.map(iv => {
+                const s = iv.start.substring(11, 19);
+                const e = iv.end.substring(11, 19);
+                return `${s}–${e}`;
+            }).join(', ') + '</li>';
+        }
+        html += '</ul>';
+    }
+
+    host.innerHTML = html;
+}
+
+async function v3AddTrim() {
+    const start = prompt('Trim start (HH:MM:SS)', '07:00:00');
+    if (!start) return;
+    const end = prompt('Trim end (HH:MM:SS)', '09:00:00');
+    if (!end) return;
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    try {
+        await API.post(
+            `/api/projects/${pid}/intersections/${iid}/trims`,
+            { start_wallclock: start, end_wallclock: end },
+        );
+    } catch (e) {
+        alert(`Failed to add trim: ${e.message || e}`);
+        return;
+    }
+    await _renderTrimsSubTab(document.getElementById('v3-detail-subcontent'));
+}
+
+async function v3PatchTrim(tid, body) {
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    try {
+        await API.patch(
+            `/api/projects/${pid}/intersections/${iid}/trims/${tid}`,
+            body,
+        );
+        // Re-render so coverage status updates
+        await _renderTrimsSubTab(document.getElementById('v3-detail-subcontent'));
+    } catch (e) {
+        alert(`Failed to save trim: ${e.message || e}`);
+    }
+}
+
+async function v3DeleteTrim(tid) {
+    if (!window.confirm('Remove this trim?')) return;
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    try {
+        await API.del(`/api/projects/${pid}/intersections/${iid}/trims/${tid}`);
+    } catch (e) {
+        alert(`Failed to delete: ${e.message || e}`);
+        return;
+    }
+    await _renderTrimsSubTab(document.getElementById('v3-detail-subcontent'));
+}
+
+// --- Confirm & process popup ------------------------------------------
+
+async function v3ConfirmProcess() {
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    let preflight;
+    try {
+        preflight = await API.post(
+            `/api/projects/${pid}/intersections/${iid}/processing/preflight`,
+            {},
+        );
+    } catch (e) {
+        alert(`Preflight failed: ${e.message || e}`);
+        return;
+    }
+    if (!preflight.ok) {
+        alert('Cannot process — please fix these first:\n\n' + preflight.errors.join('\n'));
+        return;
+    }
+    const msg = `Ready to process this intersection.\n\n` +
+                `Segments: ${preflight.segment_count}\n` +
+                `Cameras used: ${preflight.cameras_used.length}\n` +
+                `Trims: ${preflight.trims_used.length}\n\n` +
+                `Start processing now?`;
+    if (!window.confirm(msg)) return;
+    try {
+        await API.post(`/api/projects/${pid}/intersections/${iid}/processing/start`, {});
+    } catch (e) {
+        alert(`Start failed: ${e.message || e}`);
+        return;
+    }
+    alert('Processing started. Switch to the Processing tab to monitor progress.');
+    v3CloseIntersection();
+    await v3SwitchTab('processing');
 }
 
 // --- Processing tab (Phase 8 fleshes out) -----------------------------
