@@ -11,6 +11,7 @@ projects). Camera-scoped calibration endpoints live in routers/calibration.py.
 """
 
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
@@ -557,3 +558,50 @@ def processing_cancel(project_id: str, intersection_id: int):
         if key in _v3_jobs and _v3_jobs[key].get("status") == "running":
             _v3_jobs[key]["cancel_requested"] = True
     return {"status": "cancel_requested"}
+
+
+# --- Aggregation + Excel export ------------------------------------------
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/summary")
+def get_summary(project_id: str, intersection_id: int):
+    """Per-intersection-day aggregated counts (dedup applied).
+
+    Feeds the playback verification dashboard's count panels and the
+    Excel export's preview.
+    """
+    from backend.services.v3_aggregator import aggregate_intersection_day
+
+    _require_project(project_id)
+    _require_intersection(project_id, intersection_id)
+    return aggregate_intersection_day(project_id, intersection_id)
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/export/xlsx")
+def export_intersection_day(project_id: str, intersection_id: int):
+    """Download the per-intersection-day TMC report as an .xlsx file."""
+    import tempfile
+    from datetime import datetime as _dt
+    from fastapi.responses import FileResponse
+    from backend.services.v3_aggregator import aggregate_intersection_day
+    from backend.services.v3_excel_export import export_intersection_day_xlsx
+
+    _require_project(project_id)
+    intersection = _require_intersection(project_id, intersection_id)
+
+    safe_name = "".join(
+        c if c.isalnum() or c in " ._-" else "_" for c in intersection["name"]
+    ).strip()
+    filename = f"TMC_{safe_name}_{intersection['date']}_{_dt.now().strftime('%H%M%S')}.xlsx"
+    output_path = Path(tempfile.gettempdir()) / filename
+
+    try:
+        export_intersection_day_xlsx(project_id, intersection_id, output_path)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Export failed: {exc}")
+
+    return FileResponse(
+        path=str(output_path),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
