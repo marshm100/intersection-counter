@@ -48,6 +48,7 @@ class ProcessingPipeline:
         legs: list[dict],
         fps: float,
         video_start_time: str | None = None,
+        video_id: int | None = None,
     ):
         self.project_id = project_id
         self.db_path = db_path
@@ -55,6 +56,9 @@ class ProcessingPipeline:
         self.legs = legs
         self.fps = fps
         self.video_start_time = video_start_time
+        # video_id is set when the pipeline is part of a multi-video run;
+        # None means single-video legacy mode (events written with NULL video_id).
+        self.video_id = video_id
 
         # Components (lazy-loaded to avoid loading YOLO in tests)
         self._detector: VehicleDetector | None = None
@@ -469,12 +473,13 @@ class ProcessingPipeline:
         try:
             conn.execute(
                 """INSERT INTO vehicle_events
-                   (vehicle_track_id, origin_leg_id, movement, trajectory_data,
-                    trajectory_confidence, vehicle_class, fhwa_class,
-                    detection_confidence, timestamp_video, timestamp_real,
-                    frame_number, start_frame)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   (video_id, vehicle_track_id, origin_leg_id, movement,
+                    trajectory_data, trajectory_confidence, vehicle_class,
+                    fhwa_class, detection_confidence, timestamp_video,
+                    timestamp_real, frame_number, start_frame)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
+                    self.video_id,
                     kwargs["track_id"],
                     kwargs["origin_leg_id"],
                     kwargs["movement"],
@@ -508,6 +513,7 @@ class ProcessingPipeline:
                 active_trajectories=active_traj,
                 vehicle_count=self.vehicle_count,
                 error_count=self.error_count,
+                current_video_id=self.video_id,
             )
         except Exception as e:
             logger.error("Checkpoint save failed: %s", e)
@@ -548,9 +554,19 @@ class ProcessingPipeline:
         overlap_frames = int(60 * self.fps)
         start_frame = max(0, checkpoint["frame_number"] - overlap_frames)
 
-        # Delete events in the overlap region to prevent duplicates on resume
+        # Delete events in the overlap region to prevent duplicates on resume.
+        # Scoped to the current video so resuming video N doesn't wipe video N-1's events.
         conn = sqlite3.connect(self.db_path)
-        conn.execute("DELETE FROM vehicle_events WHERE frame_number >= ?", (start_frame,))
+        if self.video_id is not None:
+            conn.execute(
+                "DELETE FROM vehicle_events WHERE video_id = ? AND frame_number >= ?",
+                (self.video_id, start_frame),
+            )
+        else:
+            conn.execute(
+                "DELETE FROM vehicle_events WHERE video_id IS NULL AND frame_number >= ?",
+                (start_frame,),
+            )
         conn.commit()
         conn.close()
 

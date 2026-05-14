@@ -15,7 +15,10 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from backend.config import DEFAULT_FRAME_SKIP, MAX_CONCURRENT_PIPELINES, PROJECTS_DIR
-from backend.database import get_all_project_info, get_db_path, get_connection, set_project_info
+from backend.database import (
+    get_all_project_info, get_db_path, get_connection,
+    list_videos, set_project_info,
+)
 from backend.services.checkpoint import CheckpointManager
 from backend.services.frame_annotator import render_frame_preview
 from backend.services.pipeline import ProcessingPipeline
@@ -134,17 +137,76 @@ _heal_stale_status()
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _load_prerequisites(project_id: str) -> dict:
-    """Load and validate everything needed to start a pipeline."""
-    info = get_all_project_info(project_id)
-    video_path = info.get("video_path")
-
-    if not video_path:
-        raise HTTPException(status_code=400, detail="No video path configured for this project.")
-
+def _probe_video(path: str) -> dict:
+    """Use OpenCV to read fps + total_frames from a video file on disk."""
     import os
-    if not os.path.isfile(video_path):
-        raise HTTPException(status_code=400, detail=f"Video file not found on disk: {video_path}")
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=400, detail=f"Video file not found on disk: {path}")
+    cap = cv2.VideoCapture(path)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+    return {"fps": fps, "total_frames": total_frames}
+
+
+def _collect_videos_to_process(project_id: str, info: dict) -> list[dict]:
+    """Return the ordered list of videos this run will process.
+
+    Multi-video mode (videos table has rows): use those rows in sort_order.
+    Legacy mode (no rows but project_info has video_path): synthesize a
+    single-entry list with video_id=None so events get NULL video_id.
+    """
+    rows = list_videos(project_id)
+    if rows:
+        return [
+            {
+                "video_id": r["video_id"],
+                "path": r["path"],
+                "filename": r["filename"],
+                "fps": float(r["fps"]),
+                "total_frames": int(r["total_frames"]),
+                "video_start_time": r.get("recording_start_time") or info.get("video_start_time"),
+            }
+            for r in rows
+        ]
+
+    # Legacy fallback
+    video_path = info.get("video_path")
+    if not video_path:
+        return []
+    probed = _probe_video(video_path)
+    return [{
+        "video_id": None,
+        "path": video_path,
+        "filename": info.get("video_filename") or video_path,
+        "fps": probed["fps"],
+        "total_frames": probed["total_frames"],
+        "video_start_time": info.get("video_start_time"),
+    }]
+
+
+def _load_prerequisites(project_id: str) -> dict:
+    """Load and validate everything needed to start a pipeline.
+
+    Returns a dict with `videos` (ordered list, length >= 1) and `legs`.
+    Also surfaces convenience fields for single-video callers: `video_path`,
+    `fps`, `total_frames`, `video_start_time` — these reflect the FIRST
+    video in the list and are kept for callers that haven't yet adopted
+    the multi-video shape.
+    """
+    info = get_all_project_info(project_id)
+    videos = _collect_videos_to_process(project_id, info)
+
+    if not videos:
+        raise HTTPException(status_code=400, detail="No video configured for this project.")
+
+    for v in videos:
+        import os
+        if not os.path.isfile(v["path"]):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Video file not found on disk: {v['path']}",
+            )
 
     conn = get_connection(project_id)
     try:
@@ -164,28 +226,41 @@ def _load_prerequisites(project_id: str) -> dict:
     if not legs:
         raise HTTPException(status_code=400, detail="No legs configured for this project.")
 
-    cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    cap.release()
-
+    first = videos[0]
     return {
-        "video_path": video_path,
-        "video_start_time": info.get("video_start_time"),
+        "videos": videos,
         "legs": legs,
-        "fps": fps,
-        "total_frames": total_frames,
+        # Legacy convenience fields (first video) — keep until callers migrate
+        "video_path": first["path"],
+        "video_start_time": first["video_start_time"],
+        "fps": first["fps"],
+        "total_frames": first["total_frames"],
     }
 
 
-def _make_progress_callback(project_id: str, legs: list[dict]) -> Callable:
-    """Return a closure that stores progress data and queues preview encoding."""
+def _make_progress_callback(
+    project_id: str,
+    legs: list[dict],
+    video_index: int = 0,
+    total_videos: int = 1,
+    video_filename: str | None = None,
+) -> Callable:
+    """Return a closure that stores progress data and queues preview encoding.
+
+    When the project spans multiple videos, video_index/total_videos/video_filename
+    are injected into the progress payload so the UI can show "Video 2 of 3 — …".
+    """
     def callback(data: dict):
         raw_frame = data.pop("raw_frame", None)
         tracks = data.pop("tracks", None)
         origin_zones = data.pop("origin_zones", None)
         active_trajectories = data.pop("active_trajectories", None)
         finalized_trajectories = data.pop("finalized_trajectories", None)
+        if total_videos > 1:
+            data["video_index"] = video_index
+            data["total_videos"] = total_videos
+            if video_filename:
+                data["video_filename"] = video_filename
         with _state_lock:
             _progress[project_id] = data
         if raw_frame is not None and _preview_viewers.get(project_id, 0) > 0:
@@ -231,25 +306,85 @@ def _start_next_queued() -> None:
         _start_next_queued()
 
 
-def _run_pipeline(project_id: str, start_frame: int = 0, end_frame: int | None = None,
-                   frame_skip: int = DEFAULT_FRAME_SKIP):
-    """Thread target: run the pipeline, update status on finish."""
+def _run_pipeline(
+    project_id: str,
+    videos: list[dict],
+    legs: list[dict],
+    start_frame: int = 0,
+    end_frame: int | None = None,
+    frame_skip: int = DEFAULT_FRAME_SKIP,
+    resume_video_id: int | None = None,
+):
+    """Thread target: orchestrate the pipeline across one or more videos.
+
+    Single-video projects: identical behavior to v1 (start_frame/end_frame
+    define the time window).
+    Multi-video projects: process each video in turn, fully. The time-window
+    args apply only to the first video and only when len(videos)==1.
+
+    Pause: signals the current ProcessingPipeline; on the next save_checkpoint
+    the loop sees pause_requested and exits cleanly. Resume looks up
+    `resume_video_id` to know which video to pick up on.
+    """
+    db_path = str(get_db_path(project_id))
+    pause_was_set = False
+
     try:
-        with _state_lock:
-            pipeline = _pipelines.get(project_id)
-        if pipeline is None:
-            return
+        # Find the starting index when resuming mid-batch.
+        start_idx = 0
+        if resume_video_id is not None:
+            for i, v in enumerate(videos):
+                if v["video_id"] == resume_video_id:
+                    start_idx = i
+                    break
 
-        callback = _make_progress_callback(project_id, pipeline.legs)
-        pipeline.process_video(
-            frame_skip=frame_skip,
-            start_frame=start_frame,
-            end_frame=end_frame,
-            callback=callback,
-        )
+        for idx in range(start_idx, len(videos)):
+            v = videos[idx]
+            is_first = idx == start_idx
 
-        # Determine final status
-        if pipeline.pause_requested.is_set():
+            pipeline = ProcessingPipeline(
+                project_id=project_id,
+                db_path=db_path,
+                video_path=v["path"],
+                legs=legs,
+                fps=v["fps"],
+                video_start_time=v.get("video_start_time"),
+                video_id=v["video_id"],
+            )
+
+            # Time windows only apply when there's exactly one video. For
+            # multi-video runs we process each video end-to-end.
+            if len(videos) == 1 and is_first:
+                this_start, this_end = start_frame, end_frame
+            else:
+                this_start, this_end = 0, None
+
+            # Resume from checkpoint only for the first video in a resumed run.
+            if is_first and resume_video_id is not None:
+                this_start = pipeline.resume_from_checkpoint()
+
+            with _state_lock:
+                _pipelines[project_id] = pipeline
+
+            callback = _make_progress_callback(
+                project_id, legs,
+                video_index=idx,
+                total_videos=len(videos),
+                video_filename=v.get("filename"),
+            )
+
+            pipeline.process_video(
+                frame_skip=frame_skip,
+                start_frame=this_start,
+                end_frame=this_end,
+                callback=callback,
+            )
+
+            if pipeline.pause_requested.is_set():
+                pause_was_set = True
+                break
+
+        if pause_was_set:
             set_project_info(project_id, "status", "paused")
         else:
             set_project_info(project_id, "status", "complete")
@@ -292,7 +427,7 @@ def start_processing(project_id: str, req: StartProcessingRequest = StartProcess
             set_project_info(project_id, "status", "idle")
 
     prereqs = _load_prerequisites(project_id)
-    db_path = str(get_db_path(project_id))
+    videos = prereqs["videos"]
     fps = prereqs["fps"]
     if fps <= 0:
         raise HTTPException(status_code=422, detail="Video has invalid FPS (0 or negative). The file may be corrupt.")
@@ -336,19 +471,11 @@ def start_processing(project_id: str, req: StartProcessingRequest = StartProcess
     set_project_info(project_id, "count_start_frame", str(start_frame))
     set_project_info(project_id, "count_end_frame",   str(end_frame) if end_frame is not None else "")
 
-    pipeline = ProcessingPipeline(
-        project_id=project_id,
-        db_path=db_path,
-        video_path=prereqs["video_path"],
-        legs=prereqs["legs"],
-        fps=fps,
-        video_start_time=prereqs["video_start_time"],
-    )
-
+    # The orchestrator creates the first ProcessingPipeline; we just set up the
+    # placeholder and preview infrastructure here.
     placeholder = _make_placeholder_jpeg()
     preview_q: queue.Queue = queue.Queue(maxsize=2)
     with _state_lock:
-        _pipelines[project_id] = pipeline
         _preview_frames[project_id] = placeholder
     _preview_queues[project_id] = preview_q
 
@@ -359,13 +486,22 @@ def start_processing(project_id: str, req: StartProcessingRequest = StartProcess
     ).start()
 
     thread = threading.Thread(
-        target=_run_pipeline, args=(project_id, start_frame, end_frame, frame_skip), daemon=True
+        target=_run_pipeline,
+        kwargs={
+            "project_id": project_id,
+            "videos": videos,
+            "legs": prereqs["legs"],
+            "start_frame": start_frame,
+            "end_frame": end_frame,
+            "frame_skip": frame_skip,
+        },
+        daemon=True,
     )
     with _state_lock:
         _threads[project_id] = thread
     thread.start()
 
-    return {"status": "ok"}
+    return {"status": "ok", "videos": len(videos)}
 
 
 @router.post("/projects/{project_id}/processing/pause")
@@ -393,17 +529,15 @@ def resume_processing(project_id: str):
         raise HTTPException(status_code=400, detail="No checkpoint to resume from.")
 
     prereqs = _load_prerequisites(project_id)
+    videos = prereqs["videos"]
 
-    pipeline = ProcessingPipeline(
-        project_id=project_id,
-        db_path=db_path,
-        video_path=prereqs["video_path"],
-        legs=prereqs["legs"],
-        fps=prereqs["fps"],
-        video_start_time=prereqs["video_start_time"],
-    )
+    checkpoint = ckpt_mgr.load_checkpoint()
+    resume_video_id = checkpoint.get("current_video_id") if checkpoint else None
 
-    start_frame = pipeline.resume_from_checkpoint()
+    # If checkpoint has no current_video_id (pre-multi-video DBs), assume
+    # we're resuming the first/only video.
+    if resume_video_id is None and len(videos) == 1:
+        resume_video_id = videos[0]["video_id"]
 
     # Restore the original count window end frame and frame_skip
     info = get_all_project_info(project_id)
@@ -415,7 +549,6 @@ def resume_processing(project_id: str):
     placeholder = _make_placeholder_jpeg()
     preview_q: queue.Queue = queue.Queue(maxsize=2)
     with _state_lock:
-        _pipelines[project_id] = pipeline
         _preview_frames[project_id] = placeholder
     _preview_queues[project_id] = preview_q
 
@@ -426,13 +559,23 @@ def resume_processing(project_id: str):
     ).start()
 
     thread = threading.Thread(
-        target=_run_pipeline, args=(project_id, start_frame, end_frame, frame_skip), daemon=True
+        target=_run_pipeline,
+        kwargs={
+            "project_id": project_id,
+            "videos": videos,
+            "legs": prereqs["legs"],
+            "start_frame": 0,
+            "end_frame": end_frame,
+            "frame_skip": frame_skip,
+            "resume_video_id": resume_video_id,
+        },
+        daemon=True,
     )
     with _state_lock:
         _threads[project_id] = thread
     thread.start()
 
-    return {"status": "ok", "start_frame": start_frame}
+    return {"status": "ok", "resume_video_id": resume_video_id}
 
 
 def stop_pipeline(project_id: str) -> None:

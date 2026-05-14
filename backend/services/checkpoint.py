@@ -28,6 +28,7 @@ class CheckpointManager:
         active_trajectories: bytes,
         vehicle_count: int,
         error_count: int,
+        current_video_id: int | None = None,
     ) -> None:
         """Save checkpoint (upsert — always id=1)."""
         now = datetime.now(timezone.utc).isoformat()
@@ -35,12 +36,12 @@ class CheckpointManager:
         try:
             conn.execute(
                 """INSERT OR REPLACE INTO checkpoint
-                   (id, frame_number, timestamp_video, tracker_state,
-                    active_trajectories, vehicle_count,
+                   (id, current_video_id, frame_number, timestamp_video,
+                    tracker_state, active_trajectories, vehicle_count,
                     error_count, updated_at)
-                   VALUES (1, ?, ?, ?, ?, ?, ?, ?)""",
-                (frame_number, timestamp_video, tracker_state,
-                 active_trajectories, vehicle_count,
+                   VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (current_video_id, frame_number, timestamp_video,
+                 tracker_state, active_trajectories, vehicle_count,
                  error_count, now),
             )
             conn.commit()
@@ -58,6 +59,7 @@ class CheckpointManager:
             if row is None:
                 return None
             return {
+                "current_video_id": row["current_video_id"] if "current_video_id" in row.keys() else None,
                 "frame_number": row["frame_number"],
                 "timestamp_video": row["timestamp_video"],
                 "tracker_state": row["tracker_state"],
