@@ -675,12 +675,154 @@ async function v3ConfirmProcess() {
 
 // --- Processing tab (Phase 8 fleshes out) -----------------------------
 
+let _v3ProcessingPollTimer = null;
+
 async function _renderProcessingTab(host) {
-    host.innerHTML = `
-        <p class="empty-message">
-            Real-time per-intersection processing status, ETA, and "view live" links
-            land in Phase 8.
-        </p>`;
+    await _refreshProcessingChips(host);
+    // Start polling so status updates without manual refresh.
+    if (_v3ProcessingPollTimer) clearInterval(_v3ProcessingPollTimer);
+    _v3ProcessingPollTimer = setInterval(() => {
+        // Only poll while the Processing tab is the active tab.
+        if (_v3ActiveTab === 'processing') {
+            _refreshProcessingChips(host);
+        } else {
+            clearInterval(_v3ProcessingPollTimer);
+            _v3ProcessingPollTimer = null;
+        }
+    }, 2000);
+}
+
+async function _refreshProcessingChips(host) {
+    const pid = AppState.currentProject;
+    let intersections;
+    try {
+        intersections = await API.get(`/api/projects/${pid}/intersections`);
+    } catch (e) {
+        host.innerHTML = '<p class="empty-message">Could not load intersections.</p>';
+        return;
+    }
+    if (intersections.length === 0) {
+        host.innerHTML = '<p class="empty-message">No intersections to process yet. Go to the Videos tab to upload and label.</p>';
+        return;
+    }
+
+    // Fetch status for each intersection in parallel.
+    const statuses = await Promise.all(intersections.map(i =>
+        API.get(`/api/projects/${pid}/intersections/${i.intersection_id}/processing/status`)
+            .catch(() => ({ status: 'idle' }))
+    ));
+
+    let html = '<div class="processing-grid">';
+    for (let idx = 0; idx < intersections.length; idx++) {
+        const i = intersections[idx];
+        const s = statuses[idx];
+        html += _processingChipHtml(i, s);
+    }
+    html += '</div>';
+
+    // Auto-refresh hint
+    html += '<p class="helper-text" style="margin-top:14px;">Status auto-refreshes every 2 seconds while this tab is open.</p>';
+
+    host.innerHTML = html;
+}
+
+function _processingChipHtml(intersection, status) {
+    const segCount = status.segment_count || 0;
+    const currentIdx = status.current_segment_index || 0;
+    const pct = segCount > 0 ? Math.round((currentIdx / segCount) * 100) : 0;
+
+    let statusBadge = '';
+    let actionsHtml = '';
+    let detailHtml = '';
+
+    switch (status.status) {
+        case 'idle':
+            statusBadge = '<span class="chip-badge chip-idle">Idle</span>';
+            actionsHtml = `
+                <button onclick="v3OpenIntersection(${intersection.intersection_id})">Configure</button>`;
+            break;
+        case 'queued':
+            statusBadge = '<span class="chip-badge chip-queued">Queued</span>';
+            detailHtml = `<div class="chip-detail">${segCount} segments queued</div>`;
+            break;
+        case 'running':
+            statusBadge = '<span class="chip-badge chip-running">Processing…</span>';
+            detailHtml = `
+                <div class="chip-detail">Segment ${currentIdx + 1} of ${segCount}</div>
+                <div class="chip-progress">
+                    <div class="chip-progress-fill" style="width:${pct}%"></div>
+                </div>`;
+            actionsHtml = `
+                <button onclick="v3ViewLive(${intersection.intersection_id})">View live</button>
+                <button class="btn-secondary" onclick="v3CancelProcessing(${intersection.intersection_id})">Cancel</button>`;
+            break;
+        case 'complete':
+            statusBadge = '<span class="chip-badge chip-complete">Complete</span>';
+            actionsHtml = `
+                <button onclick="v3OpenSummary(${intersection.intersection_id})">Open dashboard</button>
+                <button class="btn-secondary" onclick="v3DownloadExcel(${intersection.intersection_id})">Excel</button>`;
+            break;
+        case 'cancelled':
+            statusBadge = '<span class="chip-badge chip-warn">Cancelled</span>';
+            actionsHtml = `
+                <button onclick="v3OpenIntersection(${intersection.intersection_id})">Restart</button>`;
+            break;
+        case 'error':
+            statusBadge = '<span class="chip-badge chip-error">Error</span>';
+            detailHtml = `<div class="chip-detail">${escapeHtml(status.error || '')}</div>`;
+            actionsHtml = `
+                <button onclick="v3OpenIntersection(${intersection.intersection_id})">Open</button>`;
+            break;
+        default:
+            statusBadge = `<span class="chip-badge">${escapeHtml(status.status || '?')}</span>`;
+    }
+
+    return `
+        <div class="processing-chip">
+            <div class="chip-header">
+                <h3>${escapeHtml(intersection.name)}</h3>
+                <span class="chip-date">${escapeHtml(intersection.date)}</span>
+            </div>
+            ${statusBadge}
+            ${detailHtml}
+            <div class="chip-actions">${actionsHtml}</div>
+        </div>`;
+}
+
+async function v3CancelProcessing(iid) {
+    if (!window.confirm('Cancel processing for this intersection?')) return;
+    const pid = AppState.currentProject;
+    try {
+        await API.post(`/api/projects/${pid}/intersections/${iid}/processing/cancel`, {});
+    } catch (e) {
+        alert(`Cancel failed: ${e.message || e}`);
+    }
+}
+
+function v3ViewLive(iid) {
+    // For now route to the existing processing preview page. Phase 9 builds
+    // the proper per-camera live view scoped to the intersection.
+    AppState.currentIntersectionId = iid;
+    showPage('page-processing');
+    if (typeof loadProcessingPage === 'function') {
+        loadProcessingPage();
+    }
+}
+
+function v3OpenSummary(iid) {
+    // Phase 9 wires the playback verification dashboard. For now, hand off
+    // to the existing dashboard page.
+    AppState.currentIntersectionId = iid;
+    showPage('page-dashboard');
+    if (typeof loadDashboardPage === 'function') {
+        loadDashboardPage();
+    }
+}
+
+function v3DownloadExcel(iid) {
+    const pid = AppState.currentProject;
+    // Direct download via a hidden anchor click
+    window.location.href = `/api/projects/${pid}/intersections/${iid}/export/xlsx`;
 }
 
 // --- Shared helpers ---------------------------------------------------
