@@ -29,9 +29,11 @@ def test_create_database():
     assert 'vehicle_events' in tables
     assert 'checkpoint' in tables
     assert 'low_confidence_segments' in tables
-    # pedestrian_events removed (pedestrians out of scope for v2)
-    # videos table added (multi-video support)
-    assert len(tables) == 6
+    # v3 tables
+    assert 'intersections' in tables
+    assert 'cameras' in tables
+    assert 'trims' in tables
+    assert len(tables) == 9
 
 def test_wal_mode():
     conn = get_connection(TEST_PROJECT)
