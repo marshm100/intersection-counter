@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS vehicle_events (
     frame_number INTEGER NOT NULL,
     start_frame INTEGER DEFAULT NULL,
     manually_edited INTEGER DEFAULT 0,
+    rejected INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (origin_leg_id) REFERENCES legs(leg_id)
 );
 
@@ -92,10 +93,12 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
 
-    # Migration: add start_frame column if missing (existing DBs)
+    # Migration: add start_frame and rejected columns if missing (existing DBs)
     cols = [r[1] for r in conn.execute("PRAGMA table_info(vehicle_events)").fetchall()]
     if "start_frame" not in cols:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN start_frame INTEGER DEFAULT NULL")
+    if "rejected" not in cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN rejected INTEGER NOT NULL DEFAULT 0")
 
     return conn
 
