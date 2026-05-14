@@ -810,12 +810,10 @@ function v3ViewLive(iid) {
 }
 
 function v3OpenSummary(iid) {
-    // Phase 9 wires the playback verification dashboard. For now, hand off
-    // to the existing dashboard page.
     AppState.currentIntersectionId = iid;
-    showPage('page-dashboard');
-    if (typeof loadDashboardPage === 'function') {
-        loadDashboardPage();
+    showPage('page-v3-playback');
+    if (typeof loadPlaybackPage === 'function') {
+        loadPlaybackPage();
     }
 }
 
