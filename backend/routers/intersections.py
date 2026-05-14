@@ -27,8 +27,16 @@ from backend.services.coverage import (
     CameraCoverage, Interval, compute_coverage_report,
     wallclock_to_datetime,
 )
+from backend.services.v3_orchestrator import plan_intersection_day
 
 router = APIRouter()
+
+
+# Module-level state for in-flight intersection-day processing.
+# Keyed by (project_id, intersection_id). Cleared on completion or cancel.
+import threading
+_v3_jobs: dict[tuple[str, int], dict] = {}
+_v3_jobs_lock = threading.Lock()
 
 
 # --- Request models --------------------------------------------------------
@@ -327,3 +335,225 @@ def get_coverage_report(project_id: str, intersection_id: int):
         "per_camera": per_camera,
         "per_trim": per_trim,
     }
+
+
+# --- Processing orchestration ---------------------------------------------
+
+def _plan_for_intersection(project_id: str, intersection: dict):
+    """Build the segment plan for an intersection-day."""
+    iid = intersection["intersection_id"]
+    trims = list_trims(project_id, iid)
+    cameras = list_cameras(project_id, iid)
+    cameras_with_videos = [
+        (c, list_videos_for_camera(project_id, c["camera_id"]))
+        for c in cameras
+    ]
+    return plan_intersection_day(
+        date_str=intersection["date"],
+        trims=trims,
+        cameras_with_videos=cameras_with_videos,
+    )
+
+
+@router.post("/projects/{project_id}/intersections/{intersection_id}/processing/preflight")
+def processing_preflight(project_id: str, intersection_id: int):
+    """Dry-run the orchestrator's planner. Returns the segment plan
+    (or coverage errors) without actually starting the pipeline.
+
+    The frontend Confirm popup uses this to show "we'll process N segments
+    across M cameras and K trims" before the user clicks final start.
+    """
+    _require_project(project_id)
+    intersection = _require_intersection(project_id, intersection_id)
+    plan = _plan_for_intersection(project_id, intersection)
+    return {
+        "errors": plan.errors,
+        "ok": len(plan.errors) == 0,
+        "segment_count": len(plan.segments),
+        "cameras_used": plan.cameras_used,
+        "trims_used": plan.trims_used,
+        "segments": [
+            {
+                "video_id": s.video_id,
+                "camera_id": s.camera_id,
+                "trim_id": s.trim_id,
+                "start_offset_seconds": s.start_offset_seconds,
+                "end_offset_seconds": s.end_offset_seconds,
+                "start_frame": s.start_frame,
+                "end_frame": s.end_frame,
+            }
+            for s in plan.segments
+        ],
+    }
+
+
+def _run_v3_pipeline(
+    project_id: str, intersection_id: int, segments: list,
+):
+    """Background thread: run the pipeline for each segment in turn.
+
+    Imported lazily to avoid pulling the ProcessingPipeline (which loads
+    torch/ultralytics) into the intersections module at import time —
+    matters for test environments where torch DLLs are flaky.
+    """
+    from backend.database import get_db_path
+    from backend.services.checkpoint import CheckpointManager
+    from backend.services.pipeline import ProcessingPipeline
+    from backend.config import DEFAULT_FRAME_SKIP
+    import json as _json
+
+    db_path = str(get_db_path(project_id))
+    key = (project_id, intersection_id)
+
+    try:
+        with _v3_jobs_lock:
+            _v3_jobs[key]["status"] = "running"
+
+        for idx, seg in enumerate(segments):
+            with _v3_jobs_lock:
+                if _v3_jobs[key].get("cancel_requested"):
+                    _v3_jobs[key]["status"] = "cancelled"
+                    return
+                _v3_jobs[key]["current_segment_index"] = idx
+                _v3_jobs[key]["current_camera_id"] = seg.camera_id
+                _v3_jobs[key]["current_trim_id"] = seg.trim_id
+                _v3_jobs[key]["current_video_id"] = seg.video_id
+
+            # Load legs for this camera (per-camera calibration).
+            conn = get_connection(project_id)
+            try:
+                conn.row_factory = __import__("sqlite3").Row
+                leg_rows = [dict(r) for r in conn.execute(
+                    "SELECT * FROM legs WHERE camera_id = ? ORDER BY sort_order",
+                    (seg.camera_id,),
+                ).fetchall()]
+                for leg in leg_rows:
+                    oz = leg.get("origin_zone")
+                    if isinstance(oz, str):
+                        leg["origin_zone"] = _json.loads(oz)
+            finally:
+                conn.close()
+
+            if not leg_rows:
+                with _v3_jobs_lock:
+                    _v3_jobs[key].setdefault("warnings", []).append(
+                        f"Camera {seg.camera_id} has no legs — skipping segment."
+                    )
+                continue
+
+            pipeline = ProcessingPipeline(
+                project_id=project_id,
+                db_path=db_path,
+                video_path=seg.video_path,
+                legs=leg_rows,
+                fps=seg.fps,
+                video_id=seg.video_id,
+            )
+            # Tag events with our trim_id + camera_id so the aggregator can
+            # group correctly. The pipeline already writes video_id from
+            # its constructor arg.
+            pipeline._v3_trim_id = seg.trim_id
+            pipeline._v3_camera_id = seg.camera_id
+            pipeline.process_video(
+                frame_skip=DEFAULT_FRAME_SKIP,
+                start_frame=seg.start_frame,
+                end_frame=seg.end_frame,
+            )
+            # Backfill camera_id + trim_id on events the pipeline wrote.
+            # The pipeline currently writes only video_id; we patch the
+            # rest here so the rest of v3 (aggregator, dedup) can use them.
+            conn = get_connection(project_id)
+            try:
+                conn.execute(
+                    """UPDATE vehicle_events
+                       SET camera_id = ?, trim_id = ?
+                       WHERE video_id = ?
+                         AND frame_number >= ?
+                         AND frame_number < ?
+                         AND (camera_id IS NULL OR trim_id IS NULL)""",
+                    (seg.camera_id, seg.trim_id, seg.video_id,
+                     seg.start_frame, seg.end_frame),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+        with _v3_jobs_lock:
+            _v3_jobs[key]["status"] = "complete"
+    except Exception as exc:
+        with _v3_jobs_lock:
+            _v3_jobs[key]["status"] = "error"
+            _v3_jobs[key]["error"] = str(exc)
+
+
+@router.post("/projects/{project_id}/intersections/{intersection_id}/processing/start")
+def processing_start(project_id: str, intersection_id: int):
+    """Plan + kick off processing for an entire intersection-day.
+
+    Refuses if the plan has coverage errors; the user must fix trims first.
+    Runs in a daemon thread. Status visible via /processing/status.
+    """
+    _require_project(project_id)
+    intersection = _require_intersection(project_id, intersection_id)
+
+    plan = _plan_for_intersection(project_id, intersection)
+    if plan.errors:
+        raise HTTPException(status_code=422, detail={
+            "message": "Cannot start: trim coverage errors",
+            "errors": plan.errors,
+        })
+    if not plan.segments:
+        raise HTTPException(status_code=400, detail="Nothing to process.")
+
+    key = (project_id, intersection_id)
+    with _v3_jobs_lock:
+        existing = _v3_jobs.get(key)
+        if existing and existing.get("status") == "running":
+            raise HTTPException(
+                status_code=409,
+                detail="Processing already running for this intersection.",
+            )
+        _v3_jobs[key] = {
+            "status": "queued",
+            "segment_count": len(plan.segments),
+            "current_segment_index": 0,
+            "current_camera_id": None,
+            "current_trim_id": None,
+            "current_video_id": None,
+            "error": None,
+            "warnings": [],
+            "cancel_requested": False,
+        }
+
+    t = threading.Thread(
+        target=_run_v3_pipeline,
+        args=(project_id, intersection_id, plan.segments),
+        daemon=True,
+    )
+    t.start()
+    return {"status": "queued", "segments": len(plan.segments)}
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/processing/status")
+def processing_status(project_id: str, intersection_id: int):
+    """Poll the running orchestrator state for this intersection-day."""
+    _require_project(project_id)
+    _require_intersection(project_id, intersection_id)
+    key = (project_id, intersection_id)
+    with _v3_jobs_lock:
+        job = _v3_jobs.get(key)
+        if not job:
+            return {"status": "idle"}
+        return dict(job)
+
+
+@router.post("/projects/{project_id}/intersections/{intersection_id}/processing/cancel")
+def processing_cancel(project_id: str, intersection_id: int):
+    """Signal cancellation. The orchestrator notices between segments."""
+    _require_project(project_id)
+    _require_intersection(project_id, intersection_id)
+    key = (project_id, intersection_id)
+    with _v3_jobs_lock:
+        if key in _v3_jobs and _v3_jobs[key].get("status") == "running":
+            _v3_jobs[key]["cancel_requested"] = True
+    return {"status": "cancel_requested"}
