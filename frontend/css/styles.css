@@ -93,6 +93,37 @@ header h1 { font-size: 24px; }
 /* Multi-video processing-page label */
 .video-progress-label { margin: 8px 0 6px 0; font-size: 13px; color: #444; }
 
+/* v3 project page — tabbed layout */
+.v3-tabbar { display: flex; gap: 4px; border-bottom: 1px solid #d1d5db; margin-bottom: 16px; }
+.v3-tab { padding: 10px 18px; background: transparent; border: none; border-bottom: 2px solid transparent;
+          cursor: pointer; font-size: 14px; color: #6b7280; font-weight: 500; }
+.v3-tab:hover { color: #111827; }
+.v3-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+.videos-tab-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.btn-save-labels { padding: 8px 16px; background: #16a34a; color: white; border: none; border-radius: 4px;
+                   cursor: pointer; font-size: 14px; margin-left: auto; }
+.btn-save-labels:hover { background: #15803d; }
+.btn-save-labels:disabled { background: #9ca3af; cursor: not-allowed; }
+
+.videos-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.videos-table th, .videos-table td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: middle; }
+.videos-table thead th { background: #f9fafb; color: #6b7280; font-weight: 600; }
+.videos-table tbody tr:hover { background: #fafafa; }
+.videos-filename { font-family: monospace; font-size: 12px; max-width: 250px; word-break: break-all; }
+.cell-input { width: 100%; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 3px; font-size: 12px; }
+.cell-input-wide { min-width: 160px; }
+.video-row-low-conf { background: #fff7ed; }
+
+.intersection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.intersection-card { background: white; border: 1px solid #d1d5db; border-radius: 6px; padding: 14px; }
+.intersection-card h3 { margin: 0 0 8px 0; font-size: 15px; }
+.intersection-card-meta { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: #6b7280; margin-bottom: 10px; }
+.intersection-card-actions { display: flex; gap: 6px; }
+.intersection-card-actions button { padding: 6px 12px; background: #2563eb; color: white;
+                                    border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.intersection-card-actions button:hover { background: #1d4ed8; }
+
 /* Multi-video list */
 .video-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .video-list { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }

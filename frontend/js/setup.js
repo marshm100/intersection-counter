@@ -1,212 +1,317 @@
-// Setup page — multi-video edition.
+// v3 project page — three-tab layout (Videos | Intersections | Processing).
 //
-// Loads the project, lists attached videos via the new /videos endpoint, and
-// auto-migrates legacy single-video projects (those whose video lives in
-// project_info.video_path but not yet in the videos table).
+// Tab 1 (Videos):       bulk-upload + labeling table; save derives intersections.
+// Tab 2 (Intersections): grid of cards (one per intersection-day);
+//                        click a card to drill in (Phase 7 wires sub-tabs).
+// Tab 3 (Processing):   in-flight jobs (Phase 8 wires real-time status).
+
+let _v3ActiveTab = 'videos';
+let _v3Project = null;
+let _v3Videos = [];
 
 async function loadSetupPage() {
     const pid = AppState.currentProject;
-    if (!pid) {
-        showPage('page-projects');
-        loadProjectList();
-        return;
-    }
+    if (!pid) { showPage('page-projects'); loadProjectList(); return; }
 
     const section = document.getElementById('page-setup');
-    let project = {};
+    section.innerHTML = '<p class="empty-message">Loading...</p>';
 
     try {
-        project = await API.get(`/api/projects/${pid}`);
+        _v3Project = await API.get(`/api/projects/${pid}`);
     } catch (e) {
         section.innerHTML = '<p class="empty-message">Could not load project.</p>';
         return;
     }
 
-    // Fetch multi-video list. If empty AND the legacy /video has a value,
-    // migrate it into the videos table so the rest of the UI is one code path.
-    let videos = [];
-    try {
-        videos = await API.get(`/api/projects/${pid}/videos`);
-    } catch (e) {
-        videos = [];
-    }
-    if (videos.length === 0) {
-        let legacy = null;
-        try { legacy = await API.get(`/api/projects/${pid}/video`); }
-        catch (e) { legacy = null; }
-        if (legacy && legacy.path) {
-            try {
-                await API.post(`/api/projects/${pid}/videos`, { path: legacy.path });
-                videos = await API.get(`/api/projects/${pid}/videos`);
-            } catch (e) { /* ignore — still show empty state */ }
-        }
-    }
+    section.innerHTML = _projectHeaderHtml() + _tabBarHtml() + '<div id="v3-tab-content"></div>';
 
-    const projectName = project.project_name || '';
-    const numLegs = project.num_legs || '4';
-
-    let html = '';
-
-    // Header
-    html += '<div class="setup-header">';
-    html += '<a href="#" class="back-link" onclick="backToProjects(); return false;">&larr; Back to Projects</a>';
-    html += '<div class="setup-name-row">';
-    html += `<input type="text" id="setup-project-name" class="setup-name-input" value="${escapeAttr(projectName)}" />`;
-    html += '</div>';
-    html += '</div>';
-
-    // Videos section
-    html += '<div class="setup-section">';
-    html += '<h3>Videos</h3>';
-    html += '<div class="video-actions">';
-    html += '<button class="video-select-btn" onclick="addVideos()">+ Add Videos</button>';
-    html += '<span class="helper-text">You can attach multiple recordings of the same intersection (e.g. morning + evening peak).</span>';
-    html += '</div>';
-
-    if (videos.length === 0) {
-        html += '<p class="empty-message" style="margin-top:12px;">No videos attached yet. Click "Add Videos" to choose one or more files.</p>';
-    } else {
-        html += '<div class="video-list">';
-        for (const v of videos) {
-            html += _videoCardHtml(pid, v);
-        }
-        html += '</div>';
-    }
-    html += '</div>';
-
-    // Intersection config
-    html += '<div class="setup-section">';
-    html += '<h3>Intersection Configuration</h3>';
-    html += '<div class="settings-row">';
-    html += '<label for="setup-num-legs">Number of Intersection Legs</label>';
-    html += '<select id="setup-num-legs" onchange="saveSetupSettings()">';
-    for (const n of [2, 3, 4]) {
-        const sel = String(n) === String(numLegs) ? ' selected' : '';
-        html += `<option value="${n}"${sel}>${n}</option>`;
-    }
-    html += '</select>';
-    html += '</div>';
-    html += '</div>';
-
-    // Action buttons
-    const disabled = videos.length === 0 ? ' disabled' : '';
-    html += `<button class="btn-calibration"${disabled} onclick="startCalibration()">Start Calibration</button>`;
-    html += `<button class="btn-proceed"${disabled} onclick="proceedToProcessing()">Proceed to Processing</button>`;
-    if (videos.length === 0) {
-        html += '<p style="font-size:12px;color:#9ca3af;margin-top:6px;">Attach at least one video to enable calibration.</p>';
-    }
-
-    section.innerHTML = html;
-
-    // Name input bindings
+    // Header name input binding
     const nameInput = document.getElementById('setup-project-name');
-    nameInput.removeEventListener('blur', saveProjectName);
-    nameInput.removeEventListener('keydown', _onSetupNameKeydown);
-    nameInput.addEventListener('blur', saveProjectName);
-    nameInput.addEventListener('keydown', _onSetupNameKeydown);
+    if (nameInput) {
+        nameInput.removeEventListener('blur', saveProjectName);
+        nameInput.removeEventListener('keydown', _onSetupNameKeydown);
+        nameInput.addEventListener('blur', saveProjectName);
+        nameInput.addEventListener('keydown', _onSetupNameKeydown);
+    }
+
+    await _renderActiveTab();
 }
 
-function _videoCardHtml(pid, v) {
-    // recording_start_time is stored UTC ISO; <input type=datetime-local> wants
-    // "YYYY-MM-DDTHH:MM" without timezone, so slice the first 16 chars when present.
-    const startTime = v.recording_start_time ? String(v.recording_start_time).substring(0, 16)
-                    : v.creation_time ? String(v.creation_time).substring(0, 16)
-                    : '';
-    const durationMin = v.duration_seconds ? (v.duration_seconds / 60).toFixed(1) : '?';
-    const sizeMb = v.file_size_bytes ? (v.file_size_bytes / (1024 * 1024)).toFixed(1) : '?';
-
+function _projectHeaderHtml() {
     return `
-    <div class="video-card" data-video-id="${v.video_id}">
-        <img class="video-thumbnail"
-             src="/api/projects/${pid}/videos/${v.video_id}/frame?seconds=0"
-             alt="Video thumbnail" />
-        <div class="video-card-body">
-            <div class="video-card-title">${escapeHtml(v.filename)}</div>
-            <div class="video-card-meta">
-                ${durationMin} min &middot;
-                ${v.width}&times;${v.height} &middot;
-                ${v.fps} fps &middot;
-                ${sizeMb} MB
+        <div class="setup-header">
+            <a href="#" class="back-link" onclick="backToProjects(); return false;">&larr; Back to Projects</a>
+            <div class="setup-name-row">
+                <input type="text" id="setup-project-name" class="setup-name-input"
+                       value="${escapeAttr(_v3Project.project_name || '')}" />
             </div>
-            <div class="video-card-controls">
-                <label class="video-start-label">Recording start:</label>
-                <input type="datetime-local"
-                       value="${escapeAttr(startTime)}"
-                       onchange="saveVideoStartTime(${v.video_id}, this.value)" />
-                <button class="btn-remove-video"
-                        onclick="removeVideo(${v.video_id}, '${escapeAttr(v.filename)}')">Remove</button>
-            </div>
-        </div>
-    </div>`;
+        </div>`;
 }
 
-function _onSetupNameKeydown(e) {
-    if (e.key === 'Enter') { e.target.blur(); }
+function _tabBarHtml() {
+    const tabs = [
+        { id: 'videos',        label: 'Videos' },
+        { id: 'intersections', label: 'Intersections' },
+        { id: 'processing',    label: 'Processing' },
+    ];
+    return '<div class="v3-tabbar">' + tabs.map(t =>
+        `<button class="v3-tab ${_v3ActiveTab === t.id ? 'active' : ''}"
+                 onclick="v3SwitchTab('${t.id}')">${t.label}</button>`
+    ).join('') + '</div>';
 }
 
-async function addVideos() {
+async function v3SwitchTab(tabId) {
+    _v3ActiveTab = tabId;
+    // Re-render only the tab bar buttons + content, not the header.
+    const tabBar = document.querySelector('.v3-tabbar');
+    if (tabBar) tabBar.outerHTML = _tabBarHtml();
+    await _renderActiveTab();
+}
+
+async function _renderActiveTab() {
+    const host = document.getElementById('v3-tab-content');
+    if (!host) return;
+    if (_v3ActiveTab === 'videos') {
+        await _renderVideosTab(host);
+    } else if (_v3ActiveTab === 'intersections') {
+        await _renderIntersectionsTab(host);
+    } else if (_v3ActiveTab === 'processing') {
+        await _renderProcessingTab(host);
+    }
+}
+
+// --- Videos tab --------------------------------------------------------
+
+async function _renderVideosTab(host) {
     const pid = AppState.currentProject;
+    host.innerHTML = '<p class="empty-message">Loading videos...</p>';
 
-    // Open multi-file dialog. If only one file is chosen, that's fine — the
-    // result is just a 1-element list.
+    try {
+        _v3Videos = await API.get(`/api/projects/${pid}/videos`);
+    } catch (e) {
+        host.innerHTML = '<p class="empty-message">Could not load videos.</p>';
+        return;
+    }
+
+    let html = `
+        <div class="videos-tab-actions">
+            <button class="video-select-btn" onclick="v3PickVideos()">+ Upload videos</button>
+            <span class="helper-text">Drag and drop multiple files; the system auto-fills camera, date, and start time from the filename.</span>
+            <button class="btn-save-labels" onclick="v3SaveLabels()" ${_v3Videos.length === 0 ? 'disabled' : ''}>
+                Save labels &amp; build intersections
+            </button>
+        </div>`;
+
+    if (_v3Videos.length === 0) {
+        html += '<p class="empty-message">No videos uploaded yet. Click "Upload videos" to attach files.</p>';
+        host.innerHTML = html;
+        return;
+    }
+
+    html += '<table class="videos-table">';
+    html += '<thead><tr>';
+    html += '<th>File</th><th>Camera</th><th>Date</th><th>Start time</th><th>Intersection</th><th>Duration</th><th>Confidence</th><th>Actions</th>';
+    html += '</tr></thead><tbody>';
+    for (const v of _v3Videos) {
+        html += _videosTableRowHtml(v);
+    }
+    html += '</tbody></table>';
+    host.innerHTML = html;
+}
+
+function _videosTableRowHtml(v) {
+    const dt = v.recording_start_datetime ? String(v.recording_start_datetime).substring(0, 16) : '';
+    const datePart = dt ? dt.substring(0, 10) : '';
+    const timePart = dt ? dt.substring(11, 16) : '';
+    const conf = (v.parse_confidence != null) ? v.parse_confidence : 1.0;
+    const lowConf = conf < 0.5;
+    const durMin = v.duration_seconds ? (v.duration_seconds / 60).toFixed(1) + ' min' : '?';
+    return `
+        <tr class="${lowConf ? 'video-row-low-conf' : ''}" data-video-id="${v.video_id}">
+            <td class="videos-filename" title="${escapeAttr(v.path)}">${escapeHtml(v.filename)}</td>
+            <td>
+                <input type="text" class="cell-input" value="${escapeAttr(v.camera_label_parsed || '')}"
+                    onchange="v3PatchLabel(${v.video_id}, 'camera_label', this.value)" />
+            </td>
+            <td>
+                <input type="date" class="cell-input" value="${escapeAttr(datePart)}"
+                    onchange="v3PatchDateTime(${v.video_id}, this.value, null)" />
+            </td>
+            <td>
+                <input type="time" step="1" class="cell-input"
+                    value="${escapeAttr(timePart ? timePart + ':00' : '')}"
+                    onchange="v3PatchDateTime(${v.video_id}, null, this.value)" />
+            </td>
+            <td>
+                <input type="text" class="cell-input cell-input-wide"
+                    value="${escapeAttr(v.intersection_name_label || '')}"
+                    placeholder="Required"
+                    onchange="v3PatchLabel(${v.video_id}, 'intersection_name', this.value)" />
+            </td>
+            <td>${durMin}</td>
+            <td class="${lowConf ? 'confidence-low' : ''}">
+                ${(conf * 100).toFixed(0)}%${lowConf ? ' ⚠' : ''}
+            </td>
+            <td>
+                <button class="btn-remove-video" onclick="v3RemoveVideo(${v.video_id}, '${escapeAttr(v.filename)}')">Remove</button>
+            </td>
+        </tr>`;
+}
+
+async function v3PickVideos() {
+    const pid = AppState.currentProject;
     let browse;
     try {
         browse = await API.post(`/api/projects/${pid}/videos/browse-multi`);
     } catch (e) {
-        alert('Could not open file browser. Please try again.');
+        alert('Could not open file browser.');
         return;
     }
     const paths = (browse && browse.paths) ? browse.paths : [];
     if (paths.length === 0) return;
 
-    // Attach each in turn. Errors per-file are surfaced but don't stop the batch.
-    const errors = [];
-    for (const path of paths) {
-        try {
-            await API.post(`/api/projects/${pid}/videos`, { path });
-        } catch (e) {
-            errors.push(`${path}: ${e.message || e}`);
-        }
-    }
-    if (errors.length > 0) {
-        alert(`Some files could not be attached:\n\n${errors.join('\n')}`);
-    }
-    await loadSetupPage();
-}
-
-async function removeVideo(videoId, filename) {
-    const pid = AppState.currentProject;
-    if (!window.confirm(`Remove "${filename}" from this project?`)) return;
-
-    // First call (no confirm) — backend returns a warning if there are events.
-    let result;
+    let resp;
     try {
-        result = await API.del(`/api/projects/${pid}/videos/${videoId}`);
+        resp = await API.post(`/api/projects/${pid}/videos/bulk`, { paths });
     } catch (e) {
-        alert(`Failed to remove video: ${e.message || e}`);
+        alert(`Failed to attach videos: ${e.message || e}`);
         return;
     }
-    if (result && result.confirm_required) {
-        if (!window.confirm(result.warning + '\n\nProceed?')) return;
-        try {
-            await API.del(`/api/projects/${pid}/videos/${videoId}?confirm=true`);
-        } catch (e) {
-            alert(`Failed to remove video: ${e.message || e}`);
-            return;
-        }
+    const errors = (resp.results || []).filter(r => r.error);
+    if (errors.length > 0) {
+        alert(`Some files could not be attached:\n\n` +
+              errors.map(e => `${e.path}: ${e.error}`).join('\n'));
     }
-    await loadSetupPage();
+    await _renderVideosTab(document.getElementById('v3-tab-content'));
 }
 
-async function saveVideoStartTime(videoId, value) {
+async function v3PatchLabel(videoId, field, value) {
     const pid = AppState.currentProject;
+    const body = {};
+    if (field === 'camera_label') body.camera_label = value;
+    if (field === 'intersection_name') body.intersection_name = value;
     try {
-        await API.put(`/api/projects/${pid}/videos/${videoId}/start_time`,
-                      { recording_start_time: value || null });
+        await API.patch(`/api/projects/${pid}/videos/${videoId}/labels`, body);
     } catch (e) {
-        // Non-fatal — value just doesn't persist
-        console.error('Failed to save start time:', e);
+        alert(`Failed to save: ${e.message || e}`);
     }
+}
+
+async function v3PatchDateTime(videoId, datePart, timePart) {
+    // Combine date + time into ISO format. Fetch the current value to fill
+    // in whichever part wasn't supplied by this edit.
+    const pid = AppState.currentProject;
+    const v = _v3Videos.find(x => x.video_id === videoId);
+    const existing = v && v.recording_start_datetime ? String(v.recording_start_datetime) : '';
+    const existingDate = existing.substring(0, 10);
+    const existingTime = existing.substring(11, 19);
+    const finalDate = datePart != null ? datePart : existingDate;
+    const finalTime = timePart != null ? timePart : existingTime;
+    if (!finalDate || !finalTime) return;
+    const iso = `${finalDate}T${finalTime.length === 5 ? finalTime + ':00' : finalTime}`;
+    try {
+        const updated = await API.patch(
+            `/api/projects/${pid}/videos/${videoId}/labels`,
+            { recording_start_datetime: iso },
+        );
+        // Update local cache so the next partial edit sees the new full value
+        if (v) v.recording_start_datetime = updated.recording_start_datetime;
+    } catch (e) {
+        alert(`Failed to save: ${e.message || e}`);
+    }
+}
+
+async function v3RemoveVideo(videoId, filename) {
+    const pid = AppState.currentProject;
+    if (!window.confirm(`Remove "${filename}" from this project?`)) return;
+    try {
+        const result = await API.del(`/api/projects/${pid}/videos/${videoId}`);
+        if (result && result.confirm_required) {
+            if (!window.confirm(result.warning + '\n\nProceed?')) return;
+            await API.del(`/api/projects/${pid}/videos/${videoId}?confirm=true`);
+        }
+    } catch (e) {
+        alert(`Failed to remove: ${e.message || e}`);
+        return;
+    }
+    await _renderVideosTab(document.getElementById('v3-tab-content'));
+}
+
+async function v3SaveLabels() {
+    const pid = AppState.currentProject;
+    let resp;
+    try {
+        resp = await API.post(`/api/projects/${pid}/videos/save-labels`);
+    } catch (e) {
+        alert(`Save failed: ${e.message || e}`);
+        return;
+    }
+    const summary = `Built ${resp.intersections.length} intersection-day card(s).\n` +
+                    `Attached: ${resp.videos_attached}\n` +
+                    (resp.videos_skipped ? `Skipped (missing intersection name): ${resp.videos_skipped}` : '');
+    alert(summary);
+    // Auto-switch to the Intersections tab so the user sees their cards
+    await v3SwitchTab('intersections');
+}
+
+// --- Intersections tab (Phase 7 fleshes out) --------------------------
+
+async function _renderIntersectionsTab(host) {
+    const pid = AppState.currentProject;
+    host.innerHTML = '<p class="empty-message">Loading intersections...</p>';
+    let intersections;
+    try {
+        intersections = await API.get(`/api/projects/${pid}/intersections`);
+    } catch (e) {
+        host.innerHTML = '<p class="empty-message">Could not load intersections.</p>';
+        return;
+    }
+    if (intersections.length === 0) {
+        host.innerHTML = `
+            <p class="empty-message">
+                No intersections yet. Upload videos in the Videos tab, label each
+                with its intersection name, and click "Save labels &amp; build intersections."
+            </p>`;
+        return;
+    }
+    let html = '<div class="intersection-grid">';
+    for (const i of intersections) {
+        html += `
+            <div class="intersection-card">
+                <h3>${escapeHtml(i.name)}</h3>
+                <div class="intersection-card-meta">
+                    <span>Date: ${escapeHtml(i.date)}</span>
+                    <span>Legs: ${i.leg_count}</span>
+                </div>
+                <div class="intersection-card-actions">
+                    <button onclick="v3OpenIntersection(${i.intersection_id})">Open</button>
+                </div>
+            </div>`;
+    }
+    html += '</div>';
+    html += '<p class="helper-text" style="margin-top:12px;">Detailed intersection configuration (calibration, trims, processing) lands in Phase 7. For now, "Open" is a placeholder.</p>';
+    host.innerHTML = html;
+}
+
+function v3OpenIntersection(iid) {
+    // Phase 7 will replace this with a real sub-tab view.
+    alert(`Intersection ${iid} detail panel is coming in Phase 7.`);
+}
+
+// --- Processing tab (Phase 8 fleshes out) -----------------------------
+
+async function _renderProcessingTab(host) {
+    host.innerHTML = `
+        <p class="empty-message">
+            Real-time per-intersection processing status, ETA, and "view live" links
+            land in Phase 8.
+        </p>`;
+}
+
+// --- Shared helpers ---------------------------------------------------
+
+function _onSetupNameKeydown(e) {
+    if (e.key === 'Enter') { e.target.blur(); }
 }
 
 async function saveProjectName() {
@@ -216,25 +321,13 @@ async function saveProjectName() {
     await API.put(`/api/projects/${pid}/name`, { name });
 }
 
-async function saveSetupSettings() {
-    const pid = AppState.currentProject;
-    const numLegsEl = document.getElementById('setup-num-legs');
-    const settings = {};
-    if (numLegsEl) settings.num_legs = parseInt(numLegsEl.value, 10);
-    await API.put(`/api/projects/${pid}/settings`, settings);
-}
-
 async function startCalibration() {
-    await saveSetupSettings();
-    const pid = AppState.currentProject;
-    await API.put(`/api/projects/${pid}/name`,
-                  { name: document.getElementById('setup-project-name').value.trim() });
+    // Backward-compat hook used by older projects-page flows.
     showPage('page-calibration');
     loadCalibrationPage();
 }
 
 async function proceedToProcessing() {
-    await saveSetupSettings();
     const pid = AppState.currentProject;
     saveLastProject(pid);
     showPage('page-processing');
