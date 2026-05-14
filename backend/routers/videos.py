@@ -16,8 +16,12 @@ from pydantic import BaseModel
 from backend.config import PROJECTS_DIR
 from backend.database import (
     add_video, find_video_by_path, get_connection, get_video,
-    list_videos, remove_video, set_video_recording_start_time,
+    list_videos, list_intersections, list_cameras,
+    remove_video, set_video_recording_start_time,
+    update_video_labels, link_video_to_camera,
+    upsert_intersection, upsert_camera,
 )
+from backend.services.filename_parser import parse_with_fallback
 from backend.services.video_service import get_frame_at_time, get_video_info
 
 router = APIRouter()
@@ -27,12 +31,33 @@ class AddVideoBody(BaseModel):
     path: str
 
 
+class BulkAddBody(BaseModel):
+    paths: list[str]
+
+
 class StartTimeBody(BaseModel):
     recording_start_time: Optional[str] = None
 
 
 class OrderBody(BaseModel):
     sort_order: int
+
+
+class LabelsBody(BaseModel):
+    intersection_name: Optional[str] = None
+    recording_start_datetime: Optional[str] = None
+    camera_label: Optional[str] = None
+
+
+def _enrich_with_parse(metadata: dict) -> dict:
+    """Augment a video_service.get_video_info() dict with filename-parse fields."""
+    parsed = parse_with_fallback(metadata["path"], metadata.get("duration_seconds"))
+    metadata = dict(metadata)
+    metadata["camera_label_parsed"] = parsed.camera_label
+    metadata["intersection_name_label"] = parsed.intersection_hint
+    metadata["recording_start_datetime"] = parsed.recording_start_datetime.isoformat(timespec="seconds")
+    metadata["parse_confidence"] = parsed.parse_confidence
+    return metadata
 
 
 def _require_project(project_id: str) -> None:
@@ -112,7 +137,11 @@ async def browse_videos_multi(project_id: str):
 
 @router.post("/projects/{project_id}/videos")
 def post_video(project_id: str, body: AddVideoBody):
-    """Attach a video file to the project. Idempotent: same path returns existing row."""
+    """Attach a single video file. Idempotent — same path returns existing row.
+
+    Filename is parsed on attach to pre-populate camera_label, recording
+    start datetime, intersection hint, and parse_confidence.
+    """
     _require_project(project_id)
 
     try:
@@ -126,8 +155,102 @@ def post_video(project_id: str, body: AddVideoBody):
     if existing:
         return existing
 
+    info = _enrich_with_parse(info)
     vid = add_video(project_id, info)
     return get_video(project_id, vid)
+
+
+@router.post("/projects/{project_id}/videos/bulk")
+def post_videos_bulk(project_id: str, body: BulkAddBody):
+    """Attach many videos at once. Returns per-path results.
+
+    Each result is either an attached video row (success) or
+    {"path": ..., "error": "..."} for files that couldn't be opened.
+    The bulk operation never aborts on a single failure — partial success
+    is the norm for drag-drop batches.
+    """
+    _require_project(project_id)
+    results: list[dict] = []
+    for path in body.paths:
+        try:
+            info = get_video_info(path)
+        except FileNotFoundError:
+            results.append({"path": path, "error": "Video file not found"})
+            continue
+        except ValueError as e:
+            results.append({"path": path, "error": str(e)})
+            continue
+        except Exception as e:
+            results.append({"path": path, "error": f"Unexpected: {e}"})
+            continue
+
+        existing = find_video_by_path(project_id, info["path"])
+        if existing:
+            results.append(existing)
+            continue
+
+        info = _enrich_with_parse(info)
+        vid = add_video(project_id, info)
+        row = get_video(project_id, vid)
+        if row:
+            results.append(row)
+    return {"results": results}
+
+
+@router.patch("/projects/{project_id}/videos/{video_id}/labels")
+def patch_video_labels(project_id: str, video_id: int, body: LabelsBody):
+    """User-edits to the v3 label fields on a single video.
+
+    Allowed fields: intersection_name, recording_start_datetime, camera_label.
+    A successful patch invalidates the previously-derived intersection grouping
+    (the user must re-run save-labels to apply changes to the hierarchy).
+    """
+    _require_project(project_id)
+    _require_video(project_id, video_id)
+    update_video_labels(
+        project_id, video_id,
+        intersection_name=body.intersection_name,
+        recording_start_datetime=body.recording_start_datetime,
+        camera_label=body.camera_label,
+    )
+    return get_video(project_id, video_id)
+
+
+@router.post("/projects/{project_id}/videos/save-labels")
+def save_labels(project_id: str):
+    """Derive intersections + cameras from the videos' current labels.
+
+    Grouping: groupby(intersection_name_label, date_part(recording_start_datetime)),
+    then groupby(camera_label_parsed) within each intersection-day. Each unique
+    group becomes (or reuses) an intersection row and a camera row, and each
+    video is linked to its camera.
+
+    Videos with no intersection_name_label are skipped (the user must fill
+    that field for them to participate).
+
+    Returns the resulting list of intersections.
+    """
+    _require_project(project_id)
+    videos = list_videos(project_id)
+
+    skipped = 0
+    for v in videos:
+        intersection_name = (v.get("intersection_name_label") or "").strip()
+        camera_label = (v.get("camera_label_parsed") or "").strip() or "Camera 1"
+        start_dt = v.get("recording_start_datetime") or v.get("recording_start_time")
+        if not intersection_name or not start_dt:
+            skipped += 1
+            continue
+        date_part = start_dt[:10]   # YYYY-MM-DD
+        iid = upsert_intersection(project_id, intersection_name, date_part)
+        cid = upsert_camera(project_id, iid, camera_label)
+        link_video_to_camera(project_id, v["video_id"], cid)
+
+    return {
+        "intersections": list_intersections(project_id),
+        "videos_attached": len(videos) - skipped,
+        "videos_skipped": skipped,
+    }
 
 
 @router.delete("/projects/{project_id}/videos/{video_id}")

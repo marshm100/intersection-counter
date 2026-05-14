@@ -228,9 +228,11 @@ def get_all_project_info(project_id: str) -> dict:
 # -- videos table helpers ----------------------------------------------------
 
 _VIDEO_FIELDS = (
-    "video_id", "sort_order", "path", "filename", "fps", "width", "height",
-    "total_frames", "duration_seconds", "file_size_bytes", "codec",
-    "creation_time", "recording_start_time", "added_at",
+    "video_id", "camera_id", "sort_order", "path", "filename",
+    "fps", "width", "height", "total_frames", "duration_seconds",
+    "file_size_bytes", "codec", "creation_time", "recording_start_time",
+    "camera_label_parsed", "intersection_name_label",
+    "recording_start_datetime", "parse_confidence", "added_at",
 )
 
 
@@ -242,6 +244,11 @@ def add_video(project_id: str, metadata: dict) -> int:
     """Insert a video row from a video_service.get_video_info() metadata dict.
 
     Returns the new video_id. Auto-assigns sort_order = max(existing)+1.
+
+    Optional v3 fields the metadata dict may carry (pre-populated by the
+    filename parser at upload time):
+      camera_label_parsed, intersection_name_label,
+      recording_start_datetime, parse_confidence
     """
     conn = get_connection(project_id)
     try:
@@ -253,8 +260,10 @@ def add_video(project_id: str, metadata: dict) -> int:
             """INSERT INTO videos
                (sort_order, path, filename, fps, width, height, total_frames,
                 duration_seconds, file_size_bytes, codec, creation_time,
-                recording_start_time, added_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                recording_start_time, camera_label_parsed,
+                intersection_name_label, recording_start_datetime,
+                parse_confidence, added_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 next_order,
                 metadata["path"],
@@ -268,6 +277,10 @@ def add_video(project_id: str, metadata: dict) -> int:
                 metadata.get("codec"),
                 metadata.get("creation_time"),
                 metadata.get("recording_start_time"),
+                metadata.get("camera_label_parsed"),
+                metadata.get("intersection_name_label"),
+                metadata.get("recording_start_datetime"),
+                metadata.get("parse_confidence", 1.0),
                 now,
             ),
         )
