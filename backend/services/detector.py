@@ -3,7 +3,6 @@
 import os
 
 import numpy as np
-import torch
 
 # PyTorch 2.6+ defaults weights_only=True which breaks ultralytics model loading.
 os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
@@ -18,14 +17,9 @@ from backend.config import (
     YOLO_IOU_THRESHOLD,
     YOLO_MODEL,
 )
+from backend.services.device import detect_device
 
 ALL_CLASSES = {**VEHICLE_CLASSES, **PEDESTRIAN_CLASSES}
-
-
-def _resolve_device() -> str:
-    if torch.cuda.is_available():
-        return "cuda"
-    return "cpu"
 
 
 class VehicleDetector:
@@ -40,7 +34,7 @@ class VehicleDetector:
         Model auto-downloads on first use.
         """
         self.model = YOLO(model_path or YOLO_MODEL)
-        self._device = _resolve_device()
+        self._device = detect_device(os.environ.get("DEVICE"))
 
     def _parse_results(self, results) -> list[dict]:
         """Extract detection dicts from a single YOLO Results object."""
