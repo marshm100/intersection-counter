@@ -1,7 +1,8 @@
-let _reviewFilters = { leg_id: '', movement: '', low_confidence: false };
+// Default rejected filter to 'false' so the user sees active events first.
+let _reviewFilters = { leg_id: '', movement: '', low_confidence: false, rejected: 'false' };
 
 async function renderReviewPage() {
-    _reviewFilters = { leg_id: '', movement: '', low_confidence: false };
+    _reviewFilters = { leg_id: '', movement: '', low_confidence: false, rejected: 'false' };
     await loadReviewPage(1);
 }
 
@@ -16,6 +17,7 @@ async function loadReviewPage(page = 1) {
     if (_reviewFilters.leg_id) params += `&leg_id=${encodeURIComponent(_reviewFilters.leg_id)}`;
     if (_reviewFilters.movement) params += `&movement=${encodeURIComponent(_reviewFilters.movement)}`;
     if (_reviewFilters.low_confidence) params += `&low_confidence=true`;
+    if (_reviewFilters.rejected !== '') params += `&rejected=${_reviewFilters.rejected}`;
 
     let data;
     try {
@@ -49,6 +51,11 @@ async function loadReviewPage(page = 1) {
     </select></label>`;
     html += `<label><input type="checkbox" ${_reviewFilters.low_confidence ? 'checked' : ''}
         onchange="_reviewFilters.low_confidence=this.checked; loadReviewPage(1)"> Low confidence only</label>`;
+    html += `<label>Status: <select onchange="_reviewFilters.rejected=this.value; loadReviewPage(1)">
+        <option value="false"${_reviewFilters.rejected==='false'?' selected':''}>Active only</option>
+        <option value="true"${_reviewFilters.rejected==='true'?' selected':''}>Rejected only</option>
+        <option value=""${_reviewFilters.rejected===''?' selected':''}>All</option>
+    </select></label>`;
     html += '</div>';
 
     // Table
@@ -75,15 +82,28 @@ async function loadReviewPage(page = 1) {
 
     section.innerHTML = html;
 
-    // Delegate edit button clicks to avoid inline onclick with user data
+    // Delegate edit/reject/preview button clicks to avoid inline onclick with user data
     section.addEventListener('click', function (e) {
-        const btn = e.target.closest('.btn-review-edit');
-        if (btn) {
+        const editBtn = e.target.closest('.btn-review-edit');
+        if (editBtn) {
             _startEdit(
-                parseInt(btn.dataset.eventId, 10),
-                btn.dataset.movement,
-                btn.dataset.vehicleClass,
+                parseInt(editBtn.dataset.eventId, 10),
+                editBtn.dataset.movement,
+                editBtn.dataset.vehicleClass,
             );
+            return;
+        }
+        const rejectBtn = e.target.closest('.btn-review-reject');
+        if (rejectBtn) {
+            _toggleReject(
+                parseInt(rejectBtn.dataset.eventId, 10),
+                rejectBtn.dataset.rejected === '1',
+            );
+            return;
+        }
+        const previewBtn = e.target.closest('.btn-review-preview');
+        if (previewBtn) {
+            _showPreview(parseInt(previewBtn.dataset.eventId, 10));
         }
     });
 }
@@ -100,7 +120,9 @@ function _buildLegOptions(events) {
 
 function _reviewRow(ev) {
     const trajClass = ev.trajectory_confidence < 0.5 ? ' class="confidence-low"' : '';
-    return `<tr id="review-row-${ev.event_id}">
+    const rowClass = ev.rejected ? ' class="review-row-rejected"' : '';
+    const rejectLabel = ev.rejected ? 'Unreject' : 'Reject';
+    return `<tr id="review-row-${ev.event_id}"${rowClass}>
         <td>${ev.event_id}</td>
         <td>${_escR(ev.leg_label)}</td>
         <td id="rv-mov-${ev.event_id}">${_escR(ev.movement)}</td>
@@ -109,10 +131,17 @@ function _reviewRow(ev) {
         <td${trajClass}>${(ev.trajectory_confidence * 100).toFixed(0)}%</td>
         <td>${ev.timestamp_video != null ? ev.timestamp_video.toFixed(1) + 's' : '—'}</td>
         <td id="rv-edited-${ev.event_id}">${ev.manually_edited ? '✓' : ''}</td>
-        <td><button class="btn-edit btn-review-edit"
-            data-event-id="${ev.event_id}"
-            data-movement="${_escR(ev.movement)}"
-            data-vehicle-class="${_escR(ev.vehicle_class)}">Edit</button></td>
+        <td>
+            <button class="btn-edit btn-review-edit"
+                data-event-id="${ev.event_id}"
+                data-movement="${_escR(ev.movement)}"
+                data-vehicle-class="${_escR(ev.vehicle_class)}">Edit</button>
+            <button class="btn-preview btn-review-preview"
+                data-event-id="${ev.event_id}">Preview</button>
+            <button class="btn-reject btn-review-reject"
+                data-event-id="${ev.event_id}"
+                data-rejected="${ev.rejected ? 1 : 0}">${rejectLabel}</button>
+        </td>
     </tr>`;
 }
 
@@ -169,6 +198,52 @@ function _cancelEdit(eventId, movement, vehicleClass) {
         data-event-id="${eventId}"
         data-movement="${_escR(movement)}"
         data-vehicle-class="${_escR(vehicleClass)}">Edit</button>`;
+}
+
+async function _toggleReject(eventId, currentlyRejected) {
+    const pid = AppState.currentProject;
+    let updated;
+    try {
+        updated = await API.patch(`/api/projects/${pid}/review/${eventId}`, { rejected: !currentlyRejected });
+    } catch (e) {
+        alert('Failed to update reject state: ' + (e.message || e));
+        return;
+    }
+    const row = document.getElementById(`review-row-${eventId}`);
+    if (row) {
+        row.outerHTML = _reviewRow(updated);
+    }
+}
+
+function _showPreview(eventId) {
+    const pid = AppState.currentProject;
+    const url = `/api/projects/${pid}/review/${eventId}/preview?width=960`;
+
+    // Build/refresh a simple modal overlay with the preview image
+    let modal = document.getElementById('review-preview-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'review-preview-modal';
+        modal.className = 'review-preview-modal';
+        modal.innerHTML = `
+            <div class="review-preview-backdrop"></div>
+            <div class="review-preview-content">
+                <button class="review-preview-close" type="button">×</button>
+                <img class="review-preview-img" alt="Event preview" />
+                <div class="review-preview-caption"></div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.querySelector('.review-preview-backdrop').addEventListener('click', _hidePreview);
+        modal.querySelector('.review-preview-close').addEventListener('click', _hidePreview);
+    }
+    modal.querySelector('.review-preview-img').src = url;
+    modal.querySelector('.review-preview-caption').textContent = `Event #${eventId}`;
+    modal.classList.add('open');
+}
+
+function _hidePreview() {
+    const modal = document.getElementById('review-preview-modal');
+    if (modal) modal.classList.remove('open');
 }
 
 function _escR(str) {
