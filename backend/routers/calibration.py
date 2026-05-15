@@ -285,11 +285,40 @@ def save_camera_calibration(
     if not body.legs:
         raise HTTPException(status_code=422, detail="At least one leg is required.")
 
+    # Refuse if a v3 pipeline is mid-run on this camera. The pipeline thread
+    # has the current leg_ids cached and writes events against them; deleting
+    # those legs out from under it would FK-fail the very next event insert.
+    # User must cancel processing first.
+    from backend.routers.intersections import _v3_jobs, _v3_jobs_lock
+    with _v3_jobs_lock:
+        for (pid, _iid), job in _v3_jobs.items():
+            if (pid == project_id
+                    and job.get("status") == "running"
+                    and job.get("current_camera_id") == camera_id):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Processing is currently running on this camera. "
+                           "Cancel processing before recalibrating.",
+                )
+
     conn = get_connection(project_id)
     try:
         with conn:
-            # Wipe only this camera's vehicle events + legs.
-            conn.execute("DELETE FROM vehicle_events WHERE camera_id = ?", (camera_id,))
+            # Wipe this camera's vehicle events. Match on camera_id when set
+            # AND on origin_leg_id IN (this camera's legs) so we also catch
+            # orphan events written before the camera_id inline-write fix —
+            # those rows have camera_id=NULL but their origin_leg_id still
+            # FK-references a leg we're about to delete, so a plain
+            # `camera_id = ?` wipe leaves them dangling and the leg DELETE
+            # then trips a FOREIGN KEY constraint failure.
+            conn.execute(
+                """DELETE FROM vehicle_events
+                   WHERE camera_id = ?
+                      OR origin_leg_id IN (
+                          SELECT leg_id FROM legs WHERE camera_id = ?
+                      )""",
+                (camera_id, camera_id),
+            )
             conn.execute("DELETE FROM legs WHERE camera_id = ?", (camera_id,))
             for leg in body.legs:
                 conn.execute(
