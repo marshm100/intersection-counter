@@ -40,15 +40,17 @@ TRAJECTORY_MIN_POINTS = 2
 TRAJECTORY_MIN_DISTANCE_PX = 8        # catch slow turners — was 15, missed lots of left/right turns
 TRAJECTORY_CURVATURE_THRESHOLD = 40  # cumulative curvature tiebreaker for ambiguous zone
 
-# Tracker tuning — looser thresholds + longer lost buffer so brief occlusions
-# (a vehicle passing behind a pole / another car) don't kill the track and
-# cause re-detection as a new vehicle (which then gets double-counted).
-TRACKER_LOST_BUFFER = 150            # frames before dropping track (5s at 30fps)
-TRACKER_MATCH_THRESHOLD = 0.3        # IoU matching — loose enough to re-associate after brief occlusion
-TRACKER_ACTIVATION_THRESHOLD = 0.3   # bumped from 0.2 — at 0.2 every YOLO false-positive started a
-                                     # one-frame "track" that polluted n_tracks_total without
-                                     # helping accuracy; 0.3 still catches real vehicles via
-                                     # confirmation on a second matched frame
+# Tracker tuning — ByteTrack defaults are 0.25 / 0.8 / 30 fps with
+# track_buffer=30 frames. We bump track_buffer to 5s (150) so brief
+# occlusions don't kill tracks, but the match/activation thresholds
+# stay at defaults — match_thresh is a DISTANCE gate (1-IoU), so
+# lower values are STRICTER, not looser. Setting it to 0.3 (as we
+# previously did, misreading the semantics) required IoU>=0.7 every
+# frame and silently dropped tracks the instant a vehicle moved any
+# meaningful distance.
+TRACKER_LOST_BUFFER = 150            # frames before dropping track (5s @ 30fps; ByteTrack default 30)
+TRACKER_MATCH_THRESHOLD = 0.8        # ByteTrack default — IoU>=0.2 matches (loose)
+TRACKER_ACTIVATION_THRESHOLD = 0.25  # ByteTrack default — confirms tracks for conf >= 0.25
 
 # Origin assignment
 ORIGIN_ASSIGN_MIN_FRAMES = 2   # trajectory points needed before assigning origin
