@@ -43,7 +43,10 @@ TRAJECTORY_CURVATURE_THRESHOLD = 40  # cumulative curvature tiebreaker for ambig
 # cause re-detection as a new vehicle (which then gets double-counted).
 TRACKER_LOST_BUFFER = 150            # frames before dropping track (5s at 30fps)
 TRACKER_MATCH_THRESHOLD = 0.3        # IoU matching — loose enough to re-associate after brief occlusion
-TRACKER_ACTIVATION_THRESHOLD = 0.2   # easier to start a new track on weak first-frame match
+TRACKER_ACTIVATION_THRESHOLD = 0.3   # bumped from 0.2 — at 0.2 every YOLO false-positive started a
+                                     # one-frame "track" that polluted n_tracks_total without
+                                     # helping accuracy; 0.3 still catches real vehicles via
+                                     # confirmation on a second matched frame
 
 # Origin assignment
 ORIGIN_ASSIGN_MIN_FRAMES = 2   # trajectory points needed before assigning origin

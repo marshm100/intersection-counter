@@ -354,8 +354,12 @@ class ProcessingPipeline:
                         return
 
         # --- Fallback: heading-based matching ---
+        # Use the FULL trajectory so far, not just the first 2 points: a
+        # slow-starting vehicle (turner pulling away from a stop) may have
+        # <8 px between the first two centers but plenty of displacement
+        # by the time we re-attempt assignment.
         start = traj[0]
-        end = traj[min(ORIGIN_ASSIGN_MIN_FRAMES - 1, len(traj) - 1)]
+        end = traj[-1]
         dx = end[0] - start[0]
         dy = end[1] - start[1]
         displacement = math.sqrt(dx * dx + dy * dy)
