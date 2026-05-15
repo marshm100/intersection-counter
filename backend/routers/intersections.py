@@ -664,6 +664,24 @@ def processing_start(project_id: str, intersection_id: int):
 _JOB_NON_SERIALIZABLE_KEYS = {"pipeline"}
 
 
+def _pipeline_live_stats(pipeline) -> dict:
+    """Extract the counters needed to diagnose why counts aren't materializing."""
+    if pipeline is None:
+        return {}
+    try:
+        return {
+            "n_tracks_total": getattr(pipeline, "n_tracks_total", 0),
+            "n_crossed_enter": getattr(pipeline, "n_crossed_enter", 0),  # vehicles assigned a leg
+            "n_crossed_exit": getattr(pipeline, "n_crossed_exit", 0),    # no leg matched
+            "n_insufficient_data": getattr(pipeline, "n_insufficient_data", 0),
+            "active_vehicles": len(getattr(pipeline, "active_vehicles", {}) or {}),
+            "vehicle_count": getattr(pipeline, "vehicle_count", 0),
+            "error_count": getattr(pipeline, "error_count", 0),
+        }
+    except Exception:
+        return {}
+
+
 @router.get("/projects/{project_id}/intersections/{intersection_id}/processing/status")
 def processing_status(project_id: str, intersection_id: int):
     """Poll the running orchestrator state for this intersection-day."""
@@ -675,8 +693,12 @@ def processing_status(project_id: str, intersection_id: int):
         if not job:
             return {"status": "idle"}
         # Filter out internal refs that aren't JSON-encodable (e.g. the
-        # ProcessingPipeline instance the cancel endpoint reaches through).
-        return {k: v for k, v in job.items() if k not in _JOB_NON_SERIALIZABLE_KEYS}
+        # ProcessingPipeline instance the cancel endpoint reaches through),
+        # but capture the pipeline's live counters before we strip the ref.
+        pipeline = job.get("pipeline")
+        out = {k: v for k, v in job.items() if k not in _JOB_NON_SERIALIZABLE_KEYS}
+        out["pipeline_stats"] = _pipeline_live_stats(pipeline)
+        return out
 
 
 @router.get("/projects/{project_id}/intersections/{intersection_id}/processing/preview-stream")
