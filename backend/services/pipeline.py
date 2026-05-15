@@ -315,7 +315,12 @@ class ProcessingPipeline:
 
         if vehicle["origin_leg_id"] is None:
             n_pts = len(vehicle["trajectory"])
-            if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES and n_pts % 3 == 0:
+            # Attempt origin assignment on every frame once we have enough
+            # trajectory points. Previously throttled to n_pts % 3 == 0,
+            # which meant 2-point trajectories (vehicle detected once,
+            # missed, redetected once) never even attempted assignment —
+            # the vehicle got silently dropped as insufficient_data.
+            if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES:
                 self._assign_origin(track_id, frame_number)
 
     def _assign_origin(self, track_id: int, frame_number: int):
@@ -400,6 +405,17 @@ class ProcessingPipeline:
 
     def _finalize_vehicle_data(self, track_id: int, vehicle: dict, frame_number: int):
         """Finalize a vehicle dict (from active_vehicles or recently_lost)."""
+        # Last-chance origin assignment: a track that gathered enough
+        # trajectory but never matched a tripwire OR heading direction
+        # earlier may still match now (e.g. heading fallback needed the
+        # vehicle to actually start moving).
+        if vehicle["origin_leg_id"] is None:
+            n_pts = len(vehicle.get("trajectory", []))
+            if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES:
+                # Temporarily re-link so _assign_origin can mutate it
+                self.active_vehicles.setdefault(track_id, vehicle)
+                self._assign_origin(track_id, frame_number)
+                self.active_vehicles.pop(track_id, None)
         if vehicle["origin_leg_id"] is None:
             n_pts = len(vehicle.get("trajectory", []))
             if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES:

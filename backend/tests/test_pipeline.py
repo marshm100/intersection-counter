@@ -561,20 +561,18 @@ class TestPipelineEdgeCases:
         assert _count_vehicle_events(pipeline_env["db_path"]) == 0
         assert p.error_count == 0
 
-    def test_vehicle_trajectory_too_short(self, pipeline_env):
-        """Vehicle crosses origin but trajectory has only 2 points → classified as
-        insufficient_data → 0 events written, no crash."""
+    def test_vehicle_one_point_trajectory_not_counted(self, pipeline_env):
+        """A vehicle detected on only ONE frame (then never again) cannot be
+        classified — trajectory has fewer points than TRAJECTORY_MIN_POINTS,
+        so no event is written. (Two-point trajectories DO get counted now —
+        the previous behavior of dropping them was a throttling artifact.)"""
         p = _make_pipeline(pipeline_env)
 
-        # Vehicle enters at y=850, crosses NB zone at y=800, appears at y=770,
-        # then immediately disappears.  Trajectory = [(500,770)] (1 post-cross point).
         mock_dets = [
-            [_make_detection(500, 850)],  # frame 0: below zone
-            [_make_detection(500, 770)],  # frame 1: crosses zone, origin assigned, 1 traj point
-            [],                           # frame 2: vehicle lost → finalized with 1-point traj
+            [_make_detection(500, 770)],  # frame 0: single detection
+            [],                            # frame 1+: vehicle never reappears
         ]
-        # Pad remaining frames with no detections
-        mock_dets += [[] for _ in range(27)]
+        mock_dets += [[] for _ in range(200)]  # extend past grace period
 
         frame_idx = [0]
         p._preprocessor = MagicMock()

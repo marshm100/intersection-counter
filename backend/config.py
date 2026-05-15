@@ -20,9 +20,11 @@ MAX_CONCURRENT_PIPELINES = 2
 
 # Detection — tuned for accuracy over speed. yolo26l is the large variant;
 # imgsz=1280 keeps distant intersection vehicles detectable at 1080p capture.
-# Expect ~6-10× slower than yolo26s @ 640.
+# Expect ~6-10× slower than yolo26s @ 640. Confidence is intentionally low —
+# obvious-looking vehicles (e.g., a foreground pickup in glare) sometimes
+# come back at 0.10-0.14 from yolo26l, especially when partially backlit.
 YOLO_MODEL = "yolo26l.pt"
-YOLO_CONFIDENCE_THRESHOLD = 0.15
+YOLO_CONFIDENCE_THRESHOLD = 0.08
 YOLO_IOU_THRESHOLD = 0.45
 YOLO_IMGSZ = 1280
 
