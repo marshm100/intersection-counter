@@ -35,9 +35,89 @@ router = APIRouter()
 
 # Module-level state for in-flight intersection-day processing.
 # Keyed by (project_id, intersection_id). Cleared on completion or cancel.
+import asyncio
+import queue
 import threading
+import time
+
 _v3_jobs: dict[tuple[str, int], dict] = {}
 _v3_jobs_lock = threading.Lock()
+
+# Live preview state — mirrors the v2 pattern in routers/processing.py but
+# scoped per (project, intersection) so multiple intersections can run.
+_v3_preview_frames: dict[tuple[str, int], bytes] = {}
+_v3_preview_queues: dict[tuple[str, int], queue.Queue] = {}
+_v3_preview_workers: dict[tuple[str, int], threading.Thread] = {}
+_v3_preview_lock = threading.Lock()
+
+
+def _v3_preview_worker(key: tuple[str, int], q: queue.Queue) -> None:
+    """Drain the queue, render the latest frame, stash the JPEG.
+    Sentinel `None` ends the worker. Mirrors v2's _preview_worker."""
+    from backend.services.frame_annotator import render_frame_preview
+    import cv2
+
+    while True:
+        item = q.get()
+        if item is None:
+            break
+        # Coalesce: keep only the most recent item so we never lag behind.
+        while True:
+            try:
+                newer = q.get_nowait()
+                if newer is None:
+                    item = None
+                    break
+                item = newer
+            except queue.Empty:
+                break
+        if item is None:
+            break
+        raw_frame, tracks, origin_zones, legs, active_traj, finalized_traj = item
+        try:
+            jpeg = render_frame_preview(
+                raw_frame, tracks, origin_zones, legs,
+                active_trajectories=active_traj,
+                finalized_trajectories=finalized_traj,
+            )
+        except Exception as e:
+            logger.warning("v3 preview annotation error: %s", e)
+            try:
+                _, buf = cv2.imencode(".jpg", raw_frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                jpeg = buf.tobytes()
+            except Exception:
+                continue
+        with _v3_preview_lock:
+            _v3_preview_frames[key] = jpeg
+
+
+def _ensure_v3_preview_worker(key: tuple[str, int]) -> queue.Queue:
+    """Lazily start the preview worker for this intersection."""
+    with _v3_preview_lock:
+        q = _v3_preview_queues.get(key)
+        if q is not None and _v3_preview_workers.get(key) and _v3_preview_workers[key].is_alive():
+            return q
+        q = queue.Queue(maxsize=2)
+        _v3_preview_queues[key] = q
+        t = threading.Thread(target=_v3_preview_worker, args=(key, q), daemon=True)
+        _v3_preview_workers[key] = t
+        t.start()
+        return q
+
+
+def _stop_v3_preview_worker(key: tuple[str, int]) -> None:
+    with _v3_preview_lock:
+        q = _v3_preview_queues.pop(key, None)
+        _v3_preview_workers.pop(key, None)
+    if q is not None:
+        try:
+            q.put_nowait(None)
+        except queue.Full:
+            pass
+
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 # --- Request models --------------------------------------------------------
@@ -455,10 +535,34 @@ def _run_v3_pipeline(
             # its constructor arg.
             pipeline._v3_trim_id = seg.trim_id
             pipeline._v3_camera_id = seg.camera_id
+
+            # Live preview: push every callback's frame data into the
+            # intersection-scoped preview queue so the MJPEG endpoint can
+            # stream what the AI is currently seeing.
+            preview_q = _ensure_v3_preview_worker(key)
+
+            def _on_frame(data: dict, _q=preview_q):
+                try:
+                    _q.put_nowait((
+                        data["raw_frame"],
+                        data["tracks"],
+                        data["origin_zones"],
+                        leg_rows,
+                        data["active_trajectories"],
+                        data["finalized_trajectories"],
+                    ))
+                except queue.Full:
+                    # Worker is still encoding the last frame — drop this one
+                    # rather than block the pipeline.
+                    pass
+                except Exception:
+                    pass
+
             pipeline.process_video(
                 frame_skip=DEFAULT_FRAME_SKIP,
                 start_frame=seg.start_frame,
                 end_frame=seg.end_frame,
+                callback=_on_frame,
             )
             # Backfill camera_id + trim_id on events the pipeline wrote.
             # The pipeline currently writes only video_id; we patch the
@@ -485,6 +589,11 @@ def _run_v3_pipeline(
         with _v3_jobs_lock:
             _v3_jobs[key]["status"] = "error"
             _v3_jobs[key]["error"] = str(exc)
+    finally:
+        # Tear down the live preview worker — keep the last frame stashed
+        # briefly so the client's MJPEG stream sees a final frame before
+        # the server stops yielding.
+        _stop_v3_preview_worker(key)
 
 
 @router.post("/projects/{project_id}/intersections/{intersection_id}/processing/start")
@@ -546,6 +655,68 @@ def processing_status(project_id: str, intersection_id: int):
         if not job:
             return {"status": "idle"}
         return dict(job)
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/processing/preview-stream")
+async def processing_preview_stream(project_id: str, intersection_id: int):
+    """MJPEG multipart stream of the AI-annotated frame the orchestrator is
+    currently processing. Closes a few seconds after processing stops."""
+    from fastapi.responses import StreamingResponse
+
+    _require_project(project_id)
+    _require_intersection(project_id, intersection_id)
+    key = (project_id, intersection_id)
+
+    async def generate():
+        last_sent: bytes | None = None
+        idle_since: float | None = None
+        while True:
+            with _v3_preview_lock:
+                frame = _v3_preview_frames.get(key)
+            with _v3_jobs_lock:
+                job = _v3_jobs.get(key)
+                is_running = bool(job) and job.get("status") == "running"
+
+            if frame is not None and frame is not last_sent:
+                last_sent = frame
+                idle_since = None
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+                )
+
+            if not is_running:
+                if idle_since is None:
+                    idle_since = time.time()
+                elif time.time() - idle_since > 2.0:
+                    break
+
+            await asyncio.sleep(0.033)  # 30 fps cap
+
+    return StreamingResponse(
+        generate(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={"Cache-Control": "no-cache, no-store"},
+    )
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/processing/preview-frame")
+def processing_preview_frame(project_id: str, intersection_id: int):
+    """Single-shot JPEG fallback when the MJPEG stream isn't usable."""
+    from fastapi.responses import Response
+
+    _require_project(project_id)
+    _require_intersection(project_id, intersection_id)
+    key = (project_id, intersection_id)
+    with _v3_preview_lock:
+        jpeg = _v3_preview_frames.get(key)
+    if jpeg is None:
+        raise HTTPException(status_code=404, detail="No preview frame yet.")
+    return Response(
+        content=jpeg,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store, no-cache"},
+    )
 
 
 @router.post("/projects/{project_id}/intersections/{intersection_id}/processing/cancel")

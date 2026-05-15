@@ -77,6 +77,7 @@ function _playbackHtml() {
         <div class="playback-main">
             <div class="playback-video-wrap">
                 <video id="pb-video" controls preload="metadata"></video>
+                <img id="pb-live-frame" class="hidden" alt="Live processing frame" />
                 <canvas id="pb-overlay"></canvas>
                 <div id="pb-add-form" class="pb-add-form hidden"></div>
             </div>
@@ -346,6 +347,7 @@ function pbDownloadExcel() {
 
 function backToProjectFromPlayback() {
     _stopLivePolling();
+    _setLivePreviewActive(false);
     AppState.currentIntersectionId = null;
     showPage('page-setup');
     if (typeof loadSetupPage === 'function') loadSetupPage();
@@ -358,10 +360,30 @@ async function _startLivePollingIfRunning() {
     const status = await _fetchLiveStatus();
     if (!status || status.status !== 'running') {
         _updateLiveBanner(status);
+        _setLivePreviewActive(false);
         return;
     }
     _updateLiveBanner(status);
+    _setLivePreviewActive(true);
     _pbLiveTimer = setInterval(_liveTick, LIVE_POLL_INTERVAL_MS);
+}
+
+function _setLivePreviewActive(active) {
+    const video = document.getElementById('pb-video');
+    const liveImg = document.getElementById('pb-live-frame');
+    if (!video || !liveImg) return;
+    if (active) {
+        const pid = AppState.currentProject;
+        const iid = _pbIntersection?.intersection?.intersection_id;
+        if (!pid || !iid) return;
+        liveImg.src = `/api/projects/${pid}/intersections/${iid}/processing/preview-stream?_t=${Date.now()}`;
+        liveImg.classList.remove('hidden');
+        video.classList.add('hidden');
+    } else {
+        if (liveImg.src) liveImg.src = '';  // close the MJPEG connection
+        liveImg.classList.add('hidden');
+        video.classList.remove('hidden');
+    }
 }
 
 function _stopLivePolling() {
@@ -387,6 +409,7 @@ async function _liveTick() {
     _updateLiveBanner(status);
     if (!status || status.status !== 'running') {
         _stopLivePolling();
+        _setLivePreviewActive(false);
     }
     const pid = AppState.currentProject;
     await _refreshCountsPanel();
