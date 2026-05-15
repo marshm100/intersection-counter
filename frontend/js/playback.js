@@ -429,11 +429,34 @@ function _updateLiveBanner(status) {
     }
     const segCount = status.segment_count || 0;
     const cur = (status.current_segment_index || 0) + 1;
+    const cancelling = status.cancel_requested ? ' — cancelling…' : '';
     el.classList.remove('hidden');
     el.innerHTML = `
         <span class="pb-live-dot"></span>
-        Processing live — segment ${cur} of ${segCount}. Counts refresh every ${LIVE_POLL_INTERVAL_MS / 1000}s.`;
+        <span style="flex:1;">Processing live — segment ${cur} of ${segCount}${cancelling}.
+            Counts refresh every ${LIVE_POLL_INTERVAL_MS / 1000}s.</span>
+        <button class="btn-secondary pb-live-cancel"
+                onclick="pbCancelLive()" ${status.cancel_requested ? 'disabled' : ''}>
+            Cancel
+        </button>`;
 }
+
+window.pbCancelLive = async function () {
+    if (!window.confirm('Stop processing this intersection now? Counts already finalized will be kept.')) return;
+    const pid = AppState.currentProject;
+    const iid = _pbIntersection?.intersection?.intersection_id;
+    if (!pid || !iid) return;
+    try {
+        await API.post(`/api/projects/${pid}/intersections/${iid}/processing/cancel`, {});
+    } catch (e) {
+        alert(`Cancel failed: ${e.message || e}`);
+        return;
+    }
+    // Refresh the banner immediately so the user sees the cancelling state
+    // without waiting for the next poll tick.
+    const status = await _fetchLiveStatus();
+    _updateLiveBanner(status);
+};
 
 if (typeof registerTeardown === 'function') {
     registerTeardown('page-v3-playback', _stopLivePolling);

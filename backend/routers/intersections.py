@@ -558,12 +558,29 @@ def _run_v3_pipeline(
                 except Exception:
                     pass
 
-            pipeline.process_video(
-                frame_skip=DEFAULT_FRAME_SKIP,
-                start_frame=seg.start_frame,
-                end_frame=seg.end_frame,
-                callback=_on_frame,
-            )
+            # Stash the running pipeline on the job dict so the cancel
+            # endpoint can flip its is_running flag and stop processing
+            # mid-segment. Without this, cancel only takes effect at the
+            # next segment boundary (potentially hours away).
+            with _v3_jobs_lock:
+                _v3_jobs[key]["pipeline"] = pipeline
+            try:
+                pipeline.process_video(
+                    frame_skip=DEFAULT_FRAME_SKIP,
+                    start_frame=seg.start_frame,
+                    end_frame=seg.end_frame,
+                    callback=_on_frame,
+                )
+            finally:
+                # Drop the pipeline ref + check whether the run was
+                # cancelled mid-segment, all under one lock.
+                with _v3_jobs_lock:
+                    _v3_jobs[key].pop("pipeline", None)
+                    cancelled = bool(_v3_jobs[key].get("cancel_requested"))
+                    if cancelled:
+                        _v3_jobs[key]["status"] = "cancelled"
+            if cancelled:
+                return
             # Backfill camera_id + trim_id on events the pipeline wrote.
             # The pipeline currently writes only video_id; we patch the
             # rest here so the rest of v3 (aggregator, dedup) can use them.
@@ -721,13 +738,20 @@ def processing_preview_frame(project_id: str, intersection_id: int):
 
 @router.post("/projects/{project_id}/intersections/{intersection_id}/processing/cancel")
 def processing_cancel(project_id: str, intersection_id: int):
-    """Signal cancellation. The orchestrator notices between segments."""
+    """Signal cancellation. Stops mid-segment when a pipeline is active."""
     _require_project(project_id)
     _require_intersection(project_id, intersection_id)
     key = (project_id, intersection_id)
+    pipeline = None
     with _v3_jobs_lock:
         if key in _v3_jobs and _v3_jobs[key].get("status") == "running":
             _v3_jobs[key]["cancel_requested"] = True
+            pipeline = _v3_jobs[key].get("pipeline")
+    # Flip is_running on the currently-running pipeline so process_video()
+    # exits its while loop within one frame, instead of waiting until the
+    # next segment-boundary check.
+    if pipeline is not None:
+        pipeline.is_running = False
     return {"status": "cancel_requested"}
 
 
