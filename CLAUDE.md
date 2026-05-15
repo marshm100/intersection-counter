@@ -36,3 +36,10 @@ python -m pytest backend/tests/ -v
 
 ## Git
 git commit -m "Step X.X — [title]"
+
+## Screenshots
+Ad-hoc UI screenshots (manual captures, before/after evidence) go in `screenshots/` at the
+repo root — keep one place, no loose PNGs at the project root. When using the Playwright MCP
+`browser_take_screenshot` tool, pass `filename` as an absolute path under `screenshots/` so
+captures land there instead of the MCP's working directory. `.playwright-mcp/` (auto-generated
+console/page traces) is gitignored — do not commit it.

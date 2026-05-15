@@ -29,3 +29,10 @@ requirements - Copy*.txt
 
 # Task log (admin only, machine-specific)
 logs/
+
+# Playwright MCP session traces (auto-generated console logs + page snapshots)
+.playwright-mcp/
+
+# Ad-hoc UI screenshots — debugging artifacts, not deliverables
+screenshots/*
+!screenshots/.gitkeep
