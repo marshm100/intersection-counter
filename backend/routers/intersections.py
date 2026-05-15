@@ -661,6 +661,9 @@ def processing_start(project_id: str, intersection_id: int):
     return {"status": "queued", "segments": len(plan.segments)}
 
 
+_JOB_NON_SERIALIZABLE_KEYS = {"pipeline"}
+
+
 @router.get("/projects/{project_id}/intersections/{intersection_id}/processing/status")
 def processing_status(project_id: str, intersection_id: int):
     """Poll the running orchestrator state for this intersection-day."""
@@ -671,7 +674,9 @@ def processing_status(project_id: str, intersection_id: int):
         job = _v3_jobs.get(key)
         if not job:
             return {"status": "idle"}
-        return dict(job)
+        # Filter out internal refs that aren't JSON-encodable (e.g. the
+        # ProcessingPipeline instance the cancel endpoint reaches through).
+        return {k: v for k, v in job.items() if k not in _JOB_NON_SERIALIZABLE_KEYS}
 
 
 @router.get("/projects/{project_id}/intersections/{intersection_id}/processing/preview-stream")
