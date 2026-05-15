@@ -15,7 +15,6 @@ async function loadProjectList() {
     html += '<div class="project-controls">';
     html += '<input type="text" id="new-project-name" placeholder="New project name..." />';
     html += '<button onclick="createProject()">Create</button>';
-    html += '<button class="btn-bulk-import" onclick="bulkImportVideos()">Bulk Import Videos</button>';
     html += '</div>';
 
     if (projects.length === 0) {
@@ -91,33 +90,6 @@ function openProject(projectId) {
     AppState.currentProject = projectId;
     showPage('page-setup');
     loadSetupPage();
-}
-
-async function bulkImportVideos() {
-    let paths;
-    try {
-        const res = await API.post('/api/video/browse-multi');
-        paths = res.paths;
-    } catch (e) {
-        alert('Could not open file dialog: ' + e.message);
-        return;
-    }
-    if (!paths || paths.length === 0) return;
-
-    try {
-        const res = await API.post('/api/projects/bulk-import', { paths });
-        let msg = `Created ${res.created.length} project(s)`;
-        if (res.errors.length > 0) {
-            msg += `\n${res.errors.length} file(s) failed:`;
-            for (const err of res.errors) {
-                msg += `\n  - ${err.path}: ${err.error}`;
-            }
-        }
-        alert(msg);
-    } catch (e) {
-        alert('Bulk import failed: ' + e.message);
-    }
-    await loadProjectList();
 }
 
 async function startAllCalibrated() {
