@@ -20,16 +20,26 @@ async function loadProcessingPage() {
         return;
     }
 
-    // Fetch video metadata for scrubber range
+    // Fetch v2 video metadata for the scrubber. v3 projects don't have a
+    // single project-level video (videos live in the videos table scoped
+    // per-camera), so probe project info first and skip the /video call
+    // when there's nothing to fetch — otherwise the browser logs a 404
+    // for every v3 project that lands on this legacy page.
+    _videoFps = 30;
+    _videoDuration = 0;
+    _videoTotalFrames = 0;
+    let hasV2Video = false;
     try {
-        const videoInfo = await API.get(`/api/projects/${pid}/video`);
-        _videoFps = videoInfo.fps || 30;
-        _videoDuration = videoInfo.duration_seconds || 0;
-        _videoTotalFrames = videoInfo.total_frames || 0;
-    } catch (_) {
-        _videoFps = 30;
-        _videoDuration = 0;
-        _videoTotalFrames = 0;
+        const info = await API.get(`/api/projects/${pid}`);
+        hasV2Video = !!info.video_path;
+    } catch (_) { /* keep defaults */ }
+    if (hasV2Video) {
+        try {
+            const videoInfo = await API.get(`/api/projects/${pid}/video`);
+            _videoFps = videoInfo.fps || 30;
+            _videoDuration = videoInfo.duration_seconds || 0;
+            _videoTotalFrames = videoInfo.total_frames || 0;
+        } catch (_) { /* keep defaults */ }
     }
 
     _renderProcessingPage(section, statusData);
