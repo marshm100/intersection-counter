@@ -108,11 +108,14 @@ def two_cam_intersection():
 
 
 class TestAggregation:
-    def test_no_events_returns_empty_matrix(self, two_cam_intersection):
+    def test_no_events_returns_zeroed_matrix(self, two_cam_intersection):
         ctx = two_cam_intersection
         agg = aggregate_intersection_day(ctx["pid"], ctx["iid"])
-        assert agg["tmc_matrix"] == []
+        # One row per configured leg label even with no events, so the live
+        # mid-run dashboard shows a complete TMC table from t=0.
         assert agg["totals"]["vehicles"] == 0
+        assert [r["leg_label"] for r in agg["tmc_matrix"]] == ["North"]
+        assert all(r["total"] == 0 for r in agg["tmc_matrix"])
 
     def test_singleton_event_counted(self, two_cam_intersection):
         ctx = two_cam_intersection

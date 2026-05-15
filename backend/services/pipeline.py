@@ -468,18 +468,28 @@ class ProcessingPipeline:
     # -- Database writes ---------------------------------------------------
 
     def _write_vehicle_event(self, **kwargs):
+        # When the v3 orchestrator drives this pipeline it pre-stashes the
+        # owning camera + trim on the instance so we can persist them
+        # inline. Writing the IDs at insert time (rather than backfilling
+        # at end of segment) is what makes events visible to the live
+        # aggregator while processing is still running.
+        camera_id = getattr(self, "_v3_camera_id", None)
+        trim_id = getattr(self, "_v3_trim_id", None)
         conn = sqlite3.connect(self.db_path)
         conn.execute("PRAGMA journal_mode=WAL")
         try:
             conn.execute(
                 """INSERT INTO vehicle_events
-                   (video_id, vehicle_track_id, origin_leg_id, movement,
+                   (video_id, camera_id, trim_id,
+                    vehicle_track_id, origin_leg_id, movement,
                     trajectory_data, trajectory_confidence, vehicle_class,
                     fhwa_class, detection_confidence, timestamp_video,
                     timestamp_real, frame_number, start_frame)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     self.video_id,
+                    camera_id,
+                    trim_id,
                     kwargs["track_id"],
                     kwargs["origin_leg_id"],
                     kwargs["movement"],

@@ -24,6 +24,35 @@ from backend.services.dedup import EventForDedup, deduplicate
 MOVEMENTS = ("through", "left", "right", "u_turn")
 
 
+def _load_legs_by_camera(project_id: str, camera_ids: list[int]) -> dict[int, list[dict]]:
+    """Return {camera_id: [{leg_id, label, cardinal_direction}, ...]}.
+
+    Used to seed the aggregator output with a row for every configured leg,
+    so the live dashboard shows a complete TMC table from t=0 instead of
+    revealing legs one by one as their first vehicle is classified.
+    """
+    if not camera_ids:
+        return {}
+    placeholders = ",".join("?" * len(camera_ids))
+    conn = get_connection(project_id)
+    try:
+        import sqlite3
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            f"""SELECT leg_id, label, cardinal_direction, camera_id
+                FROM legs
+                WHERE camera_id IN ({placeholders})
+                ORDER BY camera_id, sort_order""",
+            tuple(camera_ids),
+        ).fetchall()
+    finally:
+        conn.close()
+    by_cam: dict[int, list[dict]] = {cid: [] for cid in camera_ids}
+    for r in rows:
+        by_cam[r["camera_id"]].append(dict(r))
+    return by_cam
+
+
 def _camera_coverages_for_intersection(project_id: str, intersection_id: int) -> list[CameraCoverage]:
     coverages: list[CameraCoverage] = []
     for cam in list_cameras(project_id, intersection_id):
@@ -140,6 +169,12 @@ def aggregate_intersection_day(project_id: str, intersection_id: int) -> dict:
     coverages = _camera_coverages_for_intersection(project_id, intersection_id)
     events_for_dedup, raw_by_id = _load_events_for_dedup(project_id, camera_ids)
 
+    # Load configured legs per camera so the output has a row for every leg
+    # even before any vehicle is detected on it. Without this, live mid-run
+    # views would show only legs that already have an event.
+    legs_by_camera = _load_legs_by_camera(project_id, camera_ids)
+    all_leg_labels = sorted({l["label"] for legs in legs_by_camera.values() for l in legs})
+
     _kept_results, duplicate_ids = deduplicate(events_for_dedup, coverages)
     kept_rows = [raw_by_id[r["event_id"]]
                  for r in [_r.__dict__ for _r in _kept_results]
@@ -152,7 +187,9 @@ def aggregate_intersection_day(project_id: str, intersection_id: int) -> dict:
         return d
 
     # Merged TMC matrix (across all cameras, deduped)
-    by_leg: dict[str, dict[str, Any]] = {}
+    by_leg: dict[str, dict[str, Any]] = {
+        label: {**_empty_row(), "leg_label": label} for label in all_leg_labels
+    }
     for row in kept_rows:
         leg = row.get("leg_label") or f"Leg {row['origin_leg_id']}"
         bucket = by_leg.setdefault(leg, {**_empty_row(), "leg_label": leg})
@@ -170,7 +207,12 @@ def aggregate_intersection_day(project_id: str, intersection_id: int) -> dict:
     per_camera_breakdown: list[dict] = []
     for c in cameras:
         cam_rows = [r for r in raw_by_id.values() if r["camera_id"] == c["camera_id"]]
-        by_leg_cam: dict[str, dict[str, Any]] = {}
+        # Seed every configured leg for this camera so the row exists from
+        # the start of the run, not the moment a vehicle is first classified.
+        cam_legs = legs_by_camera.get(c["camera_id"], [])
+        by_leg_cam: dict[str, dict[str, Any]] = {
+            l["label"]: {**_empty_row(), "leg_label": l["label"]} for l in cam_legs
+        }
         for row in cam_rows:
             leg = row.get("leg_label") or f"Leg {row['origin_leg_id']}"
             bucket = by_leg_cam.setdefault(leg, {**_empty_row(), "leg_label": leg})
