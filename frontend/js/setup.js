@@ -15,6 +15,10 @@ let _v3OpenIntersectionId = null;
 let _v3IntersectionDetail = null;
 let _v3DetailSubTab = 'settings';
 
+// Calibration drill-in state: when non-null, the Cameras sub-tab shows the
+// camera-scoped calibration view instead of the camera list.
+let _v3CalibratingCameraId = null;
+
 async function loadSetupPage() {
     const pid = AppState.currentProject;
     if (!pid) { showPage('page-projects'); loadProjectList(); return; }
@@ -126,9 +130,9 @@ async function _renderVideosTab(host) {
 }
 
 function _videosTableRowHtml(v) {
-    const dt = v.recording_start_datetime ? String(v.recording_start_datetime).substring(0, 16) : '';
+    const dt = v.recording_start_datetime ? String(v.recording_start_datetime).substring(0, 19) : '';
     const datePart = dt ? dt.substring(0, 10) : '';
-    const timePart = dt ? dt.substring(11, 16) : '';
+    const timePart = dt ? dt.substring(11, 19) : '';
     const conf = (v.parse_confidence != null) ? v.parse_confidence : 1.0;
     const lowConf = conf < 0.5;
     const durMin = v.duration_seconds ? (v.duration_seconds / 60).toFixed(1) + ' min' : '?';
@@ -145,7 +149,7 @@ function _videosTableRowHtml(v) {
             </td>
             <td>
                 <input type="time" step="1" class="cell-input"
-                    value="${escapeAttr(timePart ? timePart + ':00' : '')}"
+                    value="${escapeAttr(timePart)}"
                     onchange="v3PatchDateTime(${v.video_id}, null, this.value)" />
             </td>
             <td>
@@ -427,6 +431,12 @@ async function v3PatchIntersection(body) {
 async function _renderCamerasSubTab(host) {
     const pid = AppState.currentProject;
     const iid = _v3OpenIntersectionId;
+
+    if (_v3CalibratingCameraId != null) {
+        await _renderCameraCalibration(host, _v3CalibratingCameraId);
+        return;
+    }
+
     host.innerHTML = '<p class="empty-message">Loading cameras...</p>';
 
     let cameras;
@@ -500,16 +510,39 @@ async function v3DeleteCamera(camId, label) {
     await _renderCamerasSubTab(document.getElementById('v3-detail-subcontent'));
 }
 
-function v3CalibrateCamera(camId) {
-    // Stash the camera_id in AppState so the existing calibration page can
-    // detect v3 camera-scoped mode. Full camera-aware calibration UI lives
-    // in Phase 10's polish pass; for now we navigate to the calibration
-    // page and the user works with the camera-scoped endpoints.
-    AppState.currentCameraId = camId;
-    showPage('page-calibration');
-    if (typeof loadCalibrationPage === 'function') {
-        loadCalibrationPage();
+async function v3CalibrateCamera(camId) {
+    _v3CalibratingCameraId = camId;
+    await _renderCamerasSubTab(document.getElementById('v3-detail-subcontent'));
+}
+
+async function _renderCameraCalibration(host, camId) {
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+
+    const camera = (_v3IntersectionDetail?.cameras || []).find(c => c.camera_id === camId);
+    if (!camera) {
+        host.innerHTML = '<p class="empty-message">Camera not found.</p>';
+        return;
     }
+    const firstVideo = (camera.videos || [])[0] || null;
+    const legCount = _v3IntersectionDetail?.intersection?.leg_count || 4;
+
+    window.v3RenderCalibration(host, pid, camId, {
+        legCount,
+        videoId: firstVideo ? firstVideo.video_id : null,
+        videoDuration: firstVideo ? firstVideo.duration_seconds : 0,
+        cameraLabel: camera.label,
+        onClose: async () => {
+            _v3CalibratingCameraId = null;
+            // Re-fetch the intersection detail so calibration-status flags refresh
+            try {
+                _v3IntersectionDetail = await API.get(
+                    `/api/projects/${pid}/intersections/${iid}`,
+                );
+            } catch (e) { /* keep stale detail */ }
+            await _renderCamerasSubTab(document.getElementById('v3-detail-subcontent'));
+        },
+    });
 }
 
 // --- Sub-tab: Clip trim -----------------------------------------------
@@ -576,18 +609,36 @@ async function _renderTrimsSubTab(host) {
     if (!report.per_camera || report.per_camera.length === 0) {
         html += '<p class="helper-text">No cameras with usable video metadata yet.</p>';
     } else {
+        const camLabels = {};
+        for (const c of (_v3IntersectionDetail?.cameras || [])) {
+            camLabels[c.camera_id] = c.label;
+        }
         html += '<ul class="coverage-list">';
         for (const cam of report.per_camera) {
-            html += `<li>Camera ${cam.camera_id}: ` + cam.intervals.map(iv => {
-                const s = iv.start.substring(11, 19);
-                const e = iv.end.substring(11, 19);
-                return `${s}–${e}`;
-            }).join(', ') + '</li>';
+            const label = camLabels[cam.camera_id] || `Camera ${cam.camera_id}`;
+            html += `<li>${escapeHtml(label)}: ` + cam.intervals.map(_formatCoverageInterval).join(', ') + '</li>';
         }
         html += '</ul>';
     }
 
     host.innerHTML = html;
+}
+
+function _formatCoverageInterval(iv) {
+    const sDate = iv.start.substring(0, 10);
+    const eDate = iv.end.substring(0, 10);
+    const sTime = iv.start.substring(11, 19);
+    const eTime = iv.end.substring(11, 19);
+    const dayDelta = Math.round(
+        (Date.parse(eDate) - Date.parse(sDate)) / 86400000
+    );
+    const eDisplay = dayDelta > 0 ? `${eTime} (+${dayDelta}d)` : eTime;
+    const durSec = Math.max(0, (Date.parse(iv.end) - Date.parse(iv.start)) / 1000);
+    const h = Math.floor(durSec / 3600);
+    const m = Math.floor((durSec % 3600) / 60);
+    const s = Math.floor(durSec % 60);
+    const durStr = `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+    return `${sTime}–${eDisplay} <span class="helper-text">(${durStr})</span>`;
 }
 
 async function v3AddTrim() {
@@ -834,12 +885,6 @@ async function saveProjectName() {
     const name = document.getElementById('setup-project-name').value.trim();
     if (!name) return;
     await API.put(`/api/projects/${pid}/name`, { name });
-}
-
-async function startCalibration() {
-    // Backward-compat hook used by older projects-page flows.
-    showPage('page-calibration');
-    loadCalibrationPage();
 }
 
 async function proceedToProcessing() {

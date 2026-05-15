@@ -1,49 +1,61 @@
+// Camera-scoped calibration view (v3).
+//
+// Rendered inline inside the Intersections > Camera sub-tab when the user
+// clicks "Calibrate" on a camera. Reads/writes legs via the camera-scoped
+// backend endpoints, loads its background frame from the camera's first
+// video, and gets its leg count from the parent intersection.
+//
+// Single-instance module — only one calibration view is open at a time.
+// Public API:
+//   window.v3RenderCalibration(host, pid, cid, opts)
+//     host: HTMLElement to render into
+//     pid:  project id
+//     cid:  camera id
+//     opts: { legCount, videoId, videoDuration, cameraLabel, onClose }
+//       onClose is invoked when the user clicks "Back to cameras" or after
+//       a successful save.
+
 (function () {
     const LEG_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b'];
+
+    let _pid = null;
+    let _cid = null;
+    let _videoId = null;
+    let _onClose = null;
 
     let _canvas = null;
     let _ctx = null;
     let _img = null;
     let _numLegs = 4;
-    let _legs = [];          // confirmed legs
-    let _currentLeg = null;  // leg being confirmed (drawn but not yet named)
-    let _drawState = 'idle'; // 'idle' only
+    let _legs = [];
+    let _currentLeg = null;
     let _currentSeconds = 5;
     let _videoDuration = 0;
     let _scrubTimer = null;
 
-    let _dragLeg = null;    // { idx } — leg currently being dragged
-    let _dragMoved = false; // true if mousemove fired with significant movement
-    let _editingIdx = -1;   // idx of confirmed leg being edited (-1 = new leg)
+    let _dragLeg = null;
+    let _dragMoved = false;
+    let _editingIdx = -1;
 
-    async function loadCalibrationPage() {
-        const pid = AppState.currentProject;
-        if (!pid) { showPage('page-projects'); loadProjectList(); return; }
-
-        const section = document.getElementById('page-calibration');
-        section.innerHTML = '<p class="empty-message">Loading calibration...</p>';
-
-        let project;
-        try {
-            project = await API.get(`/api/projects/${pid}`);
-        } catch (e) {
-            section.innerHTML = '<p class="empty-message">Could not load project.</p>';
-            return;
-        }
-
-        _numLegs = parseInt(project.num_legs || '4', 10);
-        _videoDuration = parseFloat(project.video_duration_seconds || '0');
+    async function render(host, pid, cid, opts) {
+        opts = opts || {};
+        _pid = pid;
+        _cid = cid;
+        _videoId = opts.videoId || null;
+        _onClose = typeof opts.onClose === 'function' ? opts.onClose : null;
+        _numLegs = parseInt(opts.legCount, 10) || 4;
+        _videoDuration = parseFloat(opts.videoDuration) || 0;
         _legs = [];
         _currentLeg = null;
-        _drawState = 'idle';
         _currentSeconds = 5;
         _dragLeg = null;
         _dragMoved = false;
         _editingIdx = -1;
 
-        // Load existing calibration
+        host.innerHTML = '<p class="empty-message">Loading calibration...</p>';
+
         try {
-            const calib = await API.get(`/api/projects/${pid}/calibration`);
+            const calib = await API.get(`/api/projects/${pid}/cameras/${cid}/calibration`);
             _legs = (calib.legs || []).map((l, i) => ({
                 idx: i,
                 label: l.label,
@@ -53,25 +65,32 @@
                 reference_heading: l.reference_heading,
             }));
         } catch (e) {
-            // no existing calibration — start fresh
+            // start fresh
+        }
+
+        if (!_videoId) {
+            host.innerHTML = '<p class="empty-message">No videos attached to this camera — upload one in the Videos tab first.</p>'
+                + `<p><a href="#" onclick="event.preventDefault(); v3CalibrationBack();">&larr; Back to cameras</a></p>`;
+            return;
         }
 
         const allDone = _legs.length >= _numLegs;
+        const camLabel = opts.cameraLabel || `Camera ${cid}`;
 
-        section.innerHTML = `
-            <div class="processing-header">
-                <a href="#" class="back-link" onclick="showPage('page-setup'); loadSetupPage(); return false;">&larr; Back to Setup</a>
-                <h2>Calibration</h2>
+        host.innerHTML = `
+            <div class="v3-calib-header">
+                <a href="#" class="back-link" onclick="event.preventDefault(); v3CalibrationBack();">&larr; Back to cameras</a>
+                <h3 style="margin:0;font-size:16px;">Calibrating ${escapeHtml(camLabel)}</h3>
             </div>
             <div class="calib-layout">
                 <div class="calib-canvas-wrap">
                     <p style="font-size:13px;color:#6b7280;margin-bottom:6px;">
                         Click once on each approach arm to place an origin node.
                     </p>
-                    <canvas id="calib-canvas" style="border:1px solid #d1d5db;cursor:crosshair;max-width:100%;display:block;"></canvas>
+                    <canvas id="v3-calib-canvas" style="border:1px solid #d1d5db;cursor:crosshair;max-width:100%;display:block;"></canvas>
                     <div class="calib-scrubber-row">
-                        <span class="calib-scrubber-time" id="calib-time-display">00:00:05</span>
-                        <input type="range" id="calib-scrubber"
+                        <span class="calib-scrubber-time" id="v3-calib-time-display">00:00:05</span>
+                        <input type="range" id="v3-calib-scrubber"
                             min="0" max="${Math.floor(_videoDuration)}" step="1"
                             value="${_currentSeconds}"
                             style="flex:1;" />
@@ -79,26 +98,19 @@
                     </div>
                 </div>
                 <div class="calib-sidebar">
-                    <div id="calib-leg-list"></div>
-                    <p id="calib-status" style="margin-top:8px;font-size:13px;color:#6b7280;"></p>
-                    <div id="calib-form" style="display:none;margin-top:12px;"></div>
+                    <div id="v3-calib-leg-list"></div>
+                    <p id="v3-calib-status" style="margin-top:8px;font-size:13px;color:#6b7280;"></p>
+                    <div id="v3-calib-form" style="display:none;margin-top:12px;"></div>
                     <div style="margin-top:16px;">
-                        <button id="calib-save-btn" class="btn-proc btn-start"
-                            onclick="saveCalibration()" ${allDone ? '' : 'disabled'}>
+                        <button id="v3-calib-save-btn" class="btn-proc btn-start"
+                            onclick="v3CalibrationSave()" ${allDone ? '' : 'disabled'}>
                             Save Calibration
-                        </button>
-                    </div>
-                    <div style="margin-top:8px;">
-                        <button id="calib-proceed-btn" class="btn-proc btn-start"
-                            onclick="proceedFromCalibration()"
-                            style="display:${allDone ? 'inline-block' : 'none'};">
-                            Proceed to Processing &rarr;
                         </button>
                     </div>
                 </div>
             </div>`;
 
-        _canvas = document.getElementById('calib-canvas');
+        _canvas = document.getElementById('v3-calib-canvas');
         _ctx = _canvas.getContext('2d');
 
         _img = new Image();
@@ -111,36 +123,31 @@
             _updateStatus();
         };
         _img.onerror = () => {
-            document.getElementById('calib-status').textContent =
-                'Could not load video frame. Ensure a video is selected.';
+            const el = document.getElementById('v3-calib-status');
+            if (el) el.textContent = 'Could not load video frame from this camera.';
         };
-        _loadFrame(pid, _currentSeconds);
+        _loadFrame(_currentSeconds);
 
-        _canvas.removeEventListener('click', _onCanvasClick);
-        _canvas.removeEventListener('mousedown', _onCanvasMousedown);
-        _canvas.removeEventListener('mousemove', _onCanvasMousemove);
-        _canvas.removeEventListener('mouseup',   _onCanvasMouseup);
         _canvas.addEventListener('click', _onCanvasClick);
         _canvas.addEventListener('mousedown', _onCanvasMousedown);
         _canvas.addEventListener('mousemove', _onCanvasMousemove);
         _canvas.addEventListener('mouseup',   _onCanvasMouseup);
 
-        // Wire up scrubber
-        const scrubber = document.getElementById('calib-scrubber');
+        const scrubber = document.getElementById('v3-calib-scrubber');
         if (scrubber) {
             scrubber.addEventListener('input', () => {
                 _currentSeconds = parseInt(scrubber.value, 10);
-                const display = document.getElementById('calib-time-display');
+                const display = document.getElementById('v3-calib-time-display');
                 if (display) display.textContent = _fmtTime(_currentSeconds);
-                // Debounce: wait 300 ms after last move before fetching
                 clearTimeout(_scrubTimer);
-                _scrubTimer = setTimeout(() => _loadFrame(pid, _currentSeconds), 300);
+                _scrubTimer = setTimeout(() => _loadFrame(_currentSeconds), 300);
             });
         }
     }
 
-    function _loadFrame(pid, seconds) {
-        _img.src = `/api/projects/${pid}/video/frame?seconds=${seconds}&_t=${Date.now()}`;
+    function _loadFrame(seconds) {
+        if (!_videoId) return;
+        _img.src = `/api/projects/${_pid}/videos/${_videoId}/frame?seconds=${seconds}&_t=${Date.now()}`;
     }
 
     function _fmtTime(totalSec) {
@@ -150,8 +157,6 @@
         return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
     }
 
-    // ------------------------------------------------------------------ coordinate helper
-
     function _canvasCoords(e) {
         const rect = _canvas.getBoundingClientRect();
         return {
@@ -160,17 +165,11 @@
         };
     }
 
-    // ------------------------------------------------------------------ drawing
-
     function _onCanvasClick(e) {
-        // If all legs are confirmed and no form is open, ignore clicks
         if (_legs.length >= _numLegs && !_currentLeg) return;
-        // Don't start a new leg while a form is open
         if (_currentLeg) return;
 
         const { x, y } = _canvasCoords(e);
-
-        // If click landed on a confirmed node, mouseup already opened edit form
         if (_legs.some(l => Math.hypot(x - l.origin_zone[0][0], y - l.origin_zone[0][1]) <= 16)) return;
 
         const heading = _computeNodeHeading([x, y], _canvas.width, _canvas.height);
@@ -190,8 +189,6 @@
 
     function _onCanvasMousedown(e) {
         const { x, y } = _canvasCoords(e);
-
-        // Check confirmed legs first
         for (const leg of _legs) {
             const [nx, ny] = leg.origin_zone[0];
             if (Math.hypot(x - nx, y - ny) <= 16) {
@@ -202,8 +199,6 @@
                 return;
             }
         }
-
-        // Check unconfirmed leg
         if (_currentLeg) {
             const [nx, ny] = _currentLeg.origin_zone[0];
             if (Math.hypot(x - nx, y - ny) <= 16) {
@@ -229,13 +224,11 @@
                 target.reference_heading = _computeNodeHeading([cx, cy], _canvas.width, _canvas.height);
                 _dragMoved = true;
                 _redraw();
-                // Update heading input in form if open
-                const headingInp = document.getElementById(`leg-heading-${target.idx}`);
+                const headingInp = document.getElementById(`v3-leg-heading-${target.idx}`);
                 if (headingInp) headingInp.value = target.reference_heading;
             }
             return;
         }
-        // Hover cursor
         let onNode = _legs.some(l => Math.hypot(x - l.origin_zone[0][0], y - l.origin_zone[0][1]) <= 16);
         if (!onNode && _currentLeg) {
             const [nx, ny] = _currentLeg.origin_zone[0];
@@ -252,7 +245,6 @@
         _dragMoved = false;
         _canvas.style.cursor = 'crosshair';
         if (isCurrentLeg) {
-            // Unconfirmed leg — form is already open, just update list if dragged
             if (wasDrag) _updateLegList();
         } else if (!wasDrag) {
             _editLeg(idx);
@@ -262,14 +254,11 @@
     }
 
     function _computeNodeHeading(p, imgW, imgH) {
-        // Direction from node toward image center = expected approach heading
         const cx = imgW / 2 - p[0];
         const cy = imgH / 2 - p[1];
         const heading = (Math.atan2(cx, -cy) * 180 / Math.PI + 360) % 360;
         return Math.round(heading * 10) / 10;
     }
-
-    // ------------------------------------------------------------------ form
 
     function _editLeg(idx) {
         if (_currentLeg) return;
@@ -279,7 +268,8 @@
     }
 
     function _showLegForm(leg) {
-        const formDiv = document.getElementById('calib-form');
+        const formDiv = document.getElementById('v3-calib-form');
+        if (!formDiv) return;
         const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
         const dirs = ['N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW'];
         const dirLabels = {
@@ -300,32 +290,32 @@
                 <h4 style="margin:0 0 8px;font-size:14px;">Leg ${leg.idx + 1} Details</h4>
                 <div style="margin-bottom:6px;">
                     <label style="font-size:13px;display:block;margin-bottom:3px;">Label</label>
-                    <input type="text" id="leg-label-${leg.idx}"
+                    <input type="text" id="v3-leg-label-${leg.idx}"
                         value="${escapeHtml(leg.label)}"
                         style="width:100%;box-sizing:border-box;"/>
                 </div>
                 <div style="margin-bottom:6px;">
                     <label style="font-size:13px;display:block;margin-bottom:3px;">Cardinal Direction</label>
-                    <select id="leg-dir-${leg.idx}" style="width:100%;">${dirOptions}</select>
+                    <select id="v3-leg-dir-${leg.idx}" style="width:100%;">${dirOptions}</select>
                 </div>
-                <div id="calib-heading-display" style="margin-bottom:8px;font-size:12px;color:#6b7280;">
+                <div style="margin-bottom:8px;font-size:12px;color:#6b7280;">
                     <label style="display:block;margin-bottom:3px;">Reference heading</label>
                     <div style="display:flex;align-items:center;gap:6px;">
-                        <button type="button" onclick="rotateHeading(${leg.idx}, -15)"
+                        <button type="button" onclick="v3CalibrationRotateHeading(${leg.idx}, -15)"
                             style="font-size:11px;padding:2px 6px;cursor:pointer;">-15°</button>
-                        <input type="number" id="leg-heading-${leg.idx}" value="${leg.reference_heading}"
+                        <input type="number" id="v3-leg-heading-${leg.idx}" value="${leg.reference_heading}"
                             min="0" max="360" step="1" style="width:70px;text-align:center;"
-                            onchange="previewHeading(${leg.idx})" />
-                        <button type="button" onclick="rotateHeading(${leg.idx}, 15)"
+                            onchange="v3CalibrationPreviewHeading(${leg.idx})" />
+                        <button type="button" onclick="v3CalibrationRotateHeading(${leg.idx}, 15)"
                             style="font-size:11px;padding:2px 6px;cursor:pointer;">+15°</button>
                     </div>
                 </div>
-                <button onclick="confirmLeg(${leg.idx})"
+                <button onclick="v3CalibrationConfirmLeg(${leg.idx})"
                     class="btn-proc btn-start"
                     style="font-size:13px;padding:4px 12px;">
                     ${isEdit ? 'Update' : 'Confirm'} Leg ${leg.idx + 1}
                 </button>
-                <button onclick="cancelLeg()"
+                <button onclick="v3CalibrationCancelLeg()"
                     class="btn-proc btn-cancel"
                     style="font-size:13px;padding:4px 12px;margin-left:6px;">
                     Cancel
@@ -333,16 +323,16 @@
             </div>`;
     }
 
-    window.confirmLeg = function (legIdx) {
+    window.v3CalibrationConfirmLeg = function (legIdx) {
         const isEdit = _editingIdx >= 0 && _editingIdx === legIdx;
         const source = isEdit ? _legs.find(l => l.idx === legIdx) : _currentLeg;
         if (!source) return;
 
-        const labelEl = document.getElementById(`leg-label-${legIdx}`);
-        const dirEl   = document.getElementById(`leg-dir-${legIdx}`);
+        const labelEl = document.getElementById(`v3-leg-label-${legIdx}`);
+        const dirEl   = document.getElementById(`v3-leg-dir-${legIdx}`);
         source.label              = (labelEl?.value.trim()) || `Leg ${legIdx + 1}`;
         source.cardinal_direction = dirEl?.value || 'N';
-        const headingEl = document.getElementById(`leg-heading-${legIdx}`);
+        const headingEl = document.getElementById(`v3-leg-heading-${legIdx}`);
         if (headingEl) {
             let h = parseFloat(headingEl.value) || 0;
             source.reference_heading = ((h % 360) + 360) % 360;
@@ -353,36 +343,36 @@
             _currentLeg = null;
         }
         _editingIdx = -1;
-        document.getElementById('calib-form').style.display = 'none';
+        document.getElementById('v3-calib-form').style.display = 'none';
         _redraw();
         _updateLegList();
         _updateStatus();
-        if (_legs.length >= _numLegs) document.getElementById('calib-save-btn').disabled = false;
+        if (_legs.length >= _numLegs) {
+            const btn = document.getElementById('v3-calib-save-btn');
+            if (btn) btn.disabled = false;
+        }
     };
 
-    window.cancelLeg = function () {
+    window.v3CalibrationCancelLeg = function () {
         _currentLeg = null;
         _editingIdx = -1;
-        _drawState = 'idle';
-        document.getElementById('calib-form').style.display = 'none';
+        document.getElementById('v3-calib-form').style.display = 'none';
         _redraw();
         _updateStatus();
     };
 
-    window.removeLeg = function (idx) {
+    window.v3CalibrationRemoveLeg = function (idx) {
         _legs = _legs.filter(l => l.idx !== idx).map((l, i) => ({ ...l, idx: i, sort_order: i }));
         _redraw();
         _updateLegList();
         _updateStatus();
-        const saveBtn = document.getElementById('calib-save-btn');
+        const saveBtn = document.getElementById('v3-calib-save-btn');
         if (saveBtn) saveBtn.disabled = _legs.length < _numLegs;
-        const procBtn = document.getElementById('calib-proceed-btn');
-        if (procBtn) procBtn.style.display = 'none';
     };
 
-    window.editLeg = _editLeg;
+    window.v3CalibrationEditLeg = _editLeg;
 
-    window.rotateHeading = function (legIdx, delta) {
+    window.v3CalibrationRotateHeading = function (legIdx, delta) {
         const target = (_currentLeg && _currentLeg.idx === legIdx)
             ? _currentLeg
             : _legs.find(l => l.idx === legIdx);
@@ -391,17 +381,17 @@
         if (h < 0) h += 360;
         h = Math.round(h * 10) / 10;
         target.reference_heading = h;
-        const inp = document.getElementById(`leg-heading-${legIdx}`);
+        const inp = document.getElementById(`v3-leg-heading-${legIdx}`);
         if (inp) inp.value = h;
         _redraw();
     };
 
-    window.previewHeading = function (legIdx) {
+    window.v3CalibrationPreviewHeading = function (legIdx) {
         const target = (_currentLeg && _currentLeg.idx === legIdx)
             ? _currentLeg
             : _legs.find(l => l.idx === legIdx);
         if (!target) return;
-        const inp = document.getElementById(`leg-heading-${legIdx}`);
+        const inp = document.getElementById(`v3-leg-heading-${legIdx}`);
         if (!inp) return;
         let h = parseFloat(inp.value) || 0;
         h = ((h % 360) + 360) % 360;
@@ -411,8 +401,6 @@
         _redraw();
     };
 
-    // ------------------------------------------------------------------ canvas rendering
-
     function _redraw() {
         if (!_canvas || !_ctx || !_img.complete) return;
         _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
@@ -421,7 +409,6 @@
         for (const leg of _legs) {
             _drawNode(leg.origin_zone[0], LEG_COLORS[leg.idx % LEG_COLORS.length], leg.label, leg.reference_heading);
         }
-
         if (_currentLeg) {
             _drawNode(_currentLeg.origin_zone[0],
                 LEG_COLORS[_currentLeg.idx % LEG_COLORS.length], '', _currentLeg.reference_heading);
@@ -434,10 +421,8 @@
         _ctx.fillStyle = color;
         _ctx.fill();
 
-        // Draw reference heading arrow (direction vehicle approaches from)
         if (heading != null) {
             const arrowLen = 40;
-            // heading: 0=N(up), 90=E(right) — convert to canvas angle
             const rad = (heading - 90) * Math.PI / 180;
             const ax = p[0] + Math.cos(rad) * arrowLen;
             const ay = p[1] + Math.sin(rad) * arrowLen;
@@ -447,7 +432,6 @@
             _ctx.strokeStyle = color;
             _ctx.lineWidth = 2.5;
             _ctx.stroke();
-            // Arrowhead
             const headLen = 10;
             const aHead1 = rad + Math.PI * 0.8;
             const aHead2 = rad - Math.PI * 0.8;
@@ -470,10 +454,8 @@
         }
     }
 
-    // ------------------------------------------------------------------ UI helpers
-
     function _updateLegList() {
-        const listDiv = document.getElementById('calib-leg-list');
+        const listDiv = document.getElementById('v3-calib-leg-list');
         if (!listDiv) return;
         if (_legs.length === 0) {
             listDiv.innerHTML = '<p style="font-size:13px;color:#6b7280;">No legs drawn yet.</p>';
@@ -485,11 +467,11 @@
             html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;">
                 <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
                 <span style="flex:1;">${escapeHtml(leg.label)} (${escapeHtml(leg.cardinal_direction)}) ${Number(leg.reference_heading).toFixed(1)}°</span>
-                <button onclick="editLeg(${leg.idx})"
+                <button onclick="v3CalibrationEditLeg(${leg.idx})"
                     style="font-size:11px;padding:1px 6px;color:#3b82f6;background:none;border:1px solid #3b82f6;border-radius:3px;cursor:pointer;">
                     Edit
                 </button>
-                <button onclick="removeLeg(${leg.idx})"
+                <button onclick="v3CalibrationRemoveLeg(${leg.idx})"
                     style="font-size:11px;padding:1px 6px;color:#ef4444;background:none;border:1px solid #ef4444;border-radius:3px;cursor:pointer;">
                     Remove
                 </button>
@@ -499,7 +481,7 @@
     }
 
     function _updateStatus() {
-        const el = document.getElementById('calib-status');
+        const el = document.getElementById('v3-calib-status');
         if (!el) return;
         if (_currentLeg) {
             el.textContent = 'Fill in leg details and click Confirm.';
@@ -512,10 +494,7 @@
         }
     }
 
-    // ------------------------------------------------------------------ save / proceed
-
-    window.saveCalibration = async function () {
-        const pid = AppState.currentProject;
+    window.v3CalibrationSave = async function () {
         const payload = _legs.map(l => ({
             label: l.label,
             cardinal_direction: l.cardinal_direction,
@@ -523,24 +502,17 @@
             origin_zone: l.origin_zone,
             reference_heading: l.reference_heading,
         }));
+        const statusEl = document.getElementById('v3-calib-status');
         try {
-            await API.put(`/api/projects/${pid}/calibration/legs`, { legs: payload });
-            document.getElementById('calib-status').textContent = 'Calibration saved.';
-            document.getElementById('calib-proceed-btn').style.display = 'inline-block';
+            await API.put(`/api/projects/${_pid}/cameras/${_cid}/calibration/legs`, { legs: payload });
+            if (statusEl) statusEl.textContent = 'Calibration saved.';
+            if (_onClose) _onClose();
         } catch (e) {
-            document.getElementById('calib-status').textContent =
-                'Save failed: ' + (e.message || String(e));
+            if (statusEl) statusEl.textContent = 'Save failed: ' + (e.message || String(e));
         }
     };
 
-    window.proceedFromCalibration = function () {
-        showPage('page-processing');
-        loadProcessingPage();
-    };
-
-    window.loadCalibrationPage = loadCalibrationPage;
-
-    registerTeardown('page-calibration', function() {
+    window.v3CalibrationBack = function () {
         clearTimeout(_scrubTimer);
         _scrubTimer = null;
         _currentLeg = null;
@@ -548,5 +520,10 @@
         _img = null;
         _canvas = null;
         _ctx = null;
-    });
+        const close = _onClose;
+        _onClose = null;
+        if (close) close();
+    };
+
+    window.v3RenderCalibration = render;
 })();
