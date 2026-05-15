@@ -71,6 +71,14 @@ function _tabBarHtml() {
 }
 
 async function v3SwitchTab(tabId) {
+    // Kill the Processing-tab poll immediately when switching away — the
+    // poll's internal "is tab still active?" guard only runs on the next
+    // tick, which can be up to 2 s away. Without this, a Configure click
+    // taken between ticks lets the next tick stomp the new view.
+    if (tabId !== 'processing' && _v3ProcessingPollTimer) {
+        clearInterval(_v3ProcessingPollTimer);
+        _v3ProcessingPollTimer = null;
+    }
     _v3ActiveTab = tabId;
     // Re-render only the tab bar buttons + content, not the header.
     const tabBar = document.querySelector('.v3-tabbar');
