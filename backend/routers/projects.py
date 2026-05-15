@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import logging
+import sqlite3
+import time
 import uuid
 import shutil
 from datetime import datetime, timezone
@@ -87,13 +89,60 @@ async def get_project(project_id: str):
     return info
 
 
+def _release_sqlite_wal(db_path: Path) -> None:
+    """Drop WAL/SHM sidecars so Windows will let us rmtree the project dir.
+
+    Why: sqlite WAL memory-maps `.db-wal` and `.db-shm` and Windows defers
+    unlink until the maps are gone — naive rmtree leaves an empty directory
+    that can't be removed. Checkpointing + switching to DELETE journal mode
+    closes the maps deterministically.
+    """
+    if not db_path.exists():
+        return
+    try:
+        conn = sqlite3.connect(str(db_path))
+        try:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            conn.execute("PRAGMA journal_mode=DELETE")
+            conn.commit()
+        finally:
+            conn.close()
+    except sqlite3.Error as e:
+        logger.warning("WAL checkpoint failed for %s: %s", db_path, e)
+
+
+def _rmtree_with_retry(path: Path, attempts: int = 4, backoff_s: float = 0.1) -> None:
+    last_exc: Exception | None = None
+    for i in range(attempts):
+        try:
+            shutil.rmtree(path)
+            return
+        except FileNotFoundError:
+            return
+        except (PermissionError, OSError) as e:
+            last_exc = e
+            time.sleep(backoff_s * (2 ** i))
+    if path.exists():
+        try:
+            path.rmdir()
+            return
+        except OSError:
+            pass
+        raise last_exc if last_exc else OSError(f"Could not remove {path}")
+
+
 @router.delete("/projects/{project_id}")
 async def delete_project(project_id: str):
     project_dir = PROJECTS_DIR / project_id
     if not project_dir.exists():
         raise HTTPException(status_code=404, detail="Project not found")
     stop_pipeline(project_id)
-    shutil.rmtree(project_dir)
+    _release_sqlite_wal(project_dir / "project.db")
+    try:
+        _rmtree_with_retry(project_dir)
+    except OSError as e:
+        logger.error("Failed to delete project dir %s: %s", project_dir, e)
+        raise HTTPException(status_code=500, detail=f"Could not remove project directory: {e}")
     return {"deleted": True}
 
 

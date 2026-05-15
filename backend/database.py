@@ -101,10 +101,6 @@ CREATE TABLE IF NOT EXISTS vehicle_events (
     FOREIGN KEY (trim_id) REFERENCES trims(trim_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_events_video  ON vehicle_events(video_id);
-CREATE INDEX IF NOT EXISTS idx_events_camera ON vehicle_events(camera_id);
-CREATE INDEX IF NOT EXISTS idx_events_trim   ON vehicle_events(trim_id);
-
 CREATE TABLE IF NOT EXISTS checkpoint (
     id                  INTEGER PRIMARY KEY CHECK (id = 1),
     current_video_id    INTEGER DEFAULT NULL,
@@ -127,6 +123,15 @@ CREATE TABLE IF NOT EXISTS low_confidence_segments (
     end_timestamp_video REAL NOT NULL,
     reason TEXT NOT NULL
 );
+"""
+
+# Indexes are kept out of SCHEMA because they reference columns added by the
+# migration pass below; on legacy DBs the columns don't exist yet at the time
+# SCHEMA runs, so the indexes have to be created AFTER migrations.
+INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_events_video  ON vehicle_events(video_id);
+CREATE INDEX IF NOT EXISTS idx_events_camera ON vehicle_events(camera_id);
+CREATE INDEX IF NOT EXISTS idx_events_trim   ON vehicle_events(trim_id);
 """
 
 
@@ -190,6 +195,10 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     leg_cols = [r[1] for r in conn.execute("PRAGMA table_info(legs)").fetchall()]
     if "camera_id" not in leg_cols:
         conn.execute("ALTER TABLE legs ADD COLUMN camera_id INTEGER DEFAULT NULL")
+
+    # Indexes after migrations so legacy DBs that gained columns above
+    # can be indexed on them now that they exist.
+    conn.executescript(INDEXES)
 
     conn.commit()
     return conn

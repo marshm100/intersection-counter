@@ -64,9 +64,6 @@ async function restoreAppState() {
             case 'page-setup':
                 if (typeof loadSetupPage === 'function') loadSetupPage();
                 break;
-            case 'page-calibration':
-                if (typeof loadCalibrationPage === 'function') loadCalibrationPage();
-                break;
             case 'page-processing':
                 if (typeof loadProcessingPage === 'function') loadProcessingPage();
                 break;
@@ -169,7 +166,17 @@ async function _bgPollStatus() {
     } catch { /* ignore network errors */ }
 }
 
+async function _logServerVersion() {
+    try {
+        const r = await fetch('/api/version');
+        if (!r.ok) return;
+        const v = await r.json();
+        console.log('[server] commit=' + (v.commit || '?').slice(0, 8) + ' booted_at=' + v.booted_at);
+    } catch { /* ignore */ }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    _logServerVersion();
     restoreAppState();
     _startBackgroundPoll();
 });
