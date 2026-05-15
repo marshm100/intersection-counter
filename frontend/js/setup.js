@@ -311,7 +311,16 @@ async function _renderIntersectionsTab(host) {
 async function v3OpenIntersection(iid) {
     _v3OpenIntersectionId = iid;
     _v3DetailSubTab = 'settings';
-    await _renderIntersectionsTab(document.getElementById('v3-tab-content'));
+    // Force the active tab to Intersections. Otherwise opening an intersection
+    // from a Processing-tab chip (Configure / Restart / Open) leaves
+    // _v3ActiveTab='processing' so the 2-second processing-chips poll keeps
+    // overwriting the detail view with the chip grid every couple seconds —
+    // the user perceives this as "can't get into the configuration menu".
+    if (_v3ActiveTab !== 'intersections') {
+        await v3SwitchTab('intersections');
+    } else {
+        await _renderIntersectionsTab(document.getElementById('v3-tab-content'));
+    }
 }
 
 function v3CloseIntersection() {
