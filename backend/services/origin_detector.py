@@ -126,6 +126,31 @@ def closest_zone(
     return best_idx
 
 
+def tripwire_from_point(
+    origin_point: tuple, reference_heading: float, half_length: float = 40.0,
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """From a single calibrated origin node + the approach heading, build a
+    tripwire line segment perpendicular to the approach. Returns (start, end).
+
+    Used because v3 calibration captures one origin point per leg (a click on
+    the approach arm), but the pipeline's origin assignment is line-crossing
+    based. The synthesized line is perpendicular to the vehicle's approach
+    direction so vehicles entering along reference_heading will cross it.
+
+    Heading convention: 0°=North(up), 90°=East(right), 180°=South(down).
+    Image coordinates (y increases downward).
+    """
+    # Perpendicular to the approach direction:
+    perp_rad = math.radians(reference_heading + 90.0)
+    dx = math.sin(perp_rad)
+    dy = -math.cos(perp_rad)
+    x, y = float(origin_point[0]), float(origin_point[1])
+    return (
+        (x - dx * half_length, y - dy * half_length),
+        (x + dx * half_length, y + dy * half_length),
+    )
+
+
 def compute_reference_heading(
     line_start: tuple, line_end: tuple, intersection_center: tuple
 ) -> float:

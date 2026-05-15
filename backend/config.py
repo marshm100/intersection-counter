@@ -18,11 +18,13 @@ PRESCAN_CONFIDENCE_THRESHOLD = 0.90
 CHECKPOINT_INTERVAL_SECONDS = 120
 MAX_CONCURRENT_PIPELINES = 2
 
-# Detection
-YOLO_MODEL = "yolo26s.pt"
+# Detection — tuned for accuracy over speed. yolo26l is the large variant;
+# imgsz=1280 keeps distant intersection vehicles detectable at 1080p capture.
+# Expect ~6-10× slower than yolo26s @ 640.
+YOLO_MODEL = "yolo26l.pt"
 YOLO_CONFIDENCE_THRESHOLD = 0.15
 YOLO_IOU_THRESHOLD = 0.45
-YOLO_IMGSZ = 640
+YOLO_IMGSZ = 1280
 
 # Classification mapping (pedestrians out of scope for v2 per PRD)
 VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
@@ -33,13 +35,15 @@ TRAJECTORY_TURN_MIN_ANGLE = 35
 TRAJECTORY_TURN_MAX_ANGLE = 135
 TRAJECTORY_UTURN_MIN_ANGLE = 135
 TRAJECTORY_MIN_POINTS = 2
-TRAJECTORY_MIN_DISTANCE_PX = 15
+TRAJECTORY_MIN_DISTANCE_PX = 8        # catch slow turners — was 15, missed lots of left/right turns
 TRAJECTORY_CURVATURE_THRESHOLD = 40  # cumulative curvature tiebreaker for ambiguous zone
 
-# Tracker tuning
-TRACKER_LOST_BUFFER = 90             # frames before dropping track (3s at 30fps — fewer stale candidates)
-TRACKER_MATCH_THRESHOLD = 0.4        # IoU matching — stricter to prevent ID swaps between nearby vehicles
-TRACKER_ACTIVATION_THRESHOLD = 0.25  # unchanged
+# Tracker tuning — looser thresholds + longer lost buffer so brief occlusions
+# (a vehicle passing behind a pole / another car) don't kill the track and
+# cause re-detection as a new vehicle (which then gets double-counted).
+TRACKER_LOST_BUFFER = 150            # frames before dropping track (5s at 30fps)
+TRACKER_MATCH_THRESHOLD = 0.3        # IoU matching — loose enough to re-associate after brief occlusion
+TRACKER_ACTIVATION_THRESHOLD = 0.2   # easier to start a new track on weak first-frame match
 
 # Origin assignment
 ORIGIN_ASSIGN_MIN_FRAMES = 2   # trajectory points needed before assigning origin

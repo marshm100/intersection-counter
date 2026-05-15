@@ -23,7 +23,9 @@ from backend.config import (
 from backend.services.checkpoint import CheckpointManager
 from backend.services.classifier import classify_vehicle
 from backend.services.detector import VehicleDetector
-from backend.services.origin_detector import closest_zone, crossing_direction, did_cross_line
+from backend.services.origin_detector import (
+    closest_zone, crossing_direction, did_cross_line, tripwire_from_point,
+)
 from backend.services.preprocessor import AdaptivePreprocessor
 from backend.services.tracker import VehicleTracker
 from backend.services.trajectory_classifier import classify_trajectory
@@ -305,12 +307,23 @@ class ProcessingPipeline:
         traj = vehicle["trajectory"]
 
         # --- Spatial check: did the trajectory cross any origin zone line? ---
+        # v3 calibration stores a single origin point per leg; we synthesize a
+        # perpendicular tripwire through it on the fly so the line-crossing
+        # logic still works. Legacy v2 zones (2-point lines) pass through unchanged.
         for leg in self.legs:
             zone = leg.get("origin_zone")
-            if not zone or len(zone) < 2:
+            if not zone:
                 continue
-            line_start = tuple(zone[0])
-            line_end = tuple(zone[1])
+            if len(zone) == 1:
+                ref = leg.get("reference_heading")
+                if ref is None:
+                    continue
+                line_start, line_end = tripwire_from_point(zone[0], ref)
+            elif len(zone) >= 2:
+                line_start = tuple(zone[0])
+                line_end = tuple(zone[1])
+            else:
+                continue
             for i in range(1, len(traj)):
                 if did_cross_line(traj[i - 1], traj[i], line_start, line_end):
                     direction = crossing_direction(
