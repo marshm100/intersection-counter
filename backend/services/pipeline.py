@@ -18,6 +18,7 @@ import cv2
 from backend.config import (
     CHECKPOINT_INTERVAL_SECONDS,
     ORIGIN_ASSIGN_MIN_FRAMES,
+    TRACK_FINALIZE_GAP_FRAMES,
     TRAJECTORY_MIN_DISTANCE_PX,
 )
 from backend.services.checkpoint import CheckpointManager
@@ -265,9 +266,23 @@ class ProcessingPipeline:
             if t["is_vehicle"]:
                 self._process_vehicle(t["track_id"], t, frame_number)
 
-        lost_ids = set(self.active_vehicles.keys()) - current_track_ids
-        for track_id in lost_ids:
-            self._finalize_vehicle(track_id, frame_number)
+        # Finalize only after a grace window of consecutive missed frames.
+        # YOLO detection flickers (especially at imgsz=1280 with marginal
+        # vehicles); bytetrack's lost_buffer can re-associate the same
+        # track_id across the gap. If we finalize on the first missed
+        # frame we fragment one real vehicle into many one-point "tracks"
+        # that get silently dropped as insufficient_data.
+        for track_id in list(self.active_vehicles.keys()):
+            if track_id in current_track_ids:
+                self.active_vehicles[track_id]["last_seen_frame"] = frame_number
+                continue
+            last = self.active_vehicles[track_id].get("last_seen_frame")
+            if last is None:
+                # First frame absence after creation — start the grace timer.
+                self.active_vehicles[track_id]["last_seen_frame"] = frame_number
+                continue
+            if frame_number - last > TRACK_FINALIZE_GAP_FRAMES:
+                self._finalize_vehicle(track_id, frame_number)
 
     def _process_vehicle(self, track_id: int, detection: dict, frame_number: int):
         center = tuple(detection["center"])
@@ -279,6 +294,7 @@ class ProcessingPipeline:
                 "origin_frame": None,
                 "origin_attempt_failed": False,
                 "start_frame": frame_number,
+                "last_seen_frame": frame_number,
                 "trajectory": [],
                 "confidences": [],
                 "class_id": detection["class_id"],
