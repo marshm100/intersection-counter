@@ -190,6 +190,17 @@ header h1 { font-size: 24px; }
 .pb-cam-tab { padding: 6px 12px; background: transparent; border: none; border-bottom: 2px solid transparent;
               cursor: pointer; font-size: 13px; color: #6b7280; }
 .pb-cam-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+.pb-live-banner { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin: 8px 0;
+                  background: #ecfeff; border: 1px solid #67e8f9; border-radius: 6px;
+                  color: #155e75; font-size: 13px; }
+.pb-live-banner.hidden { display: none; }
+.pb-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981;
+               box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); animation: pb-live-pulse 1.5s infinite; }
+@keyframes pb-live-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+    70%  { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
 .playback-main { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
 .playback-video-wrap { position: relative; background: #000; border-radius: 6px; overflow: hidden; }
 .playback-video-wrap video { width: 100%; display: block; }

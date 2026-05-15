@@ -22,8 +22,10 @@ let _pbActiveVideoIdx = 0;
 let _pbEvents = [];
 let _pbLegs = [];
 let _pbDrawTimer = null;
+let _pbLiveTimer = null;
 
 const EVENT_TIME_WINDOW_SECONDS = 2.0;   // ± window around current time
+const LIVE_POLL_INTERVAL_MS = 2000;
 
 async function loadPlaybackPage() {
     const pid = AppState.currentProject;
@@ -54,6 +56,7 @@ async function loadPlaybackPage() {
     section.innerHTML = _playbackHtml();
     await _refreshCameraDataAndDraw();
     _bindVideoEvents();
+    await _startLivePollingIfRunning();
 }
 
 function _playbackHtml() {
@@ -64,6 +67,7 @@ function _playbackHtml() {
             <h2 class="playback-title">${escapeHtml(i.name)} <span class="playback-date">— ${escapeHtml(i.date)}</span></h2>
             <button class="btn-secondary" onclick="pbDownloadExcel()">Download Excel</button>
         </div>
+        <div id="pb-live-banner" class="pb-live-banner hidden"></div>
         <div class="playback-camera-tabs">
             ${_pbCameras.map(c => `
                 <button class="pb-cam-tab ${c.camera_id === _pbActiveCameraId ? 'active' : ''}"
@@ -341,7 +345,73 @@ function pbDownloadExcel() {
 }
 
 function backToProjectFromPlayback() {
+    _stopLivePolling();
     AppState.currentIntersectionId = null;
     showPage('page-setup');
     if (typeof loadSetupPage === 'function') loadSetupPage();
+}
+
+// --- Live polling while the orchestrator is running -----------------------
+
+async function _startLivePollingIfRunning() {
+    _stopLivePolling();
+    const status = await _fetchLiveStatus();
+    if (!status || status.status !== 'running') {
+        _updateLiveBanner(status);
+        return;
+    }
+    _updateLiveBanner(status);
+    _pbLiveTimer = setInterval(_liveTick, LIVE_POLL_INTERVAL_MS);
+}
+
+function _stopLivePolling() {
+    if (_pbLiveTimer) {
+        clearInterval(_pbLiveTimer);
+        _pbLiveTimer = null;
+    }
+}
+
+async function _fetchLiveStatus() {
+    const pid = AppState.currentProject;
+    const iid = _pbIntersection?.intersection?.intersection_id;
+    if (!pid || !iid) return null;
+    try {
+        return await API.get(`/api/projects/${pid}/intersections/${iid}/processing/status`);
+    } catch (_) {
+        return null;
+    }
+}
+
+async function _liveTick() {
+    const status = await _fetchLiveStatus();
+    _updateLiveBanner(status);
+    if (!status || status.status !== 'running') {
+        _stopLivePolling();
+    }
+    const pid = AppState.currentProject;
+    await _refreshCountsPanel();
+    try {
+        _pbEvents = await _fetchAllEvents(pid, _pbActiveCameraId);
+    } catch (_) { /* keep stale events */ }
+    _drawOverlay();
+}
+
+function _updateLiveBanner(status) {
+    const el = document.getElementById('pb-live-banner');
+    if (!el) return;
+    if (!status || status.status !== 'running') {
+        el.classList.add('hidden');
+        el.innerHTML = '';
+        return;
+    }
+    const segCount = status.segment_count || 0;
+    const cur = (status.current_segment_index || 0) + 1;
+    el.classList.remove('hidden');
+    el.innerHTML = `
+        <span class="pb-live-dot"></span>
+        Processing live — segment ${cur} of ${segCount}. Counts refresh every ${LIVE_POLL_INTERVAL_MS / 1000}s.`;
+}
+
+if (typeof registerTeardown === 'function') {
+    registerTeardown('page-v3-playback', _stopLivePolling);
 }

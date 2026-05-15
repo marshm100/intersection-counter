@@ -851,12 +851,13 @@ async function v3CancelProcessing(iid) {
 }
 
 function v3ViewLive(iid) {
-    // For now route to the existing processing preview page. Phase 9 builds
-    // the proper per-camera live view scoped to the intersection.
+    // Live view = the same playback dashboard as v3OpenSummary; the page
+    // detects an in-progress intersection and polls /summary so the count
+    // panels fill in as the orchestrator advances through segments.
     AppState.currentIntersectionId = iid;
-    showPage('page-processing');
-    if (typeof loadProcessingPage === 'function') {
-        loadProcessingPage();
+    showPage('page-v3-playback');
+    if (typeof loadPlaybackPage === 'function') {
+        loadPlaybackPage();
     }
 }
 
