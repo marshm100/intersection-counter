@@ -104,21 +104,43 @@ async function _renderVideosTab(host) {
     const pid = AppState.currentProject;
     host.innerHTML = '<p class="empty-message">Loading videos...</p>';
 
+    let intersections = [];
     try {
-        _v3Videos = await API.get(`/api/projects/${pid}/videos`);
+        [_v3Videos, intersections] = await Promise.all([
+            API.get(`/api/projects/${pid}/videos`),
+            API.get(`/api/projects/${pid}/intersections`).catch(() => []),
+        ]);
     } catch (e) {
         host.innerHTML = '<p class="empty-message">Could not load videos.</p>';
         return;
     }
 
+    // Build-state awareness: when intersections already exist, the green
+    // primary CTA was misleading (looked like 'click me to make them').
+    // Show a built-status line and downgrade the button to a secondary
+    // 'Re-sync' style. Backend is idempotent (upsert by name+date), so
+    // re-syncing is safe — but the UI shouldn't pretend it's the same
+    // action as a first build.
+    const alreadyBuilt = intersections.length > 0;
+    const builtStatus = alreadyBuilt
+        ? `<div class="videos-built-status">${intersections.length} intersection${intersections.length === 1 ? '' : 's'} already built. Re-sync to pick up label edits.</div>`
+        : '';
+    const labelBtnText = alreadyBuilt
+        ? 'Re-sync labels'
+        : 'Save labels & build intersections';
+    const labelBtnClass = alreadyBuilt
+        ? 'btn-save-labels btn-secondary'
+        : 'btn-save-labels';
+
     let html = `
         <div class="videos-tab-actions">
             <button class="video-select-btn" onclick="v3PickVideos()">+ Upload videos</button>
             <span class="helper-text">Drag and drop multiple files; the system auto-fills camera, date, and start time from the filename.</span>
-            <button class="btn-save-labels" onclick="v3SaveLabels()" ${_v3Videos.length === 0 ? 'disabled' : ''}>
-                Save labels &amp; build intersections
+            <button class="${labelBtnClass}" onclick="v3SaveLabels()" ${_v3Videos.length === 0 ? 'disabled' : ''}>
+                ${labelBtnText}
             </button>
-        </div>`;
+        </div>
+        ${builtStatus}`;
 
     if (_v3Videos.length === 0) {
         html += '<p class="empty-message">No videos uploaded yet. Click "Upload videos" to attach files.</p>';
@@ -264,9 +286,26 @@ async function v3SaveLabels() {
         alert(`Save failed: ${e.message || e}`);
         return;
     }
-    const summary = `Built ${resp.intersections.length} intersection-day card(s).\n` +
-                    `Attached: ${resp.videos_attached}\n` +
-                    (resp.videos_skipped ? `Skipped (missing intersection name): ${resp.videos_skipped}` : '');
+    const newI = resp.intersections_created || 0;
+    const keptI = resp.intersections_existed || 0;
+    const newC = resp.cameras_created || 0;
+    const keptC = resp.cameras_existed || 0;
+    // Distinguish first-build from re-sync in the toast so re-clicking
+    // doesn't leave the user wondering whether the action duplicated
+    // anything. Backend is idempotent — the message makes that visible.
+    let summary;
+    if (newI === 0 && newC === 0 && (keptI > 0 || keptC > 0)) {
+        summary = `No changes — all ${keptI} intersection${keptI === 1 ? '' : 's'} and ${keptC} camera${keptC === 1 ? '' : 's'} already exist.`;
+    } else if (keptI > 0 || keptC > 0) {
+        summary = `Built ${newI} new intersection${newI === 1 ? '' : 's'} and ${newC} new camera${newC === 1 ? '' : 's'}.\n` +
+                  `Kept ${keptI} existing intersection${keptI === 1 ? '' : 's'} and ${keptC} existing camera${keptC === 1 ? '' : 's'}.`;
+    } else {
+        summary = `Built ${newI} intersection${newI === 1 ? '' : 's'} and ${newC} camera${newC === 1 ? '' : 's'}.`;
+    }
+    summary += `\n\nAttached ${resp.videos_attached} video${resp.videos_attached === 1 ? '' : 's'}.`;
+    if (resp.videos_skipped) {
+        summary += `\nSkipped ${resp.videos_skipped} (missing intersection name or recording date).`;
+    }
     alert(summary);
     // Auto-switch to the Intersections tab so the user sees their cards
     await v3SwitchTab('intersections');
@@ -746,18 +785,86 @@ async function v3ConfirmProcess() {
 let _v3ProcessingPollTimer = null;
 
 async function _renderProcessingTab(host) {
-    await _refreshProcessingChips(host);
+    // Two regions: a stable header (mode selector, never re-rendered on
+    // poll so the dropdown doesn't reset mid-interaction) and a chips
+    // container (refreshed every 2s with status data).
+    host.innerHTML = `
+        <div class="processing-tab-header" id="v3-processing-header"></div>
+        <div id="v3-processing-chips-host"></div>
+    `;
+    const header = document.getElementById('v3-processing-header');
+    const chipsHost = document.getElementById('v3-processing-chips-host');
+
+    await _renderProcessingModeSelector(header);
+    await _refreshProcessingChips(chipsHost);
+
     // Start polling so status updates without manual refresh.
     if (_v3ProcessingPollTimer) clearInterval(_v3ProcessingPollTimer);
     _v3ProcessingPollTimer = setInterval(() => {
         // Only poll while the Processing tab is the active tab.
         if (_v3ActiveTab === 'processing') {
-            _refreshProcessingChips(host);
+            _refreshProcessingChips(chipsHost);
         } else {
             clearInterval(_v3ProcessingPollTimer);
             _v3ProcessingPollTimer = null;
         }
     }, 2000);
+}
+
+
+async function _renderProcessingModeSelector(host) {
+    const pid = AppState.currentProject;
+    let modes, project;
+    try {
+        [modes, project] = await Promise.all([
+            API.get('/api/processing-modes'),
+            API.get(`/api/projects/${pid}`),
+        ]);
+    } catch (e) {
+        host.innerHTML = '';   // fail quiet — selector is convenience, not critical
+        return;
+    }
+
+    const current = project.processing_mode || modes.default;
+    const currentCfg = modes.modes.find(m => m.key === current)
+                    || modes.modes.find(m => m.key === modes.default);
+
+    const optionsHtml = modes.modes.map(m => `
+        <option value="${m.key}" ${m.key === current ? 'selected' : ''}>
+            ${escapeHtml(m.label)}
+        </option>
+    `).join('');
+
+    host.innerHTML = `
+        <div class="processing-mode-selector">
+            <label for="v3-processing-mode-select">Processing mode:</label>
+            <select id="v3-processing-mode-select" onchange="v3SetProcessingMode(this.value)">
+                ${optionsHtml}
+            </select>
+            <span class="processing-mode-description" id="v3-processing-mode-desc">${escapeHtml(currentCfg?.description || '')}</span>
+        </div>`;
+
+    // Stash modes for the description update on change
+    host._v3Modes = modes;
+}
+
+
+async function v3SetProcessingMode(mode) {
+    const pid = AppState.currentProject;
+    try {
+        await API.put(`/api/projects/${pid}/settings`, { processing_mode: mode });
+    } catch (e) {
+        alert(`Could not save processing mode: ${e.message || e}`);
+        return;
+    }
+    // Update the description in place so the user sees the change took.
+    const header = document.getElementById('v3-processing-header');
+    const desc = document.getElementById('v3-processing-mode-desc');
+    const modes = header?._v3Modes;
+    if (desc && modes) {
+        const cfg = modes.modes.find(m => m.key === mode);
+        if (cfg) desc.textContent = cfg.description;
+    }
 }
 
 async function _refreshProcessingChips(host) {
@@ -794,10 +901,30 @@ async function _refreshProcessingChips(host) {
     host.innerHTML = html;
 }
 
+function _formatEta(seconds) {
+    // ETA from the pipeline can be very large (full-day video) or tiny.
+    // Show H:MM:SS over 1h, M:SS under, and a placeholder when unknown.
+    if (typeof seconds !== 'number' || !isFinite(seconds) || seconds < 0) return '';
+    const s = Math.round(seconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+
 function _processingChipHtml(intersection, status) {
     const segCount = status.segment_count || 0;
     const currentIdx = status.current_segment_index || 0;
-    const pct = segCount > 0 ? Math.round((currentIdx / segCount) * 100) : 0;
+    // Combined progress = whole-segments + intra-segment fraction. Falls
+    // back to segment-boundary-only progress when frame_progress hasn't
+    // arrived yet (very first poll, or paused).
+    const intraPct = (status.frame_progress?.progress_pct || 0) / 100;
+    const combinedFrac = segCount > 0
+        ? Math.min(1, (currentIdx + intraPct) / segCount)
+        : 0;
+    const pct = Math.round(combinedFrac * 100);
 
     let statusBadge = '';
     let actionsHtml = '';
@@ -805,18 +932,45 @@ function _processingChipHtml(intersection, status) {
 
     switch (status.status) {
         case 'idle':
-            statusBadge = '<span class="chip-badge chip-idle">Idle</span>';
-            actionsHtml = `
-                <button onclick="v3OpenIntersection(${intersection.intersection_id})">Configure</button>`;
+            // Split: not-yet-configured shows Configure; configured-but-not-started
+            // shows Ready + Start so the user knows their setup work persisted.
+            if (status.configured) {
+                statusBadge = '<span class="chip-badge chip-ready">Ready</span>';
+                detailHtml = '<div class="chip-detail">Configured and ready to process.</div>';
+                actionsHtml = `
+                    <button onclick="v3StartProcessing(${intersection.intersection_id})">Start</button>
+                    <button class="btn-secondary" onclick="v3OpenIntersection(${intersection.intersection_id})">Configure</button>`;
+            } else {
+                statusBadge = '<span class="chip-badge chip-idle">Idle</span>';
+                detailHtml = '<div class="chip-detail">Add cameras, legs, and trims before processing.</div>';
+                actionsHtml = `
+                    <button onclick="v3OpenIntersection(${intersection.intersection_id})">Configure</button>`;
+            }
             break;
         case 'queued':
             statusBadge = '<span class="chip-badge chip-queued">Queued</span>';
             detailHtml = `<div class="chip-detail">${segCount} segments queued</div>`;
             break;
-        case 'running':
-            statusBadge = '<span class="chip-badge chip-running">Processing…</span>';
+        case 'running': {
+            const fp = status.frame_progress || {};
+            const etaTxt = _formatEta(fp.eta_seconds);
+            const fpsTxt = fp.fps_processing
+                ? `${Number(fp.fps_processing).toFixed(1)} fps`
+                : '';
+            const vehiclesTxt = (typeof fp.vehicle_count === 'number')
+                ? `${fp.vehicle_count} vehicles counted` : '';
+            // data-frame on the badge gives the DOM a per-frame token that
+            // changes every poll while running — used by CSS to retrigger
+            // a brief flash so the user can SEE liveness, not just trust it.
+            statusBadge = `<span class="chip-badge chip-running chip-running-anim" data-frame="${fp.frame_number ?? 0}"><span class="chip-pulse-dot"></span>Processing…</span>`;
+            const subline = [
+                `Segment ${currentIdx + 1} of ${segCount}`,
+                etaTxt && `ETA ${etaTxt}`,
+                fpsTxt,
+                vehiclesTxt,
+            ].filter(Boolean).join(' · ');
             detailHtml = `
-                <div class="chip-detail">Segment ${currentIdx + 1} of ${segCount}</div>
+                <div class="chip-detail">${escapeHtml(subline)}</div>
                 <div class="chip-progress">
                     <div class="chip-progress-fill" style="width:${pct}%"></div>
                 </div>`;
@@ -824,16 +978,25 @@ function _processingChipHtml(intersection, status) {
                 <button onclick="v3ViewLive(${intersection.intersection_id})">View live</button>
                 <button class="btn-secondary" onclick="v3CancelProcessing(${intersection.intersection_id})">Cancel</button>`;
             break;
+        }
         case 'complete':
             statusBadge = '<span class="chip-badge chip-complete">Complete</span>';
             actionsHtml = `
                 <button onclick="v3OpenSummary(${intersection.intersection_id})">Open dashboard</button>
                 <button class="btn-secondary" onclick="v3DownloadExcel(${intersection.intersection_id})">Excel</button>`;
             break;
+        case 'interrupted':
+            statusBadge = '<span class="chip-badge chip-warn">Interrupted</span>';
+            detailHtml = '<div class="chip-detail">Processing was interrupted (app closed mid-run). Continue from the last checkpoint, or restart from the beginning.</div>';
+            actionsHtml = `
+                <button onclick="v3ContinueProcessing(${intersection.intersection_id})">Continue</button>
+                <button class="btn-secondary" onclick="v3ReprocessFromStart(${intersection.intersection_id})">Restart from beginning</button>`;
+            break;
         case 'cancelled':
             statusBadge = '<span class="chip-badge chip-warn">Cancelled</span>';
             actionsHtml = `
-                <button onclick="v3OpenIntersection(${intersection.intersection_id})">Restart</button>`;
+                <button onclick="v3OpenIntersection(${intersection.intersection_id})">Restart</button>
+                <button class="btn-secondary" onclick="v3ReprocessFromStart(${intersection.intersection_id})">Restart from beginning</button>`;
             break;
         case 'error':
             statusBadge = '<span class="chip-badge chip-error">Error</span>';
@@ -865,6 +1028,78 @@ async function v3CancelProcessing(iid) {
     } catch (e) {
         alert(`Cancel failed: ${e.message || e}`);
     }
+}
+
+async function v3StartProcessing(iid) {
+    // Start an already-configured intersection straight from the chip,
+    // without bouncing through the configure page. Reuses the same
+    // preflight + confirm flow as v3ConfirmProcess so the user still
+    // sees segment/camera/trim counts before committing.
+    const pid = AppState.currentProject;
+    let preflight;
+    try {
+        preflight = await API.post(
+            `/api/projects/${pid}/intersections/${iid}/processing/preflight`,
+            {},
+        );
+    } catch (e) {
+        alert(`Preflight failed: ${e.message || e}`);
+        return;
+    }
+    if (!preflight.ok) {
+        alert('Cannot process — please fix these first:\n\n' + preflight.errors.join('\n'));
+        return;
+    }
+    const msg = `Ready to process this intersection.\n\n` +
+                `Segments: ${preflight.segment_count}\n` +
+                `Cameras used: ${preflight.cameras_used.length}\n` +
+                `Trims: ${preflight.trims_used.length}\n\n` +
+                `Start processing now?`;
+    if (!window.confirm(msg)) return;
+    try {
+        await API.post(`/api/projects/${pid}/intersections/${iid}/processing/start`, {});
+    } catch (e) {
+        alert(`Start failed: ${e.message || e}`);
+        return;
+    }
+    // Refresh chips so status flips from Ready → Queued/Running.
+    const host = document.querySelector('.processing-grid')?.parentElement;
+    if (host) await _refreshProcessingChips(host);
+}
+
+async function v3ContinueProcessing(iid) {
+    const pid = AppState.currentProject;
+    try {
+        await API.post(`/api/projects/${pid}/intersections/${iid}/processing/resume`, {});
+    } catch (e) {
+        // The 422 "no matching segment" response carries a structured detail
+        // that explains why; surface its message if present.
+        const detail = e && e.detail;
+        const msg = (detail && detail.message) || e.message || e;
+        alert(`Continue failed: ${msg}`);
+        return;
+    }
+    // Refresh chips so status flips from Interrupted → Running.
+    const host = document.getElementById('v3-detail-subcontent')?.closest('.v3-tab-content')
+              || document.querySelector('.processing-grid')?.parentElement;
+    if (host) await _refreshProcessingChips(host);
+}
+
+async function v3ReprocessFromStart(iid) {
+    if (!window.confirm(
+        'Discard all counted vehicles for this intersection and start over?\n\n' +
+        'This cannot be undone.'
+    )) return;
+    const pid = AppState.currentProject;
+    try {
+        await API.post(`/api/projects/${pid}/intersections/${iid}/processing/reprocess`, {});
+    } catch (e) {
+        alert(`Reset failed: ${e.message || e}`);
+        return;
+    }
+    // After wiping, drop the user into the intersection card so they can
+    // configure (if needed) and hit Start fresh.
+    v3OpenIntersection(iid);
 }
 
 function v3ViewLive(iid) {

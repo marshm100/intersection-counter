@@ -105,6 +105,9 @@ header h1 { font-size: 24px; }
                    cursor: pointer; font-size: 14px; margin-left: auto; }
 .btn-save-labels:hover { background: #15803d; }
 .btn-save-labels:disabled { background: #9ca3af; cursor: not-allowed; }
+.btn-save-labels.btn-secondary { background: #e5e7eb; color: #374151; }
+.btn-save-labels.btn-secondary:hover { background: #d1d5db; }
+.videos-built-status { color: #6b7280; font-size: 13px; margin: -4px 0 14px 0; }
 
 .videos-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .videos-table th, .videos-table td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: middle; }
@@ -158,6 +161,21 @@ header h1 { font-size: 24px; }
                  border-radius: 4px; cursor: pointer; font-size: 14px; }
 .btn-secondary:hover { background: #d1d5db; }
 
+/* v3 processing-mode selector — sits above the chips so the user can
+   change fast/accurate before kicking off a run. */
+.processing-mode-selector {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; margin-bottom: 14px;
+    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;
+    font-size: 13px;
+}
+.processing-mode-selector label { font-weight: 600; color: #374151; }
+.processing-mode-selector select {
+    padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;
+    background: white; cursor: pointer;
+}
+.processing-mode-description { color: #6b7280; flex: 1; }
+
 /* v3 processing chips (Phase 8) */
 .processing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 .processing-chip { background: white; border: 1px solid #d1d5db; border-radius: 6px; padding: 14px; }
@@ -166,6 +184,7 @@ header h1 { font-size: 24px; }
 .chip-date { font-size: 12px; color: #6b7280; }
 .chip-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; }
 .chip-idle    { background: #f3f4f6; color: #6b7280; }
+.chip-ready   { background: #dbeafe; color: #1e40af; }
 .chip-queued  { background: #e0e7ff; color: #4338ca; }
 .chip-running { background: #fef3c7; color: #92400e; }
 .chip-complete{ background: #d1fae5; color: #065f46; }
@@ -174,6 +193,22 @@ header h1 { font-size: 24px; }
 .chip-detail { font-size: 12px; color: #6b7280; margin-top: 6px; }
 .chip-progress { width: 100%; height: 6px; background: #e5e7eb; border-radius: 3px; margin-top: 6px; overflow: hidden; }
 .chip-progress-fill { height: 100%; background: #2563eb; transition: width 250ms ease; }
+
+/* Pulsing dot inside the 'Processing…' badge — always-on liveness signal
+   so the user can tell the pipeline isn't hung even when the progress
+   bar barely moves inside a long segment. */
+.chip-running-anim { display: inline-flex; align-items: center; gap: 6px; }
+.chip-pulse-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #d97706;
+    animation: chip-pulse 1.2s ease-in-out infinite;
+}
+@keyframes chip-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.35; transform: scale(0.75); }
+}
 .chip-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
 .chip-actions button { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;
                        background: #2563eb; color: white; }

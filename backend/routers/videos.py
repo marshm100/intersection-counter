@@ -228,10 +228,21 @@ def save_labels(project_id: str):
     Videos with no intersection_name_label are skipped (the user must fill
     that field for them to participate).
 
-    Returns the resulting list of intersections.
+    Returns the resulting list of intersections plus 'created' / 'existed'
+    counts so the frontend can give honest feedback ('Built 3 new, kept 2
+    existing') instead of leaving the CTA looking like it might duplicate.
     """
     _require_project(project_id)
     videos = list_videos(project_id)
+
+    # Snapshot pre-existing rows so we can report what's new vs reused.
+    before_intersection_ids = {
+        i["intersection_id"] for i in list_intersections(project_id)
+    }
+    before_camera_ids: set[int] = set()
+    for i in list_intersections(project_id):
+        for c in list_cameras(project_id, i["intersection_id"]):
+            before_camera_ids.add(c["camera_id"])
 
     skipped = 0
     for v in videos:
@@ -246,8 +257,25 @@ def save_labels(project_id: str):
         cid = upsert_camera(project_id, iid, camera_label)
         link_video_to_camera(project_id, v["video_id"], cid)
 
+    after_intersections = list_intersections(project_id)
+    after_camera_ids: set[int] = set()
+    for i in after_intersections:
+        for c in list_cameras(project_id, i["intersection_id"]):
+            after_camera_ids.add(c["camera_id"])
+
+    created_intersection_ids = sorted(
+        {i["intersection_id"] for i in after_intersections} - before_intersection_ids
+    )
+    created_camera_ids = sorted(after_camera_ids - before_camera_ids)
+
     return {
-        "intersections": list_intersections(project_id),
+        "intersections": after_intersections,
+        "intersections_created": len(created_intersection_ids),
+        "intersections_existed": len(before_intersection_ids & {
+            i["intersection_id"] for i in after_intersections
+        }),
+        "cameras_created": len(created_camera_ids),
+        "cameras_existed": len(before_camera_ids & after_camera_ids),
         "videos_attached": len(videos) - skipped,
         "videos_skipped": skipped,
     }

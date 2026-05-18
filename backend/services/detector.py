@@ -26,17 +26,30 @@ class VehicleDetector:
 
     Pedestrians are out of scope for v2 per PRD — only vehicle classes are
     passed to YOLO so the detector never produces pedestrian detections.
+
+    Model / imgsz / confidence are accepted as constructor args so the
+    pipeline can pick a fast vs accurate config per project without
+    mutating module-level constants.
     """
 
     RELEVANT_CLASSES = sorted(VEHICLE_CLASSES.keys())
 
-    def __init__(self, model_path: str | None = None):
+    def __init__(
+        self,
+        model_path: str | None = None,
+        imgsz: int | None = None,
+        confidence: float | None = None,
+    ):
         """Load the YOLO model.
 
-        Defaults to YOLO_MODEL from config.
-        Model auto-downloads on first use.
+        Defaults pull from config (accurate mode); the v3 orchestrator
+        passes per-mode overrides. Model auto-downloads on first use.
         """
         self.model = YOLO(model_path or YOLO_MODEL)
+        self.imgsz = imgsz if imgsz is not None else YOLO_IMGSZ
+        self.confidence = (
+            confidence if confidence is not None else YOLO_CONFIDENCE_THRESHOLD
+        )
         self._device = detect_device(os.environ.get("DEVICE"))
 
     def _parse_results(self, results) -> list[dict]:
@@ -78,9 +91,9 @@ class VehicleDetector:
         """
         results = self.model(
             frame,
-            conf=YOLO_CONFIDENCE_THRESHOLD,
+            conf=self.confidence,
             iou=YOLO_IOU_THRESHOLD,
-            imgsz=YOLO_IMGSZ,
+            imgsz=self.imgsz,
             classes=self.RELEVANT_CLASSES,
             device=self._device,
             verbose=False,
@@ -97,9 +110,9 @@ class VehicleDetector:
             return []
         results = self.model(
             frames,
-            conf=YOLO_CONFIDENCE_THRESHOLD,
+            conf=self.confidence,
             iou=YOLO_IOU_THRESHOLD,
-            imgsz=YOLO_IMGSZ,
+            imgsz=self.imgsz,
             classes=self.RELEVANT_CLASSES,
             device=self._device,
             verbose=False,

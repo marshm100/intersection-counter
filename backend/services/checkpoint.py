@@ -29,18 +29,27 @@ class CheckpointManager:
         vehicle_count: int,
         error_count: int,
         current_video_id: int | None = None,
+        current_camera_id: int | None = None,
+        current_trim_id: int | None = None,
     ) -> None:
-        """Save checkpoint (upsert — always id=1)."""
+        """Save checkpoint (upsert — always id=1).
+
+        camera_id/trim_id are populated by the v3 orchestrator so resume
+        can locate the exact segment that was running (when multiple
+        segments share a video_id, frame_number alone is ambiguous).
+        """
         now = datetime.now(timezone.utc).isoformat()
         conn = self._connect()
         try:
             conn.execute(
                 """INSERT OR REPLACE INTO checkpoint
-                   (id, current_video_id, frame_number, timestamp_video,
+                   (id, current_video_id, current_camera_id, current_trim_id,
+                    frame_number, timestamp_video,
                     tracker_state, active_trajectories, vehicle_count,
                     error_count, updated_at)
-                   VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (current_video_id, frame_number, timestamp_video,
+                   VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (current_video_id, current_camera_id, current_trim_id,
+                 frame_number, timestamp_video,
                  tracker_state, active_trajectories, vehicle_count,
                  error_count, now),
             )
@@ -58,8 +67,11 @@ class CheckpointManager:
             ).fetchone()
             if row is None:
                 return None
+            keys = row.keys()
             return {
-                "current_video_id": row["current_video_id"] if "current_video_id" in row.keys() else None,
+                "current_video_id": row["current_video_id"] if "current_video_id" in keys else None,
+                "current_camera_id": row["current_camera_id"] if "current_camera_id" in keys else None,
+                "current_trim_id": row["current_trim_id"] if "current_trim_id" in keys else None,
                 "frame_number": row["frame_number"],
                 "timestamp_video": row["timestamp_video"],
                 "tracker_state": row["tracker_state"],

@@ -29,7 +29,9 @@ from backend.services.origin_detector import (
 )
 from backend.services.preprocessor import AdaptivePreprocessor
 from backend.services.tracker import VehicleTracker
-from backend.services.trajectory_classifier import classify_trajectory
+from backend.services.trajectory_classifier import (
+    classify_trajectory, derive_movement, score_destination_leg,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,13 @@ class ProcessingPipeline:
         fps: float,
         video_start_time: str | None = None,
         video_id: int | None = None,
+        # Per-mode detector overrides. None = use config defaults (accurate).
+        yolo_model: str | None = None,
+        yolo_imgsz: int | None = None,
+        yolo_confidence: float | None = None,
+        # Detect on every Nth frame. detection_skip=1 = current behavior
+        # (every frame); detection_skip=3 = fast mode (Kalman in between).
+        detection_skip: int = 1,
     ):
         self.project_id = project_id
         self.db_path = db_path
@@ -62,6 +71,13 @@ class ProcessingPipeline:
         # video_id is set when the pipeline is part of a multi-video run;
         # None means single-video legacy mode (events written with NULL video_id).
         self.video_id = video_id
+        # Mode-driven detector config. The factory pulls defaults from
+        # config.py when these are None, so accurate mode keeps current
+        # behavior even without passing the args.
+        self._yolo_model = yolo_model
+        self._yolo_imgsz = yolo_imgsz
+        self._yolo_confidence = yolo_confidence
+        self.detection_skip = max(1, int(detection_skip))
 
         # Components (lazy-loaded to avoid loading YOLO in tests)
         self._detector: VehicleDetector | None = None
@@ -102,13 +118,21 @@ class ProcessingPipeline:
     @property
     def detector(self) -> VehicleDetector:
         if self._detector is None:
-            self._detector = VehicleDetector()
+            self._detector = VehicleDetector(
+                model_path=self._yolo_model,
+                imgsz=self._yolo_imgsz,
+                confidence=self._yolo_confidence,
+            )
         return self._detector
 
     @property
     def tracker(self) -> VehicleTracker:
         if self._tracker is None:
-            effective_fps = max(1, int(self.fps / self._frame_skip))
+            # Tracker's frame_rate should reflect how often it actually
+            # receives detections — not the source video's fps. In fast
+            # mode we detect every 3rd frame, so the tracker sees an
+            # effective 10 fps when the source is 30.
+            effective_fps = max(1, int(self.fps / self.detection_skip))
             self._tracker = VehicleTracker(frame_rate=effective_fps)
         return self._tracker
 
@@ -165,24 +189,31 @@ class ProcessingPipeline:
                 if not ret:
                     break
 
-                # Process EVERY frame through detection/tracking
-                try:
-                    self._process_single_frame(frame, frame_number)
-                    frames_processed += 1
-                    consecutive_errors = 0
-                except Exception as e:
-                    if isinstance(e, _FATAL_ERRORS):
-                        raise
-                    if "CUDA out of memory" in str(e):
-                        raise
-                    logger.error("Error processing frame %d: %s", frame_number, e)
-                    self.error_count += 1
-                    consecutive_errors += 1
-                    if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
-                        raise RuntimeError(
-                            f"Pipeline aborted: {MAX_CONSECUTIVE_ERRORS} consecutive "
-                            f"frame errors. Last error: {e}"
-                        ) from e
+                # detection_skip=1 → run detection on every frame (accurate
+                # mode, current behavior). detection_skip>1 → only every
+                # Nth frame goes through YOLO + tracker; the tracker's
+                # Kalman filter handles interpolation on the others.
+                # We still cap.read() every frame so the video reader
+                # doesn't drift relative to wall-clock progress reporting.
+                run_detection = (frame_number % self.detection_skip == 0)
+                if run_detection:
+                    try:
+                        self._process_single_frame(frame, frame_number)
+                        frames_processed += 1
+                        consecutive_errors = 0
+                    except Exception as e:
+                        if isinstance(e, _FATAL_ERRORS):
+                            raise
+                        if "CUDA out of memory" in str(e):
+                            raise
+                        logger.error("Error processing frame %d: %s", frame_number, e)
+                        self.error_count += 1
+                        consecutive_errors += 1
+                        if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                            raise RuntimeError(
+                                f"Pipeline aborted: {MAX_CONSECUTIVE_ERRORS} consecutive "
+                                f"frame errors. Last error: {e}"
+                            ) from e
 
                 # Preview updates, checkpoints, and progress at preview_skip interval
                 if frame_number % frame_skip == 0:
@@ -449,8 +480,32 @@ class ProcessingPipeline:
             self.n_insufficient_data += 1
             return
 
-        movement = classification["movement"]
         origin_leg_id = vehicle["origin_leg_id"]
+        # Destination-based classification (bug #5 fix). Score every leg —
+        # including the origin (for u-turn detection) — by how well the
+        # trajectory's exit heading + exit position align with the
+        # leg-from-center direction. Movement type is derived from the
+        # (origin, destination) reference-heading geometry — no hardcoded
+        # turn matrix, just a delta-angle bucket.
+        origin_leg = next(
+            (lg for lg in self.legs if lg["leg_id"] == origin_leg_id), None,
+        )
+        dest_result = score_destination_leg(
+            trajectory, origin_leg_id, self.legs,
+        )
+        destination_leg_id = dest_result["destination_leg_id"]
+        destination_leg = next(
+            (lg for lg in self.legs if lg["leg_id"] == destination_leg_id), None,
+        )
+        movement = (
+            derive_movement(origin_leg, destination_leg, all_legs=self.legs)
+            if origin_leg else "insufficient_data"
+        )
+        # Fall through to insufficient_data path if derivation couldn't
+        # produce a turn label (no origin leg found, no destination, etc.).
+        if movement == "insufficient_data":
+            self.n_insufficient_data += 1
+            return
 
         avg_conf = (
             sum(vehicle["confidences"]) / len(vehicle["confidences"])
@@ -482,6 +537,14 @@ class ProcessingPipeline:
             if movement in leg_counts:
                 leg_counts[movement] += 1
 
+        # Posterior over all candidate legs — serialised JSON so review
+        # tools can re-pick a destination without re-running the pipeline.
+        # Keys are stringified ints since JSON object keys must be strings.
+        posterior_json = json.dumps({
+            str(lid): round(p, 4)
+            for lid, p in dest_result.get("posterior", {}).items()
+        }) if dest_result.get("posterior") else None
+
         self._write_vehicle_event(
             track_id=track_id,
             origin_leg_id=vehicle["origin_leg_id"],
@@ -495,6 +558,19 @@ class ProcessingPipeline:
             timestamp_real=timestamp_real,
             frame_number=frame_number,
             start_frame=vehicle.get("start_frame", 0),
+            # Persist the classifier's decision factors so a misclassified
+            # turn can be audited (and the classifier retuned) without
+            # re-running detection. See backend/database.py classifier_*
+            # columns and bug #5 Phase A.
+            classifier_net_heading_change=classification.get("net_heading_change"),
+            classifier_cumulative_curvature=classification.get("cumulative_curvature"),
+            classifier_path_straightness=classification.get("path_straightness"),
+            classifier_path_distance=classification.get("path_distance"),
+            classifier_num_points=classification.get("num_points"),
+            # Phase B: destination-leg + posterior.
+            destination_leg_id=destination_leg_id,
+            destination_confidence=dest_result.get("confidence"),
+            destination_posterior_json=posterior_json,
         )
 
         self.vehicle_count += 1
@@ -533,8 +609,18 @@ class ProcessingPipeline:
                     vehicle_track_id, origin_leg_id, movement,
                     trajectory_data, trajectory_confidence, vehicle_class,
                     fhwa_class, detection_confidence, timestamp_video,
-                    timestamp_real, frame_number, start_frame)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    timestamp_real, frame_number, start_frame,
+                    classifier_net_heading_change,
+                    classifier_cumulative_curvature,
+                    classifier_path_straightness,
+                    classifier_path_distance,
+                    classifier_num_points,
+                    destination_leg_id,
+                    destination_confidence,
+                    destination_posterior_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                           ?, ?, ?, ?, ?,
+                           ?, ?, ?)""",
                 (
                     self.video_id,
                     camera_id,
@@ -551,6 +637,14 @@ class ProcessingPipeline:
                     kwargs["timestamp_real"],
                     kwargs["frame_number"],
                     kwargs.get("start_frame", 0),
+                    kwargs.get("classifier_net_heading_change"),
+                    kwargs.get("classifier_cumulative_curvature"),
+                    kwargs.get("classifier_path_straightness"),
+                    kwargs.get("classifier_path_distance"),
+                    kwargs.get("classifier_num_points"),
+                    kwargs.get("destination_leg_id"),
+                    kwargs.get("destination_confidence"),
+                    kwargs.get("destination_posterior_json"),
                 ),
             )
             conn.commit()
@@ -573,6 +667,8 @@ class ProcessingPipeline:
                 vehicle_count=self.vehicle_count,
                 error_count=self.error_count,
                 current_video_id=self.video_id,
+                current_camera_id=getattr(self, "_v3_camera_id", None),
+                current_trim_id=getattr(self, "_v3_trim_id", None),
             )
         except Exception as e:
             logger.error("Checkpoint save failed: %s", e)
@@ -581,11 +677,19 @@ class ProcessingPipeline:
         """Signal the processing loop to pause."""
         self.pause_requested.set()
 
-    def resume_from_checkpoint(self) -> int:
-        """Load checkpoint and restore state. Returns start_frame or 0."""
+    def resume_from_checkpoint(self, start_frame_floor: int = 0) -> int:
+        """Load checkpoint and restore state. Returns start_frame.
+
+        start_frame_floor: minimum frame to resume from. The 60-second
+        rewind that prevents losing in-flight tracks can otherwise dip
+        below the current segment's start_frame — in v3 a single video
+        can host multiple segments, and rewinding past the segment
+        boundary would (a) reprocess and double-count the prior segment
+        and (b) make the overlap DELETE wipe that prior segment's events.
+        """
         checkpoint = self._checkpoint_mgr.load_checkpoint()
         if checkpoint is None:
-            return 0
+            return max(0, start_frame_floor)
 
         self.vehicle_count = checkpoint["vehicle_count"]
         self.error_count = checkpoint["error_count"]
@@ -611,10 +715,12 @@ class ProcessingPipeline:
                 self.active_vehicles = {}
 
         overlap_frames = int(60 * self.fps)
-        start_frame = max(0, checkpoint["frame_number"] - overlap_frames)
+        raw_start = max(0, checkpoint["frame_number"] - overlap_frames)
+        start_frame = max(start_frame_floor, raw_start)
 
         # Delete events in the overlap region to prevent duplicates on resume.
-        # Scoped to the current video so resuming video N doesn't wipe video N-1's events.
+        # Scoped to the current video AND >= start_frame (which honours the
+        # floor) so resuming segment N doesn't wipe segment N-1's events.
         conn = sqlite3.connect(self.db_path)
         if self.video_id is not None:
             conn.execute(

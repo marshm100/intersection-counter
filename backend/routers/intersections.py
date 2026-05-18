@@ -17,11 +17,16 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.config import PROJECTS_DIR
+from backend.config import (
+    DEFAULT_PROCESSING_MODE, PROCESSING_MODES, PROJECTS_DIR,
+    get_processing_mode_config,
+)
 from backend.database import (
-    add_trim, get_camera, get_connection, get_intersection,
+    add_trim, clear_v3_run_state, get_camera, get_connection,
+    get_db_path, get_intersection, get_project_info, get_v3_run_state,
+    heal_v3_running_to_interrupted,
     list_cameras, list_intersections, list_trims, list_videos_for_camera,
-    remove_camera, remove_intersection, remove_trim,
+    remove_camera, remove_intersection, remove_trim, set_v3_run_state,
     update_camera, update_intersection, update_trim,
 )
 from backend.services.coverage import (
@@ -118,6 +123,39 @@ def _stop_v3_preview_worker(key: tuple[str, int]) -> None:
 
 import logging
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Startup: heal stale v3 run-state left by killed pipelines
+# ---------------------------------------------------------------------------
+
+def _heal_v3_stale_status() -> None:
+    """Reset any persisted 'running' status to 'interrupted' on server start.
+
+    Mirrors v2's _heal_stale_status. When uvicorn reloads (or the app is
+    closed mid-run), pipeline threads die but v3_run_state still says
+    'running'. We flip those to 'interrupted' so the resume UI shows
+    Continue instead of leaving the user with a stale Running indicator
+    or a stale Start button that would double-count.
+    """
+    if not PROJECTS_DIR.exists():
+        return
+    for d in PROJECTS_DIR.iterdir():
+        if not d.is_dir() or not (d / "project.db").exists():
+            continue
+        try:
+            healed = heal_v3_running_to_interrupted(d.name)
+            if healed:
+                logger.info(
+                    "v3 heal: project %s — flipped intersections %s "
+                    "from running → interrupted",
+                    d.name, healed,
+                )
+        except Exception as e:
+            logger.warning("v3 heal failed for %s: %s", d.name, e)
+
+
+_heal_v3_stale_status()
 
 
 # --- Request models --------------------------------------------------------
@@ -469,16 +507,24 @@ def processing_preflight(project_id: str, intersection_id: int):
 
 
 def _run_v3_pipeline(
-    project_id: str, intersection_id: int, segments: list,
+    project_id: str,
+    intersection_id: int,
+    segments: list,
+    start_segment_index: int = 0,
+    resume_first_segment: bool = False,
 ):
     """Background thread: run the pipeline for each segment in turn.
+
+    start_segment_index / resume_first_segment let the resume endpoint
+    pick up where a prior run was interrupted: the first segment in the
+    loop applies pipeline.resume_from_checkpoint(start_frame_floor=…) to
+    restore tracker state and rewind a bounded amount; later segments
+    process from their natural frame range.
 
     Imported lazily to avoid pulling the ProcessingPipeline (which loads
     torch/ultralytics) into the intersections module at import time —
     matters for test environments where torch DLLs are flaky.
     """
-    from backend.database import get_db_path
-    from backend.services.checkpoint import CheckpointManager
     from backend.services.pipeline import ProcessingPipeline
     from backend.config import DEFAULT_FRAME_SKIP
     import json as _json
@@ -486,14 +532,23 @@ def _run_v3_pipeline(
     db_path = str(get_db_path(project_id))
     key = (project_id, intersection_id)
 
+    # Per-project processing mode (fast vs accurate). Defaults to
+    # accurate so projects created before this toggle existed keep
+    # current behavior on upgrade.
+    mode_name = get_project_info(project_id, "processing_mode") or DEFAULT_PROCESSING_MODE
+    mode_cfg = get_processing_mode_config(mode_name)
+
     try:
         with _v3_jobs_lock:
             _v3_jobs[key]["status"] = "running"
+        set_v3_run_state(project_id, intersection_id, "running")
 
-        for idx, seg in enumerate(segments):
+        for idx in range(start_segment_index, len(segments)):
+            seg = segments[idx]
             with _v3_jobs_lock:
                 if _v3_jobs[key].get("cancel_requested"):
                     _v3_jobs[key]["status"] = "cancelled"
+                    set_v3_run_state(project_id, intersection_id, "cancelled")
                     return
                 _v3_jobs[key]["current_segment_index"] = idx
                 _v3_jobs[key]["current_camera_id"] = seg.camera_id
@@ -529,6 +584,10 @@ def _run_v3_pipeline(
                 legs=leg_rows,
                 fps=seg.fps,
                 video_id=seg.video_id,
+                yolo_model=mode_cfg["yolo_model"],
+                yolo_imgsz=mode_cfg["yolo_imgsz"],
+                yolo_confidence=mode_cfg["yolo_confidence"],
+                detection_skip=mode_cfg["detection_skip"],
             )
             # Tag events with our trim_id + camera_id so the aggregator can
             # group correctly. The pipeline already writes video_id from
@@ -542,6 +601,24 @@ def _run_v3_pipeline(
             preview_q = _ensure_v3_preview_worker(key)
 
             def _on_frame(data: dict, _q=preview_q):
+                # Stash per-frame progress so /processing/status can surface
+                # frame_number, intra-segment progress_pct, fps_processing,
+                # and eta_seconds to the chip — without these, the UI can't
+                # show a liveness indicator or ETA, and a stuck pipeline is
+                # indistinguishable from a slow one.
+                try:
+                    with _v3_jobs_lock:
+                        if key in _v3_jobs:
+                            _v3_jobs[key]["frame_progress"] = {
+                                "frame_number": data.get("frame_number"),
+                                "total_frames": data.get("total_frames"),
+                                "progress_pct": data.get("progress_pct"),
+                                "fps_processing": data.get("fps_processing"),
+                                "eta_seconds": data.get("eta_seconds"),
+                                "vehicle_count": data.get("vehicle_count"),
+                            }
+                except Exception:
+                    pass
                 try:
                     _q.put_nowait((
                         data["raw_frame"],
@@ -558,6 +635,18 @@ def _run_v3_pipeline(
                 except Exception:
                     pass
 
+            # On resume, the first segment in the loop picks up where
+            # the prior run left off: tracker state + active trajectories
+            # are restored from the checkpoint, and the resumed start_frame
+            # is clamped to seg.start_frame so we never cross back into a
+            # prior segment's range.
+            if idx == start_segment_index and resume_first_segment:
+                this_start = pipeline.resume_from_checkpoint(
+                    start_frame_floor=seg.start_frame,
+                )
+            else:
+                this_start = seg.start_frame
+
             # Stash the running pipeline on the job dict so the cancel
             # endpoint can flip its is_running flag and stop processing
             # mid-segment. Without this, cancel only takes effect at the
@@ -567,7 +656,7 @@ def _run_v3_pipeline(
             try:
                 pipeline.process_video(
                     frame_skip=DEFAULT_FRAME_SKIP,
-                    start_frame=seg.start_frame,
+                    start_frame=this_start,
                     end_frame=seg.end_frame,
                     callback=_on_frame,
                 )
@@ -580,6 +669,7 @@ def _run_v3_pipeline(
                     if cancelled:
                         _v3_jobs[key]["status"] = "cancelled"
             if cancelled:
+                set_v3_run_state(project_id, intersection_id, "cancelled")
                 return
             # Backfill camera_id + trim_id on events the pipeline wrote.
             # The pipeline currently writes only video_id; we patch the
@@ -602,10 +692,14 @@ def _run_v3_pipeline(
 
         with _v3_jobs_lock:
             _v3_jobs[key]["status"] = "complete"
+        set_v3_run_state(project_id, intersection_id, "complete")
     except Exception as exc:
         with _v3_jobs_lock:
             _v3_jobs[key]["status"] = "error"
             _v3_jobs[key]["error"] = str(exc)
+        set_v3_run_state(
+            project_id, intersection_id, "error", error_message=str(exc),
+        )
     finally:
         # Tear down the live preview worker — keep the last frame stashed
         # briefly so the client's MJPEG stream sees a final frame before
@@ -618,7 +712,11 @@ def processing_start(project_id: str, intersection_id: int):
     """Plan + kick off processing for an entire intersection-day.
 
     Refuses if the plan has coverage errors; the user must fix trims first.
-    Runs in a daemon thread. Status visible via /processing/status.
+    Also refuses if a prior run is queued/running/interrupted — the user
+    must explicitly Continue (/processing/resume) or wipe
+    (/processing/reprocess) so we never double-count on top of partial
+    prior events. Runs in a daemon thread; status visible via
+    /processing/status.
     """
     _require_project(project_id)
     intersection = _require_intersection(project_id, intersection_id)
@@ -631,6 +729,23 @@ def processing_start(project_id: str, intersection_id: int):
         })
     if not plan.segments:
         raise HTTPException(status_code=400, detail="Nothing to process.")
+
+    # Refuse if persisted state says we're already mid-run. The healing
+    # step on server start downgrades 'running' → 'interrupted'; either
+    # way we'd corrupt the counts by starting a parallel run on top.
+    db_state = get_v3_run_state(project_id, intersection_id)
+    if db_state and db_state["status"] in ("queued", "running", "interrupted"):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    f"Intersection is in '{db_state['status']}' state. "
+                    "Use Continue to resume from the last checkpoint, or "
+                    "Restart from beginning to discard prior counts."
+                ),
+                "status": db_state["status"],
+            },
+        )
 
     key = (project_id, intersection_id)
     with _v3_jobs_lock:
@@ -651,6 +766,7 @@ def processing_start(project_id: str, intersection_id: int):
             "warnings": [],
             "cancel_requested": False,
         }
+    set_v3_run_state(project_id, intersection_id, "queued")
 
     t = threading.Thread(
         target=_run_v3_pipeline,
@@ -662,6 +778,22 @@ def processing_start(project_id: str, intersection_id: int):
 
 
 _JOB_NON_SERIALIZABLE_KEYS = {"pipeline"}
+
+
+def _is_intersection_configured(project_id: str, intersection: dict) -> bool:
+    """True when the intersection is ready to start processing — trims
+    defined, cameras have legs, coverage is complete, and the planner
+    produces at least one segment.
+
+    Used by /processing/status so the chip can distinguish 'never
+    configured' from 'configured but not started' (was previously
+    collapsed into a single 'idle' branch that always showed Configure).
+    """
+    try:
+        plan = _plan_for_intersection(project_id, intersection)
+        return not plan.errors and len(plan.segments) > 0
+    except Exception:
+        return False
 
 
 def _pipeline_live_stats(pipeline) -> dict:
@@ -684,21 +816,50 @@ def _pipeline_live_stats(pipeline) -> dict:
 
 @router.get("/projects/{project_id}/intersections/{intersection_id}/processing/status")
 def processing_status(project_id: str, intersection_id: int):
-    """Poll the running orchestrator state for this intersection-day."""
+    """Poll the orchestrator state for this intersection-day.
+
+    Falls back to the persisted v3_run_state when no in-memory job
+    exists (typical after an app restart that left an interrupted run).
+    """
+    from backend.services.checkpoint import CheckpointManager
+
     _require_project(project_id)
-    _require_intersection(project_id, intersection_id)
+    intersection = _require_intersection(project_id, intersection_id)
+    configured = _is_intersection_configured(project_id, intersection)
     key = (project_id, intersection_id)
     with _v3_jobs_lock:
         job = _v3_jobs.get(key)
-        if not job:
-            return {"status": "idle"}
-        # Filter out internal refs that aren't JSON-encodable (e.g. the
-        # ProcessingPipeline instance the cancel endpoint reaches through),
-        # but capture the pipeline's live counters before we strip the ref.
-        pipeline = job.get("pipeline")
-        out = {k: v for k, v in job.items() if k not in _JOB_NON_SERIALIZABLE_KEYS}
-        out["pipeline_stats"] = _pipeline_live_stats(pipeline)
-        return out
+        if job:
+            # Filter out internal refs that aren't JSON-encodable (e.g. the
+            # ProcessingPipeline instance the cancel endpoint reaches through),
+            # but capture the pipeline's live counters before we strip the ref.
+            pipeline = job.get("pipeline")
+            out = {k: v for k, v in job.items() if k not in _JOB_NON_SERIALIZABLE_KEYS}
+            out["pipeline_stats"] = _pipeline_live_stats(pipeline)
+            out["configured"] = configured
+            return out
+
+    # No in-memory job — check the DB. After a server restart this is the
+    # only place the UI can learn that a prior run was interrupted.
+    db_state = get_v3_run_state(project_id, intersection_id)
+    if db_state is None:
+        return {"status": "idle", "configured": configured}
+
+    has_checkpoint = False
+    try:
+        has_checkpoint = CheckpointManager(
+            str(get_db_path(project_id))
+        ).has_checkpoint()
+    except Exception:
+        pass
+
+    return {
+        "status": db_state["status"],
+        "configured": configured,
+        "error": db_state.get("error_message"),
+        "has_checkpoint": has_checkpoint,
+        "updated_at": db_state.get("updated_at"),
+    }
 
 
 @router.get("/projects/{project_id}/intersections/{intersection_id}/processing/preview-stream")
@@ -780,6 +941,193 @@ def processing_cancel(project_id: str, intersection_id: int):
     if pipeline is not None:
         pipeline.is_running = False
     return {"status": "cancel_requested"}
+
+
+@router.post("/projects/{project_id}/intersections/{intersection_id}/processing/resume")
+def processing_resume(project_id: str, intersection_id: int):
+    """Continue an interrupted run from the last checkpoint.
+
+    Replans the segments (in case trims/cameras drifted), looks up the
+    checkpoint to find which segment was running, and spawns the
+    pipeline thread starting from that segment with
+    `resume_first_segment=True`. Events from completed segments are
+    untouched; events in the interrupted segment's overlap window are
+    deleted by `resume_from_checkpoint` so we never double-count.
+    """
+    from backend.services.checkpoint import CheckpointManager
+
+    _require_project(project_id)
+    intersection = _require_intersection(project_id, intersection_id)
+
+    db_state = get_v3_run_state(project_id, intersection_id)
+    if db_state is None or db_state["status"] != "interrupted":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Nothing to resume — intersection is not in 'interrupted' "
+                f"state (current: {db_state['status'] if db_state else 'idle'})."
+            ),
+        )
+
+    plan = _plan_for_intersection(project_id, intersection)
+    if plan.errors:
+        raise HTTPException(status_code=422, detail={
+            "message": "Cannot resume: trim coverage errors",
+            "errors": plan.errors,
+        })
+    if not plan.segments:
+        raise HTTPException(status_code=400, detail="Nothing to process.")
+
+    checkpoint = CheckpointManager(str(get_db_path(project_id))).load_checkpoint()
+    if checkpoint is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No checkpoint found. Use Restart from beginning to start "
+                "fresh — there's nothing to continue from."
+            ),
+        )
+
+    cur_video = checkpoint.get("current_video_id")
+    cur_frame = checkpoint.get("frame_number")
+    cur_camera = checkpoint.get("current_camera_id")
+    cur_trim = checkpoint.get("current_trim_id")
+
+    # Locate the segment the prior run was in the middle of. Prefer an
+    # exact camera+trim match (saved on v3 checkpoints since this change);
+    # fall back to video+frame for older checkpoints written before the
+    # camera/trim columns were populated.
+    match_idx: int | None = None
+    for i, s in enumerate(plan.segments):
+        if cur_video is not None and s.video_id != cur_video:
+            continue
+        if cur_camera is not None and s.camera_id != cur_camera:
+            continue
+        if cur_trim is not None and s.trim_id != cur_trim:
+            continue
+        if cur_frame is not None and not (s.start_frame <= cur_frame < s.end_frame):
+            continue
+        match_idx = i
+        break
+
+    if match_idx is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": (
+                    "The saved checkpoint doesn't match any segment in the "
+                    "current plan — trims, cameras, or videos may have "
+                    "changed since processing was interrupted. Use Restart "
+                    "from beginning to start over."
+                ),
+                "checkpoint": {
+                    "video_id": cur_video, "camera_id": cur_camera,
+                    "trim_id": cur_trim, "frame_number": cur_frame,
+                },
+            },
+        )
+
+    key = (project_id, intersection_id)
+    with _v3_jobs_lock:
+        existing = _v3_jobs.get(key)
+        if existing and existing.get("status") in ("queued", "running"):
+            raise HTTPException(
+                status_code=409,
+                detail="Processing already running for this intersection.",
+            )
+        _v3_jobs[key] = {
+            "status": "queued",
+            "segment_count": len(plan.segments),
+            "current_segment_index": match_idx,
+            "current_camera_id": None,
+            "current_trim_id": None,
+            "current_video_id": None,
+            "error": None,
+            "warnings": [],
+            "cancel_requested": False,
+        }
+    set_v3_run_state(project_id, intersection_id, "queued")
+
+    t = threading.Thread(
+        target=_run_v3_pipeline,
+        args=(project_id, intersection_id, plan.segments),
+        kwargs={
+            "start_segment_index": match_idx,
+            "resume_first_segment": True,
+        },
+        daemon=True,
+    )
+    t.start()
+    return {
+        "status": "queued",
+        "resumed_from_segment": match_idx,
+        "resumed_from_frame": cur_frame,
+        "segments": len(plan.segments),
+    }
+
+
+@router.post("/projects/{project_id}/intersections/{intersection_id}/processing/reprocess")
+def processing_reprocess(project_id: str, intersection_id: int):
+    """Explicit wipe: discard prior counts + checkpoint so the user can
+    start fresh.
+
+    Deletes vehicle_events scoped to this intersection (via its trims and
+    cameras — catches both backfilled and not-yet-backfilled rows),
+    clears the checkpoint, and clears v3_run_state so the next
+    /processing/start is allowed through the active-state guard.
+    """
+    from backend.services.checkpoint import CheckpointManager
+
+    _require_project(project_id)
+    _require_intersection(project_id, intersection_id)
+
+    # Stop anything in flight first. processing_cancel is idempotent.
+    processing_cancel(project_id, intersection_id)
+
+    conn = get_connection(project_id)
+    try:
+        trim_ids = [r[0] for r in conn.execute(
+            "SELECT trim_id FROM trims WHERE intersection_id = ?",
+            (intersection_id,),
+        ).fetchall()]
+        camera_ids = [r[0] for r in conn.execute(
+            "SELECT camera_id FROM cameras WHERE intersection_id = ?",
+            (intersection_id,),
+        ).fetchall()]
+        if trim_ids:
+            placeholders = ",".join("?" * len(trim_ids))
+            conn.execute(
+                f"DELETE FROM vehicle_events WHERE trim_id IN ({placeholders})",
+                trim_ids,
+            )
+        # Pick up events from a partial prior run that never got
+        # camera_id/trim_id backfilled (the orchestrator only backfills
+        # after a segment finishes; interrupted segments don't get there).
+        if camera_ids:
+            placeholders = ",".join("?" * len(camera_ids))
+            conn.execute(
+                f"""DELETE FROM vehicle_events
+                   WHERE trim_id IS NULL
+                     AND camera_id IN ({placeholders})""",
+                camera_ids,
+            )
+            conn.execute(
+                f"""DELETE FROM vehicle_events
+                   WHERE camera_id IS NULL
+                     AND trim_id IS NULL
+                     AND video_id IN (
+                         SELECT video_id FROM videos
+                         WHERE camera_id IN ({placeholders})
+                     )""",
+                camera_ids,
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    CheckpointManager(str(get_db_path(project_id))).clear_checkpoint()
+    clear_v3_run_state(project_id, intersection_id)
+    return {"status": "ok"}
 
 
 # --- Aggregation + Excel export ------------------------------------------

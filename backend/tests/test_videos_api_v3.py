@@ -176,6 +176,32 @@ class TestSaveLabels:
         second_ids = sorted(i["intersection_id"] for i in second["intersections"])
         assert first_ids == second_ids
 
+    def test_first_build_reports_created_counts(self, project_id, fake_videos):
+        """Frontend uses these counts to render 'Built X new, kept Y' toasts
+        so a re-click is honest about whether anything actually changed."""
+        client.post(f"/api/projects/{project_id}/videos/bulk",
+                    json={"paths": fake_videos[:3]})
+        body = client.post(f"/api/projects/{project_id}/videos/save-labels").json()
+        # First build of 2 intersections (Main St 5/14, 5th Ave 5/15) and
+        # 3 cameras (Cam1+Cam2 at Main St, Cam1 at 5th Ave).
+        assert body["intersections_created"] == 2
+        assert body["intersections_existed"] == 0
+        assert body["cameras_created"] == 3
+        assert body["cameras_existed"] == 0
+
+    def test_re_save_reports_existed_not_created(self, project_id, fake_videos):
+        """The second click should report everything as existed, nothing
+        created — so the UI can say 'no changes' instead of pretending
+        another batch was built."""
+        client.post(f"/api/projects/{project_id}/videos/bulk",
+                    json={"paths": fake_videos[:3]})
+        client.post(f"/api/projects/{project_id}/videos/save-labels")
+        body = client.post(f"/api/projects/{project_id}/videos/save-labels").json()
+        assert body["intersections_created"] == 0
+        assert body["cameras_created"] == 0
+        assert body["intersections_existed"] >= 2
+        assert body["cameras_existed"] >= 3
+
     def test_videos_linked_to_correct_camera(self, project_id, fake_videos):
         client.post(f"/api/projects/{project_id}/videos/bulk",
                     json={"paths": fake_videos[:3]})

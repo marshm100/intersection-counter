@@ -226,3 +226,229 @@ def classify_trajectory_batch(
         classify_trajectory(t["trajectory"], t["reference_heading"])
         for t in trajectories
     ]
+
+
+# ---------------------------------------------------------------------------
+# Destination-leg classification (bug #5 Phase B).
+#
+# The angle-bucket classifier above flattens the whole trajectory into one
+# number (net_heading_change) and was biased toward "through" — at
+# Sunnyvale TX it counted ~120 throughs to ~3 turns per leg, while the
+# true split is closer to 60/40. The fix below shifts the decision to
+# "which leg did the vehicle exit toward?" by scoring each candidate leg
+# on heading + position alignment. Movement type (through/left/right/u_turn)
+# is then derived from the (origin, destination) reference-heading geometry,
+# not from any hardcoded turn matrix.
+# ---------------------------------------------------------------------------
+
+
+def _leg_origin_point(leg: dict) -> tuple[float, float]:
+    """Return a single (x, y) representing the leg's tripwire location.
+
+    v3 calibration: origin_zone is [[x, y]] (single point). v2: it's
+    [[x1, y1], [x2, y2]] — return the midpoint so both shapes feed the
+    same downstream geometry.
+    """
+    oz = leg.get("origin_zone") or []
+    if not oz:
+        return (0.0, 0.0)
+    if len(oz) == 1:
+        return (float(oz[0][0]), float(oz[0][1]))
+    # Multi-point: average. For 2-point lines this is the midpoint;
+    # for unusual shapes it's still a reasonable representative point.
+    sx = sum(float(p[0]) for p in oz) / len(oz)
+    sy = sum(float(p[1]) for p in oz) / len(oz)
+    return (sx, sy)
+
+
+def _intersection_center(legs: list[dict]) -> tuple[float, float]:
+    """Centroid of every leg's origin point. Zero new calibration."""
+    if not legs:
+        return (0.0, 0.0)
+    points = [_leg_origin_point(leg) for leg in legs]
+    cx = sum(p[0] for p in points) / len(points)
+    cy = sum(p[1] for p in points) / len(points)
+    return (cx, cy)
+
+
+def _normalize(vx: float, vy: float) -> tuple[float, float]:
+    n = math.hypot(vx, vy)
+    if n == 0:
+        return (0.0, 0.0)
+    return (vx / n, vy / n)
+
+
+def _exit_velocity(trajectory: list[tuple]) -> tuple[float, float]:
+    """Unit vector of the trajectory's final motion, averaged over the
+    tail to smooth jitter."""
+    n = len(trajectory)
+    if n < 2:
+        return (0.0, 0.0)
+    window = max(1, min(n // 5, 7))
+    start = trajectory[max(0, n - 1 - window)]
+    end = trajectory[-1]
+    return _normalize(end[0] - start[0], end[1] - start[1])
+
+
+def score_destination_leg(
+    trajectory: list[tuple],
+    origin_leg_id: int,
+    all_legs: list[dict],
+    *,
+    heading_weight: float = 0.7,
+    position_weight: float = 0.3,
+) -> dict:
+    """Pick the leg the vehicle most likely exited toward.
+
+    Returns:
+      {
+        "destination_leg_id": int,
+        "confidence": float in [0, 1],
+        "posterior": {leg_id: probability},
+      }
+
+    Empty result (destination_leg_id=None) when the trajectory is too
+    short or there are no candidate legs.
+
+    Scoring: for each leg L, the expected exit direction is the unit
+    vector from intersection center to L's origin point. We score the
+    trajectory's exit velocity and exit-position-from-center against
+    this expected direction. Including the origin leg as a candidate
+    is what makes u-turns detectable (exit velocity aligns with the
+    origin-direction-from-center).
+    """
+    if not all_legs or len(trajectory) < 2:
+        return {"destination_leg_id": None, "confidence": 0.0, "posterior": {}}
+
+    center = _intersection_center(all_legs)
+    exit_vel = _exit_velocity(trajectory)
+    exit_pos = trajectory[-1]
+    exit_pos_dir = _normalize(exit_pos[0] - center[0], exit_pos[1] - center[1])
+
+    raw_scores: dict[int, float] = {}
+    for leg in all_legs:
+        lp = _leg_origin_point(leg)
+        expected = _normalize(lp[0] - center[0], lp[1] - center[1])
+        if expected == (0.0, 0.0):
+            raw_scores[leg["leg_id"]] = -1.0  # leg is at the center — unscorable
+            continue
+        heading_score = exit_vel[0] * expected[0] + exit_vel[1] * expected[1]
+        position_score = exit_pos_dir[0] * expected[0] + exit_pos_dir[1] * expected[1]
+        raw_scores[leg["leg_id"]] = (
+            heading_weight * heading_score + position_weight * position_score
+        )
+
+    # Convert raw scores (in [-1, 1]) to a posterior via softmax. Temperature
+    # of 4.0 sharpens the distribution so the argmax usually exceeds 0.5
+    # when one leg is clearly favored, without being so peaky that small
+    # geometric differences get drowned out.
+    temp = 4.0
+    max_score = max(raw_scores.values())
+    exp_scores = {lid: math.exp(temp * (s - max_score)) for lid, s in raw_scores.items()}
+    total = sum(exp_scores.values()) or 1.0
+    posterior = {lid: v / total for lid, v in exp_scores.items()}
+
+    dest_id = max(posterior, key=posterior.get)
+    return {
+        "destination_leg_id": dest_id,
+        "confidence": posterior[dest_id],
+        "posterior": posterior,
+    }
+
+
+def derive_movement(
+    origin_leg: dict,
+    destination_leg: dict | None,
+    all_legs: list[dict] | None = None,
+) -> str:
+    """Derive movement type from intersection geometry, rank-based.
+
+    Fixed-bucket assignment (delta ≤ 45° → u_turn, etc.) only works at
+    perfectly orthogonal intersections. At skewed real-world geometries
+    (e.g., NBeltLineRd/NorthwestDr in Sunnyvale, where legs are at
+    259°, 61°, 290°, 123° — nowhere near 90° apart) the bucket rule
+    mis-labels real destinations:
+
+      origin = Leg 1 (ref 259°)
+      → Leg 3 (ref 290°), delta=31° → bucket said u_turn  (wrong!)
+      → Leg 4 (ref 123°), delta=224° → bucket said through (also wrong)
+
+    Instead we sort the non-origin legs by delta CCW from origin and
+    assign by rank:
+      - 3 other legs (4-leg intersection): rank 0/1/2 → left/through/right
+      - 2 other legs (T-junction): detect through (delta ≈ 180); other
+        becomes left or right by its CCW position
+      - 1 other leg (degenerate): left or right by delta
+      - ≥4 other legs (5+ leg intersection): fall back to nearest-canonical
+        (delta closest to 90/180/270 wins left/through/right).
+
+    Same-leg destinations are u_turn regardless of geometry.
+
+    all_legs is the list of all legs at this intersection (origin
+    included). When omitted we fall back to a delta-only check that's
+    correct for orthogonal intersections but unreliable otherwise.
+    """
+    if destination_leg is None:
+        return "insufficient_data"
+    if destination_leg["leg_id"] == origin_leg["leg_id"]:
+        return "u_turn"
+
+    origin_ref = float(origin_leg.get("reference_heading", 0))
+
+    def _delta(leg: dict) -> float:
+        return (float(leg.get("reference_heading", 0)) - origin_ref) % 360
+
+    if not all_legs:
+        # Legacy callers / tests that haven't passed all_legs. Use the
+        # fixed-bucket fallback (correct for orthogonal layouts).
+        delta = _delta(destination_leg)
+        if 135 <= delta <= 225:
+            return "through"
+        if delta < 135:
+            return "left"
+        return "right"
+
+    others = sorted(
+        [l for l in all_legs if l["leg_id"] != origin_leg["leg_id"]],
+        key=_delta,
+    )
+    if not others:
+        return "u_turn"   # only the origin exists; defensive
+    rank = next(
+        (i for i, l in enumerate(others) if l["leg_id"] == destination_leg["leg_id"]),
+        None,
+    )
+    if rank is None:
+        return "insufficient_data"
+
+    n = len(others)
+    if n == 1:
+        # Degenerate intersection (only origin + one other). Call it a
+        # turn based on which side of origin's heading the other leg sits.
+        return "left" if _delta(others[0]) < 180 else "right"
+
+    if n == 2:
+        d0 = _delta(others[0])
+        d1 = _delta(others[1])
+        # If one leg is roughly opposite (within 60° of 180°), it's the
+        # through; the other is the turn side. Otherwise both are turns
+        # (T-junction with origin = stem).
+        dist_180 = lambda d: min(abs(180 - d), abs(180 - d + 360), abs(180 - d - 360))
+        if dist_180(d0) < dist_180(d1) and dist_180(d0) <= 60:
+            return "through" if rank == 0 else ("left" if d1 < 180 else "right")
+        if dist_180(d1) <= 60:
+            return "through" if rank == 1 else ("left" if d0 < 180 else "right")
+        # No through — pure T-junction with stem as origin.
+        return "left" if rank == 0 else "right"
+
+    if n == 3:
+        # Canonical 4-leg intersection. Rank by CCW delta → left/through/right.
+        return ("left", "through", "right")[rank]
+
+    # 5+ legs: nearest-canonical fallback.
+    d = _delta(destination_leg)
+    def _angle_dist(a: float, b: float) -> float:
+        diff = abs(a - b) % 360
+        return min(diff, 360 - diff)
+    candidates = [(90.0, "left"), (180.0, "through"), (270.0, "right")]
+    return min(candidates, key=lambda t: _angle_dist(d, t[0]))[1]

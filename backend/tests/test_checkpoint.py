@@ -90,3 +90,17 @@ class TestCheckpointManager:
         cp = mgr.load_checkpoint()
         assert cp["updated_at"] is not None
         assert len(cp["updated_at"]) > 10  # ISO datetime string
+
+    def test_camera_and_trim_ids_round_trip(self, mgr):
+        mgr.save_checkpoint(
+            frame_number=10, timestamp_video=0.33,
+            tracker_state=b"", active_trajectories=b"",
+            vehicle_count=0, error_count=0,
+            current_video_id=7,
+            current_camera_id=3,
+            current_trim_id=11,
+        )
+        cp = mgr.load_checkpoint()
+        assert cp["current_video_id"] == 7
+        assert cp["current_camera_id"] == 3
+        assert cp["current_trim_id"] == 11

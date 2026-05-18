@@ -95,6 +95,23 @@ CREATE TABLE IF NOT EXISTS vehicle_events (
     start_frame           INTEGER DEFAULT NULL,
     manually_edited       INTEGER DEFAULT 0,
     rejected              INTEGER NOT NULL DEFAULT 0,
+    -- Phase A instrumentation for the turn classifier: store the
+    -- decision factors so a misclassification can be audited after
+    -- the fact without re-running detection. Nullable for backfill
+    -- compatibility with rows written before this column landed.
+    classifier_net_heading_change   REAL,
+    classifier_cumulative_curvature REAL,
+    classifier_path_straightness    REAL,
+    classifier_path_distance        REAL,
+    classifier_num_points           INTEGER,
+    -- Destination-leg classification (bug #5 Phase B). The pipeline now
+    -- picks a destination leg per track and derives movement from the
+    -- (origin, destination) geometry, replacing the angle-bucket
+    -- classifier that biased everything toward "through". Posterior is
+    -- the full softmax over all legs so review tools can re-pick.
+    destination_leg_id              INTEGER,
+    destination_confidence          REAL,
+    destination_posterior_json      TEXT,
     FOREIGN KEY (origin_leg_id) REFERENCES legs(leg_id),
     FOREIGN KEY (video_id) REFERENCES videos(video_id),
     FOREIGN KEY (camera_id) REFERENCES cameras(camera_id),
@@ -122,6 +139,18 @@ CREATE TABLE IF NOT EXISTS low_confidence_segments (
     start_timestamp_video REAL NOT NULL,
     end_timestamp_video REAL NOT NULL,
     reason TEXT NOT NULL
+);
+
+-- v3: per-intersection processing status that survives app restart.
+-- Without this, _v3_jobs (memory only) is lost on restart and the UI
+-- can't tell a mid-run shutdown from an idle intersection — so a user
+-- clicks Start and double-counts on top of partial prior events.
+CREATE TABLE IF NOT EXISTS v3_run_state (
+    intersection_id INTEGER PRIMARY KEY,
+    status          TEXT NOT NULL,        -- queued|running|interrupted|complete|cancelled|error
+    error_message   TEXT,
+    updated_at      TEXT NOT NULL,
+    FOREIGN KEY (intersection_id) REFERENCES intersections(intersection_id)
 );
 """
 
@@ -171,6 +200,25 @@ def get_connection(project_id: str) -> sqlite3.Connection:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN camera_id INTEGER DEFAULT NULL")
     if "trim_id" not in ev_cols:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN trim_id INTEGER DEFAULT NULL")
+    # Classifier instrumentation (Phase A of bug #5 turn-classifier work).
+    # Nullable so legacy rows simply have NULL — no need to backfill.
+    if "classifier_net_heading_change" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN classifier_net_heading_change REAL")
+    if "classifier_cumulative_curvature" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN classifier_cumulative_curvature REAL")
+    if "classifier_path_straightness" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN classifier_path_straightness REAL")
+    if "classifier_path_distance" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN classifier_path_distance REAL")
+    if "classifier_num_points" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN classifier_num_points INTEGER")
+    # Phase B columns: destination-leg classification.
+    if "destination_leg_id" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_leg_id INTEGER")
+    if "destination_confidence" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_confidence REAL")
+    if "destination_posterior_json" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_posterior_json TEXT")
 
     cp_cols = [r[1] for r in conn.execute("PRAGMA table_info(checkpoint)").fetchall()]
     if "current_video_id" not in cp_cols:
@@ -721,6 +769,97 @@ def update_trim(
             params,
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+# -- v3: per-intersection run state ----------------------------------------
+
+# Statuses that mean "a pipeline thread should be running, or was running
+# when something interrupted it". We refuse a fresh Start in any of these,
+# and the startup heal step downgrades 'running' to 'interrupted'.
+_V3_RUN_STATE_ACTIVE = ("queued", "running", "interrupted")
+
+
+def set_v3_run_state(
+    project_id: str,
+    intersection_id: int,
+    status: str,
+    error_message: str | None = None,
+) -> None:
+    """Upsert the persisted processing status for one intersection."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_connection(project_id)
+    try:
+        conn.execute(
+            """INSERT INTO v3_run_state
+                 (intersection_id, status, error_message, updated_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(intersection_id) DO UPDATE SET
+                 status = excluded.status,
+                 error_message = excluded.error_message,
+                 updated_at = excluded.updated_at""",
+            (intersection_id, status, error_message, now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_v3_run_state(project_id: str, intersection_id: int) -> dict | None:
+    """Read the persisted processing status. None if no row exists (= idle)."""
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM v3_run_state WHERE intersection_id = ?",
+            (intersection_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "intersection_id": row["intersection_id"],
+            "status": row["status"],
+            "error_message": row["error_message"],
+            "updated_at": row["updated_at"],
+        }
+    finally:
+        conn.close()
+
+
+def clear_v3_run_state(project_id: str, intersection_id: int) -> None:
+    """Delete the run-state row entirely (back to idle)."""
+    conn = get_connection(project_id)
+    try:
+        conn.execute(
+            "DELETE FROM v3_run_state WHERE intersection_id = ?",
+            (intersection_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def heal_v3_running_to_interrupted(project_id: str) -> list[int]:
+    """Server-start cleanup: any 'running' row had its thread killed by
+    the restart, so flip it to 'interrupted' (the state the resume UI
+    cares about). Returns the intersection_ids that were healed.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_connection(project_id)
+    try:
+        ids = [r[0] for r in conn.execute(
+            "SELECT intersection_id FROM v3_run_state WHERE status = 'running'"
+        ).fetchall()]
+        if ids:
+            conn.execute(
+                """UPDATE v3_run_state
+                   SET status = 'interrupted', updated_at = ?
+                   WHERE status = 'running'""",
+                (now,),
+            )
+            conn.commit()
+        return ids
     finally:
         conn.close()
 

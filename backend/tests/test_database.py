@@ -33,7 +33,8 @@ def test_create_database():
     assert 'intersections' in tables
     assert 'cameras' in tables
     assert 'trims' in tables
-    assert len(tables) == 9
+    assert 'v3_run_state' in tables
+    assert len(tables) == 10
 
 def test_wal_mode():
     conn = get_connection(TEST_PROJECT)

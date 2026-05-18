@@ -32,6 +32,7 @@ class RenameProjectRequest(BaseModel):
 class UpdateSettingsRequest(BaseModel):
     num_legs: int | None = None
     video_start_time: str | None = None
+    processing_mode: str | None = None   # "fast" | "accurate"
 
 
 @router.get("/projects")
@@ -47,9 +48,14 @@ async def list_projects():
             continue
         try:
             info = get_all_project_info(d.name)
-            has_video = bool(info.get("video_path"))
             conn = get_connection(d.name)
             try:
+                # v3 stores videos in the videos table; v2 stored the path in
+                # project_info["video_path"]. A project has video if either is
+                # populated — without the videos-table check, every v3 project
+                # was tagged 'needs video' on the home screen.
+                video_count = conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
+                has_video = bool(info.get("video_path")) or video_count > 0
                 has_legs = conn.execute("SELECT COUNT(*) FROM legs").fetchone()[0] > 0
             finally:
                 conn.close()
@@ -157,6 +163,8 @@ async def rename_project(project_id: str, req: RenameProjectRequest):
 
 @router.put("/projects/{project_id}/settings")
 async def update_settings(project_id: str, req: UpdateSettingsRequest):
+    from backend.config import PROCESSING_MODES
+
     project_dir = PROJECTS_DIR / project_id
     if not project_dir.exists():
         raise HTTPException(status_code=404, detail="Project not found")
@@ -164,7 +172,38 @@ async def update_settings(project_id: str, req: UpdateSettingsRequest):
         set_project_info(project_id, "num_legs", str(req.num_legs))
     if req.video_start_time is not None:
         set_project_info(project_id, "video_start_time", req.video_start_time)
+    if req.processing_mode is not None:
+        if req.processing_mode not in PROCESSING_MODES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unknown processing_mode '{req.processing_mode}'. "
+                       f"Expected one of: {sorted(PROCESSING_MODES.keys())}",
+            )
+        set_project_info(project_id, "processing_mode", req.processing_mode)
     return {"status": "ok"}
+
+
+@router.get("/processing-modes")
+async def list_processing_modes():
+    """Return the list of available processing modes for the frontend selector.
+
+    Stripped down to the fields the UI needs (label, description) — we don't
+    expose model/imgsz/detection_skip via the API since those are
+    implementation details the user shouldn't tune directly.
+    """
+    from backend.config import DEFAULT_PROCESSING_MODE, PROCESSING_MODES
+
+    return {
+        "default": DEFAULT_PROCESSING_MODE,
+        "modes": [
+            {
+                "key": key,
+                "label": cfg["label"],
+                "description": cfg["description"],
+            }
+            for key, cfg in PROCESSING_MODES.items()
+        ],
+    }
 
 
 class BulkImportRequest(BaseModel):

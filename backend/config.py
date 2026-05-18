@@ -18,15 +18,50 @@ PRESCAN_CONFIDENCE_THRESHOLD = 0.90
 CHECKPOINT_INTERVAL_SECONDS = 120
 MAX_CONCURRENT_PIPELINES = 2
 
-# Detection — tuned for accuracy over speed. yolo26l is the large variant;
-# imgsz=1280 keeps distant intersection vehicles detectable at 1080p capture.
-# Expect ~6-10× slower than yolo26s @ 640. Confidence is intentionally low —
-# obvious-looking vehicles (e.g., a foreground pickup in glare) sometimes
-# come back at 0.10-0.14 from yolo26l, especially when partially backlit.
+# Detection — accurate mode is tuned for accuracy over speed. yolo26l is
+# the large variant; imgsz=1280 keeps distant intersection vehicles
+# detectable at 1080p capture. Confidence is intentionally low — obvious
+# vehicles (e.g., a foreground pickup in glare) sometimes come back at
+# 0.10-0.14 from yolo26l, especially when partially backlit.
+#
+# Fast mode uses the small variant at 640 + every-3rd-frame detection
+# (tracker Kalman-interpolates between detections) — ~10-15× faster on
+# CPU. Mode is per-project; default is "accurate" so existing projects
+# don't change behavior on upgrade.
 YOLO_MODEL = "yolo26l.pt"
 YOLO_CONFIDENCE_THRESHOLD = 0.08
 YOLO_IOU_THRESHOLD = 0.45
 YOLO_IMGSZ = 1280
+
+PROCESSING_MODES = {
+    "accurate": {
+        "yolo_model": "yolo26l.pt",
+        "yolo_imgsz": 1280,
+        "yolo_confidence": 0.08,
+        # Detect on every frame — tracker sees full source frame rate.
+        "detection_skip": 1,
+        "label": "Accurate",
+        "description": "Best accuracy. Uses the large model at 1280 px and detects every frame. ~10-15× slower than Fast mode on CPU; recommended for final counts.",
+    },
+    "fast": {
+        "yolo_model": "yolo26s.pt",
+        "yolo_imgsz": 640,
+        # Slightly higher conf floor — small model is noisier at low conf.
+        "yolo_confidence": 0.15,
+        # Detect every 3rd frame; tracker Kalman-interpolates between.
+        "detection_skip": 3,
+        "label": "Fast",
+        "description": "~10-15× faster. Small model at 640 px with detection every 3rd frame; tracker interpolates. May miss small/distant vehicles. Good for previewing.",
+    },
+}
+DEFAULT_PROCESSING_MODE = "accurate"
+
+
+def get_processing_mode_config(mode: str | None) -> dict:
+    """Return the config dict for `mode`, falling back to default on unknown."""
+    if mode and mode in PROCESSING_MODES:
+        return PROCESSING_MODES[mode]
+    return PROCESSING_MODES[DEFAULT_PROCESSING_MODE]
 
 # Classification mapping (pedestrians out of scope for v2 per PRD)
 VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}

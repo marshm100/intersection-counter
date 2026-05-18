@@ -96,15 +96,18 @@ def _load_events_for_dedup(
         rows = conn.execute(
             f"""SELECT ve.event_id, ve.camera_id, ve.video_id, ve.trim_id,
                        ve.vehicle_track_id, ve.origin_leg_id, ve.movement,
+                       ve.destination_leg_id, ve.destination_confidence,
                        ve.vehicle_class, ve.fhwa_class,
                        ve.detection_confidence, ve.trajectory_confidence,
                        ve.timestamp_video, ve.frame_number, ve.rejected,
                        l.label              AS leg_label,
                        l.cardinal_direction AS cardinal_direction,
+                       dl.label             AS destination_label,
                        v.recording_start_datetime AS video_start
                 FROM vehicle_events ve
-                LEFT JOIN legs   l ON ve.origin_leg_id = l.leg_id
-                LEFT JOIN videos v ON ve.video_id      = v.video_id
+                LEFT JOIN legs   l  ON ve.origin_leg_id      = l.leg_id
+                LEFT JOIN legs   dl ON ve.destination_leg_id = dl.leg_id
+                LEFT JOIN videos v  ON ve.video_id           = v.video_id
                 WHERE ve.camera_id IN ({placeholders}) AND ve.rejected = 0""",
             tuple(camera_ids),
         ).fetchall()
@@ -202,6 +205,29 @@ def aggregate_intersection_day(project_id: str, intersection_id: int) -> dict:
 
     tmc_matrix = sorted(by_leg.values(), key=lambda r: r["leg_label"])
 
+    # Origin → Destination matrix (the canonical TMC matrix that engineers
+    # want). Built from the same kept_rows so dedup applies identically.
+    # Rows where destination_leg_id is NULL come from events written before
+    # the Phase B classifier landed — group them under "(unknown)".
+    od_counts: dict[tuple[str, str], int] = {}
+    for row in kept_rows:
+        origin = row.get("leg_label") or f"Leg {row['origin_leg_id']}"
+        dest = row.get("destination_label") or "(unknown)"
+        key = (origin, dest)
+        od_counts[key] = od_counts.get(key, 0) + 1
+
+    od_destinations = sorted({d for _, d in od_counts.keys()})
+    od_matrix: list[dict[str, Any]] = []
+    for origin in all_leg_labels:
+        row_out: dict[str, Any] = {"origin": origin}
+        row_total = 0
+        for dest in od_destinations:
+            cnt = od_counts.get((origin, dest), 0)
+            row_out[dest] = cnt
+            row_total += cnt
+        row_out["total"] = row_total
+        od_matrix.append(row_out)
+
     # Per-camera breakdown (no dedup — shows raw per-camera counts; the
     # merged matrix is the source of truth, this is for QA / spot-checks).
     per_camera_breakdown: list[dict] = []
@@ -232,6 +258,8 @@ def aggregate_intersection_day(project_id: str, intersection_id: int) -> dict:
     return {
         "intersection": intersection,
         "tmc_matrix": tmc_matrix,
+        "od_matrix": od_matrix,
+        "od_destinations": od_destinations,
         "per_camera_breakdown": per_camera_breakdown,
         "totals": {"vehicles": sum(r["total"] for r in tmc_matrix)},
         "dedup_summary": {

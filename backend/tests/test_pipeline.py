@@ -366,6 +366,108 @@ class TestPipelineCheckpointIntegration:
         assert p2.active_vehicles[5]["origin_leg_id"] == 1
         assert len(p2.active_vehicles[5]["trajectory"]) == 2
 
+    def test_detection_skip_runs_detection_on_every_nth_frame(self, pipeline_env):
+        """Fast mode runs YOLO every Nth frame; the tracker fills in
+        between via Kalman. This is what makes fast mode ~3x faster on
+        CPU. Verifies the wiring by counting detector.detect() calls."""
+        from unittest.mock import MagicMock
+        p = ProcessingPipeline(
+            project_id="test",
+            db_path=pipeline_env["db_path"],
+            video_path=pipeline_env["video_path"],
+            legs=pipeline_env["legs"],
+            fps=30.0,
+            detection_skip=3,
+        )
+        # Mock the detector so we count calls without loading YOLO.
+        mock_det = MagicMock()
+        mock_det.detect = MagicMock(return_value=[])
+        p._detector = mock_det
+        # Mock tracker too (also lazy-loaded; would otherwise try to init
+        # at first use).
+        mock_tracker = MagicMock()
+        mock_tracker.update = MagicMock(return_value=[])
+        p._tracker = mock_tracker
+
+        p.process_video(frame_skip=1)
+
+        # The pipeline_env video is 30 frames. detection_skip=3 means
+        # detection fires on frames 0, 3, 6, ..., 27 = 10 calls.
+        assert mock_det.detect.call_count == 10
+
+    def test_detection_skip_default_runs_every_frame(self, pipeline_env):
+        """Accurate mode (default detection_skip=1) keeps current behavior
+        of detecting on every frame."""
+        from unittest.mock import MagicMock
+        p = ProcessingPipeline(
+            project_id="test",
+            db_path=pipeline_env["db_path"],
+            video_path=pipeline_env["video_path"],
+            legs=pipeline_env["legs"],
+            fps=30.0,
+        )
+        mock_det = MagicMock()
+        mock_det.detect = MagicMock(return_value=[])
+        p._detector = mock_det
+        mock_tracker = MagicMock()
+        mock_tracker.update = MagicMock(return_value=[])
+        p._tracker = mock_tracker
+
+        p.process_video(frame_skip=1)
+        # 30 frames in the fixture video, detection runs on all of them.
+        assert mock_det.detect.call_count == 30
+
+    def test_resume_honours_start_frame_floor(self, pipeline_env):
+        """The floor protects a prior segment's events when resuming a
+        later segment in the same video. Without it, the 60-second rewind
+        would dip below the segment boundary and the cleanup DELETE would
+        wipe the prior segment."""
+        # Save a checkpoint at frame 2500 (well within the would-be rewind
+        # window of 60s * 30fps = 1800 frames → raw start = 700).
+        p = _make_pipeline(pipeline_env)
+        p.video_id = 1
+        p._save_checkpoint(frame_number=2500, video_time=2500 / 30.0)
+
+        # Seed two events on the same video_id: one at frame 500
+        # (prior segment, must survive), one at frame 2400 (current
+        # segment's overlap region, gets wiped).
+        conn = sqlite3.connect(pipeline_env["db_path"])
+        try:
+            conn.execute(
+                """INSERT INTO vehicle_events
+                   (video_id, vehicle_track_id, origin_leg_id, movement,
+                    trajectory_data, trajectory_confidence, vehicle_class,
+                    detection_confidence, timestamp_video, frame_number)
+                   VALUES (1, 1, 1, 'through', '[]', 0.9, 'car', 0.9, 0, 500)"""
+            )
+            conn.execute(
+                """INSERT INTO vehicle_events
+                   (video_id, vehicle_track_id, origin_leg_id, movement,
+                    trajectory_data, trajectory_confidence, vehicle_class,
+                    detection_confidence, timestamp_video, frame_number)
+                   VALUES (1, 2, 1, 'through', '[]', 0.9, 'car', 0.9, 0, 2400)"""
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        p2 = _make_pipeline(pipeline_env)
+        p2.video_id = 1
+        # Floor = 2000 (the current segment's start). Resumed start should
+        # clamp to 2000 (raw rewind would have given 700).
+        start = p2.resume_from_checkpoint(start_frame_floor=2000)
+        assert start == 2000
+
+        conn = sqlite3.connect(pipeline_env["db_path"])
+        try:
+            rows = conn.execute(
+                "SELECT frame_number FROM vehicle_events ORDER BY frame_number"
+            ).fetchall()
+        finally:
+            conn.close()
+        # Frame-500 event survives; frame-2400 (>= 2000 floor) is gone.
+        assert [r[0] for r in rows] == [500]
+
 
 # ---------------------------------------------------------------------------
 # TestVehicleEventWriting
@@ -423,6 +525,45 @@ class TestVehicleEventWriting:
         events = _get_vehicle_events(pipeline_env["db_path"])
         assert len(events) == 1
         assert events[0]["movement"] in ("through", "left", "right", "u_turn", "uturn")
+
+    def test_classifier_factors_persisted(self, pipeline_env):
+        """Phase A instrumentation for bug #5: the classifier's decision
+        factors (net_heading_change, cumulative_curvature, straightness,
+        path_distance, num_points) must land on every event so a
+        misclassification can be audited later. Without these, debugging
+        the through-bias requires re-running detection from scratch."""
+        p = _make_pipeline(pipeline_env)
+        p.active_vehicles[42] = {
+            "origin_leg_id": 1,
+            "reference_heading": 0.0,
+            "origin_frame": 5,
+            "trajectory": [(500, 780 - i * 20) for i in range(20)],
+            "confidences": [0.9] * 20,
+            "last_center": (500, 400),
+            "class_id": 2,
+            "class_name": "car",
+            "bbox_width": 100.0,
+            "bbox_height": 60.0,
+            "bbox_area": 6000.0,
+        }
+        p._finalize_vehicle(42, frame_number=25)
+
+        events = _get_vehicle_events(pipeline_env["db_path"])
+        assert len(events) == 1
+        e = events[0]
+        # All five classifier factors must be populated (not NULL) for a
+        # successfully-classified track.
+        assert e["classifier_net_heading_change"] is not None
+        assert e["classifier_cumulative_curvature"] is not None
+        assert e["classifier_path_straightness"] is not None
+        assert e["classifier_path_distance"] is not None
+        assert e["classifier_num_points"] is not None
+        # Sanity bounds on the values (catch wiring errors that would
+        # otherwise let nonsense through).
+        assert -180 <= e["classifier_net_heading_change"] <= 180
+        assert 0 <= e["classifier_path_straightness"] <= 1
+        assert e["classifier_path_distance"] > 0
+        assert e["classifier_num_points"] == 20
 
     def test_timestamp_real_computed(self, pipeline_env):
         """When video_start_time is set, timestamp_real is computed."""
