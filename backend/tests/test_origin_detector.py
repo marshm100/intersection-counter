@@ -4,11 +4,14 @@ import math
 import pytest
 
 from backend.services.origin_detector import (
+    assign_origin_by_backward_extrapolation,
+    backward_extrapolated_entry,
     closest_zone,
     compute_reference_heading,
     crossing_direction,
     did_cross_line,
     distance_point_to_line,
+    early_motion_vector,
     point_side_of_line,
 )
 
@@ -270,3 +273,127 @@ class TestComputeReferenceHeading:
         # Zone at right of frame (x=700), center to the left (x=300)
         heading = compute_reference_heading((700, 200), (700, 400), (300, 300))
         assert heading == pytest.approx(270.0, abs=1.0)
+
+
+# Sunnyvale TX intersection (project 97a7849a, camera 1) — realistic
+# 4-leg geometry that drives the backward-extrapolation logic. L19 and
+# L20 sit near frame edges; L18 and L21 are interior. Frame is 640x480.
+SUNNYVALE_LEGS = [
+    {"leg_id": 18, "reference_heading": 259.3, "origin_zone": [[474.0, 211.0]]},
+    {"leg_id": 19, "reference_heading":  61.0, "origin_zone": [[ 85.0, 370.0]]},
+    {"leg_id": 20, "reference_heading": 290.8, "origin_zone": [[547.0, 326.0]]},
+    {"leg_id": 21, "reference_heading": 123.1, "origin_zone": [[217.0, 234.0]]},
+]
+SUNNYVALE_FRAME = (640, 480)
+BWD_RADIUS = 180.0
+BWD_MIN_DISP = 15.0
+BWD_WINDOW = 8
+
+
+class TestEarlyMotionVector:
+    def test_returns_none_for_single_point(self):
+        assert early_motion_vector([(100, 100)], BWD_MIN_DISP, BWD_WINDOW) is None
+
+    def test_returns_none_for_stationary_window(self):
+        # Tracker jitter under the displacement floor.
+        traj = [(100.0, 100.0)] + [(100.1, 100.2)] * 6
+        assert early_motion_vector(traj, BWD_MIN_DISP, BWD_WINDOW) is None
+
+    def test_unit_vector_for_clear_eastward_motion(self):
+        traj = [(100.0, 100.0), (120.0, 100.0)]
+        v = early_motion_vector(traj, BWD_MIN_DISP, BWD_WINDOW)
+        assert v == pytest.approx((1.0, 0.0))
+
+    def test_uses_window_when_displacement_floor_not_reached(self):
+        # Each step is small; cumulative reaches floor at frame 4.
+        traj = [(100.0, 100.0), (104.0, 100.0), (108.0, 100.0),
+                (112.0, 100.0), (116.0, 100.0)]
+        v = early_motion_vector(traj, BWD_MIN_DISP, BWD_WINDOW)
+        assert v == pytest.approx((1.0, 0.0))
+
+
+class TestBackwardExtrapolatedEntry:
+    def test_eastbound_vehicle_backward_to_left_edge(self):
+        traj = [(200.0, 300.0), (240.0, 300.0)]
+        entry = backward_extrapolated_entry(
+            traj, *SUNNYVALE_FRAME, BWD_MIN_DISP, BWD_WINDOW
+        )
+        assert entry == pytest.approx((0.0, 300.0))
+
+    def test_northeast_vehicle_backward_to_left_or_bottom(self):
+        # L19-style approach: vehicle first seen well inside frame, moving NE
+        traj = [(200.0, 320.0), (235.0, 300.0)]
+        entry = backward_extrapolated_entry(
+            traj, *SUNNYVALE_FRAME, BWD_MIN_DISP, BWD_WINDOW
+        )
+        assert entry is not None
+        # Must hit either x=0 or y=480 — not both, depending on slope.
+        x, y = entry
+        assert (x == pytest.approx(0.0, abs=0.1)
+                or y == pytest.approx(480.0, abs=0.1))
+
+
+class TestAssignOriginByBackwardExtrapolation:
+    """Realistic Sunnyvale scenarios; these are the actual L19/L20/L18
+    failure cases from the 2026-05-20 truncation-test replay."""
+
+    def test_late_detected_L19_assigns_L19(self):
+        # NB Belt Line vehicle first detected past the L19 tripwire,
+        # heading northeast toward the intersection center.
+        traj = [(200.0, 320.0), (235.0, 305.0), (270.0, 290.0), (305.0, 275.0)]
+        lid = assign_origin_by_backward_extrapolation(
+            traj, SUNNYVALE_LEGS, *SUNNYVALE_FRAME,
+            BWD_RADIUS, BWD_MIN_DISP, BWD_WINDOW,
+        )
+        assert lid == 19
+
+    def test_late_detected_L20_assigns_L20(self):
+        # Driveway vehicle first detected mid-frame after the L20 tripwire.
+        # Mirrors ev1523 K=10 from the offline replay.
+        traj = [(214.0, 260.0), (180.0, 264.0), (140.0, 268.0), (100.0, 270.0)]
+        lid = assign_origin_by_backward_extrapolation(
+            traj, SUNNYVALE_LEGS, *SUNNYVALE_FRAME,
+            BWD_RADIUS, BWD_MIN_DISP, BWD_WINDOW,
+        )
+        assert lid == 20
+
+    def test_central_L18_with_pure_west_motion_does_not_pick_far_leg(self):
+        # A vehicle first detected at (475, 211) moving WSW (L18 approach)
+        # backward-extrapolates to the right frame edge. L20 (547, 326) is
+        # the nearest edge-leg but should be too far when the synthetic
+        # entry lands at (640, ~119) — distance > radius. Either result
+        # is acceptable EXCEPT mis-assigning to L20.
+        traj = [(475.0, 211.0), (450.0, 225.0), (425.0, 239.0), (400.0, 253.0)]
+        lid = assign_origin_by_backward_extrapolation(
+            traj, SUNNYVALE_LEGS, *SUNNYVALE_FRAME,
+            BWD_RADIUS, BWD_MIN_DISP, BWD_WINDOW,
+        )
+        assert lid != 20
+
+    def test_stationary_vehicle_returns_none(self):
+        traj = [(300.0, 300.0)] + [(300.1, 300.1)] * 8
+        lid = assign_origin_by_backward_extrapolation(
+            traj, SUNNYVALE_LEGS, *SUNNYVALE_FRAME,
+            BWD_RADIUS, BWD_MIN_DISP, BWD_WINDOW,
+        )
+        assert lid is None
+
+    def test_empty_legs_returns_none(self):
+        traj = [(200.0, 320.0), (235.0, 305.0)]
+        lid = assign_origin_by_backward_extrapolation(
+            traj, [], *SUNNYVALE_FRAME,
+            BWD_RADIUS, BWD_MIN_DISP, BWD_WINDOW,
+        )
+        assert lid is None
+
+    def test_tight_radius_rejects_far_match(self):
+        # Same L19-style trajectory, but radius too tight for the nearest
+        # leg origin — should return None rather than picking a wrong leg.
+        traj = [(200.0, 320.0), (235.0, 305.0)]
+        lid = assign_origin_by_backward_extrapolation(
+            traj, SUNNYVALE_LEGS, *SUNNYVALE_FRAME,
+            match_radius_px=20.0,
+            min_disp_px=BWD_MIN_DISP,
+            window_frames=BWD_WINDOW,
+        )
+        assert lid is None

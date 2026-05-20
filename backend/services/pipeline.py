@@ -16,6 +16,9 @@ from datetime import datetime, timedelta
 import cv2
 
 from backend.config import (
+    BACKWARD_EXTRAP_MATCH_RADIUS_PX,
+    BACKWARD_EXTRAP_MIN_DISP_PX,
+    BACKWARD_EXTRAP_WINDOW_FRAMES,
     CHECKPOINT_INTERVAL_SECONDS,
     ORIGIN_ASSIGN_MIN_FRAMES,
     TRACK_FINALIZE_GAP_FRAMES,
@@ -25,7 +28,8 @@ from backend.services.checkpoint import CheckpointManager
 from backend.services.classifier import classify_vehicle
 from backend.services.detector import VehicleDetector
 from backend.services.origin_detector import (
-    closest_zone, crossing_direction, did_cross_line, tripwire_from_point,
+    assign_origin_by_backward_extrapolation, closest_zone, crossing_direction,
+    did_cross_line, tripwire_from_point,
 )
 from backend.services.preprocessor import AdaptivePreprocessor
 from backend.services.tracker import VehicleTracker
@@ -112,6 +116,15 @@ class ProcessingPipeline:
         self.n_crossed_enter: int = 0    # vehicles assigned to a node
         self.n_crossed_exit: int = 0     # no node matched (diff > 90°)
         self.n_insufficient_data: int = 0
+        self.n_origin_via_backward: int = 0  # bug A second-tier fallback hits
+
+        # Frame dimensions, populated when process_video opens the capture.
+        # Required by the backward-extrapolation origin fallback (it projects
+        # to a frame boundary). Defaults are None so tests that construct
+        # the pipeline without ever opening a video still work; backward
+        # fallback skips when either is None.
+        self.frame_w: int | None = None
+        self.frame_h: int | None = None
 
         # Frame skip used during current process_video call (updates tracker frame_rate)
         self._frame_skip: int = 1
@@ -176,6 +189,8 @@ class ProcessingPipeline:
             effective_end = end_frame if end_frame is not None else total_frames
             range_total = max(1, effective_end - start_frame)
             self._frame_skip = frame_skip
+            self.frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or None
+            self.frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or None
 
             self.is_running = True
             frame_number = 0
@@ -400,6 +415,34 @@ class ProcessingPipeline:
                         vehicle["origin_frame"] = frame_number
                         self.n_crossed_enter += 1
                         return
+
+        # --- Second-tier: backward-extrapolation ---
+        # When the tripwire path didn't catch this vehicle (typically
+        # because YOLO's first detection sits past the synthesized line —
+        # the L19 / NB Belt Line case at Sunnyvale), project the first
+        # detection backward along early motion to the frame boundary and
+        # assign the nearest leg origin. Runs BEFORE the heading-only
+        # fallback because it constrains position AND direction; the
+        # heading fallback can't distinguish two legs whose reference
+        # headings are within 90 of the vehicle's motion vector (L18 and
+        # L20 are both westbound at Sunnyvale).
+        if self.frame_w and self.frame_h:
+            lid = assign_origin_by_backward_extrapolation(
+                traj, self.legs,
+                frame_w=self.frame_w, frame_h=self.frame_h,
+                match_radius_px=BACKWARD_EXTRAP_MATCH_RADIUS_PX,
+                min_disp_px=BACKWARD_EXTRAP_MIN_DISP_PX,
+                window_frames=BACKWARD_EXTRAP_WINDOW_FRAMES,
+            )
+            if lid is not None:
+                leg = next((l for l in self.legs if l["leg_id"] == lid), None)
+                if leg is not None:
+                    vehicle["origin_leg_id"] = lid
+                    vehicle["reference_heading"] = leg["reference_heading"]
+                    vehicle["origin_frame"] = frame_number
+                    self.n_crossed_enter += 1
+                    self.n_origin_via_backward += 1
+                    return
 
         # --- Fallback: heading-based matching ---
         # Use the FULL trajectory so far, not just the first 2 points: a

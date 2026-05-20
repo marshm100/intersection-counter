@@ -157,6 +157,112 @@ def tripwire_from_point(
     )
 
 
+def early_motion_vector(
+    trajectory: list,
+    min_disp_px: float,
+    window_frames: int,
+) -> tuple[float, float] | None:
+    """Unit motion vector from the early trajectory window.
+
+    Walks forward from traj[0] until either cumulative displacement
+    reaches min_disp_px or window_frames points have been consumed.
+    Returns None when total motion is below the jitter floor.
+    """
+    if len(trajectory) < 2:
+        return None
+    start = trajectory[0]
+    upper = min(window_frames + 1, len(trajectory))
+    for i in range(1, upper):
+        dx = trajectory[i][0] - start[0]
+        dy = trajectory[i][1] - start[1]
+        mag = math.hypot(dx, dy)
+        if mag >= min_disp_px:
+            return (dx / mag, dy / mag)
+    end = trajectory[upper - 1]
+    dx = end[0] - start[0]
+    dy = end[1] - start[1]
+    mag = math.hypot(dx, dy)
+    if mag < 1.0:
+        return None
+    return (dx / mag, dy / mag)
+
+
+def backward_extrapolated_entry(
+    trajectory: list,
+    frame_w: int,
+    frame_h: int,
+    min_disp_px: float,
+    window_frames: int,
+) -> tuple[float, float] | None:
+    """Project the first detection point backward along the early motion
+    vector until it hits the frame boundary. Returns the boundary
+    intersection point, or None if the trajectory lacks a usable motion
+    vector or is moving away from every edge.
+    """
+    vec = early_motion_vector(trajectory, min_disp_px, window_frames)
+    if vec is None:
+        return None
+    vx, vy = vec
+    sx, sy = float(trajectory[0][0]), float(trajectory[0][1])
+    bx, by = -vx, -vy
+    ts = []
+    if bx > 1e-9:
+        ts.append((frame_w - sx) / bx)
+    elif bx < -1e-9:
+        ts.append((0 - sx) / bx)
+    if by > 1e-9:
+        ts.append((frame_h - sy) / by)
+    elif by < -1e-9:
+        ts.append((0 - sy) / by)
+    ts = [t for t in ts if t > 0]
+    if not ts:
+        return None
+    t = min(ts)
+    return (sx + bx * t, sy + by * t)
+
+
+def assign_origin_by_backward_extrapolation(
+    trajectory: list,
+    legs: list,
+    frame_w: int,
+    frame_h: int,
+    match_radius_px: float,
+    min_disp_px: float,
+    window_frames: int,
+) -> int | None:
+    """Pick the leg whose origin point is nearest the backward-extrapolated
+    entry point — but only if it sits within match_radius_px.
+
+    Returns the leg_id or None. Doesn't enforce any heading-vs-reference
+    check: backward extrapolation already constrains position AND early
+    direction; an extra heading test would just duplicate what the
+    fallback below already does, less precisely.
+    """
+    entry = backward_extrapolated_entry(
+        trajectory, frame_w, frame_h, min_disp_px, window_frames,
+    )
+    if entry is None:
+        return None
+    best_lid, best_d = None, float("inf")
+    for leg in legs:
+        zone = leg.get("origin_zone") or []
+        if not zone:
+            continue
+        if len(zone) == 1:
+            op = (float(zone[0][0]), float(zone[0][1]))
+        else:
+            op = (
+                sum(float(p[0]) for p in zone) / len(zone),
+                sum(float(p[1]) for p in zone) / len(zone),
+            )
+        d = math.hypot(entry[0] - op[0], entry[1] - op[1])
+        if d < best_d:
+            best_d, best_lid = d, leg.get("leg_id")
+    if best_lid is not None and best_d <= match_radius_px:
+        return best_lid
+    return None
+
+
 def compute_reference_heading(
     line_start: tuple, line_end: tuple, intersection_center: tuple
 ) -> float:
