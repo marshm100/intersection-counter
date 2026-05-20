@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>intersection-counter — walkthrough</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="top">
+  <span class="home">intersection-counter</span>
+  <a href="index.html" class="current">Index</a>
+</nav>
+<main>
+  <h1>Walkthrough</h1>
+  <p class="lede">
+    Six static pages that explain what the app does and how each pipeline stage works.
+    Built for self-review — concrete diagrams using the Sunnyvale intersection geometry
+    so the math has something to anchor on.
+  </p>
+
+  <ol style="font-size: 15px; line-height: 2.2; padding-left: 0; list-style: none;">
+    <li><a href="00-overview.html">0. Overview</a>
+      <span style="color: var(--muted);"> — data model + pipeline at a glance</span></li>
+    <li><a href="01-calibration.html">1. Calibration</a>
+      <span style="color: var(--muted);"> — legs, origin points, reference headings, tripwires</span></li>
+    <li><a href="02-detection-tracking.html">2. Detection &amp; Tracking</a>
+      <span style="color: var(--muted);"> — YOLO + ByteTrack + processing modes</span></li>
+    <li><a href="03-origin-assignment.html">3. Origin Assignment</a>
+      <span style="color: var(--muted);"> — three-tier fallback (tripwire → backward-extrap → heading)</span></li>
+    <li><a href="04-trajectory-classification.html">4. Trajectory Classification</a>
+      <span style="color: var(--muted);"> — movement + destination-leg scoring</span></li>
+    <li><a href="05-aggregation.html">5. Aggregation</a>
+      <span style="color: var(--muted);"> — events → 15-min buckets → TMC Excel</span></li>
+  </ol>
+
+  <div class="callout">
+    All diagrams use the Sunnyvale TX intersection (project <code>97a7849a</code>,
+    camera 1). Frame is 640×480. The four legs:
+    <ul style="margin: 6px 0 0;">
+      <li><strong style="color: var(--L18);">L18</strong> SB N Belt Line Rd — origin (474, 211), ref heading 259.3°</li>
+      <li><strong style="color: var(--L19);">L19</strong> NB N Belt Line Rd — origin (85, 370), ref heading 61.0°</li>
+      <li><strong style="color: var(--L20);">L20</strong> WB Private Driveway — origin (547, 326), ref heading 290.8°</li>
+      <li><strong style="color: var(--L21);">L21</strong> EB Northwest Dr — origin (217, 234), ref heading 123.1°</li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>

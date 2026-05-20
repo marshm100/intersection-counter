@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>1. Calibration — intersection-counter walkthrough</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="top">
+  <a class="home" href="index.html">intersection-counter</a>
+  <a href="00-overview.html">0. Overview</a>
+  <a href="01-calibration.html" class="current">1. Calibration</a>
+  <a href="02-detection-tracking.html">2. Detect+Track</a>
+  <a href="03-origin-assignment.html">3. Origin</a>
+  <a href="04-trajectory-classification.html">4. Classify</a>
+  <a href="05-aggregation.html">5. Aggregate</a>
+</nav>
+<main>
+  <h1>1. Calibration</h1>
+  <p class="lede">
+    Before any video processing happens, a human engineer clicks on each approach leg
+    in a still frame. Those clicks become origin points; the geometry derives everything else.
+  </p>
+
+  <h2>What gets calibrated, per camera</h2>
+  <p>For each leg (3–4 per camera):</p>
+  <ul>
+    <li>An <strong>origin point</strong> — single (x, y) on the approach.</li>
+    <li>A <strong>reference heading</strong> in degrees — the direction vehicles move when approaching.
+      Computed from the origin point + the intersection center.</li>
+    <li>A <strong>cardinal direction label</strong> (NB / SB / EB / WB) and a friendly name
+      (e.g. "SB N Belt Line Rd").</li>
+  </ul>
+
+  <h2>Heading convention</h2>
+  <p>
+    Image coordinates with y increasing downward. Heading is degrees clockwise from north:
+    0° = up, 90° = right, 180° = down, 270° = left.
+  </p>
+  <figure>
+    <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+      <!-- Compass rose -->
+      <circle cx="200" cy="100" r="70" fill="none" stroke="#2a323c" stroke-width="1.5"/>
+      <line x1="200" y1="30" x2="200" y2="170" stroke="#2a323c" stroke-width="1"/>
+      <line x1="130" y1="100" x2="270" y2="100" stroke="#2a323c" stroke-width="1"/>
+      <text x="200" y="22" text-anchor="middle" fill="#8a96a3" font-size="12">0° (N — up)</text>
+      <text x="282" y="104" fill="#8a96a3" font-size="12">90° (E)</text>
+      <text x="200" y="190" text-anchor="middle" fill="#8a96a3" font-size="12">180° (S — down)</text>
+      <text x="118" y="104" text-anchor="end" fill="#8a96a3" font-size="12">270° (W)</text>
+
+      <!-- Example heading 61 (L19) -->
+      <line x1="200" y1="100" x2="261" y2="66" stroke="#5fc7ff" stroke-width="3" marker-end="url(#a)"/>
+      <text x="270" y="62" fill="#5fc7ff" font-size="12">61° (NE) — L19 approach</text>
+
+      <defs>
+        <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#5fc7ff"/>
+        </marker>
+      </defs>
+    </svg>
+    <figcaption>
+      Code:
+      <code>heading = degrees(atan2(dx, -dy)) % 360</code> —
+      the <code>-dy</code> flips the y axis so 0° lands at "up" despite image coords.
+    </figcaption>
+  </figure>
+
+  <h2>From origin point to tripwire</h2>
+  <p>
+    The pipeline needs a <em>line</em> to test "did the vehicle's path cross it." Calibration
+    only captures a single click point per leg. So at runtime we synthesize a tripwire by drawing
+    a line through the origin point, <strong>perpendicular to the reference heading</strong>,
+    extending <code>TRIPWIRE_HALF_LENGTH_PX</code> (currently 120) in each direction.
+  </p>
+
+  <pre>line_start = origin - perp_unit * 120
+line_end   = origin + perp_unit * 120
+where  perp = ref_heading + 90°</pre>
+
+  <h2>Sunnyvale's four legs</h2>
+  <p>
+    The diagram shows the calibrated origin points (dots) and synthesized tripwires (lines)
+    against the 640×480 frame. The dashed arrows from each origin show the reference heading —
+    the direction vehicles move on approach. The yellow circle is the intersection center
+    (centroid of origin points), used by the destination scorer.
+  </p>
+
+  <div class="legend">
+    <span class="chip"><span class="swatch" style="background: var(--L18);"></span>L18 SB N Belt Line — origin (474, 211), ref 259.3°</span>
+    <span class="chip"><span class="swatch" style="background: var(--L19);"></span>L19 NB N Belt Line — origin (85, 370), ref 61.0°</span>
+    <span class="chip"><span class="swatch" style="background: var(--L20);"></span>L20 WB Driveway — origin (547, 326), ref 290.8°</span>
+    <span class="chip"><span class="swatch" style="background: var(--L21);"></span>L21 EB Northwest Dr — origin (217, 234), ref 123.1°</span>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 640 480" xmlns="http://www.w3.org/2000/svg" style="background: #0a0e12; border: 1px solid #2a323c;">
+      <!-- Frame border -->
+      <rect x="0" y="0" width="640" height="480" fill="none" stroke="#2a323c" stroke-width="1"/>
+      <!-- Grid -->
+      <g stroke="#1a2128" stroke-width="0.5">
+        <line x1="0" y1="120" x2="640" y2="120"/>
+        <line x1="0" y1="240" x2="640" y2="240"/>
+        <line x1="0" y1="360" x2="640" y2="360"/>
+        <line x1="160" y1="0" x2="160" y2="480"/>
+        <line x1="320" y1="0" x2="320" y2="480"/>
+        <line x1="480" y1="0" x2="480" y2="480"/>
+      </g>
+
+      <!-- L18 tripwire -->
+      <line x1="451.7" y1="93.2" x2="496.3" y2="328.8" stroke="#ff7b3a" stroke-width="3"/>
+      <!-- L18 origin -->
+      <circle cx="474" cy="211" r="6" fill="#ff7b3a"/>
+      <text x="486" y="207" fill="#ff7b3a" font-size="14" font-weight="600">L18</text>
+      <!-- L18 heading arrow -->
+      <line x1="474" y1="211" x2="394" y2="226" stroke="#ff7b3a" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar18)"/>
+
+      <!-- L19 tripwire -->
+      <line x1="27.2" y1="265" x2="142.8" y2="475" stroke="#5fc7ff" stroke-width="3"/>
+      <!-- L19 origin -->
+      <circle cx="85" cy="370" r="6" fill="#5fc7ff"/>
+      <text x="97" y="375" fill="#5fc7ff" font-size="14" font-weight="600">L19</text>
+      <!-- L19 heading arrow (vehicles move NE toward intersection) -->
+      <line x1="85" y1="370" x2="155" y2="331" stroke="#5fc7ff" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar19)"/>
+
+      <!-- L20 tripwire -->
+      <line x1="504.4" y1="438.2" x2="589.6" y2="213.8" stroke="#7ee787" stroke-width="3"/>
+      <!-- L20 origin -->
+      <circle cx="547" cy="326" r="6" fill="#7ee787"/>
+      <text x="559" y="330" fill="#7ee787" font-size="14" font-weight="600">L20</text>
+      <!-- L20 heading arrow -->
+      <line x1="547" y1="326" x2="472" y2="298" stroke="#7ee787" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar20)"/>
+
+      <!-- L21 tripwire -->
+      <line x1="282.5" y1="133.4" x2="151.5" y2="334.6" stroke="#d27bff" stroke-width="3"/>
+      <!-- L21 origin -->
+      <circle cx="217" cy="234" r="6" fill="#d27bff"/>
+      <text x="229" y="230" fill="#d27bff" font-size="14" font-weight="600">L21</text>
+      <!-- L21 heading arrow -->
+      <line x1="217" y1="234" x2="284" y2="277" stroke="#d27bff" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar21)"/>
+
+      <!-- Intersection center -->
+      <circle cx="330.75" cy="285.25" r="8" fill="none" stroke="#ffd23f" stroke-width="2"/>
+      <circle cx="330.75" cy="285.25" r="2" fill="#ffd23f"/>
+      <text x="345" y="290" fill="#ffd23f" font-size="12">intersection center</text>
+
+      <defs>
+        <marker id="ar18" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff7b3a"/></marker>
+        <marker id="ar19" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5fc7ff"/></marker>
+        <marker id="ar20" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7ee787"/></marker>
+        <marker id="ar21" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#d27bff"/></marker>
+      </defs>
+    </svg>
+    <figcaption>
+      Solid lines = synthesized tripwires (perpendicular to approach, ±120 px). Dashed arrows = reference heading
+      (direction vehicles move when approaching). Yellow ring = centroid of origin points.
+    </figcaption>
+  </figure>
+
+  <h2>Things to notice in this geometry</h2>
+  <div class="callout warn">
+    <strong>L19's origin is jammed against the lower-left edge</strong> at (85, 370). With the
+    old 40-px tripwire (now 120), vehicles entering from off-frame to the southwest were often
+    first detected by YOLO already past the line. This is Bug A — see page 3.
+  </div>
+  <div class="callout warn">
+    <strong>The legs are not orthogonal.</strong> Reference headings are 259°, 61°, 291°, 123° —
+    no two legs are exactly opposite. Anything that assumes a clean four-way (a turn matrix,
+    fixed 90° buckets) will produce wrong labels here. That's Bug B — see page 4.
+  </div>
+  <div class="callout">
+    <strong>L20 is a private driveway.</strong> In the morning peak the manual count shows zero
+    L20 traffic; if the pipeline reports more than a handful, something is mis-attributing
+    real traffic (likely L18) to L20.
+  </div>
+
+  <footer class="page-foot">
+    <a href="00-overview.html">← 0. Overview</a>
+    <a href="02-detection-tracking.html">2. Detection &amp; Tracking →</a>
+  </footer>
+</main>
+</body>
+</html>
