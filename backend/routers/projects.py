@@ -32,7 +32,7 @@ class RenameProjectRequest(BaseModel):
 class UpdateSettingsRequest(BaseModel):
     num_legs: int | None = None
     video_start_time: str | None = None
-    processing_mode: str | None = None   # "fast" | "accurate"
+    processing_mode: str | None = None   # any key in PROCESSING_MODES (fast | balanced | accurate)
 
 
 @router.get("/projects")

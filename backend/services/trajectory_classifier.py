@@ -290,6 +290,26 @@ def _exit_velocity(trajectory: list[tuple]) -> tuple[float, float]:
     return _normalize(end[0] - start[0], end[1] - start[1])
 
 
+def _exit_displacement(trajectory: list[tuple]) -> float:
+    """Raw pixel magnitude of the tail-window motion (pre-normalization).
+
+    A near-zero displacement means the vehicle stalled or the trajectory
+    finalized mid-frame; in that case the exit-direction signal is just
+    detection jitter and score_destination_leg should refuse rather than
+    invent a confident answer.
+    """
+    n = len(trajectory)
+    if n < 2:
+        return 0.0
+    window = max(1, min(n // 5, 7))
+    start = trajectory[max(0, n - 1 - window)]
+    end = trajectory[-1]
+    return math.hypot(end[0] - start[0], end[1] - start[1])
+
+
+EXIT_DISPLACEMENT_MIN_PX = 20.0
+
+
 def score_destination_leg(
     trajectory: list[tuple],
     origin_leg_id: int,
@@ -297,6 +317,7 @@ def score_destination_leg(
     *,
     heading_weight: float = 0.7,
     position_weight: float = 0.3,
+    exit_displacement_min_px: float = EXIT_DISPLACEMENT_MIN_PX,
 ) -> dict:
     """Pick the leg the vehicle most likely exited toward.
 
@@ -318,6 +339,13 @@ def score_destination_leg(
     origin-direction-from-center).
     """
     if not all_legs or len(trajectory) < 2:
+        return {"destination_leg_id": None, "confidence": 0.0, "posterior": {}}
+
+    # Refuse to score when the tail window shows essentially no motion —
+    # softmax over a near-zero exit_vel produces a confident wrong answer
+    # (defaults to the leg opposite the origin, which derive_movement
+    # then labels "through").
+    if _exit_displacement(trajectory) < exit_displacement_min_px:
         return {"destination_leg_id": None, "confidence": 0.0, "posterior": {}}
 
     center = _intersection_center(all_legs)

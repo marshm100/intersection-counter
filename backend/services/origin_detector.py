@@ -127,7 +127,7 @@ def closest_zone(
 
 
 def tripwire_from_point(
-    origin_point: tuple, reference_heading: float, half_length: float = 40.0,
+    origin_point: tuple, reference_heading: float, half_length: float | None = None,
 ) -> tuple[tuple[float, float], tuple[float, float]]:
     """From a single calibrated origin node + the approach heading, build a
     tripwire line segment perpendicular to the approach. Returns (start, end).
@@ -140,6 +140,12 @@ def tripwire_from_point(
     Heading convention: 0°=North(up), 90°=East(right), 180°=South(down).
     Image coordinates (y increases downward).
     """
+    # Default half-length comes from config so it's tunable per intersection
+    # type without code changes. Imported lazily so tests that don't need
+    # the full config don't pay the import cost.
+    if half_length is None:
+        from backend.config import TRIPWIRE_HALF_LENGTH_PX
+        half_length = TRIPWIRE_HALF_LENGTH_PX
     # Perpendicular to the approach direction:
     perp_rad = math.radians(reference_heading + 90.0)
     dx = math.sin(perp_rad)

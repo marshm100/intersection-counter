@@ -588,6 +588,8 @@ def _run_v3_pipeline(
                 yolo_imgsz=mode_cfg["yolo_imgsz"],
                 yolo_confidence=mode_cfg["yolo_confidence"],
                 detection_skip=mode_cfg["detection_skip"],
+                tracker_match_threshold=mode_cfg.get("tracker_match_threshold"),
+                tracker_activation_threshold=mode_cfg.get("tracker_activation_threshold"),
             )
             # Tag events with our trim_id + camera_id so the aggregator can
             # group correctly. The pipeline already writes video_id from

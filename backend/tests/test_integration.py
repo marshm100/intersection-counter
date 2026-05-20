@@ -77,17 +77,25 @@ class TestEndToEndIntegration:
         try:
             db_path = str(get_db_path(pid))
 
-            # Insert NB leg: horizontal line at y=240, reference_heading=180° (south)
+            # Insert 4 legs (N/S/E/W). derive_movement's rank-based logic
+            # only returns "through" when there are ≥3 other legs at the
+            # intersection; with fewer, it collapses to u_turn or a turn.
+            # Origin leg = Northbound (vehicle moves south).
             conn = get_connection(pid)
             try:
-                conn.execute(
-                    "INSERT INTO legs "
-                    "(label, cardinal_direction, sort_order, origin_zone, reference_heading) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    ("Northbound", "NB", 0,
-                     json.dumps([[0, 240], [640, 240]]),
-                     180.0),
-                )
+                leg_seed = [
+                    ("Northbound", "NB", 0, [[0, 240], [640, 240]], 180.0),
+                    ("Southbound", "SB", 1, [[0, 440], [640, 440]],   0.0),
+                    ("Eastbound",  "EB", 2, [[440, 0], [440, 480]], 270.0),
+                    ("Westbound",  "WB", 3, [[200, 0], [200, 480]],  90.0),
+                ]
+                for label, cd, so, oz, rh in leg_seed:
+                    conn.execute(
+                        "INSERT INTO legs "
+                        "(label, cardinal_direction, sort_order, origin_zone, reference_heading) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (label, cd, so, json.dumps(oz), rh),
+                    )
                 conn.commit()
                 leg_id = conn.execute(
                     "SELECT leg_id FROM legs WHERE label='Northbound'"
@@ -104,15 +112,20 @@ class TestEndToEndIntegration:
                     writer.write(np.zeros((480, 640, 3), dtype=np.uint8))
                 writer.release()
 
-                legs = [
-                    {
-                        "leg_id": leg_id,
-                        "label": "Northbound",
-                        "cardinal_direction": "NB",
-                        "origin_zone": [[0, 240], [640, 240]],
-                        "reference_heading": 180.0,
-                    }
-                ]
+                conn = get_connection(pid)
+                conn.row_factory = sqlite3.Row
+                try:
+                    legs = [
+                        dict(r) for r in conn.execute(
+                            "SELECT leg_id, label, cardinal_direction, "
+                            "origin_zone, reference_heading FROM legs "
+                            "ORDER BY sort_order"
+                        ).fetchall()
+                    ]
+                finally:
+                    conn.close()
+                for leg in legs:
+                    leg["origin_zone"] = json.loads(leg["origin_zone"])
 
                 pipeline = ProcessingPipeline(
                     project_id=pid,

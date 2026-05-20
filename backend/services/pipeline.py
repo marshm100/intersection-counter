@@ -61,6 +61,11 @@ class ProcessingPipeline:
         # Detect on every Nth frame. detection_skip=1 = current behavior
         # (every frame); detection_skip=3 = fast mode (Kalman in between).
         detection_skip: int = 1,
+        # Per-mode tracker overrides. None = use config defaults
+        # (strict ByteTrack). Fast mode loosens these because Kalman
+        # under-predicts motion when detection_skip>1.
+        tracker_match_threshold: float | None = None,
+        tracker_activation_threshold: float | None = None,
     ):
         self.project_id = project_id
         self.db_path = db_path
@@ -78,6 +83,8 @@ class ProcessingPipeline:
         self._yolo_imgsz = yolo_imgsz
         self._yolo_confidence = yolo_confidence
         self.detection_skip = max(1, int(detection_skip))
+        self._tracker_match_threshold = tracker_match_threshold
+        self._tracker_activation_threshold = tracker_activation_threshold
 
         # Components (lazy-loaded to avoid loading YOLO in tests)
         self._detector: VehicleDetector | None = None
@@ -133,7 +140,12 @@ class ProcessingPipeline:
             # mode we detect every 3rd frame, so the tracker sees an
             # effective 10 fps when the source is 30.
             effective_fps = max(1, int(self.fps / self.detection_skip))
-            self._tracker = VehicleTracker(frame_rate=effective_fps)
+            kw: dict = {"frame_rate": effective_fps}
+            if self._tracker_match_threshold is not None:
+                kw["minimum_matching_threshold"] = self._tracker_match_threshold
+            if self._tracker_activation_threshold is not None:
+                kw["track_activation_threshold"] = self._tracker_activation_threshold
+            self._tracker = VehicleTracker(**kw)
         return self._tracker
 
     @property
@@ -436,17 +448,6 @@ class ProcessingPipeline:
 
     def _finalize_vehicle_data(self, track_id: int, vehicle: dict, frame_number: int):
         """Finalize a vehicle dict (from active_vehicles or recently_lost)."""
-        # Last-chance origin assignment: a track that gathered enough
-        # trajectory but never matched a tripwire OR heading direction
-        # earlier may still match now (e.g. heading fallback needed the
-        # vehicle to actually start moving).
-        if vehicle["origin_leg_id"] is None:
-            n_pts = len(vehicle.get("trajectory", []))
-            if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES:
-                # Temporarily re-link so _assign_origin can mutate it
-                self.active_vehicles.setdefault(track_id, vehicle)
-                self._assign_origin(track_id, frame_number)
-                self.active_vehicles.pop(track_id, None)
         if vehicle["origin_leg_id"] is None:
             n_pts = len(vehicle.get("trajectory", []))
             if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES:
