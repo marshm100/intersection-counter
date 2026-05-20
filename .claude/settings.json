@@ -16,6 +16,10 @@
           {
             "type": "command",
             "command": "python .claude/hooks/log_end.py"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/walkthrough_reminder.py"
           }
         ]
       }
