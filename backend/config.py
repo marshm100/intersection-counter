@@ -128,28 +128,6 @@ ORIGIN_ASSIGN_MIN_FRAMES = 2   # trajectory points needed before assigning origi
 # the image.
 TRIPWIRE_HALF_LENGTH_PX = 120
 
-# Backward-extrapolation origin fallback. When tripwire crossing fails
-# (vehicle first detected past the synthesized line), this second-tier
-# fallback projects the trajectory's first detection point backward along
-# the early motion vector to the frame boundary, then assigns the leg
-# whose origin point is nearest to that synthetic entry point.
-#
-# Rationale (Bug A from the 2026-05-20 handoff): L19's origin sits at
-# (85, 370) — the lower-left of a 640x480 frame. YOLO doesn't detect
-# vehicles entering NB Belt Line until they're already past the tripwire,
-# so they fall through to heading fallback, which mis-picks L20 / L18 /
-# L21 based on which reference heading is closest in angle. Offline replay
-# on a truncated-trajectory simulation (drop first 10 frames) showed
-# heading fallback recovering 1/9 L20 events; backward extrapolation
-# recovers 9/9. Wins also on L19 (4/7 -> 6/7) and L18 (16/32 -> 18/32).
-#
-# Runs BEFORE heading fallback because it constrains position AND early
-# direction — strictly more specific than the direction-only heading
-# check.
-BACKWARD_EXTRAP_MATCH_RADIUS_PX = 180.0   # max distance from synthetic entry to leg origin
-BACKWARD_EXTRAP_MIN_DISP_PX = 15.0        # early-window displacement floor (rejects jitter)
-BACKWARD_EXTRAP_WINDOW_FRAMES = 8         # look at up to this many early frames for motion
-
 # Pipeline-level grace period before considering a tracker-missing vehicle
 # "lost" and finalizing it. YOLO detection can flicker (detect, miss, detect)
 # on consecutive frames; without a grace window every flicker fragments a
