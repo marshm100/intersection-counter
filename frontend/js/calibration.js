@@ -20,6 +20,9 @@
 
     let _pid = null;
     let _cid = null;
+    let _iid = null;
+    let _intersectionRow = null;     // raw intersection row (incl. calib_* override columns)
+    let _calibDefaults = null;        // {tripwire_half_length_px, trajectory_*_angle: numbers}
     let _videoId = null;
     let _onClose = null;
 
@@ -41,6 +44,9 @@
         opts = opts || {};
         _pid = pid;
         _cid = cid;
+        _iid = opts.intersectionId || null;
+        _intersectionRow = null;
+        _calibDefaults = null;
         _videoId = opts.videoId || null;
         _onClose = typeof opts.onClose === 'function' ? opts.onClose : null;
         _numLegs = parseInt(opts.legCount, 10) || 4;
@@ -66,6 +72,18 @@
             }));
         } catch (e) {
             // start fresh
+        }
+
+        // Fetch the intersection row so we have current calib_* overrides
+        // + defaults to display in the params editor.
+        if (_iid != null) {
+            try {
+                const detail = await API.get(`/api/projects/${pid}/intersections/${_iid}`);
+                _intersectionRow = detail.intersection || null;
+                _calibDefaults = detail.calibration_defaults || null;
+            } catch (e) {
+                // params editor will render empty / disabled if fetch failed
+            }
         }
 
         if (!_videoId) {
@@ -101,6 +119,7 @@
                     <div id="v3-calib-leg-list"></div>
                     <p id="v3-calib-status" style="margin-top:8px;font-size:13px;color:#6b7280;"></p>
                     <div id="v3-calib-form" style="display:none;margin-top:12px;"></div>
+                    <div id="v3-calib-params" style="margin-top:20px;"></div>
                     <div style="margin-top:16px;">
                         <button id="v3-calib-save-btn" class="btn-proc btn-start"
                             onclick="v3CalibrationSave()" ${allDone ? '' : 'disabled'}>
@@ -121,6 +140,7 @@
             _redraw();
             _updateLegList();
             _updateStatus();
+            _renderParamsEditor();
         };
         _img.onerror = () => {
             const el = document.getElementById('v3-calib-status');
@@ -493,6 +513,126 @@
             el.textContent = `Place node ${_legs.length + 1} of ${_numLegs}: click on an approach arm.`;
         }
     }
+
+    // ---- Per-intersection calibration params --------------------------
+    //
+    // These knobs are stored per intersection but surfaced here in the
+    // leg-calibration sidebar so the engineer sees them at the same time
+    // they're placing leg origins. NULL/blank = use the global default
+    // (shown as placeholder text).
+
+    const _PARAMS = [
+        {
+            key: 'tripwire_half_length_px',
+            col: 'calib_tripwire_half_length_px',
+            label: 'Tripwire half-length (px)',
+            help: 'Origin tripwire extends this far each side of the leg origin point. Larger = catches more vehicles entering from the edge; too large risks spurious crossings.',
+            step: '10',
+            min: '10',
+            max: '500',
+        },
+        {
+            key: 'trajectory_through_max_angle',
+            col: 'calib_trajectory_through_max_angle',
+            label: 'Through max angle (°)',
+            help: 'Net heading change at or below this is classified as a through movement.',
+            step: '1',
+            min: '1',
+            max: '89',
+        },
+        {
+            key: 'trajectory_turn_min_angle',
+            col: 'calib_trajectory_turn_min_angle',
+            label: 'Turn min angle (°)',
+            help: 'Net heading change at or above this is a clear left/right turn (between through_max and this is the ambiguous zone).',
+            step: '1',
+            min: '1',
+            max: '179',
+        },
+        {
+            key: 'trajectory_uturn_min_angle',
+            col: 'calib_trajectory_uturn_min_angle',
+            label: 'U-turn min angle (°)',
+            help: 'Net heading change at or above this is classified as a u-turn.',
+            step: '1',
+            min: '1',
+            max: '180',
+        },
+    ];
+
+    function _renderParamsEditor() {
+        const host = document.getElementById('v3-calib-params');
+        if (!host) return;
+        if (_iid == null || !_calibDefaults) {
+            host.innerHTML = '';
+            return;
+        }
+        let html = `
+            <div style="border-top:1px solid #e5e7eb;padding-top:14px;">
+                <h4 style="margin:0 0 4px;font-size:14px;">Calibration parameters</h4>
+                <p style="margin:0 0 12px;font-size:12px;color:#6b7280;">
+                    Per-intersection overrides. Leave blank to use the default (shown as placeholder).
+                </p>
+                <div style="display:flex;flex-direction:column;gap:10px;">`;
+        for (const p of _PARAMS) {
+            const override = _intersectionRow ? _intersectionRow[p.col] : null;
+            const def = _calibDefaults[p.key];
+            const value = (override == null) ? '' : String(override);
+            const placeholder = `${def} (default)`;
+            html += `
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;margin-bottom:2px;">
+                        ${escapeHtml(p.label)}
+                    </label>
+                    <input type="number" id="v3-calib-param-${p.key}"
+                        data-key="${p.key}"
+                        value="${escapeAttr(value)}"
+                        placeholder="${escapeAttr(placeholder)}"
+                        step="${p.step}" min="${p.min}" max="${p.max}"
+                        style="width:100%;padding:4px 6px;font-size:13px;"
+                        onchange="v3CalibrationSaveParam('${p.key}', this.value)" />
+                    <p style="margin:2px 0 0;font-size:11px;color:#9ca3af;line-height:1.4;">
+                        ${escapeHtml(p.help)}
+                    </p>
+                </div>`;
+        }
+        html += `</div>
+                <p id="v3-calib-params-status" style="margin-top:10px;font-size:12px;color:#6b7280;min-height:1em;"></p>
+            </div>`;
+        host.innerHTML = html;
+    }
+
+    window.v3CalibrationSaveParam = async function (key, rawValue) {
+        if (_iid == null) return;
+        const status = document.getElementById('v3-calib-params-status');
+        // Build the PATCH body. Empty string => null => clear override (use default).
+        const col = `calib_${key}`;
+        const body = {};
+        if (rawValue === '' || rawValue == null) {
+            body[col] = null;
+        } else {
+            const num = parseFloat(rawValue);
+            if (!isFinite(num)) {
+                if (status) status.textContent = 'Invalid number; not saved.';
+                return;
+            }
+            body[col] = num;
+        }
+        try {
+            const updated = await API.patch(
+                `/api/projects/${_pid}/intersections/${_iid}`, body,
+            );
+            _intersectionRow = updated;   // refresh override values shown
+            if (status) {
+                const wasCleared = body[col] === null;
+                status.textContent = wasCleared
+                    ? `Reverted ${key} to default.`
+                    : `Saved ${key}.`;
+            }
+        } catch (e) {
+            if (status) status.textContent = 'Save failed: ' + (e.message || String(e));
+        }
+    };
 
     window.v3CalibrationSave = async function () {
         const payload = _legs.map(l => ({

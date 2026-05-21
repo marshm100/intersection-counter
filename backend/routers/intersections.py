@@ -22,9 +22,10 @@ from backend.config import (
     get_processing_mode_config,
 )
 from backend.database import (
-    add_trim, clear_v3_run_state, get_camera, get_connection,
-    get_db_path, get_intersection, get_project_info, get_v3_run_state,
-    heal_v3_running_to_interrupted,
+    CLEAR_TO_DEFAULT,
+    add_trim, clear_v3_run_state, get_calibration_params, get_camera,
+    get_connection, get_db_path, get_intersection, get_project_info,
+    get_v3_run_state, heal_v3_running_to_interrupted,
     list_cameras, list_intersections, list_trims, list_videos_for_camera,
     remove_camera, remove_intersection, remove_trim, set_v3_run_state,
     update_camera, update_intersection, update_trim,
@@ -164,6 +165,17 @@ class UpdateIntersectionBody(BaseModel):
     name: Optional[str] = None
     leg_count: Optional[int] = None
     sort_order: Optional[int] = None
+    # Per-intersection calibration overrides. Tri-state:
+    #   field absent (not in body)  -> don't touch the column
+    #   field present with a number -> set the override
+    #   field present and explicitly null -> clear the override (use global default)
+    # Pydantic v1 (which this project uses) can't distinguish "missing" from
+    # "explicit null" via Optional alone, so we use a sentinel default and check
+    # via model_fields_set / __fields_set__ in the endpoint.
+    calib_tripwire_half_length_px: Optional[float] = None
+    calib_trajectory_through_max_angle: Optional[float] = None
+    calib_trajectory_turn_min_angle: Optional[float] = None
+    calib_trajectory_uturn_min_angle: Optional[float] = None
 
 
 class UpdateCameraBody(BaseModel):
@@ -252,29 +264,106 @@ def get_intersections(project_id: str):
 
 @router.get("/projects/{project_id}/intersections/{intersection_id}")
 def get_one_intersection(project_id: str, intersection_id: int):
-    """Detail for a single intersection-day: itself + cameras + trims."""
+    """Detail for a single intersection-day: itself + cameras + trims +
+    calibration defaults (so the UI can show defaults as placeholders next
+    to the per-intersection override fields)."""
+    from backend.config import (
+        TRIPWIRE_HALF_LENGTH_PX,
+        TRAJECTORY_THROUGH_MAX_ANGLE,
+        TRAJECTORY_TURN_MIN_ANGLE,
+        TRAJECTORY_UTURN_MIN_ANGLE,
+    )
     _require_project(project_id)
     iid_row = _require_intersection(project_id, intersection_id)
     cams = list_cameras(project_id, intersection_id)
-    # Attach each camera's video count for a quick UI summary
     for c in cams:
         c["videos"] = list_videos_for_camera(project_id, c["camera_id"])
     trims = list_trims(project_id, intersection_id)
-    return {"intersection": iid_row, "cameras": cams, "trims": trims}
+    return {
+        "intersection": iid_row,
+        "cameras": cams,
+        "trims": trims,
+        "calibration_defaults": {
+            "tripwire_half_length_px": TRIPWIRE_HALF_LENGTH_PX,
+            "trajectory_through_max_angle": TRAJECTORY_THROUGH_MAX_ANGLE,
+            "trajectory_turn_min_angle": TRAJECTORY_TURN_MIN_ANGLE,
+            "trajectory_uturn_min_angle": TRAJECTORY_UTURN_MIN_ANGLE,
+        },
+    }
 
 
 @router.patch("/projects/{project_id}/intersections/{intersection_id}")
 def patch_intersection(
     project_id: str, intersection_id: int, body: UpdateIntersectionBody,
 ):
-    """Rename, change leg count, or reorder an intersection card."""
+    """Rename, change leg count/sort_order, or set per-intersection
+    calibration parameter overrides. For the calib_* fields, pass null to
+    clear an override back to the global default."""
     _require_project(project_id)
-    _require_intersection(project_id, intersection_id)
+    current = _require_intersection(project_id, intersection_id)
     if body.leg_count is not None and body.leg_count < 2:
         raise HTTPException(status_code=422, detail="leg_count must be >= 2")
+
+    # Build the effective post-update tuple of (through_max, turn_min,
+    # uturn_min) so we can validate the angle ordering invariant — even when
+    # only one of the three is being changed.
+    set_fields = body.model_fields_set
+    def _effective(body_field: str, current_col: str) -> float | None:
+        if body_field in set_fields:
+            return getattr(body, body_field)  # may be float or None (clear)
+        return current.get(current_col)
+
+    eff_tw  = _effective("calib_tripwire_half_length_px", "calib_tripwire_half_length_px")
+    eff_thr = _effective("calib_trajectory_through_max_angle", "calib_trajectory_through_max_angle")
+    eff_trn = _effective("calib_trajectory_turn_min_angle", "calib_trajectory_turn_min_angle")
+    eff_utr = _effective("calib_trajectory_uturn_min_angle", "calib_trajectory_uturn_min_angle")
+
+    # Range checks. Skip when field is None (no override = use default).
+    if eff_tw is not None and not (10.0 <= eff_tw <= 500.0):
+        raise HTTPException(status_code=422,
+            detail="tripwire_half_length_px must be in [10, 500]")
+    if eff_thr is not None and not (0.0 < eff_thr < 90.0):
+        raise HTTPException(status_code=422,
+            detail="trajectory_through_max_angle must be in (0, 90)")
+    if eff_trn is not None and not (0.0 < eff_trn < 180.0):
+        raise HTTPException(status_code=422,
+            detail="trajectory_turn_min_angle must be in (0, 180)")
+    if eff_utr is not None and not (0.0 < eff_utr <= 180.0):
+        raise HTTPException(status_code=422,
+            detail="trajectory_uturn_min_angle must be in (0, 180]")
+    # Ordering invariant — required even when only one is overridden, because
+    # the unset ones fall back to defaults that may now violate the ordering.
+    # Use effective values where available, defaults for the rest.
+    from backend.config import (
+        TRAJECTORY_THROUGH_MAX_ANGLE as _D_THR,
+        TRAJECTORY_TURN_MIN_ANGLE as _D_TRN,
+        TRAJECTORY_UTURN_MIN_ANGLE as _D_UTR,
+    )
+    chk_thr = eff_thr if eff_thr is not None else _D_THR
+    chk_trn = eff_trn if eff_trn is not None else _D_TRN
+    chk_utr = eff_utr if eff_utr is not None else _D_UTR
+    if not (chk_thr < chk_trn <= chk_utr):
+        raise HTTPException(status_code=422,
+            detail=f"angle thresholds must satisfy through_max < turn_min <= uturn_min "
+                   f"(got {chk_thr} / {chk_trn} / {chk_utr})")
+
+    # Translate body fields to update_intersection kwargs.
+    # - field not in set_fields => pass None to update_intersection (don't touch)
+    # - field present, value=None => pass CLEAR_TO_DEFAULT (set column to NULL)
+    # - field present, value=float => pass the float
+    def _kwarg(body_field: str):
+        if body_field not in set_fields:
+            return None
+        v = getattr(body, body_field)
+        return CLEAR_TO_DEFAULT if v is None else v
+
     update_intersection(
         project_id, intersection_id,
         name=body.name, leg_count=body.leg_count, sort_order=body.sort_order,
+        calib_tripwire_half_length_px=_kwarg("calib_tripwire_half_length_px"),
+        calib_trajectory_through_max_angle=_kwarg("calib_trajectory_through_max_angle"),
+        calib_trajectory_turn_min_angle=_kwarg("calib_trajectory_turn_min_angle"),
+        calib_trajectory_uturn_min_angle=_kwarg("calib_trajectory_uturn_min_angle"),
     )
     return get_intersection(project_id, intersection_id)
 
@@ -577,6 +666,9 @@ def _run_v3_pipeline(
                     )
                 continue
 
+            # Per-intersection calibration overrides — resolved to effective
+            # values (override or global default) by get_calibration_params.
+            calib = get_calibration_params(project_id, intersection_id)
             pipeline = ProcessingPipeline(
                 project_id=project_id,
                 db_path=db_path,
@@ -590,6 +682,7 @@ def _run_v3_pipeline(
                 detection_skip=mode_cfg["detection_skip"],
                 tracker_match_threshold=mode_cfg.get("tracker_match_threshold"),
                 tracker_activation_threshold=mode_cfg.get("tracker_activation_threshold"),
+                calibration_params=calib,
             )
             # Tag events with our trim_id + camera_id so the aggregator can
             # group correctly. The pipeline already writes video_id from

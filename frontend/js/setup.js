@@ -584,6 +584,7 @@ async function _renderCameraCalibration(host, camId) {
     const legCount = _v3IntersectionDetail?.intersection?.leg_count || 4;
 
     window.v3RenderCalibration(host, pid, camId, {
+        intersectionId: iid,
         legCount,
         videoId: firstVideo ? firstVideo.video_id : null,
         videoDuration: firstVideo ? firstVideo.duration_seconds : 0,

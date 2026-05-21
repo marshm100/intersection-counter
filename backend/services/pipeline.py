@@ -66,6 +66,12 @@ class ProcessingPipeline:
         # under-predicts motion when detection_skip>1.
         tracker_match_threshold: float | None = None,
         tracker_activation_threshold: float | None = None,
+        # Per-intersection calibration overrides. dict with keys
+        # tripwire_half_length_px, trajectory_through_max_angle,
+        # trajectory_turn_min_angle, trajectory_uturn_min_angle.
+        # When None, the pipeline falls back to global config constants.
+        # The router gets the effective values from database.get_calibration_params.
+        calibration_params: dict | None = None,
     ):
         self.project_id = project_id
         self.db_path = db_path
@@ -85,6 +91,7 @@ class ProcessingPipeline:
         self.detection_skip = max(1, int(detection_skip))
         self._tracker_match_threshold = tracker_match_threshold
         self._tracker_activation_threshold = tracker_activation_threshold
+        self._calibration_params = calibration_params or {}
 
         # Components (lazy-loaded to avoid loading YOLO in tests)
         self._detector: VehicleDetector | None = None
@@ -382,7 +389,10 @@ class ProcessingPipeline:
                 ref = leg.get("reference_heading")
                 if ref is None:
                     continue
-                line_start, line_end = tripwire_from_point(zone[0], ref)
+                line_start, line_end = tripwire_from_point(
+                    zone[0], ref,
+                    half_length=self._calibration_params.get("tripwire_half_length_px"),
+                )
             elif len(zone) >= 2:
                 line_start = tuple(zone[0])
                 line_end = tuple(zone[1])
@@ -463,7 +473,10 @@ class ProcessingPipeline:
             return
 
         classification = classify_trajectory(
-            trajectory, vehicle["reference_heading"]
+            trajectory, vehicle["reference_heading"],
+            through_max_angle=self._calibration_params.get("trajectory_through_max_angle"),
+            turn_min_angle=self._calibration_params.get("trajectory_turn_min_angle"),
+            uturn_min_angle=self._calibration_params.get("trajectory_uturn_min_angle"),
         )
 
         logger.debug(

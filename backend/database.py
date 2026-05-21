@@ -10,13 +10,21 @@ CREATE TABLE IF NOT EXISTS project_info (
 );
 
 -- v3: intersection-day cards (one row per intersection_name x recording_date)
+-- The four "calib_*" columns are nullable per-intersection overrides for the
+-- corresponding global constants in backend/config.py. NULL = use the global
+-- default. Surfaced in the leg-calibration UI so the engineer can tune them
+-- per intersection without changing global behavior.
 CREATE TABLE IF NOT EXISTS intersections (
-    intersection_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name            TEXT NOT NULL,
-    date            TEXT NOT NULL,        -- YYYY-MM-DD
-    sort_order      INTEGER NOT NULL,
-    leg_count       INTEGER NOT NULL DEFAULT 4,
-    created_at      TEXT NOT NULL,
+    intersection_id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                         TEXT NOT NULL,
+    date                         TEXT NOT NULL,        -- YYYY-MM-DD
+    sort_order                   INTEGER NOT NULL,
+    leg_count                    INTEGER NOT NULL DEFAULT 4,
+    created_at                   TEXT NOT NULL,
+    calib_tripwire_half_length_px       REAL,    -- origin attribution
+    calib_trajectory_through_max_angle  REAL,    -- classification
+    calib_trajectory_turn_min_angle     REAL,    -- classification
+    calib_trajectory_uturn_min_angle    REAL,    -- classification
     UNIQUE(name, date)
 );
 
@@ -227,6 +235,18 @@ def get_connection(project_id: str) -> sqlite3.Connection:
         conn.execute("ALTER TABLE checkpoint ADD COLUMN current_camera_id INTEGER DEFAULT NULL")
     if "current_trim_id" not in cp_cols:
         conn.execute("ALTER TABLE checkpoint ADD COLUMN current_trim_id INTEGER DEFAULT NULL")
+
+    # v3.calibration: per-intersection overrides for tunables the user can edit
+    # in the leg-calibration UI. Nullable; NULL = fall back to backend/config.py.
+    isect_cols = [r[1] for r in conn.execute("PRAGMA table_info(intersections)").fetchall()]
+    if "calib_tripwire_half_length_px" not in isect_cols:
+        conn.execute("ALTER TABLE intersections ADD COLUMN calib_tripwire_half_length_px REAL")
+    if "calib_trajectory_through_max_angle" not in isect_cols:
+        conn.execute("ALTER TABLE intersections ADD COLUMN calib_trajectory_through_max_angle REAL")
+    if "calib_trajectory_turn_min_angle" not in isect_cols:
+        conn.execute("ALTER TABLE intersections ADD COLUMN calib_trajectory_turn_min_angle REAL")
+    if "calib_trajectory_uturn_min_angle" not in isect_cols:
+        conn.execute("ALTER TABLE intersections ADD COLUMN calib_trajectory_uturn_min_angle REAL")
 
     vid_cols = [r[1] for r in conn.execute("PRAGMA table_info(videos)").fetchall()]
     if "camera_id" not in vid_cols:
@@ -463,6 +483,10 @@ def link_video_to_camera(project_id: str, video_id: int, camera_id: int | None) 
 
 _INTERSECTION_FIELDS = (
     "intersection_id", "name", "date", "sort_order", "leg_count", "created_at",
+    "calib_tripwire_half_length_px",
+    "calib_trajectory_through_max_angle",
+    "calib_trajectory_turn_min_angle",
+    "calib_trajectory_uturn_min_angle",
 )
 
 
@@ -527,6 +551,19 @@ def get_intersection(project_id: str, intersection_id: int) -> dict | None:
         conn.close()
 
 
+_CALIB_PARAM_COLUMNS = (
+    "calib_tripwire_half_length_px",
+    "calib_trajectory_through_max_angle",
+    "calib_trajectory_turn_min_angle",
+    "calib_trajectory_uturn_min_angle",
+)
+# Sentinel for "explicitly clear this override back to default" — distinct from
+# "don't touch this field." Pass None as the SQL value to revert to NULL.
+class _ClearToDefault:
+    pass
+CLEAR_TO_DEFAULT = _ClearToDefault()
+
+
 def update_intersection(
     project_id: str,
     intersection_id: int,
@@ -534,7 +571,16 @@ def update_intersection(
     name: str | None = None,
     leg_count: int | None = None,
     sort_order: int | None = None,
+    calib_tripwire_half_length_px: float | None | _ClearToDefault = None,
+    calib_trajectory_through_max_angle: float | None | _ClearToDefault = None,
+    calib_trajectory_turn_min_angle: float | None | _ClearToDefault = None,
+    calib_trajectory_uturn_min_angle: float | None | _ClearToDefault = None,
 ) -> None:
+    """Update an intersection. Each calib_* arg is three-state:
+      - default (None): don't touch this column
+      - CLEAR_TO_DEFAULT: set the column to NULL (revert to global default)
+      - float value: set the column to that value
+    """
     sets, params = [], []
     if name is not None:
         sets.append("name = ?"); params.append(name)
@@ -542,6 +588,16 @@ def update_intersection(
         sets.append("leg_count = ?"); params.append(leg_count)
     if sort_order is not None:
         sets.append("sort_order = ?"); params.append(sort_order)
+    for col, val in (
+        ("calib_tripwire_half_length_px", calib_tripwire_half_length_px),
+        ("calib_trajectory_through_max_angle", calib_trajectory_through_max_angle),
+        ("calib_trajectory_turn_min_angle", calib_trajectory_turn_min_angle),
+        ("calib_trajectory_uturn_min_angle", calib_trajectory_uturn_min_angle),
+    ):
+        if val is None:
+            continue  # don't touch
+        sets.append(f"{col} = ?")
+        params.append(None if isinstance(val, _ClearToDefault) else float(val))
     if not sets:
         return
     params.append(intersection_id)
@@ -554,6 +610,39 @@ def update_intersection(
         conn.commit()
     finally:
         conn.close()
+
+
+def get_calibration_params(project_id: str, intersection_id: int) -> dict:
+    """Return the effective tunables for this intersection: each value is the
+    per-intersection override when present, otherwise the global default from
+    backend/config.py. Always returns a complete dict — callers can rely on
+    every key existing.
+
+    Raises ValueError if the intersection doesn't exist.
+    """
+    from backend.config import (
+        TRIPWIRE_HALF_LENGTH_PX,
+        TRAJECTORY_THROUGH_MAX_ANGLE,
+        TRAJECTORY_TURN_MIN_ANGLE,
+        TRAJECTORY_UTURN_MIN_ANGLE,
+    )
+    row = get_intersection(project_id, intersection_id)
+    if row is None:
+        raise ValueError(f"intersection {intersection_id} not found in {project_id}")
+    overrides = {
+        "tripwire_half_length_px": row.get("calib_tripwire_half_length_px"),
+        "trajectory_through_max_angle": row.get("calib_trajectory_through_max_angle"),
+        "trajectory_turn_min_angle": row.get("calib_trajectory_turn_min_angle"),
+        "trajectory_uturn_min_angle": row.get("calib_trajectory_uturn_min_angle"),
+    }
+    defaults = {
+        "tripwire_half_length_px": TRIPWIRE_HALF_LENGTH_PX,
+        "trajectory_through_max_angle": TRAJECTORY_THROUGH_MAX_ANGLE,
+        "trajectory_turn_min_angle": TRAJECTORY_TURN_MIN_ANGLE,
+        "trajectory_uturn_min_angle": TRAJECTORY_UTURN_MIN_ANGLE,
+    }
+    return {k: (overrides[k] if overrides[k] is not None else defaults[k])
+            for k in defaults}
 
 
 def remove_intersection(project_id: str, intersection_id: int) -> None:

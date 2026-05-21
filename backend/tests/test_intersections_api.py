@@ -95,6 +95,102 @@ class TestIntersectionCRUD:
         assert r.json() == []
 
 
+class TestCalibrationParams:
+    """Per-intersection calibration tunables (set in the leg-calibration UI).
+
+    These four columns are nullable overrides; NULL = use the config default.
+    The PATCH endpoint round-trips floats and accepts null to clear.
+    """
+
+    def test_detail_includes_calibration_defaults(self, project_with_two_cameras):
+        """The defaults must be exposed so the UI can render them as
+        placeholder text next to the per-intersection override inputs."""
+        pid, iid = project_with_two_cameras
+        body = client.get(f"/api/projects/{pid}/intersections/{iid}").json()
+        d = body.get("calibration_defaults")
+        assert d is not None
+        for k in ("tripwire_half_length_px", "trajectory_through_max_angle",
+                  "trajectory_turn_min_angle", "trajectory_uturn_min_angle"):
+            assert k in d
+            assert isinstance(d[k], (int, float))
+        # And fresh intersections have no overrides yet.
+        isect = body["intersection"]
+        assert isect["calib_tripwire_half_length_px"] is None
+        assert isect["calib_trajectory_through_max_angle"] is None
+
+    def test_set_and_clear_tripwire_override(self, project_with_two_cameras):
+        pid, iid = project_with_two_cameras
+        # Set
+        r = client.patch(f"/api/projects/{pid}/intersections/{iid}",
+                         json={"calib_tripwire_half_length_px": 200.0})
+        assert r.status_code == 200, r.text
+        assert r.json()["calib_tripwire_half_length_px"] == 200.0
+        # Clear (explicit null)
+        r = client.patch(f"/api/projects/{pid}/intersections/{iid}",
+                         json={"calib_tripwire_half_length_px": None})
+        assert r.status_code == 200, r.text
+        assert r.json()["calib_tripwire_half_length_px"] is None
+
+    def test_tripwire_range_check(self, project_with_two_cameras):
+        pid, iid = project_with_two_cameras
+        r = client.patch(f"/api/projects/{pid}/intersections/{iid}",
+                         json={"calib_tripwire_half_length_px": 5.0})
+        assert r.status_code == 422
+        r = client.patch(f"/api/projects/{pid}/intersections/{iid}",
+                         json={"calib_tripwire_half_length_px": 600.0})
+        assert r.status_code == 422
+
+    def test_angle_ordering_invariant(self, project_with_two_cameras):
+        """through_max < turn_min <= uturn_min must hold across the effective
+        values after the PATCH, even when only one of the three is being set."""
+        pid, iid = project_with_two_cameras
+        # Setting through_max above default turn_min (35) violates ordering.
+        r = client.patch(f"/api/projects/{pid}/intersections/{iid}",
+                         json={"calib_trajectory_through_max_angle": 50.0})
+        assert r.status_code == 422
+        # Valid: all three set with proper ordering.
+        r = client.patch(f"/api/projects/{pid}/intersections/{iid}", json={
+            "calib_trajectory_through_max_angle": 20.0,
+            "calib_trajectory_turn_min_angle": 40.0,
+            "calib_trajectory_uturn_min_angle": 140.0,
+        })
+        assert r.status_code == 200, r.text
+        # Invalid: turn_min > uturn_min.
+        r = client.patch(f"/api/projects/{pid}/intersections/{iid}", json={
+            "calib_trajectory_uturn_min_angle": 30.0,
+        })
+        assert r.status_code == 422
+
+    def test_unrelated_patch_does_not_touch_overrides(self, project_with_two_cameras):
+        """PATCHing just the name must leave calibration overrides intact."""
+        pid, iid = project_with_two_cameras
+        client.patch(f"/api/projects/{pid}/intersections/{iid}",
+                     json={"calib_tripwire_half_length_px": 175.0})
+        r = client.patch(f"/api/projects/{pid}/intersections/{iid}",
+                         json={"name": "Renamed"})
+        assert r.status_code == 200
+        assert r.json()["calib_tripwire_half_length_px"] == 175.0
+
+    def test_get_calibration_params_helper(self, project_with_two_cameras):
+        """The backend helper returns the override when set, otherwise the
+        default — so the pipeline always gets a complete dict."""
+        from backend.database import get_calibration_params
+        from backend.config import (
+            TRIPWIRE_HALF_LENGTH_PX, TRAJECTORY_THROUGH_MAX_ANGLE,
+        )
+        pid, iid = project_with_two_cameras
+        # Fresh: all defaults.
+        eff = get_calibration_params(pid, iid)
+        assert eff["tripwire_half_length_px"] == TRIPWIRE_HALF_LENGTH_PX
+        assert eff["trajectory_through_max_angle"] == TRAJECTORY_THROUGH_MAX_ANGLE
+        # After override: overridden value comes back, untouched stays at default.
+        client.patch(f"/api/projects/{pid}/intersections/{iid}",
+                     json={"calib_tripwire_half_length_px": 90.0})
+        eff = get_calibration_params(pid, iid)
+        assert eff["tripwire_half_length_px"] == 90.0
+        assert eff["trajectory_through_max_angle"] == TRAJECTORY_THROUGH_MAX_ANGLE
+
+
 class TestCameraCRUD:
     def test_list_cameras(self, project_with_two_cameras):
         pid, iid = project_with_two_cameras

@@ -106,39 +106,40 @@ def compute_path_straightness(trajectory: list[tuple]) -> float:
     return compute_straight_line_distance(trajectory) / path_dist
 
 
-def _distance_to_nearest_boundary(angle: float) -> tuple[float, float]:
+def _distance_to_nearest_boundary(
+    angle: float, through_max: float, turn_min: float, uturn_min: float,
+) -> tuple[float, float]:
     """Compute distance from angle to nearest classification boundary.
 
     Returns (distance, half_zone_width) for confidence scoring.
-    Boundaries: 0 (through center), ±25 (through/ambiguous), ±35 (turn start),
-    ±135 (turn/uturn), ±180 (uturn center).
+    Boundaries: 0 (through center), ±through_max (through/ambiguous),
+    ±turn_min (turn start), ±uturn_min (turn/uturn), ±180 (uturn center).
     """
     abs_angle = abs(angle)
-    boundaries = [0, TRAJECTORY_THROUGH_MAX_ANGLE, TRAJECTORY_TURN_MIN_ANGLE,
-                  TRAJECTORY_UTURN_MIN_ANGLE, 180]
-
+    boundaries = [0, through_max, turn_min, uturn_min, 180]
     min_dist = float("inf")
     for b in boundaries:
         d = abs(abs_angle - b)
         if d < min_dist:
             min_dist = d
-
-    # Half zone widths for each region
-    if abs_angle <= TRAJECTORY_THROUGH_MAX_ANGLE:
-        half_width = TRAJECTORY_THROUGH_MAX_ANGLE / 2.0
-    elif abs_angle <= TRAJECTORY_TURN_MIN_ANGLE:
-        half_width = (TRAJECTORY_TURN_MIN_ANGLE - TRAJECTORY_THROUGH_MAX_ANGLE) / 2.0
-    elif abs_angle <= TRAJECTORY_UTURN_MIN_ANGLE:
-        half_width = (TRAJECTORY_UTURN_MIN_ANGLE - TRAJECTORY_TURN_MIN_ANGLE) / 2.0
+    if abs_angle <= through_max:
+        half_width = through_max / 2.0
+    elif abs_angle <= turn_min:
+        half_width = (turn_min - through_max) / 2.0
+    elif abs_angle <= uturn_min:
+        half_width = (uturn_min - turn_min) / 2.0
     else:
-        half_width = (180 - TRAJECTORY_UTURN_MIN_ANGLE) / 2.0
-
+        half_width = (180 - uturn_min) / 2.0
     return min_dist, half_width
 
 
-def _compute_confidence(net_heading_change: float) -> float:
+def _compute_confidence(
+    net_heading_change: float, through_max: float, turn_min: float, uturn_min: float,
+) -> float:
     """Compute confidence score based on distance from nearest boundary."""
-    dist, half_width = _distance_to_nearest_boundary(net_heading_change)
+    dist, half_width = _distance_to_nearest_boundary(
+        net_heading_change, through_max, turn_min, uturn_min,
+    )
     if half_width == 0:
         return 0.5
     conf = dist / half_width
@@ -146,12 +147,24 @@ def _compute_confidence(net_heading_change: float) -> float:
 
 
 def classify_trajectory(
-    trajectory: list[tuple], reference_heading: float
+    trajectory: list[tuple], reference_heading: float,
+    *,
+    through_max_angle: float | None = None,
+    turn_min_angle: float | None = None,
+    uturn_min_angle: float | None = None,
 ) -> dict:
     """Classify a trajectory as through, left, right, uturn, or insufficient_data.
 
+    The three angle thresholds can be overridden per call (the pipeline passes
+    per-intersection overrides from the calibration UI when present); each
+    defaults to its module-level config constant when None.
+
     Returns a dict with movement, confidence, and diagnostic metrics.
     """
+    eff_through = TRAJECTORY_THROUGH_MAX_ANGLE if through_max_angle is None else through_max_angle
+    eff_turn    = TRAJECTORY_TURN_MIN_ANGLE    if turn_min_angle    is None else turn_min_angle
+    eff_uturn   = TRAJECTORY_UTURN_MIN_ANGLE   if uturn_min_angle   is None else uturn_min_angle
+
     num_points = len(trajectory)
     path_dist = compute_path_distance(trajectory)
 
@@ -176,26 +189,22 @@ def classify_trajectory(
     # 3. Classification using reference-anchored heading change
     #    and cumulative curvature as tiebreaker for ambiguous cases.
 
-    # U-turn: |net| >= 135°
-    if abs_change >= TRAJECTORY_UTURN_MIN_ANGLE:
+    if abs_change >= eff_uturn:
         movement = "uturn"
-    # Clear through: |net| <= 25°
-    elif abs_change <= TRAJECTORY_THROUGH_MAX_ANGLE:
+    elif abs_change <= eff_through:
         movement = "through"
-    # Clear left: -35° > net > -135°
-    elif net_change < -TRAJECTORY_TURN_MIN_ANGLE and net_change > -TRAJECTORY_UTURN_MIN_ANGLE:
+    elif net_change < -eff_turn and net_change > -eff_uturn:
         movement = "left"
-    # Clear right: 35° < net < 135°
-    elif net_change > TRAJECTORY_TURN_MIN_ANGLE and net_change < TRAJECTORY_UTURN_MIN_ANGLE:
+    elif net_change > eff_turn and net_change < eff_uturn:
         movement = "right"
-    # Ambiguous zone (25-35°): use curvature to decide
+    # Ambiguous zone (between through_max and turn_min): use curvature
     else:
         if curvature > TRAJECTORY_CURVATURE_THRESHOLD:
             movement = "left" if net_change < 0 else "right"
         else:
             movement = "through"
 
-    confidence = _compute_confidence(net_change)
+    confidence = _compute_confidence(net_change, eff_through, eff_turn, eff_uturn)
 
     logger.debug(
         "classify: movement=%s net_heading=%.1f straightness=%.2f "
