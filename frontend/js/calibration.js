@@ -426,6 +426,15 @@
         _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
         _ctx.drawImage(_img, 0, 0);
 
+        // Draw calibration-param overlays UNDER the leg nodes/arrows so the
+        // dots stay legible on top. Fans are most-transparent, then tripwires,
+        // then the leg dot + heading arrow + label.
+        for (const leg of _legs) {
+            if (leg.reference_heading == null) continue;
+            const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
+            _drawAngleFan(leg.origin_zone[0], leg.reference_heading);
+            _drawTripwire(leg.origin_zone[0], leg.reference_heading, color);
+        }
         for (const leg of _legs) {
             _drawNode(leg.origin_zone[0], LEG_COLORS[leg.idx % LEG_COLORS.length], leg.label, leg.reference_heading);
         }
@@ -433,6 +442,92 @@
             _drawNode(_currentLeg.origin_zone[0],
                 LEG_COLORS[_currentLeg.idx % LEG_COLORS.length], '', _currentLeg.reference_heading);
         }
+    }
+
+    // ---- Calibration-param overlays -----------------------------------
+    //
+    // Live visualization of the four calibration parameters on the video
+    // canvas. Re-rendered by _redraw() whenever a value changes in the
+    // sidebar — so the engineer sees the geometric effect immediately.
+
+    function _effectiveCalib() {
+        const fallback = (col, defKey) => {
+            const o = _intersectionRow ? _intersectionRow[col] : null;
+            if (o != null) return o;
+            return _calibDefaults ? _calibDefaults[defKey] : null;
+        };
+        return {
+            tripwire_half_length_px: fallback(
+                'calib_tripwire_half_length_px', 'tripwire_half_length_px'),
+            through_max: fallback(
+                'calib_trajectory_through_max_angle', 'trajectory_through_max_angle'),
+            turn_min: fallback(
+                'calib_trajectory_turn_min_angle', 'trajectory_turn_min_angle'),
+            uturn_min: fallback(
+                'calib_trajectory_uturn_min_angle', 'trajectory_uturn_min_angle'),
+        };
+    }
+
+    function _drawTripwire(p, heading, color) {
+        const halfLen = _effectiveCalib().tripwire_half_length_px;
+        if (!halfLen) return;
+        // Perpendicular to approach heading. Heading H -> direction
+        // (sin H, -cos H); perp adds 90° -> (sin(H+90), -cos(H+90)).
+        const perpRad = (heading + 90) * Math.PI / 180;
+        const dx = Math.sin(perpRad);
+        const dy = -Math.cos(perpRad);
+        _ctx.save();
+        _ctx.beginPath();
+        _ctx.moveTo(p[0] - dx * halfLen, p[1] - dy * halfLen);
+        _ctx.lineTo(p[0] + dx * halfLen, p[1] + dy * halfLen);
+        _ctx.strokeStyle = color;
+        _ctx.globalAlpha = 0.55;
+        _ctx.lineWidth = 3;
+        _ctx.setLineDash([8, 5]);
+        _ctx.stroke();
+        _ctx.restore();
+    }
+
+    function _drawAngleFan(p, heading) {
+        const c = _effectiveCalib();
+        if (c.through_max == null || c.turn_min == null || c.uturn_min == null) return;
+        const R = 50;
+        // Heading-to-canvas-angle: 0°=N=up; canvas 0 rad = east. So canvas
+        // angle = (H - 90)°. We draw wedges as angular offsets from this
+        // base, sweeping clockwise (canvas-positive).
+        const baseRad = (heading - 90) * Math.PI / 180;
+        const toRad = d => d * Math.PI / 180;
+
+        function wedge(offsetDegA, offsetDegB, fill, alpha) {
+            _ctx.save();
+            _ctx.beginPath();
+            _ctx.moveTo(p[0], p[1]);
+            _ctx.arc(p[0], p[1], R, baseRad + toRad(offsetDegA), baseRad + toRad(offsetDegB), false);
+            _ctx.closePath();
+            _ctx.globalAlpha = alpha;
+            _ctx.fillStyle = fill;
+            _ctx.fill();
+            _ctx.restore();
+        }
+
+        // Through (centered on approach direction): ±through_max°
+        wedge(-c.through_max, c.through_max, '#22c55e', 0.32);
+        // Right turn (clockwise from approach): [turn_min, uturn_min]
+        wedge(c.turn_min, c.uturn_min, '#f59e0b', 0.25);
+        // Left turn (CCW from approach): [-uturn_min, -turn_min]
+        wedge(-c.uturn_min, -c.turn_min, '#f59e0b', 0.25);
+        // U-turn (the back arc): from +uturn_min around past 180° to -uturn_min
+        wedge(c.uturn_min, 360 - c.uturn_min, '#ef4444', 0.20);
+
+        // Faint outer ring so the fan has a clear extent even where wedges fade
+        _ctx.save();
+        _ctx.beginPath();
+        _ctx.arc(p[0], p[1], R, 0, 2 * Math.PI);
+        _ctx.strokeStyle = '#ffffff';
+        _ctx.globalAlpha = 0.25;
+        _ctx.lineWidth = 1;
+        _ctx.stroke();
+        _ctx.restore();
     }
 
     function _drawNode(p, color, label, heading) {
@@ -623,6 +718,7 @@
                 `/api/projects/${_pid}/intersections/${_iid}`, body,
             );
             _intersectionRow = updated;   // refresh override values shown
+            _redraw();                     // live-update tripwire/fan overlay
             if (status) {
                 const wasCleared = body[col] === null;
                 status.textContent = wasCleared
