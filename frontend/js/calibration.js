@@ -40,6 +40,17 @@
     let _dragMoved = false;
     let _editingIdx = -1;
 
+    // ---- Phase 2 polyline-paths state ---------------------------------
+    let _paths = [];               // saved paths from GET /paths
+    let _drawingPath = null;       // { origin_leg_id, destination_leg_id,
+                                   //   movement_label, polyline: [[x,y],...] }
+    let _pathFormVisible = false;  // sidebar "new path" form shown?
+
+    // ---- Phase 3 suggestion state -------------------------------------
+    let _suggestion = null;            // GET /calibration/suggestion result
+    let _suggestionPreviewOn = false;  // overlay suggested paths on canvas?
+    let _suggestionJobStatus = null;   // null | running | error | etc
+
     async function render(host, pid, cid, opts) {
         opts = opts || {};
         _pid = pid;
@@ -86,6 +97,23 @@
             }
         }
 
+        // Fetch existing polyline paths for this camera (Phase 2).
+        _paths = [];
+        try {
+            const r = await API.get(`/api/projects/${pid}/cameras/${cid}/paths`);
+            _paths = r.paths || [];
+        } catch (e) { /* leave empty */ }
+        _drawingPath = null;
+        _pathFormVisible = false;
+
+        // Fetch auto-cal suggestion (Phase 3).
+        _suggestion = null;
+        _suggestionPreviewOn = false;
+        try {
+            const s = await API.get(`/api/projects/${pid}/cameras/${cid}/calibration/suggestion`);
+            if (s && s.status) _suggestion = s;
+        } catch (e) { /* no suggestion yet */ }
+
         if (!_videoId) {
             host.innerHTML = '<p class="empty-message">No videos attached to this camera — upload one in the Videos tab first.</p>'
                 + `<p><a href="#" onclick="event.preventDefault(); v3CalibrationBack();">&larr; Back to cameras</a></p>`;
@@ -116,9 +144,11 @@
                     </div>
                 </div>
                 <div class="calib-sidebar">
+                    <div id="v3-calib-suggestion" style="margin-bottom:10px;"></div>
                     <div id="v3-calib-leg-list"></div>
                     <p id="v3-calib-status" style="margin-top:8px;font-size:13px;color:#6b7280;"></p>
                     <div id="v3-calib-form" style="display:none;margin-top:12px;"></div>
+                    <div id="v3-calib-paths" style="margin-top:20px;"></div>
                     <div id="v3-calib-params" style="margin-top:20px;"></div>
                     <div style="margin-top:16px;">
                         <button id="v3-calib-save-btn" class="btn-proc btn-start"
@@ -141,6 +171,8 @@
             _updateLegList();
             _updateStatus();
             _renderParamsEditor();
+            _renderPathsSection();
+            _renderSuggestionBanner();
         };
         _img.onerror = () => {
             const el = document.getElementById('v3-calib-status');
@@ -152,6 +184,14 @@
         _canvas.addEventListener('mousedown', _onCanvasMousedown);
         _canvas.addEventListener('mousemove', _onCanvasMousemove);
         _canvas.addEventListener('mouseup',   _onCanvasMouseup);
+        // Path-drawing keyboard / mouse finishers.
+        _canvas.addEventListener('dblclick', (e) => {
+            if (_drawingPath) {
+                e.preventDefault();
+                window.v3CalibrationFinishPath();
+            }
+        });
+        document.addEventListener('keydown', _onKeydown);
 
         const scrubber = document.getElementById('v3-calib-scrubber');
         if (scrubber) {
@@ -186,6 +226,16 @@
     }
 
     function _onCanvasClick(e) {
+        // Path-drawing mode wins over leg placement when active.
+        if (_drawingPath) {
+            const { x, y } = _canvasCoords(e);
+            _drawingPath.polyline.push([Math.round(x * 10) / 10,
+                                        Math.round(y * 10) / 10]);
+            _redraw();
+            _renderPathsSection();
+            return;
+        }
+
         if (_legs.length >= _numLegs && !_currentLeg) return;
         if (_currentLeg) return;
 
@@ -425,6 +475,12 @@
         if (!_canvas || !_ctx || !_img.complete) return;
         _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
         _ctx.drawImage(_img, 0, 0);
+
+        // Saved polyline paths drawn first (under everything else) so the
+        // leg dots and calibration overlays stay readable on top.
+        _drawSavedPaths();
+        _drawSuggestedPaths();        // dashed overlay when preview is on
+        if (_drawingPath) _drawInProgressPath();
 
         // Draw calibration-param overlays UNDER the leg nodes/arrows so the
         // dots stay legible on top. Fans are most-transparent, then tripwires,
@@ -753,12 +809,455 @@
         _scrubTimer = null;
         _currentLeg = null;
         _editingIdx = -1;
+        _drawingPath = null;
+        document.removeEventListener('keydown', _onKeydown);
         _img = null;
         _canvas = null;
         _ctx = null;
         const close = _onClose;
         _onClose = null;
         if (close) close();
+    };
+
+    // ---- Phase 2 polyline-paths UI ------------------------------------
+
+    const MOVEMENT_COLORS = {
+        "through":  "#22c55e",
+        "left":     "#3b82f6",
+        "right":    "#f59e0b",
+        "u_turn":   "#ef4444",
+    };
+
+    function _onKeydown(e) {
+        if (!_drawingPath) return;
+        if (e.key === "Escape") {
+            window.v3CalibrationCancelPath();
+        } else if (e.key === "Enter") {
+            window.v3CalibrationFinishPath();
+        }
+    }
+
+    function _drawSavedPaths() {
+        if (!_paths || _paths.length === 0) return;
+        for (const p of _paths) {
+            const color = MOVEMENT_COLORS[p.movement_label] || "#888";
+            _drawPolyline(p.polyline, color, /*alpha*/ 0.7,
+                          /*lineWidth*/ 2, /*dashed*/ false, /*tipArrow*/ true);
+        }
+    }
+
+    function _drawInProgressPath() {
+        if (!_drawingPath || _drawingPath.polyline.length === 0) return;
+        const color = MOVEMENT_COLORS[_drawingPath.movement_label] || "#fff";
+        _drawPolyline(_drawingPath.polyline, color, /*alpha*/ 0.95,
+                      /*lineWidth*/ 3, /*dashed*/ true, /*tipArrow*/ false);
+        // Highlight each clicked point with a small white-ringed dot.
+        _ctx.save();
+        _ctx.globalAlpha = 1.0;
+        for (const [x, y] of _drawingPath.polyline) {
+            _ctx.beginPath();
+            _ctx.arc(x, y, 4, 0, 2 * Math.PI);
+            _ctx.fillStyle = color;
+            _ctx.fill();
+            _ctx.strokeStyle = "#ffffff";
+            _ctx.lineWidth = 1.5;
+            _ctx.stroke();
+        }
+        _ctx.restore();
+    }
+
+    function _drawPolyline(pts, color, alpha, lineWidth, dashed, tipArrow) {
+        if (!pts || pts.length < 2) return;
+        _ctx.save();
+        _ctx.globalAlpha = alpha;
+        _ctx.strokeStyle = color;
+        _ctx.lineWidth = lineWidth;
+        if (dashed) _ctx.setLineDash([8, 5]);
+        _ctx.beginPath();
+        _ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) {
+            _ctx.lineTo(pts[i][0], pts[i][1]);
+        }
+        _ctx.stroke();
+        _ctx.setLineDash([]);
+        if (tipArrow && pts.length >= 2) {
+            const tip = pts[pts.length - 1];
+            const prev = pts[pts.length - 2];
+            const dx = tip[0] - prev[0];
+            const dy = tip[1] - prev[1];
+            const mag = Math.hypot(dx, dy) || 1;
+            const ux = dx / mag, uy = dy / mag;
+            const px = -uy, py = ux;       // perpendicular
+            const base = [tip[0] - ux * 12, tip[1] - uy * 12];
+            _ctx.beginPath();
+            _ctx.moveTo(tip[0], tip[1]);
+            _ctx.lineTo(base[0] + px * 6, base[1] + py * 6);
+            _ctx.lineTo(base[0] - px * 6, base[1] - py * 6);
+            _ctx.closePath();
+            _ctx.fillStyle = color;
+            _ctx.fill();
+        }
+        _ctx.restore();
+    }
+
+    function _renderPathsSection() {
+        const host = document.getElementById("v3-calib-paths");
+        if (!host) return;
+        const legs = _legs.slice().sort((a, b) => a.sort_order - b.sort_order);
+
+        // Show saved paths grouped by origin leg.
+        const byOrigin = {};
+        for (const p of _paths) {
+            (byOrigin[p.origin_leg_id] = byOrigin[p.origin_leg_id] || []).push(p);
+        }
+
+        let html = `<div style="border-top:1px solid #e5e7eb;padding-top:14px;">
+            <h4 style="margin:0 0 4px;font-size:14px;">Road paths (polylines)</h4>
+            <p style="margin:0 0 12px;font-size:12px;color:#6b7280;">
+                Each path is one (origin&rarr;destination) road centerline through the
+                intersection. The pipeline uses these for curve-aware origin attribution
+                and movement labeling.
+            </p>`;
+        if (_paths.length === 0) {
+            html += `<p style="font-size:12px;color:#9ca3af;margin-bottom:8px;">
+                No paths saved yet.
+            </p>`;
+        }
+        for (const leg of legs) {
+            const group = byOrigin[leg.leg_id] || [];
+            if (group.length === 0) continue;
+            const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
+            html += `<div style="margin-bottom:6px;">
+                <div style="font-size:12px;font-weight:600;color:${color};">
+                    From ${escapeHtml(leg.label)} (${escapeHtml(leg.cardinal_direction)})
+                </div>`;
+            for (const p of group) {
+                const destLeg = legs.find(l => l.leg_id === p.destination_leg_id);
+                const destLbl = destLeg ? destLeg.label : `leg ${p.destination_leg_id}`;
+                const moveColor = MOVEMENT_COLORS[p.movement_label] || "#888";
+                html += `<div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:2px 0 2px 10px;">
+                    <span style="display:inline-block;width:10px;height:10px;background:${moveColor};border-radius:1px;flex-shrink:0;"></span>
+                    <span style="flex:1;">&rarr; ${escapeHtml(destLbl)} (${escapeHtml(p.movement_label)}, ${p.polyline.length} pts, ${p.supporting_count}n, ${p.source})</span>
+                    <button onclick="v3CalibrationDeletePath(${p.path_id})"
+                        style="font-size:10px;padding:1px 4px;color:#ef4444;background:none;border:1px solid #ef4444;border-radius:3px;cursor:pointer;">
+                        Del
+                    </button>
+                </div>`;
+            }
+            html += `</div>`;
+        }
+
+        // Drawing form / in-progress path UI.
+        if (_drawingPath) {
+            const status = _drawingPath.polyline.length === 0
+                ? "Click on the canvas to start drawing the path. Add 2+ points. Enter or double-click to save; Escape to cancel."
+                : `${_drawingPath.polyline.length} points placed. Add more, or finish (Enter / double-click).`;
+            html += `<div style="margin-top:8px;padding:8px;background:#eff6ff;border:1px solid #3b82f6;border-radius:4px;font-size:12px;">
+                <div style="font-weight:600;margin-bottom:4px;">Drawing:
+                    L${_drawingPath.origin_leg_id} &rarr; L${_drawingPath.destination_leg_id}
+                    (${escapeHtml(_drawingPath.movement_label)})
+                </div>
+                <p style="margin:0 0 6px;color:#1e40af;">${status}</p>
+                <button onclick="v3CalibrationFinishPath()"
+                    style="font-size:11px;padding:2px 8px;margin-right:4px;background:#3b82f6;color:white;border:none;border-radius:3px;cursor:pointer;">
+                    Finish path
+                </button>
+                <button onclick="v3CalibrationCancelPath()"
+                    style="font-size:11px;padding:2px 8px;background:white;color:#6b7280;border:1px solid #d1d5db;border-radius:3px;cursor:pointer;">
+                    Cancel
+                </button>
+            </div>`;
+        } else if (_pathFormVisible) {
+            // Show selector form: origin, destination, movement label.
+            html += `<div style="margin-top:8px;padding:8px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:12px;">
+                <div style="font-weight:600;margin-bottom:6px;">New path</div>
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 6px;align-items:center;">
+                    <label>Origin leg:</label>
+                    <select id="v3-path-origin" style="font-size:12px;">
+                        ${legs.map(l => `<option value="${l.leg_id}">${escapeHtml(l.label)} (${escapeHtml(l.cardinal_direction)})</option>`).join("")}
+                    </select>
+                    <label>Destination leg:</label>
+                    <select id="v3-path-dest" style="font-size:12px;">
+                        ${legs.map(l => `<option value="${l.leg_id}">${escapeHtml(l.label)} (${escapeHtml(l.cardinal_direction)})</option>`).join("")}
+                    </select>
+                    <label>Movement:</label>
+                    <select id="v3-path-movement" style="font-size:12px;">
+                        <option value="through">through</option>
+                        <option value="left">left</option>
+                        <option value="right">right</option>
+                        <option value="u_turn">u_turn</option>
+                    </select>
+                </div>
+                <div style="margin-top:6px;">
+                    <button onclick="v3CalibrationStartDrawPath()"
+                        style="font-size:11px;padding:2px 8px;margin-right:4px;background:#22c55e;color:white;border:none;border-radius:3px;cursor:pointer;">
+                        Start drawing
+                    </button>
+                    <button onclick="v3CalibrationHidePathForm()"
+                        style="font-size:11px;padding:2px 8px;background:white;color:#6b7280;border:1px solid #d1d5db;border-radius:3px;cursor:pointer;">
+                        Cancel
+                    </button>
+                </div>
+            </div>`;
+        } else if (_legs.length >= 2) {
+            html += `<button onclick="v3CalibrationShowPathForm()"
+                style="font-size:12px;padding:4px 10px;margin-top:6px;background:white;color:#3b82f6;border:1px solid #3b82f6;border-radius:3px;cursor:pointer;">
+                + New path
+            </button>`;
+        }
+        html += `</div>`;
+        host.innerHTML = html;
+    }
+
+    window.v3CalibrationShowPathForm = function () {
+        if (_legs.length < 2) return;
+        _pathFormVisible = true;
+        _renderPathsSection();
+    };
+
+    window.v3CalibrationHidePathForm = function () {
+        _pathFormVisible = false;
+        _renderPathsSection();
+    };
+
+    window.v3CalibrationStartDrawPath = function () {
+        const o = parseInt(document.getElementById("v3-path-origin").value, 10);
+        const d = parseInt(document.getElementById("v3-path-dest").value, 10);
+        const m = document.getElementById("v3-path-movement").value;
+        if (!isFinite(o) || !isFinite(d) || !m) return;
+        _drawingPath = {
+            origin_leg_id: o,
+            destination_leg_id: d,
+            movement_label: m,
+            polyline: [],
+        };
+        _pathFormVisible = false;
+        _renderPathsSection();
+        _redraw();
+    };
+
+    window.v3CalibrationCancelPath = function () {
+        _drawingPath = null;
+        _renderPathsSection();
+        _redraw();
+    };
+
+    window.v3CalibrationFinishPath = async function () {
+        if (!_drawingPath || _drawingPath.polyline.length < 2) {
+            // Don't try to save a 0- or 1-point path; just cancel quietly.
+            return;
+        }
+        try {
+            const saved = await API.post(
+                `/api/projects/${_pid}/cameras/${_cid}/paths`,
+                {
+                    origin_leg_id: _drawingPath.origin_leg_id,
+                    destination_leg_id: _drawingPath.destination_leg_id,
+                    polyline: _drawingPath.polyline,
+                    movement_label: _drawingPath.movement_label,
+                    supporting_count: 0,
+                    source: "manual",
+                },
+            );
+            // Refresh local cache from server (include path_id etc.)
+            const r = await API.get(`/api/projects/${_pid}/cameras/${_cid}/paths`);
+            _paths = r.paths || [];
+        } catch (e) {
+            alert("Save path failed: " + (e.message || String(e)));
+        }
+        _drawingPath = null;
+        _renderPathsSection();
+        _redraw();
+    };
+
+    window.v3CalibrationDeletePath = async function (path_id) {
+        if (!confirm("Delete this path?")) return;
+        try {
+            await API.del(`/api/projects/${_pid}/cameras/${_cid}/paths/${path_id}`);
+            _paths = _paths.filter(p => p.path_id !== path_id);
+        } catch (e) {
+            alert("Delete failed: " + (e.message || String(e)));
+        }
+        _renderPathsSection();
+        _redraw();
+    };
+
+    // ---- Phase 3 suggestion banner + apply flow -----------------------
+
+    function _renderSuggestionBanner() {
+        const host = document.getElementById("v3-calib-suggestion");
+        if (!host) return;
+        const running = _suggestionJobStatus &&
+            ["queued", "running"].includes(_suggestionJobStatus.status);
+        if (!_suggestion && !running) {
+            host.innerHTML = `<button onclick="v3CalibrationStartAutoCal()"
+                style="font-size:12px;padding:4px 10px;background:white;color:#7c3aed;border:1px solid #7c3aed;border-radius:3px;cursor:pointer;">
+                Run auto-calibration on this video
+            </button>`;
+            return;
+        }
+        if (running) {
+            const pct = (_suggestionJobStatus.progress_pct || 0).toFixed(1);
+            host.innerHTML = `<div style="padding:8px;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;font-size:12px;">
+                Auto-calibration running... ${pct}% (${escapeHtml(_suggestionJobStatus.phase || "")})
+                <button onclick="v3CalibrationCancelAutoCal()"
+                    style="margin-left:8px;font-size:11px;padding:1px 6px;background:white;color:#92400e;border:1px solid #92400e;border-radius:3px;cursor:pointer;">
+                    Cancel
+                </button>
+            </div>`;
+            return;
+        }
+        if (!_suggestion) { host.innerHTML = ""; return; }
+        const s = _suggestion;
+        const status = s.status || "pending";
+        if (status !== "pending") {
+            host.innerHTML = `<div style="padding:6px 8px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:12px;color:#6b7280;">
+                Last auto-cal: <strong>${escapeHtml(status)}</strong>
+                (${escapeHtml(s.generated_at || "")})
+                <button onclick="v3CalibrationStartAutoCal()"
+                    style="margin-left:8px;font-size:11px;padding:1px 6px;background:white;color:#7c3aed;border:1px solid #7c3aed;border-radius:3px;cursor:pointer;">
+                    Re-run
+                </button>
+            </div>`;
+            return;
+        }
+        const payload = s.payload || {};
+        const n_zones = (payload.leg_zones || []).length;
+        const n_paths = (payload.paths || []).length;
+        const traj_kept = ((payload.stats || {}).trajectories_kept || "?");
+        host.innerHTML = `<div style="padding:8px;background:#ede9fe;border:1px solid #7c3aed;border-radius:4px;font-size:12px;">
+            <div style="font-weight:600;margin-bottom:4px;color:#5b21b6;">
+                Auto-calibration ready
+            </div>
+            <p style="margin:0 0 6px;color:#6d28d9;">
+                ${n_zones} legs and ${n_paths} road paths detected from ${traj_kept} observed trajectories.
+            </p>
+            <button onclick="v3CalibrationToggleSuggestionPreview()"
+                style="font-size:11px;padding:2px 8px;margin-right:4px;background:white;color:#5b21b6;border:1px solid #5b21b6;border-radius:3px;cursor:pointer;">
+                ${_suggestionPreviewOn ? "Hide preview" : "Preview on canvas"}
+            </button>
+            <button onclick="v3CalibrationApplySuggestion()"
+                style="font-size:11px;padding:2px 8px;margin-right:4px;background:#7c3aed;color:white;border:none;border-radius:3px;cursor:pointer;">
+                Apply all
+            </button>
+            <button onclick="v3CalibrationRejectSuggestion()"
+                style="font-size:11px;padding:2px 8px;background:white;color:#6b7280;border:1px solid #d1d5db;border-radius:3px;cursor:pointer;">
+                Reject
+            </button>
+        </div>`;
+    }
+
+    function _drawSuggestedPaths() {
+        if (!_suggestionPreviewOn || !_suggestion || !_suggestion.payload) return;
+        const paths = _suggestion.payload.paths || [];
+        for (const p of paths) {
+            const color = MOVEMENT_COLORS[p.movement_label] || "#a78bfa";
+            // Draw dotted in slightly different color so it's visually
+            // distinguishable from saved paths.
+            _drawPolyline(p.polyline, color, /*alpha*/ 0.7,
+                          /*lineWidth*/ 2, /*dashed*/ true, /*tipArrow*/ false);
+        }
+        // Suggested leg-zone centroids — small purple rings.
+        const zones = _suggestion.payload.leg_zones || [];
+        _ctx.save();
+        _ctx.globalAlpha = 0.85;
+        _ctx.strokeStyle = "#7c3aed";
+        _ctx.lineWidth = 2;
+        for (const z of zones) {
+            const [x, y] = z.origin_point || [0, 0];
+            _ctx.beginPath();
+            _ctx.arc(x, y, 16, 0, 2 * Math.PI);
+            _ctx.stroke();
+        }
+        _ctx.restore();
+    }
+
+    window.v3CalibrationStartAutoCal = async function () {
+        try {
+            const resp = await API.post(
+                `/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion/start`,
+                {},  // default sample window: first 15 min
+            );
+            _suggestionJobStatus = { status: "queued", progress_pct: 0, phase: "queued" };
+            _renderSuggestionBanner();
+            _pollAutoCalStatus();
+        } catch (e) {
+            alert("Start auto-cal failed: " + (e.message || String(e)));
+        }
+    };
+
+    window.v3CalibrationCancelAutoCal = async function () {
+        try {
+            await API.post(`/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion/cancel`, {});
+        } catch (e) {}
+    };
+
+    function _pollAutoCalStatus() {
+        if (!_suggestionJobStatus) return;
+        setTimeout(async () => {
+            try {
+                const s = await API.get(
+                    `/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion/status`,
+                );
+                _suggestionJobStatus = s;
+                if (s.status === "running" || s.status === "queued") {
+                    _renderSuggestionBanner();
+                    _pollAutoCalStatus();
+                } else {
+                    // Complete / error / cancelled — refresh suggestion.
+                    _suggestionJobStatus = null;
+                    try {
+                        const sug = await API.get(
+                            `/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion`,
+                        );
+                        _suggestion = (sug && sug.status) ? sug : null;
+                    } catch (e) { _suggestion = null; }
+                    _renderSuggestionBanner();
+                    _redraw();
+                }
+            } catch (e) {
+                _suggestionJobStatus = null;
+                _renderSuggestionBanner();
+            }
+        }, 2000);
+    }
+
+    window.v3CalibrationToggleSuggestionPreview = function () {
+        _suggestionPreviewOn = !_suggestionPreviewOn;
+        _renderSuggestionBanner();
+        _redraw();
+    };
+
+    window.v3CalibrationApplySuggestion = async function () {
+        if (!confirm("Apply auto-cal? This replaces all existing paths for this camera.")) return;
+        try {
+            const r = await API.post(
+                `/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion/apply`, {},
+            );
+            const skipped = (r.skipped || []).length;
+            const applied = r.applied_paths || 0;
+            alert(`Applied ${applied} path(s).` +
+                  (skipped > 0 ? ` Skipped ${skipped} (no matching leg within 80 px).` : ""));
+            _paths = r.current_paths || [];
+            // Refresh suggestion to flip status -> applied.
+            const sug = await API.get(`/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion`);
+            _suggestion = (sug && sug.status) ? sug : null;
+            _suggestionPreviewOn = false;
+        } catch (e) {
+            alert("Apply failed: " + (e.message || String(e)));
+        }
+        _renderSuggestionBanner();
+        _renderPathsSection();
+        _redraw();
+    };
+
+    window.v3CalibrationRejectSuggestion = async function () {
+        try {
+            await API.post(`/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion/reject`, {});
+            const sug = await API.get(`/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion`);
+            _suggestion = (sug && sug.status) ? sug : null;
+        } catch (e) {}
+        _renderSuggestionBanner();
     };
 
     window.v3RenderCalibration = render;

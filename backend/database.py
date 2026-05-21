@@ -188,6 +188,22 @@ CREATE TABLE IF NOT EXISTS v3_run_state (
     updated_at      TEXT NOT NULL,
     FOREIGN KEY (intersection_id) REFERENCES intersections(intersection_id)
 );
+
+-- Phase 3: auto-calibration suggestion produced by the background worker.
+-- One row per camera; older suggestions get overwritten when a fresh run
+-- finishes. payload_json holds the full AutoCalibrator output (zones,
+-- paths, polylines, supporting counts). Engineer reviews + accepts via
+-- the suggestion API; on apply, paths are copied to intersection_paths.
+CREATE TABLE IF NOT EXISTS calibration_suggestions (
+    suggestion_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id       INTEGER NOT NULL UNIQUE,
+    payload_json    TEXT    NOT NULL,
+    status          TEXT    NOT NULL DEFAULT 'pending', -- pending|applied|rejected
+    generated_at    TEXT    NOT NULL,
+    applied_at      TEXT,
+    job_metadata    TEXT,                                -- sample window, n_trajectories, etc
+    FOREIGN KEY (camera_id) REFERENCES cameras(camera_id)
+);
 """
 
 # Indexes are kept out of SCHEMA because they reference columns added by the
@@ -1092,6 +1108,110 @@ def clear_paths_for_camera(project_id: str, camera_id: int) -> int:
         )
         conn.commit()
         return cur.rowcount
+    finally:
+        conn.close()
+
+
+# -- v3: auto-calibration suggestions ----------------------------------------
+#
+# Phase 3 storage for the background AutoCalibrator's output. One row per
+# camera (unique constraint). Engineers review via the suggestion API and
+# either apply (copies paths into intersection_paths) or reject.
+
+_SUGGESTION_FIELDS = (
+    "suggestion_id", "camera_id", "payload_json", "status",
+    "generated_at", "applied_at", "job_metadata",
+)
+
+
+def _row_to_suggestion(row: sqlite3.Row) -> dict:
+    out = {k: row[k] for k in _SUGGESTION_FIELDS}
+    if isinstance(out.get("payload_json"), str):
+        try:
+            out["payload"] = json.loads(out["payload_json"])
+        except (TypeError, ValueError):
+            out["payload"] = {}
+    else:
+        out["payload"] = out.get("payload_json") or {}
+    if isinstance(out.get("job_metadata"), str):
+        try:
+            out["job_metadata"] = json.loads(out["job_metadata"])
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
+def get_calibration_suggestion(project_id: str, camera_id: int) -> dict | None:
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM calibration_suggestions WHERE camera_id = ?",
+            (camera_id,),
+        ).fetchone()
+        return _row_to_suggestion(row) if row else None
+    finally:
+        conn.close()
+
+
+def save_calibration_suggestion(
+    project_id: str, camera_id: int, payload: dict,
+    job_metadata: dict | None = None,
+) -> int:
+    """Insert-or-replace the suggestion for this camera. Always resets
+    status to 'pending' so a fresh suggestion is reviewable again."""
+    now = datetime.now(timezone.utc).isoformat()
+    payload_str = json.dumps(payload)
+    meta_str = json.dumps(job_metadata or {})
+    conn = get_connection(project_id)
+    try:
+        with conn:
+            existing = conn.execute(
+                "SELECT suggestion_id FROM calibration_suggestions "
+                "WHERE camera_id = ?", (camera_id,),
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    """UPDATE calibration_suggestions
+                       SET payload_json = ?, status = 'pending',
+                           generated_at = ?, applied_at = NULL,
+                           job_metadata = ?
+                     WHERE camera_id = ?""",
+                    (payload_str, now, meta_str, camera_id),
+                )
+                return int(existing[0])
+            cur = conn.execute(
+                """INSERT INTO calibration_suggestions
+                   (camera_id, payload_json, status, generated_at, job_metadata)
+                   VALUES (?, ?, 'pending', ?, ?)""",
+                (camera_id, payload_str, now, meta_str),
+            )
+            return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def mark_suggestion_applied(project_id: str, camera_id: int) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_connection(project_id)
+    try:
+        conn.execute(
+            "UPDATE calibration_suggestions SET status='applied', applied_at=? "
+            "WHERE camera_id=?", (now, camera_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def mark_suggestion_rejected(project_id: str, camera_id: int) -> None:
+    conn = get_connection(project_id)
+    try:
+        conn.execute(
+            "UPDATE calibration_suggestions SET status='rejected' WHERE camera_id=?",
+            (camera_id,),
+        )
+        conn.commit()
     finally:
         conn.close()
 

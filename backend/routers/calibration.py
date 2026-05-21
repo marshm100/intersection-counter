@@ -1,9 +1,5 @@
-import base64
 import json
 import logging
-import threading
-import time
-import uuid
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -11,11 +7,13 @@ from typing import List
 
 from backend.config import PROJECTS_DIR
 from backend.database import (
-    clear_paths_for_camera, delete_path, get_camera, get_connection,
-    get_project_info, list_paths_for_camera, list_videos,
-    list_videos_for_camera, upsert_path,
+    clear_paths_for_camera, delete_path, get_calibration_suggestion,
+    get_camera, get_connection, get_project_info,
+    list_paths_for_camera, list_videos, list_videos_for_camera,
+    mark_suggestion_applied, mark_suggestion_rejected,
+    upsert_path,
 )
-from backend.services.auto_calibrator import auto_calibrate
+from backend.services import auto_calibrator_v2
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -55,60 +53,18 @@ class PathsReplaceRequest(BaseModel):
     paths: List[PathInput]
 
 
-class StartAutoBody(BaseModel):
-    prescan_seconds: int = 300
-    screen_north_direction: str = "up"
-    num_legs_hint: int | None = None
-
-
-# In-memory job registry: job_id -> {status, project_id, progress_pct, result, error, updated_at}
-_jobs: dict[str, dict] = {}
-_jobs_lock = threading.Lock()
-_current_job_per_project: dict[str, str] = {}
-
-
 def _require_project(project_id: str) -> None:
     project_dir = PROJECTS_DIR / project_id
     db_path = project_dir / "project.db"
     if not project_dir.exists() or not db_path.exists():
         raise HTTPException(status_code=404, detail="Project not found")
 
-
-def _update_job(job_id: str, **fields) -> None:
-    with _jobs_lock:
-        if job_id in _jobs:
-            _jobs[job_id].update(fields)
-            _jobs[job_id]["updated_at"] = time.time()
-
-
-def _run_auto_calibration(
-    job_id: str,
-    project_id: str,
-    video_path: str,
-    prescan_seconds: int,
-    screen_north_direction: str,
-    num_legs_hint: int | None,
-) -> None:
-    """Background worker for auto-calibration. Updates job state as it runs."""
-    def progress_callback(info: dict) -> None:
-        _update_job(job_id, progress_pct=info.get("progress_pct", 0.0))
-
-    try:
-        _update_job(job_id, status="running", progress_pct=0.0)
-        result = auto_calibrate(
-            video_path=video_path,
-            prescan_seconds=prescan_seconds,
-            screen_north_direction=screen_north_direction,
-            num_legs_hint=num_legs_hint,
-            progress_callback=progress_callback,
-        )
-        result_dict = result.to_dict()
-        if result.frame_jpeg:
-            result_dict["frame_jpeg_b64"] = base64.b64encode(result.frame_jpeg).decode("ascii")
-        _update_job(job_id, status="completed", progress_pct=100.0, result=result_dict)
-    except Exception as e:
-        logger.exception("Auto-calibration job %s failed", job_id)
-        _update_job(job_id, status="failed", error=str(e))
+# OLD auto-cal endpoints (project-scoped + camera-scoped variants that
+# returned a frame_jpeg + leg suggestions in a single response) have been
+# removed. They depended on backend/services/auto_calibrator.py, which
+# was the sklearn DBSCAN-based implementation. Phase 3 replaced them with
+# the camera-scoped /calibration/suggestion/* endpoints below, which use
+# the scipy-based scripts/auto_calibrate.py via auto_calibrator_v2.
 
 
 @router.get("/projects/{project_id}/calibration")
@@ -195,64 +151,8 @@ def save_calibration(project_id: str, body: CalibrationSaveRequest):
     return {"legs": saved, "warnings": warnings}
 
 
-@router.post("/projects/{project_id}/calibration/auto")
-def start_auto_calibration(project_id: str, body: StartAutoBody):
-    """Start an async auto-calibration job. Returns job_id for polling."""
-    _require_project(project_id)
-
-    # Prefer the multi-video table (first video by sort_order); fall back to
-    # the legacy single-video project_info path so older projects still work.
-    videos = list_videos(project_id)
-    if videos:
-        video_path = videos[0]["path"]
-    else:
-        video_path = get_project_info(project_id, "video_path")
-    if not video_path:
-        raise HTTPException(status_code=400, detail="No video set for this project")
-
-    job_id = uuid.uuid4().hex
-    with _jobs_lock:
-        _jobs[job_id] = {
-            "job_id": job_id,
-            "project_id": project_id,
-            "status": "queued",
-            "progress_pct": 0.0,
-            "result": None,
-            "error": None,
-            "updated_at": time.time(),
-        }
-        _current_job_per_project[project_id] = job_id
-
-    thread = threading.Thread(
-        target=_run_auto_calibration,
-        args=(
-            job_id, project_id, video_path,
-            body.prescan_seconds, body.screen_north_direction, body.num_legs_hint,
-        ),
-        daemon=True,
-    )
-    thread.start()
-
-    return {"job_id": job_id, "status": "queued"}
-
-
-@router.get("/projects/{project_id}/calibration/auto/status")
-def get_auto_calibration_status(project_id: str, job_id: str | None = None):
-    """Poll the state of an auto-calibration job. If job_id is omitted,
-    returns the most recent job for this project."""
-    _require_project(project_id)
-
-    if job_id is None:
-        with _jobs_lock:
-            job_id = _current_job_per_project.get(project_id)
-        if job_id is None:
-            raise HTTPException(status_code=404, detail="No auto-calibration job for this project")
-
-    with _jobs_lock:
-        job = _jobs.get(job_id)
-        if not job:
-            raise HTTPException(status_code=404, detail="Job not found")
-        return dict(job)
+# OLD project-scoped auto-cal endpoints removed (Phase 3 replacement
+# is /api/projects/{p}/cameras/{c}/calibration/suggestion/start below).
 
 
 # ---------------------------------------------------------------------------
@@ -378,73 +278,7 @@ def save_camera_calibration(
     return {"legs": saved}
 
 
-@router.post("/projects/{project_id}/cameras/{camera_id}/calibration/auto")
-def start_camera_auto_calibration(
-    project_id: str, camera_id: int, body: StartAutoBody,
-):
-    """Start an auto-cal job using the first video attached to this camera.
-
-    Same async pattern as the project-level endpoint, but the job runs on
-    a camera's specific clip and writes results scoped to that camera.
-    The legs aren't auto-saved — the user reviews + confirms via PUT.
-    """
-    _require_project(project_id)
-    _require_camera_404(project_id, camera_id)
-
-    videos = list_videos_for_camera(project_id, camera_id)
-    if not videos:
-        raise HTTPException(
-            status_code=400,
-            detail="This camera has no videos attached. Add at least one video first.",
-        )
-    video_path = videos[0]["path"]
-
-    job_id = uuid.uuid4().hex
-    with _jobs_lock:
-        _jobs[job_id] = {
-            "job_id": job_id,
-            "project_id": project_id,
-            "camera_id": camera_id,
-            "status": "queued",
-            "progress_pct": 0.0,
-            "result": None,
-            "error": None,
-            "updated_at": time.time(),
-        }
-        _current_job_per_project[f"{project_id}:cam{camera_id}"] = job_id
-
-    thread = threading.Thread(
-        target=_run_auto_calibration,
-        args=(
-            job_id, project_id, video_path,
-            body.prescan_seconds, body.screen_north_direction, body.num_legs_hint,
-        ),
-        daemon=True,
-    )
-    thread.start()
-    return {"job_id": job_id, "status": "queued"}
-
-
-@router.get("/projects/{project_id}/cameras/{camera_id}/calibration/auto/status")
-def get_camera_auto_calibration_status(
-    project_id: str, camera_id: int, job_id: str | None = None,
-):
-    _require_project(project_id)
-    _require_camera_404(project_id, camera_id)
-
-    if job_id is None:
-        with _jobs_lock:
-            job_id = _current_job_per_project.get(f"{project_id}:cam{camera_id}")
-        if job_id is None:
-            raise HTTPException(
-                status_code=404,
-                detail="No auto-calibration job for this camera",
-            )
-    with _jobs_lock:
-        job = _jobs.get(job_id)
-        if not job:
-            raise HTTPException(status_code=404, detail="Job not found")
-        return dict(job)
+# OLD camera-scoped auto-cal endpoints removed — see /calibration/suggestion/* below.
 
 
 # ---------------------------------------------------------------------------
@@ -578,3 +412,165 @@ def clear_camera_paths(project_id: str, camera_id: int):
     _require_camera_404(project_id, camera_id)
     n = clear_paths_for_camera(project_id, camera_id)
     return {"deleted": True, "count": n}
+
+
+# ---------------------------------------------------------------------------
+# Auto-calibration suggestion endpoints — Phase 3.
+#
+# Engineer kicks off an auto-cal job; worker runs in background; when
+# done the result is in calibration_suggestions. Engineer can preview,
+# apply (copies paths into intersection_paths), or reject.
+# ---------------------------------------------------------------------------
+
+
+class StartAutoCalBody(BaseModel):
+    video_id: int | None = None              # default: first video on camera
+    sample_start_sec: float = 0.0
+    sample_end_sec: float | None = None      # default: start + 15 min
+
+
+@router.post("/projects/{project_id}/cameras/{camera_id}/calibration/suggestion/start")
+def start_camera_auto_cal_v2(
+    project_id: str, camera_id: int, body: StartAutoCalBody,
+):
+    """Kick off an auto-cal job in the background. Returns the job_id;
+    poll /status for progress. Replaces any prior in-flight job for this
+    camera. Single-job global concurrency — see service module."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    job_id = auto_calibrator_v2.enqueue(
+        project_id, camera_id,
+        video_id=body.video_id,
+        sample_start_sec=body.sample_start_sec,
+        sample_end_sec=body.sample_end_sec,
+    )
+    return {"job_id": job_id, "camera_id": camera_id, "status": "queued"}
+
+
+@router.get("/projects/{project_id}/cameras/{camera_id}/calibration/suggestion/status")
+def get_camera_auto_cal_status_v2(project_id: str, camera_id: int):
+    """Polled by the UI while the job runs. Returns running/complete/error
+    + progress + phase. Returns 404 if no job has been started for this
+    camera in this process lifetime."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    status = auto_calibrator_v2.get_status(camera_id)
+    if status is None:
+        raise HTTPException(status_code=404,
+                            detail="No auto-cal job for this camera yet")
+    return status
+
+
+@router.post("/projects/{project_id}/cameras/{camera_id}/calibration/suggestion/cancel")
+def cancel_camera_auto_cal_v2(project_id: str, camera_id: int):
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    ok = auto_calibrator_v2.cancel(camera_id)
+    return {"cancel_requested": ok}
+
+
+@router.get("/projects/{project_id}/cameras/{camera_id}/calibration/suggestion")
+def get_camera_suggestion(project_id: str, camera_id: int):
+    """The latest stored suggestion for this camera (any status). Empty
+    object when none exists. UI uses this to render the review banner."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    sug = get_calibration_suggestion(project_id, camera_id)
+    return sug or {}
+
+
+def _zone_id_to_leg_id(payload: dict, camera_id: int, project_id: str) -> dict[int, int]:
+    """Map suggestion zone_ids to real leg_ids. Strategy: find the existing
+    leg whose origin_zone[0] is closest to each suggested zone's
+    origin_point. Suggestion zones with no nearby leg are dropped (the
+    engineer can extend calibration to add legs first).
+
+    Returns {zone_id: leg_id}. Missing zones absent from the dict.
+    """
+    import math
+    conn = get_connection(project_id)
+    try:
+        rows = conn.execute(
+            "SELECT leg_id, origin_zone FROM legs WHERE camera_id=?", (camera_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+    legs = []
+    for r in rows:
+        try:
+            zone = json.loads(r[1]) if r[1] else []
+            if zone and len(zone) >= 1:
+                legs.append((r[0], float(zone[0][0]), float(zone[0][1])))
+        except Exception:
+            pass
+    out = {}
+    for z in payload.get("leg_zones", []):
+        zid = z["zone_id"]
+        ox, oy = z["origin_point"]
+        if not legs:
+            continue
+        # Nearest leg by Euclidean distance, within 80 px tolerance.
+        best, best_d = None, float("inf")
+        for lid, lx, ly in legs:
+            d = math.hypot(ox - lx, oy - ly)
+            if d < best_d:
+                best_d, best = d, lid
+        if best is not None and best_d <= 80.0:
+            out[zid] = best
+    return out
+
+
+@router.post("/projects/{project_id}/cameras/{camera_id}/calibration/suggestion/apply")
+def apply_camera_suggestion(project_id: str, camera_id: int):
+    """Copy the suggestion's paths into intersection_paths.
+
+    For each suggested path, look up the actual leg_id by spatial match
+    (zone_id -> nearest leg's leg_id within 80 px). Paths whose origin
+    or destination zone can't be matched are skipped — the engineer
+    can manually adjust calibration legs first and re-apply.
+
+    Replaces any existing paths for this camera (you're saying "use the
+    auto-cal output, throw away whatever was there"). Marks the
+    suggestion as applied."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    sug = get_calibration_suggestion(project_id, camera_id)
+    if not sug or not sug.get("payload"):
+        raise HTTPException(status_code=404,
+                            detail="No suggestion to apply")
+    payload = sug["payload"]
+    zone_to_leg = _zone_id_to_leg_id(payload, camera_id, project_id)
+
+    applied = 0
+    skipped = []
+    clear_paths_for_camera(project_id, camera_id)
+    for p in payload.get("paths", []):
+        ozid = p.get("origin_zone_id")
+        dzid = p.get("destination_zone_id")
+        o_lid = zone_to_leg.get(ozid)
+        d_lid = zone_to_leg.get(dzid)
+        if o_lid is None or d_lid is None:
+            skipped.append({"origin_zone_id": ozid,
+                            "destination_zone_id": dzid,
+                            "reason": "no matching leg within 80 px"})
+            continue
+        upsert_path(
+            project_id, camera_id, o_lid, d_lid,
+            p["polyline"], p["movement_label"],
+            source="auto", supporting_count=p.get("supporting_count", 0),
+        )
+        applied += 1
+    mark_suggestion_applied(project_id, camera_id)
+    return {
+        "applied_paths": applied,
+        "skipped": skipped,
+        "current_paths": list_paths_for_camera(project_id, camera_id),
+    }
+
+
+@router.post("/projects/{project_id}/cameras/{camera_id}/calibration/suggestion/reject")
+def reject_camera_suggestion(project_id: str, camera_id: int):
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    mark_suggestion_rejected(project_id, camera_id)
+    return {"status": "rejected"}
