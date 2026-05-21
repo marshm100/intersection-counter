@@ -11,8 +11,9 @@ from typing import List
 
 from backend.config import PROJECTS_DIR
 from backend.database import (
-    get_camera, get_connection, get_project_info,
-    list_videos, list_videos_for_camera,
+    clear_paths_for_camera, delete_path, get_camera, get_connection,
+    get_project_info, list_paths_for_camera, list_videos,
+    list_videos_for_camera, upsert_path,
 )
 from backend.services.auto_calibrator import auto_calibrate
 
@@ -30,6 +31,28 @@ class LegInput(BaseModel):
 
 class CalibrationSaveRequest(BaseModel):
     legs: List[LegInput]
+
+
+# --- Path (polyline) CRUD models ---
+
+VALID_MOVEMENTS = {"through", "left", "right", "u_turn"}
+
+
+class PathInput(BaseModel):
+    """One (origin_leg, destination_leg) path with a polyline through the
+    intersection. movement_label must be one of through|left|right|u_turn."""
+    origin_leg_id: int
+    destination_leg_id: int
+    polyline: List[List[float]]      # [[x, y], ...] in image coords
+    movement_label: str
+    supporting_count: int = 0
+    source: str = "manual"           # manual|auto
+
+
+class PathsReplaceRequest(BaseModel):
+    """Bulk-replace ALL paths for a camera (used when applying an auto-cal
+    suggestion in one shot, or when the engineer wants to start over)."""
+    paths: List[PathInput]
 
 
 class StartAutoBody(BaseModel):
@@ -422,3 +445,136 @@ def get_camera_auto_calibration_status(
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
         return dict(job)
+
+
+# ---------------------------------------------------------------------------
+# Path (polyline) CRUD — Phase 2.
+#
+# A path = one (origin_leg, destination_leg) road centerline through the
+# intersection, stored as a polyline. The pipeline uses these to do
+# curve-aware origin attribution + destination scoring + movement labeling
+# in a single match pass. When a camera has zero paths, the pipeline
+# falls back to the legacy tripwire+heading+softmax tiers (auto-upgrade).
+# ---------------------------------------------------------------------------
+
+
+def _validate_path(
+    project_id: str, camera_id: int, body: PathInput, frame_size=(640, 480),
+) -> None:
+    """Range + referential checks. Raises HTTPException(422) on failure."""
+    if body.movement_label not in VALID_MOVEMENTS:
+        raise HTTPException(status_code=422,
+            detail=f"movement_label must be one of {sorted(VALID_MOVEMENTS)}")
+    if len(body.polyline) < 2:
+        raise HTTPException(status_code=422,
+            detail="polyline must have at least 2 control points")
+    if len(body.polyline) > 50:
+        raise HTTPException(status_code=422,
+            detail="polyline capped at 50 control points")
+    fw, fh = frame_size
+    for i, pt in enumerate(body.polyline):
+        if len(pt) != 2:
+            raise HTTPException(status_code=422,
+                detail=f"polyline[{i}] must be [x, y]")
+        x, y = pt
+        if not (-50 <= x <= fw + 50 and -50 <= y <= fh + 50):
+            raise HTTPException(status_code=422,
+                detail=f"polyline[{i}]=({x},{y}) outside expected range")
+    conn = get_connection(project_id)
+    try:
+        rows = conn.execute(
+            "SELECT leg_id FROM legs WHERE camera_id = ?", (camera_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+    valid_lids = {r[0] for r in rows}
+    for which, lid in (("origin_leg_id", body.origin_leg_id),
+                       ("destination_leg_id", body.destination_leg_id)):
+        if lid not in valid_lids:
+            raise HTTPException(status_code=422,
+                detail=f"{which}={lid} is not a leg of camera {camera_id}")
+
+
+def _frame_size_for_camera(project_id: str, camera_id: int) -> tuple[int, int]:
+    """Look up frame width/height from one of the camera's videos.
+    Falls back to (640, 480) when no videos are attached yet."""
+    videos = list_videos_for_camera(project_id, camera_id)
+    if videos and videos[0].get("width") and videos[0].get("height"):
+        return int(videos[0]["width"]), int(videos[0]["height"])
+    return (640, 480)
+
+
+@router.get("/projects/{project_id}/cameras/{camera_id}/paths")
+def get_camera_paths(project_id: str, camera_id: int):
+    """List all paths for this camera, ordered by (origin, destination)."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    return {"paths": list_paths_for_camera(project_id, camera_id)}
+
+
+@router.post("/projects/{project_id}/cameras/{camera_id}/paths")
+def upsert_camera_path(
+    project_id: str, camera_id: int, body: PathInput,
+):
+    """Insert-or-update a single path keyed by (camera_id, origin_leg,
+    destination_leg). Returns the saved row."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    _validate_path(project_id, camera_id, body,
+                   frame_size=_frame_size_for_camera(project_id, camera_id))
+    path_id = upsert_path(
+        project_id, camera_id,
+        body.origin_leg_id, body.destination_leg_id,
+        body.polyline, body.movement_label,
+        source=body.source, supporting_count=body.supporting_count,
+    )
+    rows = [p for p in list_paths_for_camera(project_id, camera_id)
+            if p["path_id"] == path_id]
+    return rows[0] if rows else {"path_id": path_id}
+
+
+@router.put("/projects/{project_id}/cameras/{camera_id}/paths")
+def replace_camera_paths(
+    project_id: str, camera_id: int, body: PathsReplaceRequest,
+):
+    """Bulk replace: delete all existing paths for this camera, then
+    insert the new list. Used for 'apply auto-cal suggestion in one
+    shot' flows and 'engineer redrew everything from scratch'."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    fs = _frame_size_for_camera(project_id, camera_id)
+    for p in body.paths:
+        _validate_path(project_id, camera_id, p, frame_size=fs)
+    clear_paths_for_camera(project_id, camera_id)
+    for p in body.paths:
+        upsert_path(
+            project_id, camera_id,
+            p.origin_leg_id, p.destination_leg_id,
+            p.polyline, p.movement_label,
+            source=p.source, supporting_count=p.supporting_count,
+        )
+    return {"paths": list_paths_for_camera(project_id, camera_id)}
+
+
+@router.delete("/projects/{project_id}/cameras/{camera_id}/paths/{path_id}")
+def delete_camera_path(project_id: str, camera_id: int, path_id: int):
+    """Delete a single path. 404 if not found OR if it belongs to a
+    different camera (defensive — prevents cross-camera deletes)."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    existing = [p for p in list_paths_for_camera(project_id, camera_id)
+                if p["path_id"] == path_id]
+    if not existing:
+        raise HTTPException(status_code=404,
+            detail=f"path {path_id} not found for camera {camera_id}")
+    delete_path(project_id, path_id)
+    return {"deleted": True, "path_id": path_id}
+
+
+@router.delete("/projects/{project_id}/cameras/{camera_id}/paths")
+def clear_camera_paths(project_id: str, camera_id: int):
+    """Delete ALL paths for this camera. Returns count deleted."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    n = clear_paths_for_camera(project_id, camera_id)
+    return {"deleted": True, "count": n}

@@ -238,6 +238,89 @@ def classify_trajectory_batch(
 
 
 # ---------------------------------------------------------------------------
+# Polyline-based destination + movement (Phase 1, replaces the
+# softmax-over-legs scorer below when intersection_paths has rows for
+# the camera).
+#
+# For each known path (one polyline per (origin_leg, dest_leg) pair, with
+# a stored movement_label), we score the FULL trajectory against the
+# full polyline. Full-polyline matching here (vs just-exit-segment) is
+# right because the trajectory has played out and we want to confirm it
+# actually FOLLOWED the path's shape — not just ended near its endpoint.
+# The path's movement_label comes for free; derive_movement is bypassed.
+# ---------------------------------------------------------------------------
+
+
+def _path_hausdorff_oneway(
+    trajectory: list[tuple], polyline: list,
+) -> float:
+    """One-way Hausdorff: mean point-to-polyline distance across the
+    trajectory. Reuses the polyline distance helper from origin_detector
+    so the metric stays consistent across origin and destination scoring."""
+    # Lazy import to avoid a top-level circular reference path.
+    from backend.services.origin_detector import point_to_polyline_distance
+    if not trajectory or not polyline or len(polyline) < 2:
+        return float("inf")
+    total = 0.0
+    for p in trajectory:
+        total += point_to_polyline_distance(p, polyline)
+    return total / len(trajectory)
+
+
+def score_destination_by_polyline(
+    trajectory: list[tuple],
+    origin_leg_id: int,
+    paths: list[dict],
+    *,
+    max_avg_distance_px: float = 40.0,
+) -> dict:
+    """Pick the (destination_leg, movement) that best matches this trajectory.
+
+    Args:
+      trajectory: full trajectory as list of (x, y) points.
+      origin_leg_id: the leg this vehicle was attributed to. Only paths
+        with matching origin_leg_id are considered (the destination is a
+        property of the (origin, destination) pair).
+      paths: full list of paths for the camera (from list_paths_for_camera);
+        we filter by origin_leg_id internally.
+      max_avg_distance_px: reject if best match exceeds this distance.
+
+    Returns:
+      {'destination_leg_id': int|None, 'movement_label': str|None,
+       'distance': float, 'path_id': int|None, 'considered': int}
+    """
+    candidates = [p for p in paths if p.get("origin_leg_id") == origin_leg_id]
+    if not candidates or len(trajectory) < 2:
+        return {"destination_leg_id": None, "movement_label": None,
+                "distance": float("inf"), "path_id": None, "considered": 0}
+
+    best_dist = float("inf")
+    best = None
+    best_support = -1
+    for p in candidates:
+        d = _path_hausdorff_oneway(trajectory, p.get("polyline") or [])
+        # Tie-break by support count: a more-observed path wins ties.
+        if (d < best_dist or
+                (d == best_dist and p.get("supporting_count", 0) > best_support)):
+            best_dist = d
+            best = p
+            best_support = p.get("supporting_count", 0)
+
+    if best is None or best_dist > max_avg_distance_px:
+        return {"destination_leg_id": None, "movement_label": None,
+                "distance": best_dist,
+                "path_id": best.get("path_id") if best else None,
+                "considered": len(candidates)}
+    return {
+        "destination_leg_id": best.get("destination_leg_id"),
+        "movement_label": best.get("movement_label"),
+        "distance": best_dist,
+        "path_id": best.get("path_id"),
+        "considered": len(candidates),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Destination-leg classification (bug #5 Phase B).
 #
 # The angle-bucket classifier above flattens the whole trajectory into one
@@ -248,6 +331,10 @@ def classify_trajectory_batch(
 # on heading + position alignment. Movement type (through/left/right/u_turn)
 # is then derived from the (origin, destination) reference-heading geometry,
 # not from any hardcoded turn matrix.
+#
+# When intersection_paths has rows for the camera, score_destination_by_polyline
+# above takes precedence in the pipeline. The softmax scorer here is the
+# fallback path used by cameras without polyline calibration.
 # ---------------------------------------------------------------------------
 
 

@@ -157,6 +157,149 @@ def tripwire_from_point(
     )
 
 
+# ---------------------------------------------------------------------------
+# Polyline-based origin attribution (Phase 1).
+#
+# When a camera has rows in intersection_paths, the pipeline scores each
+# new trajectory's first K points against the ENTRY SEGMENT of every path
+# from that camera. The leg whose path has the smallest mean-perpendicular
+# distance wins, provided the distance is below max_avg_distance_px.
+#
+# Why entry segment and not full polyline: at origin-attribution time the
+# trajectory has only ~8 frames and the vehicle hasn't reached the
+# intersection yet. Matching against the full polyline (which extends
+# through and past the intersection) would be biased toward whichever
+# polyline happens to start where our prefix is.
+# ---------------------------------------------------------------------------
+
+
+def _point_to_segment_distance(
+    px: float, py: float, ax: float, ay: float, bx: float, by: float,
+) -> float:
+    """Shortest distance from point (px, py) to the finite segment
+    [(ax, ay), (bx, by)]. Standard projection formula with parameter clamp."""
+    dx = bx - ax
+    dy = by - ay
+    seg_len_sq = dx * dx + dy * dy
+    if seg_len_sq == 0.0:
+        return math.hypot(px - ax, py - ay)
+    t = ((px - ax) * dx + (py - ay) * dy) / seg_len_sq
+    if t < 0.0:
+        return math.hypot(px - ax, py - ay)
+    if t > 1.0:
+        return math.hypot(px - bx, py - by)
+    proj_x = ax + t * dx
+    proj_y = ay + t * dy
+    return math.hypot(px - proj_x, py - proj_y)
+
+
+def point_to_polyline_distance(
+    point: tuple, polyline: list,
+) -> float:
+    """Shortest distance from point to ANY segment of the polyline."""
+    if not polyline or len(polyline) < 2:
+        if polyline:
+            return math.hypot(point[0] - polyline[0][0], point[1] - polyline[0][1])
+        return float("inf")
+    best = float("inf")
+    for i in range(len(polyline) - 1):
+        a = polyline[i]
+        b = polyline[i + 1]
+        d = _point_to_segment_distance(
+            float(point[0]), float(point[1]),
+            float(a[0]), float(a[1]),
+            float(b[0]), float(b[1]),
+        )
+        if d < best:
+            best = d
+    return best
+
+
+def average_perpendicular_distance(
+    points: list, polyline: list,
+) -> float:
+    """Mean of point-to-polyline distances across all `points`.
+
+    Symmetric variant (Hausdorff) would also reverse — measure how well
+    polyline points are covered by the trajectory — but for origin
+    attribution we only care that the trajectory lies ON the polyline,
+    not that the polyline lies on the trajectory (the polyline can
+    extend past the trajectory). One-sided mean is the right metric.
+    """
+    if not points:
+        return float("inf")
+    total = 0.0
+    n = 0
+    for p in points:
+        total += point_to_polyline_distance(p, polyline)
+        n += 1
+    return total / n if n > 0 else float("inf")
+
+
+def _entry_segment(polyline: list) -> list:
+    """First half of the polyline — the off-frame-entry-to-intersection-center
+    portion. For an N-point polyline, returns the first ceil(N/2) + 1 points
+    (inclusive of the midpoint) so the entry segment ends at the geometric
+    middle of the polyline."""
+    if not polyline:
+        return []
+    n = len(polyline)
+    if n <= 2:
+        return list(polyline)
+    mid = (n + 1) // 2 + 1   # ceil(n/2) + 1 for an inclusive midpoint
+    return list(polyline[:mid])
+
+
+def score_origin_by_polyline(
+    trajectory_prefix: list,
+    paths: list,
+    *,
+    max_avg_distance_px: float = 30.0,
+) -> dict:
+    """Pick the leg whose path's entry segment best matches the prefix.
+
+    Args:
+      trajectory_prefix: list of (x, y) points — usually the first 6-10
+        trajectory points (vehicle hasn't reached the intersection yet).
+      paths: list of dicts from list_paths_for_camera. Each must have
+        'polyline' (list of [x, y]) and 'origin_leg_id'.
+      max_avg_distance_px: reject the best match if its mean perpendicular
+        distance exceeds this — better to fall through to a downstream
+        tier than to assign with low confidence.
+
+    Returns:
+      {'origin_leg_id': int|None, 'distance': float, 'path_id': int|None,
+       'considered': int}
+    """
+    if not trajectory_prefix or not paths:
+        return {"origin_leg_id": None, "distance": float("inf"),
+                "path_id": None, "considered": 0}
+
+    best_dist = float("inf")
+    best_leg = None
+    best_path_id = None
+    best_support = -1
+    for p in paths:
+        entry = _entry_segment(p.get("polyline") or [])
+        if len(entry) < 2:
+            continue
+        d = average_perpendicular_distance(trajectory_prefix, entry)
+        # Tie-break by supporting_count desc — a path backed by more
+        # observed trajectories is more trustworthy at the same distance.
+        if (d < best_dist or
+                (d == best_dist and p.get("supporting_count", 0) > best_support)):
+            best_dist = d
+            best_leg = p.get("origin_leg_id")
+            best_path_id = p.get("path_id")
+            best_support = p.get("supporting_count", 0)
+
+    if best_leg is None or best_dist > max_avg_distance_px:
+        return {"origin_leg_id": None, "distance": best_dist,
+                "path_id": best_path_id, "considered": len(paths)}
+    return {"origin_leg_id": best_leg, "distance": best_dist,
+            "path_id": best_path_id, "considered": len(paths)}
+
+
 def compute_reference_heading(
     line_start: tuple, line_end: tuple, intersection_center: tuple
 ) -> float:

@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -82,6 +83,33 @@ CREATE TABLE IF NOT EXISTS legs (
     origin_zone        TEXT NOT NULL,
     reference_heading  REAL NOT NULL,
     FOREIGN KEY (camera_id) REFERENCES cameras(camera_id)
+);
+
+-- Per-(origin_leg, destination_leg) road path through the intersection.
+-- One polyline encodes the full natural trajectory from off-frame entry
+-- on the origin leg, through the intersection, to off-frame exit on the
+-- destination leg. The pipeline uses these for:
+--   * origin attribution     (match traj's first K points to entry segment)
+--   * destination scoring    (match traj's full path to a candidate polyline)
+--   * movement labeling      (path stores the label, no derive_movement needed)
+-- Auto-cal populates these from clustered observed trajectories; the
+-- engineer reviews/adjusts in the calibration UI. When a camera has no
+-- rows here, the pipeline falls back to today's tripwire+heading logic.
+CREATE TABLE IF NOT EXISTS intersection_paths (
+    path_id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id            INTEGER NOT NULL,
+    origin_leg_id        INTEGER NOT NULL,
+    destination_leg_id   INTEGER NOT NULL,
+    polyline             TEXT    NOT NULL,                  -- JSON [[x,y], ...]
+    movement_label       TEXT    NOT NULL,                  -- through|left|right|u_turn
+    supporting_count     INTEGER NOT NULL DEFAULT 0,
+    source               TEXT    NOT NULL DEFAULT 'manual', -- manual|auto
+    last_observed_at     TEXT,
+    created_at           TEXT    NOT NULL,
+    FOREIGN KEY (camera_id)          REFERENCES cameras(camera_id),
+    FOREIGN KEY (origin_leg_id)      REFERENCES legs(leg_id),
+    FOREIGN KEY (destination_leg_id) REFERENCES legs(leg_id),
+    UNIQUE(camera_id, origin_leg_id, destination_leg_id)
 );
 
 CREATE TABLE IF NOT EXISTS vehicle_events (
@@ -169,6 +197,7 @@ INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_events_video  ON vehicle_events(video_id);
 CREATE INDEX IF NOT EXISTS idx_events_camera ON vehicle_events(camera_id);
 CREATE INDEX IF NOT EXISTS idx_events_trim   ON vehicle_events(trim_id);
+CREATE INDEX IF NOT EXISTS idx_paths_camera  ON intersection_paths(camera_id);
 """
 
 
@@ -949,6 +978,120 @@ def heal_v3_running_to_interrupted(project_id: str) -> list[int]:
             )
             conn.commit()
         return ids
+    finally:
+        conn.close()
+
+
+# -- v3: intersection_paths helpers ------------------------------------------
+#
+# The polyline-based calibration table. One row per (origin_leg,
+# destination_leg) pair per camera. Pipeline reads these to do origin
+# attribution, destination scoring, and movement labeling in a single
+# polyline-match pass — replacing the per-frame tripwire crossing + the
+# softmax destination scorer + derive_movement when paths are present.
+
+_PATH_FIELDS = (
+    "path_id", "camera_id", "origin_leg_id", "destination_leg_id",
+    "polyline", "movement_label", "supporting_count", "source",
+    "last_observed_at", "created_at",
+)
+
+
+def _row_to_path(row: sqlite3.Row) -> dict:
+    out = {k: row[k] for k in _PATH_FIELDS}
+    # Parse the polyline JSON eagerly — callers always want the list form.
+    if isinstance(out["polyline"], str):
+        try:
+            out["polyline"] = json.loads(out["polyline"])
+        except (TypeError, ValueError):
+            out["polyline"] = []
+    return out
+
+
+def list_paths_for_camera(project_id: str, camera_id: int) -> list[dict]:
+    """All paths for a camera, ordered by (origin_leg_id, destination_leg_id)."""
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM intersection_paths WHERE camera_id = ? "
+            "ORDER BY origin_leg_id, destination_leg_id",
+            (camera_id,),
+        ).fetchall()
+        return [_row_to_path(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def upsert_path(
+    project_id: str,
+    camera_id: int,
+    origin_leg_id: int,
+    destination_leg_id: int,
+    polyline: list,
+    movement_label: str,
+    *,
+    source: str = "manual",
+    supporting_count: int = 0,
+    last_observed_at: str | None = None,
+) -> int:
+    """Insert-or-replace a path keyed by (camera_id, origin_leg, dest_leg).
+    Returns path_id."""
+    now = datetime.now(timezone.utc).isoformat()
+    poly_json = json.dumps(polyline)
+    conn = get_connection(project_id)
+    try:
+        with conn:
+            existing = conn.execute(
+                "SELECT path_id, created_at FROM intersection_paths "
+                "WHERE camera_id = ? AND origin_leg_id = ? AND destination_leg_id = ?",
+                (camera_id, origin_leg_id, destination_leg_id),
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    """UPDATE intersection_paths
+                       SET polyline = ?, movement_label = ?,
+                           supporting_count = ?, source = ?,
+                           last_observed_at = COALESCE(?, last_observed_at)
+                     WHERE path_id = ?""",
+                    (poly_json, movement_label, supporting_count, source,
+                     last_observed_at, existing[0]),
+                )
+                return int(existing[0])
+            cur = conn.execute(
+                """INSERT INTO intersection_paths
+                   (camera_id, origin_leg_id, destination_leg_id,
+                    polyline, movement_label, supporting_count,
+                    source, last_observed_at, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (camera_id, origin_leg_id, destination_leg_id,
+                 poly_json, movement_label, supporting_count,
+                 source, last_observed_at, now),
+            )
+            return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def delete_path(project_id: str, path_id: int) -> None:
+    """Delete a single path row."""
+    conn = get_connection(project_id)
+    try:
+        conn.execute("DELETE FROM intersection_paths WHERE path_id = ?", (path_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def clear_paths_for_camera(project_id: str, camera_id: int) -> int:
+    """Remove all paths for a camera. Returns count deleted."""
+    conn = get_connection(project_id)
+    try:
+        cur = conn.execute(
+            "DELETE FROM intersection_paths WHERE camera_id = ?", (camera_id,),
+        )
+        conn.commit()
+        return cur.rowcount
     finally:
         conn.close()
 

@@ -25,12 +25,14 @@ from backend.services.checkpoint import CheckpointManager
 from backend.services.classifier import classify_vehicle
 from backend.services.detector import VehicleDetector
 from backend.services.origin_detector import (
-    closest_zone, crossing_direction, did_cross_line, tripwire_from_point,
+    closest_zone, crossing_direction, did_cross_line,
+    score_origin_by_polyline, tripwire_from_point,
 )
 from backend.services.preprocessor import AdaptivePreprocessor
 from backend.services.tracker import VehicleTracker
 from backend.services.trajectory_classifier import (
-    classify_trajectory, derive_movement, score_destination_leg,
+    classify_trajectory, derive_movement, score_destination_by_polyline,
+    score_destination_leg,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,6 +74,14 @@ class ProcessingPipeline:
         # When None, the pipeline falls back to global config constants.
         # The router gets the effective values from database.get_calibration_params.
         calibration_params: dict | None = None,
+        # Per-(origin,destination) road polylines for this camera. When
+        # present, the pipeline tries polyline-based origin attribution
+        # and destination scoring BEFORE the tripwire/heading/softmax
+        # fallback paths. Each path is a dict with origin_leg_id,
+        # destination_leg_id, polyline (list of [x,y]), movement_label,
+        # supporting_count. List comes from
+        # backend.database.list_paths_for_camera.
+        paths: list[dict] | None = None,
     ):
         self.project_id = project_id
         self.db_path = db_path
@@ -92,6 +102,7 @@ class ProcessingPipeline:
         self._tracker_match_threshold = tracker_match_threshold
         self._tracker_activation_threshold = tracker_activation_threshold
         self._calibration_params = calibration_params or {}
+        self._paths: list[dict] = list(paths) if paths else []
 
         # Components (lazy-loaded to avoid loading YOLO in tests)
         self._detector: VehicleDetector | None = None
@@ -119,6 +130,11 @@ class ProcessingPipeline:
         self.n_crossed_enter: int = 0    # vehicles assigned to a node
         self.n_crossed_exit: int = 0     # no node matched (diff > 90°)
         self.n_insufficient_data: int = 0
+        # Polyline-path tier counters (Phase 1). Track how often the new
+        # polyline tier successfully attributes vs how often we fall
+        # through to the legacy tripwire/heading/softmax tiers.
+        self.n_origin_via_polyline: int = 0
+        self.n_destination_via_polyline: int = 0
 
         # Frame skip used during current process_video call (updates tracker frame_rate)
         self._frame_skip: int = 1
@@ -377,6 +393,28 @@ class ProcessingPipeline:
         vehicle = self.active_vehicles[track_id]
         traj = vehicle["trajectory"]
 
+        # --- Tier 0: polyline-path match (Phase 1) ---
+        # When the camera has calibrated road polylines, score the
+        # trajectory's first few points against the entry segment of every
+        # path. The leg whose path's entry segment best matches wins.
+        # This runs FIRST because it's a more specific signal than tripwire
+        # crossing (encodes the road's curve, not just a point + heading)
+        # and the legacy tiers stay as fallbacks for cameras without paths.
+        if self._paths and len(traj) >= 4:
+            prefix = traj[:min(8, len(traj))]
+            match = score_origin_by_polyline(prefix, self._paths)
+            lid = match.get("origin_leg_id")
+            if lid is not None:
+                leg = next((l for l in self.legs if l["leg_id"] == lid), None)
+                if leg is not None:
+                    vehicle["origin_leg_id"] = lid
+                    vehicle["reference_heading"] = leg["reference_heading"]
+                    vehicle["origin_frame"] = frame_number
+                    vehicle["origin_polyline_path_id"] = match.get("path_id")
+                    self.n_crossed_enter += 1
+                    self.n_origin_via_polyline += 1
+                    return
+
         # --- Spatial check: did the trajectory cross any origin zone line? ---
         # v3 calibration stores a single origin point per leg; we synthesize a
         # perpendicular tripwire through it on the fly so the line-crossing
@@ -495,26 +533,55 @@ class ProcessingPipeline:
             return
 
         origin_leg_id = vehicle["origin_leg_id"]
-        # Destination-based classification (bug #5 fix). Score every leg —
-        # including the origin (for u-turn detection) — by how well the
-        # trajectory's exit heading + exit position align with the
-        # leg-from-center direction. Movement type is derived from the
-        # (origin, destination) reference-heading geometry — no hardcoded
-        # turn matrix, just a delta-angle bucket.
         origin_leg = next(
             (lg for lg in self.legs if lg["leg_id"] == origin_leg_id), None,
         )
-        dest_result = score_destination_leg(
-            trajectory, origin_leg_id, self.legs,
-        )
-        destination_leg_id = dest_result["destination_leg_id"]
-        destination_leg = next(
-            (lg for lg in self.legs if lg["leg_id"] == destination_leg_id), None,
-        )
-        movement = (
-            derive_movement(origin_leg, destination_leg, all_legs=self.legs)
-            if origin_leg else "insufficient_data"
-        )
+
+        # --- Tier 0: polyline-path destination match (Phase 1) ---
+        # When the camera has calibrated paths, the (destination_leg,
+        # movement_label) pair comes directly from the best-matching path.
+        # No softmax scorer, no derive_movement — the path's geometry
+        # already encodes the movement type (the curve through the
+        # intersection IS the movement).
+        polyline_dest = None
+        if self._paths:
+            polyline_dest = score_destination_by_polyline(
+                trajectory, origin_leg_id, self._paths,
+            )
+            if polyline_dest.get("destination_leg_id") is not None:
+                self.n_destination_via_polyline += 1
+
+        if polyline_dest and polyline_dest.get("destination_leg_id") is not None:
+            destination_leg_id = polyline_dest["destination_leg_id"]
+            destination_leg = next(
+                (lg for lg in self.legs if lg["leg_id"] == destination_leg_id), None,
+            )
+            movement = polyline_dest["movement_label"]
+            # Build a posterior-shaped dict for DB write so the existing
+            # destination_posterior_json column stays populated.
+            dest_result = {
+                "destination_leg_id": destination_leg_id,
+                "confidence": max(0.0, 1.0 - polyline_dest["distance"] / 100.0),
+                "posterior": {destination_leg_id: 1.0},
+                "via": "polyline",
+                "polyline_path_id": polyline_dest.get("path_id"),
+            }
+        else:
+            # --- Fallback: softmax destination scorer + derive_movement ---
+            # The bug #5 (Phase B) fix used at cameras without polyline
+            # calibration: score every leg by exit heading + position vs
+            # leg-from-center direction.
+            dest_result = score_destination_leg(
+                trajectory, origin_leg_id, self.legs,
+            )
+            destination_leg_id = dest_result["destination_leg_id"]
+            destination_leg = next(
+                (lg for lg in self.legs if lg["leg_id"] == destination_leg_id), None,
+            )
+            movement = (
+                derive_movement(origin_leg, destination_leg, all_legs=self.legs)
+                if origin_leg else "insufficient_data"
+            )
         # Fall through to insufficient_data path if derivation couldn't
         # produce a turn label (no origin leg found, no destination, etc.).
         if movement == "insufficient_data":

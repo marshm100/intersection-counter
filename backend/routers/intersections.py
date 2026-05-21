@@ -26,7 +26,8 @@ from backend.database import (
     add_trim, clear_v3_run_state, get_calibration_params, get_camera,
     get_connection, get_db_path, get_intersection, get_project_info,
     get_v3_run_state, heal_v3_running_to_interrupted,
-    list_cameras, list_intersections, list_trims, list_videos_for_camera,
+    list_cameras, list_intersections, list_paths_for_camera,
+    list_trims, list_videos_for_camera,
     remove_camera, remove_intersection, remove_trim, set_v3_run_state,
     update_camera, update_intersection, update_trim,
 )
@@ -669,6 +670,10 @@ def _run_v3_pipeline(
             # Per-intersection calibration overrides — resolved to effective
             # values (override or global default) by get_calibration_params.
             calib = get_calibration_params(project_id, intersection_id)
+            # Per-camera polyline paths. Empty list when this camera hasn't
+            # been polyline-calibrated yet; pipeline falls back to legacy
+            # tripwire+heading tiers in that case.
+            paths = list_paths_for_camera(project_id, seg.camera_id)
             pipeline = ProcessingPipeline(
                 project_id=project_id,
                 db_path=db_path,
@@ -683,6 +688,7 @@ def _run_v3_pipeline(
                 tracker_match_threshold=mode_cfg.get("tracker_match_threshold"),
                 tracker_activation_threshold=mode_cfg.get("tracker_activation_threshold"),
                 calibration_params=calib,
+                paths=paths,
             )
             # Tag events with our trim_id + camera_id so the aggregator can
             # group correctly. The pipeline already writes video_id from

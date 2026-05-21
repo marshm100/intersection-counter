@@ -159,6 +159,70 @@ class TestPipelineInit:
         assert p.n_crossed_enter == 0
         assert p.n_crossed_exit == 0
         assert p.n_insufficient_data == 0
+        # Phase 1 polyline-path counters
+        assert p.n_origin_via_polyline == 0
+        assert p.n_destination_via_polyline == 0
+
+    def test_paths_kwarg_defaults_empty(self, pipeline_env):
+        """Pipelines without paths use the legacy tripwire+heading tiers
+        and have an empty _paths list (auto-upgrade behavior)."""
+        p = _make_pipeline(pipeline_env)
+        assert p._paths == []
+
+    def test_paths_kwarg_accepts_list(self, pipeline_env):
+        """When paths are provided, the pipeline stores them for tier-0 use."""
+        from backend.services.pipeline import ProcessingPipeline
+        sample_paths = [
+            {"path_id": 1, "camera_id": 1, "origin_leg_id": 1,
+             "destination_leg_id": 2,
+             "polyline": [[100, 800], [300, 600], [500, 400]],
+             "movement_label": "through", "supporting_count": 50},
+        ]
+        p = ProcessingPipeline(
+            project_id="test",
+            db_path=pipeline_env["db_path"],
+            video_path=pipeline_env["video_path"],
+            legs=pipeline_env["legs"],
+            fps=30.0,
+            paths=sample_paths,
+        )
+        assert len(p._paths) == 1
+        assert p._paths[0]["origin_leg_id"] == 1
+        assert p.n_origin_via_polyline == 0   # counter starts at 0
+
+    def test_assign_origin_polyline_tier_fires(self, pipeline_env):
+        """When a trajectory matches a path's entry segment, the polyline
+        tier assigns origin and bumps the counter (without using the
+        tripwire / heading fallbacks)."""
+        from backend.services.pipeline import ProcessingPipeline
+        # A trajectory that runs along a polyline going from south to north.
+        sample_paths = [
+            {"path_id": 1, "camera_id": 1, "origin_leg_id": 1,
+             "destination_leg_id": 2,
+             "polyline": [[500, 850], [500, 700], [500, 500], [500, 300],
+                          [500, 100]],
+             "movement_label": "through", "supporting_count": 100},
+        ]
+        p = ProcessingPipeline(
+            project_id="test",
+            db_path=pipeline_env["db_path"],
+            video_path=pipeline_env["video_path"],
+            legs=pipeline_env["legs"],
+            fps=30.0,
+            paths=sample_paths,
+        )
+        # Inject an active vehicle with a trajectory that matches the
+        # polyline's entry segment. Then call _assign_origin directly.
+        p.active_vehicles[42] = {
+            "trajectory": [(500, 840), (500, 800), (500, 760), (500, 720)],
+            "origin_leg_id": None,
+            "reference_heading": None,
+        }
+        p._assign_origin(42, frame_number=5)
+        v = p.active_vehicles[42]
+        assert v["origin_leg_id"] == 1
+        assert v.get("origin_polyline_path_id") == 1
+        assert p.n_origin_via_polyline == 1
 
     def test_initial_counts_zero(self, pipeline_env):
         p = _make_pipeline(pipeline_env)
