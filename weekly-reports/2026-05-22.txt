@@ -1,0 +1,93 @@
+Weekly Report — Intersection Counter
+Week ending 2026-05-22. Four work days: Mon May 18, Wed May 20, Thu May 21, Fri May 22.
+
+================================================================
+HEADLINE
+================================================================
+
+Vehicle-counting accuracy on our test intersection jumped from 63%
+to 92% this week, validating the new approach-line system we
+rebuilt around.
+
+
+================================================================
+TOP-LINE SUMMARY
+================================================================
+
+This week was a ground-up rewrite of how the AI decides which lane
+a car came from and which lane it turned onto — the single biggest
+accuracy problem we've been chasing. The rewrite shipped, was tested
+overnight against a manually-counted reference video, and improved
+per-quarter-hour recall from about 63% to 92% across both morning
+and afternoon peak windows. We also confirmed that the save-and-
+resume feature works end-to-end, so an engineer can close the laptop
+mid-job and pick up exactly where they left off.
+
+
+================================================================
+WHAT GOT DONE, BY DAY
+================================================================
+
+MONDAY MAY 18 — Counting-accuracy investigation. The AI was
+systematically mis-labeling turns (a real left getting called a
+right, and so on) and we mapped out where the old logic was failing.
+By end of day there was a written plan for a ground-up rewrite of
+the turn classifier rather than another round of small patches. Sets
+up the rest of the week.
+
+WEDNESDAY MAY 20 — Diagnostic and tooling day. Built a validation
+harness that compares the AI's counts against a manually-counted
+spreadsheet for the same video, so every change from here on can be
+measured instead of guessed at. Also produced a 6-page visual
+walkthrough of how the tool works (useful for explaining it to a
+non-engineer in five minutes) and set up an automatic reminder to
+keep that walkthrough current as features change. We can now prove
+whether an accuracy change actually helped.
+
+THURSDAY MAY 21 — The rewrite itself. The old turn-classification
+logic was replaced with the new approach-line system: instead of
+guessing left/right from angles, the AI now matches each vehicle's
+actual path against a small set of pre-drawn lines that represent
+every legitimate way through the intersection. Tunables that used to
+be hard-coded in the source are now editable per-intersection on the
+calibration screen, which is what an engineer actually needs. Kicked
+off an overnight test against the Sunnyvale, TX intersection.
+
+FRIDAY MAY 22 — Overnight results reviewed; the headline above. Also
+verified the save-and-resume flow by killing the pipeline mid-run,
+restarting, and watching it pick up exactly where it left off and
+finish cleanly with 9,785 vehicles counted across morning and
+afternoon peaks. Saved that run as a reference snapshot so future
+runs can be compared against it.
+
+
+================================================================
+TIME SPENT (APPROXIMATE)
+================================================================
+
+Area                                                      Hours
+--------------------------------------------------------  -----
+New approach-line system (design, build, overnight test)   ~4 h
+Counting-accuracy investigation & classifier fixes        ~3.5 h
+Validation harness & visual walkthrough                    ~1 h
+Calibration screen (per-intersection tunables, overlays)   ~1 h
+Save-and-resume verification                              ~0.5 h
+Misc fixes & polish                                       ~0.5 h
+--------------------------------------------------------  -----
+Total                                                    ~10.5 h
+
+
+================================================================
+WHERE THE PROJECT STANDS
+================================================================
+
+The accuracy gap that's been blocking real use is largely closed —
+per-quarter-hour totals on the test intersection are now in the
+right ballpark, which is the number a traffic engineer signs their
+name to. Remaining work before daily use: (1) fix a few mislabeled
+directions in the hand-drawn approach lines on Sunnyvale (the
+auto-drawn version is expected to fix these without human help),
+(2) repeat the test on the other four intersections in the same
+project to confirm the new system holds up across cameras, and
+(3) one more round of validation. Best estimate: 2-3 more focused
+sessions and the tool is ready to run a live job.

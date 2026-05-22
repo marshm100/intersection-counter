@@ -24,6 +24,16 @@ The reader is a manager who has no idea what YOLO, trajectory clustering, sqlite
 
 Produce ONE page (roughly 400-500 words) with these sections:
 
+### 0. Headline (one line, only if there is one)
+If the week produced a single quotable result — a measurable jump in a core metric, a milestone shipped, a breakthrough validated, a blocker finally resolved — lead the report with it as a one-line callout at the very top, set off visually (bold, or under a `HEADLINE` banner). One sentence. In plain English, with the number if there is one.
+
+Examples of what qualifies:
+- "Vehicle-counting accuracy on our test intersection jumped from 63% to 92% this week."
+- "The tool ran end-to-end on a full 24-hour recording for the first time."
+- "Fixed the tracker bug that had been silently dropping ~40% of vehicles."
+
+If nothing this week clears that bar, skip this section entirely — don't manufacture a headline.
+
 ### 1. Top-line summary (2-3 sentences)
 What was the focus of the week, and how does it move the overall project toward a finished, polished tool that traffic engineers can actually use day-to-day?
 
@@ -53,3 +63,4 @@ Round to the nearest half hour. Pull totals from `duration_seconds`.
 - No technical jargon. If your draft contains the words "YOLO", "ORM", "endpoint", "schema", "refactor", or a file path with a slash in it, rewrite that sentence.
 - Numbers should be approximate and rounded — the boss wants signal, not precision.
 - If the log file doesn't exist or is empty, say so directly and stop. Don't fabricate.
+- If there is a real headline this week, it MUST appear at the very top as the one-line callout (section 0) — not buried in a day-by-day paragraph. Look for it in: handoff docs (`docs/handoffs/`), snapshot files (`evaluations/*.json` diffs), and prompts/commits using words like "validates", "jumped", "shipped", "first time", "fixed the bug that". If nothing qualifies, omit section 0 — never invent one.

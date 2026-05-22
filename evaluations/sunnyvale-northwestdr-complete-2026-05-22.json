@@ -1,0 +1,41 @@
+{
+  "captured_at": "2026-05-22T21:50:00Z",
+  "project_id": "97a7849a",
+  "project_name": "Sunnyvale, TX",
+  "intersection": {
+    "intersection_id": 1,
+    "name": "NBeltLineRd-NorthwestDr",
+    "date": "2026-05-12"
+  },
+  "run": {
+    "status": "complete",
+    "processing_mode": "balanced",
+    "polyline_source": "hand-crafted",
+    "resumed_from_checkpoint": true,
+    "checkpoint_resume_frame": 612582,
+    "final_frame": 647980,
+    "completed_at": "2026-05-22T18:53:40Z"
+  },
+  "totals": {
+    "vehicle_events": 9785,
+    "by_trim": [
+      { "camera_id": 1, "trim_id": 1, "events": 4004, "frame_range": [252053, 323980] },
+      { "camera_id": 1, "trim_id": 2, "events": 5781, "frame_range": [576063, 647980] }
+    ]
+  },
+  "turn_matrix": {
+    "headers": ["T", "L", "R", "U"],
+    "by_leg": {
+      "1": [899, 1012, 1348, 0],
+      "2": [3419, 37, 258, 1],
+      "3": [24, 269, 526, 1],
+      "4": [2, 1726, 263, 0]
+    }
+  },
+  "notes": [
+    "First completed end-to-end run of NBeltLineRd-NorthwestDr on the polyline architecture.",
+    "Validates the resume-from-checkpoint flow (killed mid-trim-2; resumed cleanly; finished without re-processing trim 1).",
+    "Polylines are hand-crafted, not auto-cal'd — per-movement labels are not yet trusted; per-leg totals are.",
+    "Use as a baseline for diffing future runs after auto-cal'd polylines, calibration tweaks, or tracker changes."
+  ]
+}
