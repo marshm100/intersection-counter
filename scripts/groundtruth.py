@@ -33,12 +33,18 @@ MANUAL_CSV = Path("docs/historic data/405051_0035_20260512_000002_NBeltLineRd-No
 # Used to convert manual-count bucket labels (7:00 AM) → footage-second offsets.
 VIDEO_START = datetime(2026, 5, 12, 0, 0, 2)
 
-# Map our leg_id → CSV approach name (manual study uses street-named labels).
+# Map our leg_id -> CSV approach name (manual study uses street-named labels).
+# Mapping was re-derived 2026-05-22 after the camera was recalibrated and
+# new leg_ids landed: by origin-point spatial position vs manual study.
+#   L22 origin (494, 217) -- upper-right of frame -- SB Belt Line entrance
+#   L23 origin (143, 357) -- lower-left            -- NB Belt Line entrance
+#   L24 origin (541, 357) -- lower-right           -- Private Driveway entrance
+#   L25 origin (227, 227) -- upper-middle-left     -- Northwest Dr entrance
 LEG_TO_APPROACH = {
-    18: "SB N Belt Line Rd",
-    19: "NB N Belt Line Rd",
-    20: "WB Private Driveway",
-    21: "EB Northwest Dr",
+    22: "SB N Belt Line Rd",
+    23: "NB N Belt Line Rd",
+    24: "WB Private Driveway",
+    25: "EB Northwest Dr",
 }
 
 # CSV column layout: 8 approach blocks of 9 columns each (HardR, Right,
@@ -294,7 +300,7 @@ def save_snapshot(name: str, payload: dict) -> Path:
     EVAL_DIR.mkdir(exist_ok=True)
     path = EVAL_DIR / f"{name}.json"
     path.write_text(json.dumps(payload, indent=2))
-    print(f"saved snapshot → {path}")
+    print(f"saved snapshot -> {path}")
     return path
 
 
