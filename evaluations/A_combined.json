@@ -1,0 +1,95 @@
+{
+  "cells": [
+    {
+      "leg_id": 23,
+      "movement": "thru",
+      "ours": 3870
+    },
+    {
+      "leg_id": 25,
+      "movement": "left",
+      "ours": 164
+    },
+    {
+      "leg_id": 22,
+      "movement": "thru",
+      "ours": 1958
+    },
+    {
+      "leg_id": 22,
+      "movement": "right",
+      "ours": 1732
+    },
+    {
+      "leg_id": 24,
+      "movement": "left",
+      "ours": 78
+    },
+    {
+      "leg_id": 25,
+      "movement": "thru",
+      "ours": 168
+    },
+    {
+      "leg_id": 22,
+      "movement": "left",
+      "ours": 394
+    },
+    {
+      "leg_id": 23,
+      "movement": "right",
+      "ours": 307
+    },
+    {
+      "leg_id": 25,
+      "movement": "right",
+      "ours": 27
+    },
+    {
+      "leg_id": 23,
+      "movement": "left",
+      "ours": 8
+    },
+    {
+      "leg_id": 24,
+      "movement": "right",
+      "ours": 4
+    },
+    {
+      "leg_id": 24,
+      "movement": "thru",
+      "ours": 1
+    },
+    {
+      "leg_id": 22,
+      "movement": "uturn",
+      "ours": 1
+    },
+    {
+      "leg_id": 24,
+      "movement": "uturn",
+      "ours": 3
+    },
+    {
+      "leg_id": 23,
+      "movement": "uturn",
+      "ours": 3
+    }
+  ],
+  "tiers": {
+    "origin": {
+      "polyline": 5091,
+      "tripwire": 1789,
+      "heading": 2389,
+      "none": 516
+    },
+    "destination": {
+      "polyline": 4858,
+      "softmax": 3860,
+      "none": 551
+    }
+  },
+  "dropped_origin": 516,
+  "dropped_dest": 551,
+  "n_events": 9785
+}

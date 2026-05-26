@@ -17,6 +17,7 @@ import cv2
 
 from backend.config import (
     CHECKPOINT_INTERVAL_SECONDS,
+    HEADING_FALLBACK_EXCLUDE_LABEL_KEYWORDS,
     ORIGIN_ASSIGN_MIN_FRAMES,
     TRACK_FINALIZE_GAP_FRAMES,
     TRAJECTORY_MIN_DISTANCE_PX,
@@ -464,9 +465,19 @@ class ProcessingPipeline:
 
         movement_heading = math.degrees(math.atan2(dx, -dy)) % 360
 
+        # Exclude low-volume legs (driveways) from heading fallback. Their
+        # ref_heading sits between main legs and silently absorbs cross-
+        # leg traffic via the wide <=90 deg angular basin. See
+        # HEADING_FALLBACK_EXCLUDE_LABEL_KEYWORDS in backend/config.py.
+        def _eligible(leg: dict) -> bool:
+            label = (leg.get("label") or "")
+            return not any(kw in label for kw in HEADING_FALLBACK_EXCLUDE_LABEL_KEYWORDS)
+
         best_idx = None
         best_diff = float("inf")
         for i, leg in enumerate(self.legs):
+            if not _eligible(leg):
+                continue
             ref = leg.get("reference_heading")
             if ref is None:
                 continue

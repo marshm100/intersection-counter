@@ -272,7 +272,7 @@ def score_destination_by_polyline(
     origin_leg_id: int,
     paths: list[dict],
     *,
-    max_avg_distance_px: float = 40.0,
+    max_avg_distance_px: float = 20.0,
 ) -> dict:
     """Pick the (destination_leg, movement) that best matches this trajectory.
 

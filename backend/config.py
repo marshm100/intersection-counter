@@ -128,6 +128,23 @@ ORIGIN_ASSIGN_MIN_FRAMES = 2   # trajectory points needed before assigning origi
 # the image.
 TRIPWIRE_HALF_LENGTH_PX = 120
 
+# Origin Tier-2 (heading fallback) leg-label blocklist. Heading-only
+# attribution has a wide angular basin (<=90 deg from leg ref_heading) so
+# a low-volume leg whose ref_heading sits between two main legs can
+# silently absorb cross-leg traffic. At Sunnyvale this is the private
+# driveway (L24) attracting 596 phantom heading-fallback events. Any leg
+# whose label contains one of these keywords is excluded from heading
+# fallback; polyline + tripwire tiers still attribute to it normally.
+HEADING_FALLBACK_EXCLUDE_LABEL_KEYWORDS = ("Driveway",)
+
+# Origin Tier-0 (polyline) heading-consistency gate. A polyline match is
+# accepted only if the polyline's averaged first-3-segments bearing is
+# within this many degrees of the track prefix's averaged first-3-segments
+# bearing. Eliminates cross-leg coincidental spatial matches where a
+# trajectory happens to score low against a polyline whose road points
+# in a different direction.
+ORIGIN_POLYLINE_HEADING_GATE_DEG = 25.0
+
 # Pipeline-level grace period before considering a tracker-missing vehicle
 # "lost" and finalizing it. YOLO detection can flicker (detect, miss, detect)
 # on consecutive frames; without a grace window every flicker fragments a
