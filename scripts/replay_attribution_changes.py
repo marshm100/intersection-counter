@@ -52,6 +52,7 @@ from backend.services.trajectory_classifier import (
     derive_movement,
     score_destination_by_polyline,
     score_destination_leg,
+    score_path_joint,
 )
 
 PROJECT_DB = Path("data/projects/97a7849a/project.db")
@@ -298,14 +299,20 @@ def load_events(conn: sqlite3.Connection, camera_id: int = 1) -> list[dict]:
     return out
 
 
-def replay_all(events: list, legs: list, paths: list) -> dict:
+def replay_all(events: list, legs: list, paths: list, *, use_joint: bool = False) -> dict:
     """Re-attribute every event. Return per-(origin_leg, movement) counts
-    plus a tier breakdown and dropped-event count."""
+    plus a tier breakdown and dropped-event count.
+
+    When use_joint is True, the joint partial-Fréchet scorer (score_path_joint)
+    attributes origin+destination+movement in one shot off the winning path
+    (Attribution v2). Events the joint scorer can't confidently match fall
+    through to the legacy three-tier origin + Tier-0/softmax destination chain,
+    exactly as pipeline._finalize_vehicle_data does."""
     leg_dict = {l["leg_id"]: l for l in legs}
     NORM = {"through": "thru", "left": "left", "right": "right", "u_turn": "uturn"}
     cells: dict[tuple[int, str], int] = {}
-    tiers = {"origin": {"polyline": 0, "tripwire": 0, "heading": 0, "none": 0},
-             "destination": {"polyline": 0, "softmax": 0, "none": 0}}
+    tiers = {"origin": {"joint": 0, "polyline": 0, "tripwire": 0, "heading": 0, "none": 0},
+             "destination": {"joint": 0, "polyline": 0, "softmax": 0, "none": 0}}
     n_dropped_origin = 0
     n_dropped_dest = 0
     n_per_event = []
@@ -314,6 +321,26 @@ def replay_all(events: list, legs: list, paths: list) -> dict:
         traj = ev["trajectory"]
         if not traj:
             continue
+
+        # Attribution v2: joint scorer first (reads origin+dest+movement off
+        # the matched path). On a confident hit, skip the legacy chain entirely.
+        if use_joint and paths:
+            j = score_path_joint(traj, paths)
+            if j.get("destination_leg_id") is not None:
+                new_o = j["origin_leg_id"]
+                new_d = j["destination_leg_id"]
+                mvt_norm = NORM.get(j["movement_label"], j["movement_label"])
+                tiers["origin"]["joint"] += 1
+                tiers["destination"]["joint"] += 1
+                key = (new_o, mvt_norm)
+                cells[key] = cells.get(key, 0) + 1
+                n_per_event.append({
+                    "event_id": ev["event_id"], "new_origin": new_o,
+                    "new_destination": new_d, "new_movement": mvt_norm,
+                    "timestamp_video": ev["timestamp_video"], "tier": "joint",
+                })
+                continue
+
         new_o, o_tier = replay_origin(traj, legs, paths)
         tiers["origin"][o_tier] = tiers["origin"].get(o_tier, 0) + 1
         if new_o is None:
@@ -355,6 +382,9 @@ def main() -> int:
                    help="override destination match radius (px)")
     p.add_argument("--no-l24-exclude", action="store_true",
                    help="don't exclude L24 from heading fallback")
+    p.add_argument("--joint", action="store_true",
+                   help="Attribution v2: route through the joint partial-Frechet "
+                        "scorer (score_path_joint), legacy tiers as fallback")
     args = p.parse_args()
 
     # Apply ablation overrides
@@ -371,12 +401,14 @@ def main() -> int:
     events = load_events(conn)
     conn.close()
     print(f"loaded {len(events)} events, {len(legs)} legs, {len(paths)} paths")
+    if args.joint:
+        print("MODE: joint partial-Frechet scorer (Attribution v2), legacy tiers as fallback")
     print(f"changes bundled:")
     print(f"  (1) origin Tier-0 heading gate: max bearing diff {ORIGIN_HEADING_GATE_DEG} deg")
     print(f"  (2) destination Tier-0 max_avg_distance: {DEST_POLY_MATCH_RADIUS_PX} px (was 40)")
     print(f"  (3) origin Tier-2 heading fallback excludes leg(s): {sorted(HEADING_FALLBACK_EXCLUDE_LEG_IDS)}")
 
-    result = replay_all(events, legs, paths)
+    result = replay_all(events, legs, paths, use_joint=args.joint)
 
     print(f"\n=== Replay tiers (origin) ===")
     total = result["n_events"]

@@ -157,7 +157,16 @@ ORIGIN_POLYLINE_HEADING_GATE_DEG = 25.0
 # values; tune on the replay harness against B0_baseline once trajectories are
 # regenerated (the original 9,785 were deleted; only ~144 remain).
 USE_JOINT_PARTIAL_FRECHET_SCORER = True
-JOINT_SCORER_MAX_COST_PX = 28.0        # reject matches whose Fréchet cost exceeds this
+# Cost metric for the sub-curve match. "dtw_mean" = robust mean coupled distance
+# (default); "frechet" = classic sup-norm discrete Fréchet. We use dtw_mean
+# because pure Fréchet is a sup norm that a single jittery tracking point spikes:
+# on the real Sunnyvale trajectories best-match Fréchet ran ~82 px median, while
+# the (true-mean) dtw_mean runs ~29 px median — close to the scale the proven
+# Stage A mean-perpendicular destination scorer (20 px one-way radius) used.
+JOINT_SCORER_COST_METRIC = "dtw_mean"
+# Calibrated on the surviving 144-event sample (median ~29 px, ~60% match at 35);
+# RE-TUNE against B0_baseline once the full trajectory set is regenerated.
+JOINT_SCORER_MAX_COST_PX = 35.0        # reject matches whose mean coupled distance exceeds this
 # Deliberately LOW: a mid-turn entry (the failure mode this scorer rescues)
 # covers only the path suffix (~0.40-0.55 of arc length), so a high floor would
 # reject exactly those tracks. Keep this just high enough to kill tiny-fragment

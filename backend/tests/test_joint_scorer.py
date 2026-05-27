@@ -18,6 +18,7 @@ from backend.services.trajectory_classifier import (
     _best_partial_frechet,
     _densify_polyline,
     _discrete_frechet,
+    _dtw_mean,
     _resample_to,
     score_path_joint,
 )
@@ -72,6 +73,30 @@ def test_discrete_frechet_parallel_offset():
     a = [(0, 0), (10, 0), (20, 0)]
     b = [(0, 3), (10, 3), (20, 3)]
     assert _discrete_frechet(a, b) == pytest.approx(3.0, abs=1e-9)
+
+
+def test_dtw_mean_identical_is_zero():
+    curve = [(0, 0), (10, 0), (20, 5)]
+    assert _dtw_mean(curve, curve) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_dtw_mean_parallel_offset():
+    a = [(0, 0), (10, 0), (20, 0)]
+    b = [(0, 3), (10, 3), (20, 3)]
+    assert _dtw_mean(a, b) == pytest.approx(3.0, abs=1e-9)
+
+
+def test_dtw_mean_is_robust_to_a_single_outlier_vs_frechet():
+    # One spiked point should barely move the mean coupled distance, but
+    # spikes the sup-norm Fréchet. This is why dtw_mean is the default.
+    clean = [(float(i), 0.0) for i in range(20)]
+    spiked = [(float(i), 0.0) for i in range(20)]
+    spiked[10] = (10.0, 60.0)  # one big lateral jump
+    frechet = _discrete_frechet(clean, spiked)
+    dtw = _dtw_mean(clean, spiked)
+    assert frechet >= 55.0   # sup norm sees the full spike
+    assert dtw < 12.0        # mean barely moves
+    assert dtw < frechet / 4
 
 
 def test_densify_preserves_arc_length():

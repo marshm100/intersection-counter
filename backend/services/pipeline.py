@@ -18,6 +18,7 @@ import cv2
 from backend.config import (
     CHECKPOINT_INTERVAL_SECONDS,
     HEADING_FALLBACK_EXCLUDE_LABEL_KEYWORDS,
+    JOINT_SCORER_COST_METRIC,
     JOINT_SCORER_COVERAGE_WEIGHT,
     JOINT_SCORER_MAX_COST_PX,
     JOINT_SCORER_MIN_COVERAGE_FRAC,
@@ -577,6 +578,7 @@ class ProcessingPipeline:
                 tail_window=JOINT_SCORER_TAIL_WINDOW,
                 tail_weight=JOINT_SCORER_TAIL_WEIGHT,
                 coverage_weight=JOINT_SCORER_COVERAGE_WEIGHT,
+                cost_metric=JOINT_SCORER_COST_METRIC,
             )
             if joint.get("destination_leg_id") is not None:
                 polyline_dest = joint

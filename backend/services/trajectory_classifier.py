@@ -421,8 +421,64 @@ def _np():
     return np
 
 
+def _dtw_mean(P: list, Q: list) -> float:
+    """Mean coupled distance between two polylines via DTW alignment.
+
+    Like _discrete_frechet, DTW finds a monotone coupling that respects point
+    order (so it measures SHAPE, not just spatial overlap the way one-way
+    Hausdorff does). Unlike Fréchet — which reports the single worst coupled
+    distance (a sup norm) — DTW accumulates the SUM along the optimal coupling,
+    which we normalise to a per-step mean. That makes it robust to the tracking
+    jitter that spikes Fréchet on real trajectories: empirically, real
+    best-match Fréchet costs here run ~80 px median (outlier-dominated) while
+    the mean coupled distance lives at the ~20-30 px scale the proven Stage A
+    mean-perpendicular destination scorer operated at.
+
+    Normalised by the actual optimal warping-path length (tracked alongside the
+    cost DP), so the returned value is a true mean coupled distance in pixels.
+    """
+    np_local = _np()
+    n, m = len(P), len(Q)
+    if n == 0 or m == 0:
+        return float("inf")
+    Pa = np_local.asarray(P, dtype=np_local.float64)
+    Qa = np_local.asarray(Q, dtype=np_local.float64)
+    prev = np_local.empty(m, dtype=np_local.float64)
+    curr = np_local.empty(m, dtype=np_local.float64)
+    prev_k = np_local.empty(m, dtype=np_local.int64)   # warping-path length to each cell
+    curr_k = np_local.empty(m, dtype=np_local.int64)
+    for i in range(n):
+        d_row = np_local.hypot(Qa[:, 0] - Pa[i, 0], Qa[:, 1] - Pa[i, 1])
+        for j in range(m):
+            if i == 0 and j == 0:
+                curr[j] = d_row[0]; curr_k[j] = 1
+            elif i == 0:
+                curr[j] = curr[j - 1] + d_row[j]; curr_k[j] = curr_k[j - 1] + 1
+            elif j == 0:
+                curr[j] = prev[0] + d_row[0]; curr_k[j] = prev_k[0] + 1
+            else:
+                up, diag, left = prev[j], prev[j - 1], curr[j - 1]
+                best = min(up, diag, left)
+                curr[j] = d_row[j] + best
+                if best == diag:
+                    curr_k[j] = prev_k[j - 1] + 1
+                elif best == left:
+                    curr_k[j] = curr_k[j - 1] + 1
+                else:
+                    curr_k[j] = prev_k[j] + 1
+        prev, curr = curr, prev
+        prev_k, curr_k = curr_k, prev_k
+    return float(prev[m - 1]) / int(prev_k[m - 1])
+
+
+_COST_METRICS = {
+    "dtw_mean": _dtw_mean,
+    "frechet": _discrete_frechet,
+}
+
+
 def _best_partial_frechet(
-    traj: list, poly_dense: list, *, stride: int = 1,
+    traj: list, poly_dense: list, *, stride: int = 1, cost_metric: str = "dtw_mean",
 ) -> tuple[int, int, float]:
     """Best matching SUB-CURVE of poly_dense for the full trajectory.
 
@@ -431,8 +487,13 @@ def _best_partial_frechet(
     directly targets the mid-turn-entry failure mode: a trajectory that
     only sees the back half of a movement matches a suffix of the path,
     and the missing approach prefix is not penalised. Returns
-    (start_idx, end_idx, frechet_cost).
+    (start_idx, end_idx, cost).
+
+    cost_metric selects the per-candidate coupling cost: "dtw_mean" (robust
+    mean coupled distance, the default — see _dtw_mean) or "frechet" (the
+    classic sup-norm discrete Fréchet, kept for comparison/tests).
     """
+    cost_fn = _COST_METRICS[cost_metric]
     m = len(poly_dense)
     if m < 2 or len(traj) < 2:
         return (0, max(0, m - 1), float("inf"))
@@ -444,7 +505,7 @@ def _best_partial_frechet(
         sub = poly_dense[start:]
         if len(sub) < 2:
             break
-        c = _discrete_frechet(traj, sub)
+        c = cost_fn(traj, sub)
         if c < best_cost:
             best_cost = c
             best_start = start
@@ -455,7 +516,7 @@ def score_path_joint(
     trajectory: list,
     paths: list,
     *,
-    max_cost: float = 28.0,
+    max_cost: float = 35.0,
     min_coverage_frac: float = 0.28,
     tail_window: int = 7,
     tail_weight: float = 0.35,
@@ -463,6 +524,7 @@ def score_path_joint(
     densify_step_px: float = 12.0,
     traj_cap: int = 30,
     stride: int = 1,
+    cost_metric: str = "dtw_mean",
 ) -> dict:
     """Joint origin+destination+movement scorer via partial Fréchet.
 
@@ -513,7 +575,9 @@ def score_path_joint(
         if len(poly_dense) < 2:
             continue
 
-        start, end, cost = _best_partial_frechet(traj, poly_dense, stride=stride)
+        start, end, cost = _best_partial_frechet(
+            traj, poly_dense, stride=stride, cost_metric=cost_metric,
+        )
         if cost == float("inf"):
             continue
 
