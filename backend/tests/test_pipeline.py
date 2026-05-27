@@ -889,3 +889,72 @@ class TestFatalErrorHandling:
         with patch('backend.services.pipeline.cv2.VideoCapture', return_value=mock_cap):
             with pytest.raises(RuntimeError, match="consecutive"):
                 p.process_video(frame_skip=1)
+
+
+# ---------------------------------------------------------------------------
+# Detection cache: retrack-from-cache seam + write-through (Attribution v2 Step 1)
+# ---------------------------------------------------------------------------
+
+def test_process_cached_replays_schedule_with_empty_fill(pipeline_env, tmp_path):
+    """process_cached must drive _ingest_detections on the full detection-frame
+    schedule, supplying [] for frames the cache has no rows for (so the tracker
+    Kalman cadence matches a live run)."""
+    from backend.services.detection_cache import (
+        DetectionCacheReader, DetectionCacheWriter,
+    )
+    pipe = _make_pipeline(pipeline_env)
+    calls = []
+    pipe._ingest_detections = lambda dets, fn: calls.append((fn, len(dets)))
+
+    path = tmp_path / "c.parquet"
+    w = DetectionCacheWriter(pq_path=path)
+    w.add(0, [_make_detection(100, 100), _make_detection(200, 200)])
+    w.add(2, [_make_detection(150, 150)])   # frame 1 absent
+    w.add(5, [_make_detection(300, 300)])   # frames 3,4 absent
+    w.close()
+
+    pipe.process_cached(DetectionCacheReader(path), 0, 6, detection_skip=1)
+    assert calls == [(0, 2), (1, 0), (2, 1), (3, 0), (4, 0), (5, 1)]
+
+
+def test_process_cached_respects_detection_skip(pipeline_env, tmp_path):
+    from backend.services.detection_cache import (
+        DetectionCacheReader, DetectionCacheWriter,
+    )
+    pipe = _make_pipeline(pipeline_env)
+    calls = []
+    pipe._ingest_detections = lambda dets, fn: calls.append(fn)
+
+    path = tmp_path / "c.parquet"
+    w = DetectionCacheWriter(pq_path=path)
+    for fi in (0, 2, 4):
+        w.add(fi, [_make_detection(100, 100)])
+    w.close()
+
+    pipe.process_cached(DetectionCacheReader(path), 0, 6, detection_skip=2)
+    assert calls == [0, 2, 4]   # only frames where frame % 2 == 0
+
+
+def test_write_through_persists_detections(pipeline_env, tmp_path):
+    """When a cache writer is attached, _process_single_frame persists each
+    frame's detections without altering tracking behaviour."""
+    from backend.services.detection_cache import (
+        DetectionCacheReader, DetectionCacheWriter,
+    )
+    pipe = _make_pipeline(pipeline_env)
+    # Stub the heavy collaborators so no YOLO loads and no video is decoded.
+    pipe._preprocessor = MagicMock()
+    pipe._preprocessor.preprocess.side_effect = lambda f: f
+    pipe._detector = MagicMock()
+    pipe._detector.detect.return_value = [_make_detection(120, 130)]
+    pipe._ingest_detections = lambda dets, fn: None   # isolate write-through
+
+    path = tmp_path / "c.parquet"
+    writer = DetectionCacheWriter(pq_path=path)
+    pipe._detection_cache_writer = writer
+    pipe._process_single_frame(np.zeros((480, 640, 3), dtype=np.uint8), 7)
+    writer.close()
+
+    frames = dict(DetectionCacheReader(path).iter_frames())
+    assert list(frames.keys()) == [7]
+    assert frames[7][0]["center"] == [120.0, 130.0]

@@ -144,6 +144,13 @@ class ProcessingPipeline:
         self.n_origin_via_polyline: int = 0
         self.n_destination_via_polyline: int = 0
 
+        # Optional detection-cache write-through (Attribution v2, Step 1). When
+        # set (a DetectionCacheWriter), every live detection frame is persisted
+        # so later tracker/attribution experiments can retrack from cache in
+        # minutes instead of re-decoding + re-inferring the whole video. None =
+        # no caching (default; live behaviour unchanged).
+        self._detection_cache_writer = None
+
         # Frame skip used during current process_video call (updates tracker frame_rate)
         self._frame_skip: int = 1
 
@@ -331,6 +338,20 @@ class ProcessingPipeline:
     def _process_single_frame(self, frame, frame_number: int):
         processed = self.preprocessor.preprocess(frame)
         detections = self.detector.detect(processed)
+        # Write-through to the detection cache when enabled (records the raw
+        # YOLO output for this frame before tracking consumes it).
+        if self._detection_cache_writer is not None:
+            self._detection_cache_writer.add(frame_number, detections)
+        self._ingest_detections(detections, frame_number)
+
+    def _ingest_detections(self, detections: list[dict], frame_number: int):
+        """Feed a frame's detections through tracking + attribution.
+
+        Split out from _process_single_frame so the identical logic can be
+        driven from cached detections (process_cached) without re-decoding or
+        re-inferring the video — the tracker/attribution path is agnostic to
+        whether detections came live or from the Parquet cache.
+        """
         tracked = self.tracker.update(detections, frame_number)
         self._latest_tracks = tracked
 
@@ -357,6 +378,48 @@ class ProcessingPipeline:
                 continue
             if frame_number - last > TRACK_FINALIZE_GAP_FRAMES:
                 self._finalize_vehicle(track_id, frame_number)
+
+    def process_cached(
+        self,
+        reader,
+        start_frame: int,
+        end_frame: int,
+        detection_skip: int = 1,
+        callback=None,
+    ):
+        """Retrack from cached detections — no video decode, no YOLO.
+
+        Replays the same detection-frame schedule the live loop would have used
+        (frames in [start_frame, end_frame) where frame % detection_skip == 0),
+        merging the cache reader's ascending (frame_idx, detections) stream onto
+        that schedule. Frames the cache has no rows for (YOLO emitted nothing,
+        or a detection frame with zero vehicles) get an empty update so the
+        tracker's Kalman cadence matches the live run exactly. This is the
+        minutes-long iteration path the detection cache exists to enable.
+        """
+        self.is_running = True
+        reader_iter = reader.iter_frames()
+        nxt = next(reader_iter, None)
+        skip = max(1, detection_skip)
+        try:
+            for fn in range(start_frame, end_frame):
+                if fn % skip != 0:
+                    continue
+                # Advance the reader past any frames before fn (defensive; the
+                # cache should not contain off-schedule frames).
+                while nxt is not None and nxt[0] < fn:
+                    nxt = next(reader_iter, None)
+                if nxt is not None and nxt[0] == fn:
+                    dets = nxt[1]
+                    nxt = next(reader_iter, None)
+                else:
+                    dets = []
+                self._ingest_detections(dets, fn)
+                if callback and fn % 300 == 0:
+                    callback({"frame_number": fn, "vehicle_count": self.vehicle_count})
+            self._finalize_all_active(end_frame)
+        finally:
+            self.is_running = False
 
     def _process_vehicle(self, track_id: int, detection: dict, frame_number: int):
         center = tuple(detection["center"])
