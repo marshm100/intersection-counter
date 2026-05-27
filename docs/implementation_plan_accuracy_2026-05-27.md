@@ -173,3 +173,120 @@ Export `yolo26s.pt` → OpenVINO FP16 then INT8 with NNCF/POT calibration on **8
 ## 9. Commit granularity (per CLAUDE.md)
 
 One commit per artifact; never bundle scorer + tracker changes. Suggested: `Step 0 — detection audit script`; `Step 1.1 — detection cache writer/reader + content_hash`; `Step 1.2 — repopulating reprocess + B0 baseline`; `Step 2.1 — score_path_joint + tests`; `Step 2.2 — wire joint scorer behind flag`; `Step 3 — OC-SORT backend`; `Step 4 — OpenVINO path + parity`; `Step 5 — final validation`. Docs: add an "Attribution v2" section to `Implementation_Plan_v3.md` + `TDD.md` when done.
+
+---
+
+# Phase 2 — Remaining-work plan (developed with Grok, 2026-05-27)
+
+Covers everything after Steps 1+2 code: the reprocess run, joint-scorer tuning, the Step 0
+audit, OC-SORT, OpenVINO, and final validation. Two-turn Grok session; the non-obvious
+decisions (clean baseline, audit fidelity, build-now/defer line) are called out below.
+
+## P2.A — Baseline design: B0 = legacy, paired snapshots
+
+`B0` is measured under **legacy logic (joint scorer OFF)** — the clean "current production"
+anchor. From the *same* regenerated trajectories, the joint arm comes **free via
+`replay_attribution_changes.py --joint`** (no extra run). Snapshot set:
+
+| Snapshot | How | Isolates |
+|---|---|---|
+| `B0_legacy` | reprocess (ByteTrack) → replay, joint OFF | current logic on real volume |
+| `B0_joint` | same trajectories → replay `--joint` | **the joint scorer's pure attribution win** |
+| `C0_legacy` / `C_joint` | after OC-SORT **retrack** → replay both arms | OC-SORT tracking win (+ interaction) |
+| `D0_legacy` / `D_joint` | after OpenVINO **re-detect+retrack** → replay both arms | detector-change effect |
+
+**Rule:** never mix arms across universes. OC-SORT and OpenVINO each create a new
+trajectory/detection set → each needs its own legacy+joint pair. `A1_baseline` is historical
+only (its trajectories are gone). Always diff later snapshots against `B0_legacy` for
+cumulative progress.
+
+## P2.B — Joint-scorer tuning protocol
+
+**Objective (robustified so the two ~5k through-cells don't dominate and hide L25-right):**
+```
+robust_agg = Σ_cells min(|Δ_c|, 0.15·manual_c) / total_manual    # tune on this
+agg_err    = Σ_cells |Δ_c| / total_manual                        # report this
+```
+**Search:** coordinate descent (~30–50 replays, seconds each on the regenerated set), starting
+from the current `max_cost=35, min_coverage=0.28, tail_weight=0.35, coverage_weight=0.15`:
+1. sweep `max_cost` (25–45, 2px steps) 2. sweep `min_coverage` (0.20–0.35, 0.02) 3. sweep
+`tail_weight` then `coverage_weight` (0.05 steps) 4. one refine pass; optional 3³ grid around
+the optimum.
+**Anti-overfit (mandatory):** tune on AM-trim events, validate on PM-trim (filter by
+`trim_id`); report holdout + full-set numbers. **Tool:** `scripts/tune_joint_scorer.py` —
+monkey-patches the four `JOINT_SCORER_*` constants, calls the existing
+`replay_all(use_joint=True)` on the train slice, records robust_agg + per-cell Δ, emits top-5
+configs + the winner's per-cell table (confirm L25-right recovers without L22-left exploding).
+**Do not treat the current 35/0.28/0.35/0.15 as sacred** — they fit the 144-event sample.
+
+## P2.C — Step 0 detection audit (the OC-SORT go/no-go)
+
+**The linkage problem (verified):** the cache stores detections per *frame* with no track IDs;
+`vehicle_events` stores tracker *output* (no raw boxes). There is no key linking a YOLO box to
+a track, so "emitted-but-fragmented vs never-emitted" is **not** computable post-hoc from
+cache+events. **Decision: instrument the pipeline** (per-track, during the run) — Option (ii).
+
+**Fidelity fix (critical):** ByteTrack's output includes Kalman-**coasted** tracks during
+gaps, and supervision 0.17.1 exposes **no** matched-vs-coasted flag. So "track appeared in
+output" ≠ "YOLO emitted a box for it." The faithful signal is a **per-frame greedy IoU match**
+inside `_ingest_detections` (audit mode only) between the **input** detections (the raw boxes
+fed to `update()`) and the **output** track bboxes: a track gets a `real_yolo_hit` for the
+frame only on an IoU ≥ 0.5 match; else it's coasted. Accumulate per track:
+`real_yolo_hits`, `max_coasted_gap`, `first_real_hit_frame`, `final_points`. Uses only data
+already in `_ingest_detections` — no cache-format change, no noisy post-hoc spatial join.
+
+**Classify + report** (`scripts/audit_detection_vs_association.py`): per distance/size band
+(bbox-area or entry pixel-y) → "never emitted" (`real_yolo_hits == 0` or first hit after the
+band's expected-size threshold) vs "emitted but fragmented" (`real_yolo_hits ≥ 1` but
+`final_points < ORIGIN_ASSIGN_MIN_FRAMES`, or `max_coasted_gap > TRACK_FINALIZE_GAP_FRAMES`,
+and died before exit). Cheap regional-density proxy (cache boxes per band vs manual volume)
+can run immediately as an early look but is **not** sufficient for the go/no-go alone.
+
+**Go/no-go:** if > ~35–40% of the L22/L23 undercount is "emitted but fragmented" → OC-SORT is
+worth it. If dominated by "zero YOLO hits in the far band" → pivot to detector recall
+(crop/imgsz/fine-tune); OC-SORT is low-ROI. **Record the decision before writing the adapter.**
+
+## P2.D — OC-SORT (deferred behind P2.C)
+
+**Build NOW (unconditional, zero new deps):** the `VehicleTracker(backend=...)` factory +
+refactor the current implementation into an internal `ByteTrackBackend`, preserving the exact
+`update(list[dict], frame)->list[dict]` + pickle contract; tests exercising the factory on the
+ByteTrack path. **DEFER until audit says go:** any `import boxmot`, the `OCSORTBackend`, its
+param mapping/state handling, and the clip-tuning grid.
+
+**Adapter (when built):** `OCSORTBackend.update` converts dets→`np[[x1,y1,x2,y2,conf,cls]]`,
+calls boxmot OCSORT, converts output back. Param map from current ByteTrack tuning:
+`activation→track_thresh/new_track_thresh`, `match_threshold→match_thresh`,
+`lost_buffer(150)→track_buffer`, set `frame_rate`/`min_hits`/`delta_t`. Cross-backend
+checkpoint resume unsupported in v1. Tune on a 2–5 min clip (objective: fewer tracks dying
+before `ORIGIN_ASSIGN_MIN_FRAMES`, or end-to-end per-cell on the clip). Validate via the C
+snapshot pair.
+
+## P2.E — OpenVINO FP16→INT8 + parity gate
+
+**Calibration:** 800–1500 frames stratified from the same peak trims (every ~30–60s + extra
+far-side samples); `yolo export ... format=openvino int8=True data=<dir>` once → artifacts
+under repo-root `models/`. **Load path:** `detector.py` tries `models/yolo26s_openvino_int8`,
+clean PyTorch fallback, behind `YOLO_INFERENCE_BACKEND` (default pytorch). Same `detect()`
+contract. **Parity gate (on identical cached detections, 15–30 min segment):** overall det
+count Δ < 5%, **far-band det count Δ < 10–12%**, final agg_err within 1.5pp of PyTorch, no
+systematic drop on L22/L23 cells + 50–100 vehicle visual spot-check. Fail far-band → ship as
+optional speed toggle with a warning, keep PyTorch as the accuracy reference.
+
+## P2.F — Sequencing & critical path
+
+**Critical path (gated on the user-triggered repopulating reprocess + B0):** run the audit →
+tune the joint scorer → OC-SORT retrack experiments → OpenVINO parity → final validation.
+
+**Build in PARALLEL while the reprocess runs (all unconditional / cheap-to-validate):**
+- Audit instrumentation (IoU-match per-track counters, behind `_audit_mode`) + `audit_detection_vs_association.py`.
+- `tune_joint_scorer.py` (consumes the post-reprocess DB).
+- `VehicleTracker` factory + `ByteTrackBackend` refactor + tests (no boxmot).
+- OpenVINO export script + calibration sampler + `detector.py` load path + PyTorch fallback (fallback testable now; INT8 parity gated).
+- Cheap regional-density proxy audit from the cache (early signal).
+
+**Order once the reprocess lands:** (1) snapshot `B0_legacy` + `B0_joint`; (2) run the
+instrumented audit → explicit OC-SORT go/no-go; (3) tune joint scorer (AM/PM holdout) →
+re-snapshot; (4) if go: OC-SORT retrack → C pair; (5) OpenVINO parity (parallel with 3/4);
+(6) final validation. The reprocess doesn't just unblock — it **resurrects the statistical
+power** of every downstream experiment; treat its runtime as high-leverage parallel build time.
