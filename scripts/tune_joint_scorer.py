@@ -48,7 +48,15 @@ from replay_attribution_changes import (
     replay_all,
 )
 
-CAP = 0.15  # robust per-cell cap as a fraction of that cell's manual count
+# Robust per-cell cap as a fraction of TOTAL manual (uniform across cells).
+# Earlier this was 0.15 * that cell's OWN manual count, which had a blind spot:
+# a cell with manual=0 (a pure phantom movement like L24-right) contributed 0,
+# and a tiny-manual cell (L22-right, manual~1.5) could absorb a huge phantom
+# over-attribution (ours=43) for almost nothing (cap 0.22). A uniform cap of
+# CAP_FRAC*total_manual still stops the two giant through-cells from dominating
+# the search, but now penalises phantoms and tiny-manual over-attribution — the
+# exact errors we need the tuner to see.
+CAP_FRAC = 0.05
 
 
 def manual_cells_for_window(manual: dict, window: tuple[float, float]) -> dict:
@@ -72,6 +80,7 @@ def metrics(ours_cells: dict, manual: dict) -> tuple[float, float]:
     total_manual = sum(manual[lid][m] for lid in manual for m in ALL_MVT)
     if total_manual <= 0:
         return float("inf"), float("inf")
+    cap = CAP_FRAC * total_manual   # uniform per-cell cap (scale-aware)
     sum_abs = 0.0
     sum_robust = 0.0
     for lid in LEG_TO_APPROACH:
@@ -80,7 +89,7 @@ def metrics(ours_cells: dict, manual: dict) -> tuple[float, float]:
             ours = ours_cells.get((lid, m), 0)
             d = abs(ours - man)
             sum_abs += d
-            sum_robust += min(d, CAP * man)
+            sum_robust += min(d, cap)
     return sum_robust / total_manual * 100, sum_abs / total_manual * 100
 
 
