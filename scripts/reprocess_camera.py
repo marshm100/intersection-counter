@@ -109,6 +109,9 @@ def main() -> int:
                          "without it, prints the plan and exits")
     ap.add_argument("--no-cache", action="store_true",
                     help="don't write the detection cache (regenerate events only)")
+    ap.add_argument("--audit", action="store_true",
+                    help="collect per-track detection-vs-association audit stats "
+                         "(P2.C) to detections/<hash>/track_audit.json")
     ap.add_argument("--baseline", default=None,
                     help="after the run, snapshot per_movement_accuracy to "
                          "evaluations/<name>.json (e.g. B0_baseline)")
@@ -189,6 +192,7 @@ def main() -> int:
 
     run_start = time.time()
     done_frames = 0
+    audit_records: list = []
     try:
         for (s, e), t in windows:
             print(f"\n=== Trim {t['trim_id']} frames [{s}, {e}) ===")
@@ -208,6 +212,8 @@ def main() -> int:
             pipeline._v3_trim_id = t["trim_id"]
             if writer is not None:
                 pipeline._detection_cache_writer = writer
+            if args.audit:
+                pipeline._audit_mode = True
 
             def _cb(data, _s=s, _e=e):
                 nonlocal done_frames
@@ -220,10 +226,19 @@ def main() -> int:
             pipeline.process_video(frame_skip=300, start_frame=s, end_frame=e,
                                    callback=_cb)
             done_frames += (e - s)
+            if args.audit:
+                audit_records.extend(pipeline._audit_records)
     finally:
         if writer is not None:
             n = writer.close()
             print(f"\nDetection cache written: {n:,} detections.")
+        if args.audit:
+            import json
+            audit_path = (Path("data/projects") / args.project / "detections"
+                          / str(args.camera) / "track_audit.json")
+            audit_path.parent.mkdir(parents=True, exist_ok=True)
+            audit_path.write_text(json.dumps(audit_records))
+            print(f"Audit: wrote {len(audit_records)} track records -> {audit_path}")
 
     elapsed = time.time() - run_start
     conn = sqlite3.connect(str(db_path))

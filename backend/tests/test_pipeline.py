@@ -958,3 +958,68 @@ def test_write_through_persists_detections(pipeline_env, tmp_path):
     frames = dict(DetectionCacheReader(path).iter_frames())
     assert list(frames.keys()) == [7]
     assert frames[7][0]["center"] == [120.0, 130.0]
+
+
+# ---------------------------------------------------------------------------
+# Step 0 detection audit instrumentation (Attribution v2 P2.C)
+# ---------------------------------------------------------------------------
+
+def _track(tid, x, y, w=50, h=60, area=None):
+    x1, y1, x2, y2 = x - w / 2, y - h / 2, x + w / 2, y + h / 2
+    return {"track_id": tid, "bbox": [x1, y1, x2, y2], "center": [float(x), float(y)],
+            "bbox_area": float(area if area is not None else w * h)}
+
+
+def test_audit_distinguishes_real_hits_from_coasted(pipeline_env):
+    pipe = _make_pipeline(pipeline_env)
+    pipe._audit_mode = True
+    det = _make_detection(120, 130, w=50, h=60)        # input YOLO box
+    trk = _track(1, 120, 130, w=50, h=60)              # output track at same place
+
+    pipe._audit_update([det], [trk], 0)                # real hit
+    pipe._audit_update([], [trk], 1)                   # coasted (no detections)
+    pipe._audit_update([], [trk], 2)                   # coasted again -> gap grows
+    pipe._audit_update([det], [trk], 3)               # real hit again (gap resets)
+
+    rec = pipe._audit_tracks[1]
+    assert rec["real_yolo_hits"] == 2
+    assert rec["n_output_frames"] == 4
+    assert rec["max_coasted_gap"] == 2
+    assert rec["first_real_hit_frame"] == 0
+
+
+def test_audit_no_match_when_iou_too_low(pipeline_env):
+    pipe = _make_pipeline(pipeline_env)
+    pipe._audit_mode = True
+    det = _make_detection(120, 130, w=50, h=60)
+    far = _track(1, 600, 400, w=50, h=60)              # output track nowhere near det
+    pipe._audit_update([det], [far], 0)
+    assert pipe._audit_tracks[1]["real_yolo_hits"] == 0   # emitted box didn't belong to it
+
+
+def test_audit_emit_records_dropped_tracks(pipeline_env):
+    pipe = _make_pipeline(pipeline_env)
+    pipe._audit_mode = True
+    trk = _track(7, 120, 130)
+    pipe._audit_update([], [trk], 0)                   # coasted only -> never a real hit
+    # A track dropped with no origin must still produce an audit record.
+    pipe._audit_emit(7, {"trajectory": [[120, 130]], "origin_leg_id": None})
+    assert len(pipe._audit_records) == 1
+    r = pipe._audit_records[0]
+    assert r["track_id"] == 7 and r["real_yolo_hits"] == 0
+    assert r["origin_assigned"] is False and r["final_points"] == 1
+
+
+def test_audit_report_classify():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "audit_rep", os.path.join(os.path.dirname(__file__), "..", "..",
+                                  "scripts", "audit_detection_vs_association.py"))
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    assert m.classify({"real_yolo_hits": 0, "final_points": 5, "max_coasted_gap": 0,
+                       "origin_assigned": True}) == "never_emitted"
+    assert m.classify({"real_yolo_hits": 5, "final_points": 1, "max_coasted_gap": 0,
+                       "origin_assigned": True}) == "emitted_fragmented"
+    assert m.classify({"real_yolo_hits": 5, "final_points": 30, "max_coasted_gap": 0,
+                       "origin_assigned": True}) == "ok"

@@ -151,6 +151,16 @@ class ProcessingPipeline:
         # no caching (default; live behaviour unchanged).
         self._detection_cache_writer = None
 
+        # Optional Step-0 detection audit (Attribution v2 P2.C). When _audit_mode
+        # is True, _ingest_detections does a per-frame greedy IoU match between
+        # the INPUT detections and the tracker's OUTPUT tracks so we can tell a
+        # real YOLO hit from a Kalman-coasted track (supervision exposes no such
+        # flag). Per-track stats land in _audit_records at finalization; a driver
+        # collects them. Zero cost when off.
+        self._audit_mode = False
+        self._audit_tracks: dict[int, dict] = {}
+        self._audit_records: list[dict] = []
+
         # Frame skip used during current process_video call (updates tracker frame_rate)
         self._frame_skip: int = 1
 
@@ -355,6 +365,9 @@ class ProcessingPipeline:
         tracked = self.tracker.update(detections, frame_number)
         self._latest_tracks = tracked
 
+        if self._audit_mode:
+            self._audit_update(detections, tracked, frame_number)
+
         current_track_ids = {t["track_id"] for t in tracked}
 
         for t in tracked:
@@ -378,6 +391,76 @@ class ProcessingPipeline:
                 continue
             if frame_number - last > TRACK_FINALIZE_GAP_FRAMES:
                 self._finalize_vehicle(track_id, frame_number)
+
+    @staticmethod
+    def _bbox_iou(a: list, b: list) -> float:
+        """IoU of two [x1, y1, x2, y2] boxes."""
+        ix1 = max(a[0], b[0]); iy1 = max(a[1], b[1])
+        ix2 = min(a[2], b[2]); iy2 = min(a[3], b[3])
+        iw = max(0.0, ix2 - ix1); ih = max(0.0, iy2 - iy1)
+        inter = iw * ih
+        if inter <= 0.0:
+            return 0.0
+        area_a = max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
+        area_b = max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
+        union = area_a + area_b - inter
+        return inter / union if union > 0 else 0.0
+
+    def _audit_update(self, detections: list, tracked: list, frame_number: int,
+                      iou_thresh: float = 0.5):
+        """Per-frame audit: which output tracks got a REAL YOLO box this frame.
+
+        A track is a 'real hit' only if it IoU-matches an input detection
+        (>= iou_thresh); otherwise it was Kalman-coasted. This separates
+        detection loss from association loss for the OC-SORT go/no-go (P2.C).
+        """
+        for t in tracked:
+            tid = t["track_id"]
+            real_hit = any(
+                self._bbox_iou(t["bbox"], d["bbox"]) >= iou_thresh for d in detections
+            )
+            rec = self._audit_tracks.get(tid)
+            if rec is None:
+                rec = {
+                    "real_yolo_hits": 0, "n_output_frames": 0,
+                    "first_real_hit_frame": None, "cur_gap": 0, "max_coasted_gap": 0,
+                    "entry_y": float(t["center"][1]),
+                    "entry_bbox_area": float(t["bbox_area"]),
+                }
+                self._audit_tracks[tid] = rec
+            rec["n_output_frames"] += 1
+            if real_hit:
+                rec["real_yolo_hits"] += 1
+                if rec["first_real_hit_frame"] is None:
+                    rec["first_real_hit_frame"] = frame_number
+                rec["cur_gap"] = 0
+            else:
+                rec["cur_gap"] += 1
+                if rec["cur_gap"] > rec["max_coasted_gap"]:
+                    rec["max_coasted_gap"] = rec["cur_gap"]
+
+    def _audit_emit(self, track_id: int, vehicle: dict):
+        """Snapshot a finalized track's audit record (called for EVERY finalized
+        track, including ones dropped as no-origin/insufficient_data — those are
+        exactly the fragmentation cases we need to count)."""
+        rec = self._audit_tracks.pop(track_id, None)
+        traj = vehicle.get("trajectory", [])
+        base = rec or {"real_yolo_hits": 0, "n_output_frames": 0,
+                       "first_real_hit_frame": None, "max_coasted_gap": 0,
+                       "entry_y": (float(traj[0][1]) if traj else None),
+                       "entry_bbox_area": None}
+        self._audit_records.append({
+            "track_id": track_id,
+            "trim_id": getattr(self, "_v3_trim_id", None),
+            "real_yolo_hits": base["real_yolo_hits"],
+            "n_output_frames": base["n_output_frames"],
+            "max_coasted_gap": base["max_coasted_gap"],
+            "first_real_hit_frame": base["first_real_hit_frame"],
+            "entry_y": base.get("entry_y"),
+            "entry_bbox_area": base.get("entry_bbox_area"),
+            "final_points": len(traj),
+            "origin_assigned": vehicle.get("origin_leg_id") is not None,
+        })
 
     def process_cached(
         self,
@@ -577,6 +660,10 @@ class ProcessingPipeline:
 
     def _finalize_vehicle_data(self, track_id: int, vehicle: dict, frame_number: int):
         """Finalize a vehicle dict (from active_vehicles or recently_lost)."""
+        # Audit snapshot first — before any early-return — so dropped tracks
+        # (no origin / insufficient_data), the fragmentation cases, are counted.
+        if self._audit_mode:
+            self._audit_emit(track_id, vehicle)
         if vehicle["origin_leg_id"] is None:
             n_pts = len(vehicle.get("trajectory", []))
             if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES:
