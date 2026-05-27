@@ -18,9 +18,15 @@ import cv2
 from backend.config import (
     CHECKPOINT_INTERVAL_SECONDS,
     HEADING_FALLBACK_EXCLUDE_LABEL_KEYWORDS,
+    JOINT_SCORER_COVERAGE_WEIGHT,
+    JOINT_SCORER_MAX_COST_PX,
+    JOINT_SCORER_MIN_COVERAGE_FRAC,
+    JOINT_SCORER_TAIL_WEIGHT,
+    JOINT_SCORER_TAIL_WINDOW,
     ORIGIN_ASSIGN_MIN_FRAMES,
     TRACK_FINALIZE_GAP_FRAMES,
     TRAJECTORY_MIN_DISTANCE_PX,
+    USE_JOINT_PARTIAL_FRECHET_SCORER,
 )
 from backend.services.checkpoint import CheckpointManager
 from backend.services.classifier import classify_vehicle
@@ -33,7 +39,7 @@ from backend.services.preprocessor import AdaptivePreprocessor
 from backend.services.tracker import VehicleTracker
 from backend.services.trajectory_classifier import (
     classify_trajectory, derive_movement, score_destination_by_polyline,
-    score_destination_leg,
+    score_destination_leg, score_path_joint,
 )
 
 logger = logging.getLogger(__name__)
@@ -548,19 +554,52 @@ class ProcessingPipeline:
             (lg for lg in self.legs if lg["leg_id"] == origin_leg_id), None,
         )
 
-        # --- Tier 0: polyline-path destination match (Phase 1) ---
-        # When the camera has calibrated paths, the (destination_leg,
-        # movement_label) pair comes directly from the best-matching path.
-        # No softmax scorer, no derive_movement — the path's geometry
-        # already encodes the movement type (the curve through the
-        # intersection IS the movement).
+        # --- Tier 0: polyline-path (origin + destination + movement) ---
+        # When the camera has calibrated paths, the (origin_leg,
+        # destination_leg, movement_label) triple comes directly from the
+        # best-matching path. No softmax scorer, no derive_movement — the
+        # path's geometry already encodes the movement type (the curve
+        # through the intersection IS the movement).
+        #
+        # Attribution v2 (joint partial-Fréchet, the preferred path): a single
+        # scorer matches the whole trajectory to the best sub-curve of each
+        # path and READS ORIGIN OFF the winning path, instead of trusting the
+        # entry-tangent-based early origin assignment (structurally unreliable
+        # at this camera — vehicles enter mid-turn). The legacy separate
+        # destination scorer remains the fallback when the joint scorer finds
+        # no confident match. See docs/implementation_plan_accuracy_2026-05-27.md.
         polyline_dest = None
-        if self._paths:
+        if self._paths and USE_JOINT_PARTIAL_FRECHET_SCORER:
+            joint = score_path_joint(
+                trajectory, self._paths,
+                max_cost=JOINT_SCORER_MAX_COST_PX,
+                min_coverage_frac=JOINT_SCORER_MIN_COVERAGE_FRAC,
+                tail_window=JOINT_SCORER_TAIL_WINDOW,
+                tail_weight=JOINT_SCORER_TAIL_WEIGHT,
+                coverage_weight=JOINT_SCORER_COVERAGE_WEIGHT,
+            )
+            if joint.get("destination_leg_id") is not None:
+                polyline_dest = joint
+                # Origin is read off the winning path — override the
+                # provisional early assignment (it gated "real vehicle?" but
+                # its entry-tangent leg can be wrong here).
+                new_origin = joint.get("origin_leg_id")
+                if new_origin is not None and new_origin != origin_leg_id:
+                    origin_leg_id = new_origin
+                    vehicle["origin_leg_id"] = new_origin
+                    origin_leg = next(
+                        (lg for lg in self.legs if lg["leg_id"] == new_origin), None,
+                    )
+                    if origin_leg is not None and origin_leg.get("reference_heading") is not None:
+                        vehicle["reference_heading"] = origin_leg["reference_heading"]
+                    self.n_origin_via_polyline += 1
+
+        if self._paths and polyline_dest is None:
             polyline_dest = score_destination_by_polyline(
                 trajectory, origin_leg_id, self._paths,
             )
-            if polyline_dest.get("destination_leg_id") is not None:
-                self.n_destination_via_polyline += 1
+        if polyline_dest is not None and polyline_dest.get("destination_leg_id") is not None:
+            self.n_destination_via_polyline += 1
 
         if polyline_dest and polyline_dest.get("destination_leg_id") is not None:
             destination_leg_id = polyline_dest["destination_leg_id"]

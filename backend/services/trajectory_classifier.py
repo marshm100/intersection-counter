@@ -321,6 +321,251 @@ def score_destination_by_polyline(
 
 
 # ---------------------------------------------------------------------------
+# Joint partial-Fréchet path scorer (Attribution v2, 2026-05-27).
+#
+# Supersedes the separate score_origin_by_polyline + score_destination_by_polyline
+# pair for polyline-equipped cameras. Rationale (docs/methodology_research_2026-05-26.md
+# + docs/implementation_plan_accuracy_2026-05-27.md):
+#
+#   At this camera vehicles enter YOLO's FOV mid-turn, so a polyline's ENTRY
+#   tangent reflects turn state, not approach direction — the entry-tangent
+#   assumption baked into score_origin_by_polyline is structurally wrong here.
+#   Instead we match the WHOLE trajectory against the best-aligning SUB-CURVE of
+#   each candidate path (partial Fréchet). A track that starts mid-turn matches a
+#   SUFFIX of the polyline; the uncovered approach portion doesn't contribute to
+#   the cost. Origin is then READ OFF the winning path's stored origin_leg_id —
+#   never estimated from the unreliable entry tangent. Tails are the trustworthy
+#   directional signal here, so a tail-direction prior (exit tangent) breaks ties.
+#
+# Discrete Fréchet is implemented locally (numpy) rather than depending on
+# similaritymeasures/frechetdist — the curves are short, the algorithm is ~30
+# lines, and it avoids new-dependency friction on the CPU/Windows target.
+# ---------------------------------------------------------------------------
+
+
+def _unit(vx: float, vy: float) -> tuple[float, float]:
+    n = math.hypot(vx, vy)
+    if n < 1e-9:
+        return (0.0, 0.0)
+    return (vx / n, vy / n)
+
+
+def _densify_polyline(pts: list, step_px: float) -> list:
+    """Resample a coarse polyline to ~one point every step_px along its arc.
+
+    Hand-drawn polylines have ~9 vertices spanning the whole frame, so raw
+    discrete Fréchet would couple at sparse vertices and overstate distance.
+    Densifying makes discrete Fréchet approximate the continuous metric.
+    """
+    if not pts or len(pts) < 2:
+        return [tuple(p) for p in pts]
+    out: list[tuple[float, float]] = [(float(pts[0][0]), float(pts[0][1]))]
+    for i in range(1, len(pts)):
+        ax, ay = float(pts[i - 1][0]), float(pts[i - 1][1])
+        bx, by = float(pts[i][0]), float(pts[i][1])
+        seg = math.hypot(bx - ax, by - ay)
+        if seg < 1e-9:
+            continue
+        n_steps = max(1, int(seg // step_px))
+        for s in range(1, n_steps + 1):
+            t = s / n_steps
+            out.append((ax + (bx - ax) * t, ay + (by - ay) * t))
+    return out
+
+
+def _resample_to(pts: list, n: int) -> list:
+    """Uniform index-resample a point list down to at most n points.
+
+    Caps the trajectory length so the Fréchet DP stays cheap on long tracks
+    without changing the curve's shape materially.
+    """
+    m = len(pts)
+    if m <= n:
+        return [(float(p[0]), float(p[1])) for p in pts]
+    idx = [round(i * (m - 1) / (n - 1)) for i in range(n)]
+    return [(float(pts[j][0]), float(pts[j][1])) for j in idx]
+
+
+def _discrete_frechet(P: list, Q: list) -> float:
+    """Discrete Fréchet distance between two polylines (lists of (x, y)).
+
+    Standard coupled-walk DP, O(len(P)*len(Q)), computed with a rolling pair of
+    rows so memory is O(len(Q)). Returns inf for empty input.
+    """
+    np_local = _np()
+    n, m = len(P), len(Q)
+    if n == 0 or m == 0:
+        return float("inf")
+    Pa = np_local.asarray(P, dtype=np_local.float64)
+    Qa = np_local.asarray(Q, dtype=np_local.float64)
+    prev = np_local.empty(m, dtype=np_local.float64)
+    curr = np_local.empty(m, dtype=np_local.float64)
+    # Pairwise distances row-by-row to avoid an n*m matrix on long tracks.
+    for i in range(n):
+        d_row = np_local.hypot(Qa[:, 0] - Pa[i, 0], Qa[:, 1] - Pa[i, 1])
+        for j in range(m):
+            if i == 0 and j == 0:
+                curr[j] = d_row[0]
+            elif i == 0:
+                curr[j] = max(curr[j - 1], d_row[j])
+            elif j == 0:
+                curr[j] = max(prev[0], d_row[0])
+            else:
+                curr[j] = max(min(prev[j], prev[j - 1], curr[j - 1]), d_row[j])
+        prev, curr = curr, prev
+    return float(prev[m - 1])
+
+
+def _np():
+    import numpy as np
+    return np
+
+
+def _best_partial_frechet(
+    traj: list, poly_dense: list, *, stride: int = 1,
+) -> tuple[int, int, float]:
+    """Best matching SUB-CURVE of poly_dense for the full trajectory.
+
+    Sweeps the start index over poly_dense (the matched portion is the
+    suffix poly_dense[start:]), keeping the polyline's exit fixed. This
+    directly targets the mid-turn-entry failure mode: a trajectory that
+    only sees the back half of a movement matches a suffix of the path,
+    and the missing approach prefix is not penalised. Returns
+    (start_idx, end_idx, frechet_cost).
+    """
+    m = len(poly_dense)
+    if m < 2 or len(traj) < 2:
+        return (0, max(0, m - 1), float("inf"))
+    best_cost = float("inf")
+    best_start = 0
+    end = m - 1
+    # Don't let the suffix shrink below 2 points.
+    for start in range(0, m - 1, max(1, stride)):
+        sub = poly_dense[start:]
+        if len(sub) < 2:
+            break
+        c = _discrete_frechet(traj, sub)
+        if c < best_cost:
+            best_cost = c
+            best_start = start
+    return (best_start, end, best_cost)
+
+
+def score_path_joint(
+    trajectory: list,
+    paths: list,
+    *,
+    max_cost: float = 28.0,
+    min_coverage_frac: float = 0.45,
+    tail_window: int = 7,
+    tail_weight: float = 0.35,
+    coverage_weight: float = 0.15,
+    densify_step_px: float = 12.0,
+    traj_cap: int = 30,
+    stride: int = 1,
+) -> dict:
+    """Joint origin+destination+movement scorer via partial Fréchet.
+
+    For each candidate path polyline:
+      1. Partial Fréchet — best-aligning sub-curve (suffix) of the polyline vs
+         the full trajectory. The matched cost ignores the polyline's uncovered
+         approach prefix, so mid-turn-entry tracks still match cleanly.
+      2. Coverage — fraction of polyline arc length the matched sub-curve spans.
+         Paths matched only by a tiny fragment are rejected (< min_coverage_frac).
+      3. Tail-direction prior — cosine similarity between the trajectory's tail
+         heading and the matched sub-curve's exit tangent (tails are the
+         trustworthy directional signal at this camera; entries are not).
+      4. Composite score blends shape, tail prior, and coverage; ties broken by
+         supporting_count. A final gate rejects matches whose raw Fréchet cost
+         exceeds max_cost.
+
+    Origin is READ OFF the winning path — never estimated from the entry tangent.
+
+    Returns:
+      {'origin_leg_id', 'destination_leg_id', 'movement_label', 'path_id',
+       'distance', 'coverage', 'considered', 'via'} — all *_id None when no
+      path clears the thresholds.
+    """
+    empty = {
+        "origin_leg_id": None, "destination_leg_id": None,
+        "movement_label": None, "path_id": None,
+        "distance": float("inf"), "coverage": 0.0,
+        "considered": 0, "via": "joint_partial_frechet",
+    }
+    if not paths or len(trajectory) < 4:
+        return empty
+
+    traj = _resample_to(trajectory, traj_cap)
+    tw = min(tail_window, len(traj))
+    tail = traj[-tw:]
+    tail_dir = _unit(tail[-1][0] - tail[0][0], tail[-1][1] - tail[0][1])
+
+    best_score = -1.0
+    best = None
+    best_cost = float("inf")
+    best_cov = 0.0
+
+    for p in paths:
+        poly = p.get("polyline") or []
+        if len(poly) < 3:
+            continue
+        poly_dense = _densify_polyline(poly, densify_step_px)
+        if len(poly_dense) < 2:
+            continue
+
+        start, end, cost = _best_partial_frechet(traj, poly_dense, stride=stride)
+        if cost == float("inf"):
+            continue
+
+        poly_len = compute_path_distance(poly_dense)
+        sub_len = compute_path_distance(poly_dense[start:end + 1])
+        coverage = sub_len / poly_len if poly_len > 1e-9 else 0.0
+        if coverage < min_coverage_frac:
+            continue
+
+        # Exit tangent of the matched sub-curve.
+        ex = poly_dense[end]
+        ex_prev = poly_dense[max(start, end - 1)]
+        exit_dir = _unit(ex[0] - ex_prev[0], ex[1] - ex_prev[1])
+        tail_cos = (tail_dir[0] * exit_dir[0] + tail_dir[1] * exit_dir[1])
+        tail_prior = (tail_cos + 1.0) / 2.0  # [0, 1]
+
+        shape_term = 1.0 / (1.0 + cost / 10.0)  # squash; lower cost -> higher
+        composite = (
+            (1.0 - tail_weight - coverage_weight) * shape_term
+            + tail_weight * tail_prior
+            + coverage_weight * coverage
+        )
+
+        support = p.get("supporting_count", 0)
+        if (composite > best_score
+                or (abs(composite - best_score) < 1e-4
+                    and best is not None
+                    and support > best.get("supporting_count", 0))):
+            best_score = composite
+            best = p
+            best_cost = cost
+            best_cov = coverage
+
+    if best is None or best_cost > max_cost:
+        return {**empty,
+                "distance": best_cost if best is not None else float("inf"),
+                "coverage": best_cov,
+                "considered": len(paths)}
+
+    return {
+        "origin_leg_id": best.get("origin_leg_id"),
+        "destination_leg_id": best.get("destination_leg_id"),
+        "movement_label": best.get("movement_label"),
+        "path_id": best.get("path_id"),
+        "distance": best_cost,
+        "coverage": best_cov,
+        "considered": len(paths),
+        "via": "joint_partial_frechet",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Destination-leg classification (bug #5 Phase B).
 #
 # The angle-bucket classifier above flattens the whole trajectory into one

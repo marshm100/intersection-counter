@@ -145,6 +145,24 @@ HEADING_FALLBACK_EXCLUDE_LABEL_KEYWORDS = ("Driveway",)
 # in a different direction.
 ORIGIN_POLYLINE_HEADING_GATE_DEG = 25.0
 
+# --- Attribution v2: joint partial-Fréchet scorer (2026-05-27) -------------
+# When enabled and the camera has calibrated paths, a single joint scorer
+# (score_path_joint) runs at finalization and reads origin + destination +
+# movement off the best-matching path's SUB-CURVE, replacing the separate
+# Tier-0 origin (entry-tangent) + Tier-0 destination polyline scorers and the
+# Stage A gates above. The old scorers remain as the automatic fallback when
+# the joint scorer returns no confident match, and the early _assign_origin
+# tiers still gate "is this a real intersection vehicle". See
+# docs/implementation_plan_accuracy_2026-05-27.md. Tunables below are starting
+# values; tune on the replay harness against B0_baseline once trajectories are
+# regenerated (the original 9,785 were deleted; only ~144 remain).
+USE_JOINT_PARTIAL_FRECHET_SCORER = True
+JOINT_SCORER_MAX_COST_PX = 28.0        # reject matches whose Fréchet cost exceeds this
+JOINT_SCORER_MIN_COVERAGE_FRAC = 0.45  # matched sub-curve must span >= this of path arc length
+JOINT_SCORER_TAIL_WINDOW = 7           # tail points used for the exit-direction prior
+JOINT_SCORER_TAIL_WEIGHT = 0.35        # blend weight of tail prior vs shape cost
+JOINT_SCORER_COVERAGE_WEIGHT = 0.15    # blend weight of coverage term
+
 # Pipeline-level grace period before considering a tracker-missing vehicle
 # "lost" and finalizing it. YOLO detection can flicker (detect, miss, detect)
 # on consecutive frames; without a grace window every flicker fragments a
