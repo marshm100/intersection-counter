@@ -471,6 +471,61 @@ def _dtw_mean(P: list, Q: list) -> float:
     return float(prev[m - 1]) / int(prev_k[m - 1])
 
 
+def _subsequence_dtw(traj: list, poly_dense: list) -> tuple[int, int, float]:
+    """Best free-start / fixed-end alignment of the FULL trajectory to a SUFFIX
+    of poly_dense, in ONE DP pass — the fast equivalent of sweeping every start
+    index and running a full DTW each time.
+
+    Subsequence-DTW: the trajectory's first point may align to ANY polyline point
+    for free (row 0 = raw distances, not cumulative), so a prefix of the polyline
+    is skipped at no cost (the mid-turn-entry case). The match must consume the
+    whole trajectory and end at the polyline's last point (fixed exit). Tracks
+    the optimal warping-path length (for a true mean coupled distance) and the
+    start index it entered at (for the coverage penalty).
+
+    Returns (start_idx, end_idx=m-1, mean_coupled_distance). O(n*m) once, vs the
+    old O(m) full DTWs — ~m× faster, which is the difference between a seconds
+    and a tens-of-minutes replay over the full trajectory set.
+    """
+    np_local = _np()
+    n, m = len(traj), len(poly_dense)
+    if n == 0 or m == 0:
+        return (0, max(0, m - 1), float("inf"))
+    T = np_local.asarray(traj, dtype=np_local.float64)
+    P = np_local.asarray(poly_dense, dtype=np_local.float64)
+    INF = float("inf")
+    prev_c = np_local.empty(m); curr_c = np_local.empty(m)
+    prev_k = np_local.empty(m, dtype=np_local.int64); curr_k = np_local.empty(m, dtype=np_local.int64)
+    prev_s = np_local.empty(m, dtype=np_local.int64); curr_s = np_local.empty(m, dtype=np_local.int64)
+    for i in range(n):
+        d_row = np_local.hypot(P[:, 0] - T[i, 0], P[:, 1] - T[i, 1])
+        for j in range(m):
+            d = d_row[j]
+            if i == 0:
+                # Free start: trajectory[0] may begin at any polyline point.
+                curr_c[j] = d; curr_k[j] = 1; curr_s[j] = j
+            elif j == 0:
+                curr_c[j] = d + prev_c[0]; curr_k[j] = prev_k[0] + 1; curr_s[j] = prev_s[0]
+            else:
+                up, diag, left = prev_c[j], prev_c[j - 1], curr_c[j - 1]
+                best = min(up, diag, left)
+                curr_c[j] = d + best
+                if best == diag:
+                    curr_k[j] = prev_k[j - 1] + 1; curr_s[j] = prev_s[j - 1]
+                elif best == left:
+                    curr_k[j] = curr_k[j - 1] + 1; curr_s[j] = curr_s[j - 1]
+                else:
+                    curr_k[j] = prev_k[j] + 1; curr_s[j] = prev_s[j]
+        prev_c, curr_c = curr_c, prev_c
+        prev_k, curr_k = curr_k, prev_k
+        prev_s, curr_s = curr_s, prev_s
+    end = m - 1
+    total = float(prev_c[end])
+    if total == INF:
+        return (0, end, INF)
+    return (int(prev_s[end]), end, total / int(prev_k[end]))
+
+
 _COST_METRICS = {
     "dtw_mean": _dtw_mean,
     "frechet": _discrete_frechet,
@@ -493,14 +548,17 @@ def _best_partial_frechet(
     mean coupled distance, the default — see _dtw_mean) or "frechet" (the
     classic sup-norm discrete Fréchet, kept for comparison/tests).
     """
-    cost_fn = _COST_METRICS[cost_metric]
     m = len(poly_dense)
     if m < 2 or len(traj) < 2:
         return (0, max(0, m - 1), float("inf"))
+    # Fast single-pass subsequence DP for the (default) mean metric.
+    if cost_metric == "dtw_mean":
+        return _subsequence_dtw(traj, poly_dense)
+    # Sup-norm Fréchet has no cheap free-start DP form; sweep start indices.
+    cost_fn = _COST_METRICS[cost_metric]
     best_cost = float("inf")
     best_start = 0
     end = m - 1
-    # Don't let the suffix shrink below 2 points.
     for start in range(0, m - 1, max(1, stride)):
         sub = poly_dense[start:]
         if len(sub) < 2:
