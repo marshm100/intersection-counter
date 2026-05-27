@@ -39,10 +39,26 @@
   - Grok review confirmed retrack fidelity (empty-fill / finalize-grace cadence / ByteTrack
     reproducibility), correct delete scope, and that the seam refactor is behaviour-preserving.
 
-**THE RUN IS NOW THE USER'S TO TRIGGER** (per the "build wiring, you run it" decision):
-`py scripts/reprocess_camera.py` (dry-run) then `py scripts/reprocess_camera.py --yes --baseline B0_baseline`
-(~overnight on the i5: 144k frames, balanced, every frame). After it lands, the fast
-retrack loop is live and Steps 0/2-tuning/3/4/5 proceed.
+**2026-05-27 session 2 (Phase 2 parallel build, Claude + Grok) — unconditional pieces DONE:**
+- ✅ **Step 3.0 — `VehicleTracker` backend factory** (`357f623`): ByteTrack → `ByteTrackBackend`,
+  facade preserves API + checkpoint. OC-SORT seam, **no `boxmot` dep** (deferred behind audit).
+- ✅ **Step 0 — audit instrumentation + report** (`6bde42e`): per-track IoU-match (input dets vs
+  output tracks) separates real YOLO hits from Kalman-coasted output; `reprocess_camera.py
+  --audit` + `audit_detection_vs_association.py` give the OC-SORT go/no-go. Gated on the run.
+- ✅ **Step 2.4 — subsequence DTW** (`d9eb206`): one-pass free-start/fixed-end DP replaces the
+  per-start sweep. **40.9s → 2.3s per 144-event replay (~17×)** — without it the tuning sweep
+  was ~32 h. Cost distribution preserved (median 28.5, 60% at 35).
+- ✅ **Step 2.5 — `tune_joint_scorer.py`** (`343e1af`): coordinate-descent tuner, robust capped
+  objective, AM/PM holdout. Smoke-tested (non-informative on 144 events by design).
+- **158 tests green across touched suites.**
+
+**THE RUN IS NOW THE USER'S TO TRIGGER** (per "build wiring, you run it"):
+`py scripts/reprocess_camera.py` (dry-run) then
+`py scripts/reprocess_camera.py --yes --audit --baseline B0_legacy`
+(~overnight on the i5: 144k frames, balanced, every frame; `--audit` collects the Step 0
+go/no-go data in the same pass). After it lands, the fast retrack/replay loop is live and
+tuning + audit + OC-SORT/OpenVINO proceed. Remaining work is all gated on this run or on
+conditional deps (`boxmot` behind the audit verdict, `openvino` + parity run).
 
 **Gated on a decision / resources (not startable autonomously in a chat session):**
 - The **repopulating reprocess** (Step 1 run) — hours of CPU on the 8 GB laptop.
