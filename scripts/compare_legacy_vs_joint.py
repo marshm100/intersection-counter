@@ -55,12 +55,12 @@ def main() -> int:
     print("-" * 28)
     print(f"{'legacy':<8} {la:>8.2f}% {lr:>8.2f}%")
     print(f"{'joint':<8} {ja:>8.2f}% {jr:>8.2f}%")
-    print(f"{'Δ':<8} {ja-la:>+8.2f}pp {jr-lr:>+8.2f}pp "
+    print(f"{'delta':<8} {ja-la:>+8.2f}pp {jr-lr:>+8.2f}pp "
           f"({'JOINT BETTER' if ja < la else 'legacy better'})\n")
 
     # Per-cell: manual vs each arm, worst movers first.
     print(f"{'Leg':<4} {'Mvt':<6} {'Manual':>7} {'Legacy':>7} {'Joint':>6} "
-          f"{'L|Δ|':>6} {'J|Δ|':>6}")
+          f"{'L|d|':>6} {'J|d|':>6}")
     print("-" * 50)
     rows = []
     for lid in LEG_TO_APPROACH:

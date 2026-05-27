@@ -120,7 +120,7 @@ def main() -> int:
           f"were NEVER EMITTED.")
     print("\nGo/no-go (P2.C): if fragmented share is high (>~35-40%), OC-SORT gap "
           "recovery is worth it. If dominated by never-emitted in the far band, "
-          "the gap is detector recall — pivot to detector work, OC-SORT is low-ROI.")
+          "the gap is detector recall -> pivot to detector work, OC-SORT is low-ROI.")
     return 0
 
 
