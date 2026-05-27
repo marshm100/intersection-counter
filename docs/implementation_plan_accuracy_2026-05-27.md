@@ -28,8 +28,21 @@
 - ✅ **Step 1.1 — detection cache module: CODE COMPLETE + round-trip tested.** Commit `b93a68e`.
   - `detection_cache.py` (blake2b hash, Parquet writer/reader, dict reconstruction),
     `videos.content_hash` migration, `pyarrow` dep, 8 round-trip tests.
-  - **Still pending:** pipeline write-through + consumption wiring (only exercisable during a
-    real run), and a headless reprocess driver.
+- ✅ **Step 1.2 — cache wiring + retrack path + headless reprocess driver: CODE COMPLETE +
+  Grok-reviewed (no blocking bugs).** Commit `fc0ff63`.
+  - Pipeline: `_process_single_frame` split into detect + `_ingest_detections`; optional
+    write-through; `process_cached(reader, start, end, skip)` retrack path (replays the live
+    detection-frame schedule from cache, empty-filling absent frames). +3 tests.
+  - `scripts/reprocess_camera.py`: headless repopulating reprocess (dry-run verified — camera
+    1, 2 trims, 144k frames). `--yes` deletes the camera's events + regenerates with cache
+    write-through; `--baseline B0_baseline` snapshots accuracy afterward.
+  - Grok review confirmed retrack fidelity (empty-fill / finalize-grace cadence / ByteTrack
+    reproducibility), correct delete scope, and that the seam refactor is behaviour-preserving.
+
+**THE RUN IS NOW THE USER'S TO TRIGGER** (per the "build wiring, you run it" decision):
+`py scripts/reprocess_camera.py` (dry-run) then `py scripts/reprocess_camera.py --yes --baseline B0_baseline`
+(~overnight on the i5: 144k frames, balanced, every frame). After it lands, the fast
+retrack loop is live and Steps 0/2-tuning/3/4/5 proceed.
 
 **Gated on a decision / resources (not startable autonomously in a chat session):**
 - The **repopulating reprocess** (Step 1 run) — hours of CPU on the 8 GB laptop.
