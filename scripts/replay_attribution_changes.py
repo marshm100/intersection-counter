@@ -299,7 +299,8 @@ def load_events(conn: sqlite3.Connection, camera_id: int = 1) -> list[dict]:
     return out
 
 
-def replay_all(events: list, legs: list, paths: list, *, use_joint: bool = False) -> dict:
+def replay_all(events: list, legs: list, paths: list, *, use_joint: bool = False,
+               joint_kwargs: dict | None = None) -> dict:
     """Re-attribute every event. Return per-(origin_leg, movement) counts
     plus a tier breakdown and dropped-event count.
 
@@ -325,7 +326,7 @@ def replay_all(events: list, legs: list, paths: list, *, use_joint: bool = False
         # Attribution v2: joint scorer first (reads origin+dest+movement off
         # the matched path). On a confident hit, skip the legacy chain entirely.
         if use_joint and paths:
-            j = score_path_joint(traj, paths)
+            j = score_path_joint(traj, paths, **(joint_kwargs or {}))
             if j.get("destination_leg_id") is not None:
                 new_o = j["origin_leg_id"]
                 new_d = j["destination_leg_id"]
