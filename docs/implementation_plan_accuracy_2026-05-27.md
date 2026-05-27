@@ -337,3 +337,48 @@ now discriminates (legacy 34.6% vs joint 37.2%).
 **Redirect:** the next bottleneck is **calibration, not the attribution algorithm** — re-verify
 the polyline geometry + leg definitions + manual→leg mapping against the actual intersection
 video before any more scorer tuning. OC-SORT remains a justified parallel track.
+
+---
+
+# Phase 3 — Calibration fix (root cause), developed with Grok (2026-05-27)
+
+The 3-min validation + diagnostics proved the accuracy bottleneck is **leg/path calibration,
+not the attribution algorithm.** The scorer faithfully matches shape; the geometry it matches
+against is wrong.
+
+## Confirmed root cause
+- `diagnose_phantom.py`: throughs match the "L22→L25 right" polyline (cost 8–23px) far better
+  than the "L22→L23 through" polyline (60–98px). The polyline bank's labels/geometry disagree
+  with reality (all `supporting_count=0`, hand-drawn).
+- `diagnose_legs_flow.py`: deeper — the **leg `reference_heading`s are miscalibrated** (L25 "EB"
+  stored 172.8°=South; L22 "SB" 187.7° vs observed 258.8°), `derive_movement`'s geometry labels
+  don't match manual, and snapping start+end to entry-centric leg origins produces **35
+  implausible L22→L22 "u-turns"** (a snapping artifact — leg origins too entry-centric/close).
+- The data-only check is **confounded by the mid-turn-entry problem itself** (entries unreliable;
+  tails reliable) — so leg calibration can't be fully re-derived from entries, and a visual gate
+  is required.
+
+## Solution (data-driven, tails + manual counts; legs treated as rough scaffold)
+1. **Re-place origins + re-derive `reference_heading`s from TAILS.** Spatially cluster *start*
+   points only (`dbscan_like`) for origin placement; set each leg's heading = circular median of
+   member **tail** headings (`_exit_velocity`), never entries. *Check: re-snap → the 35 u-turns
+   drop sharply.*
+2. **Label-free shape clustering.** Cluster trajectories by full shape using the trusted
+   subsequence-DTW distance (the one powering `score_path_joint`); extract K≈8–12 dominant
+   clusters with median polyline + count + median tail heading.
+3. **Constrained assignment to manual.** Per origin, assign clusters→movements by matching
+   cluster counts to the manual movement vector (largest cluster → largest manual movement, e.g.
+   L22's ~40-event cluster → thru=37), with tail-heading geometric-feasibility constraints. This
+   bypasses the suspect legs entirely. *Check: aggregated counts within ~10–15% of manual.*
+4. **MANDATORY engineer visual gate.** Overlay on a 7:00 frame: current leg origins + heading
+   arrows (flagged if off), K shape-clusters colored by tail heading + counts, faded sample
+   trajectories, manual counts panel. Engineer confirms/tweaks in minutes (data-only is confounded
+   — this is not optional).
+5. **Emit + apply** the new labeled path bank (median polylines + assigned labels + real
+   `supporting_count`) via `apply_auto_cal.py`/`upsert_path`; clear the old count=0 rows.
+   *Check: `per_movement_accuracy.py` + `replay --joint` — joint now ≥ legacy, L22 dominant flow
+   labeled thru.*
+6. (Optional) repeat on full AM/PM peaks; snapshot new B0/B_joint.
+
+Effort: low single-digit hours of scripting + the existing median-fitter/DTW code + a 5–10 min
+engineer review. **The joint scorer + OC-SORT only pay off once this correct geometry is in place.**
