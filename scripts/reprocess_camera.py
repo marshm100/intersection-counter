@@ -112,6 +112,11 @@ def main() -> int:
     ap.add_argument("--audit", action="store_true",
                     help="collect per-track detection-vs-association audit stats "
                          "(P2.C) to detections/<hash>/track_audit.json")
+    ap.add_argument("--start-hms", default=None,
+                    help="process a single custom window starting at this wallclock "
+                         "HH:MM:SS instead of the full trims (for a quick 15-min bucket)")
+    ap.add_argument("--minutes", type=float, default=15.0,
+                    help="duration in minutes for --start-hms (default 15)")
     ap.add_argument("--baseline", default=None,
                     help="after the run, snapshot per_movement_accuracy to "
                          "evaluations/<name>.json (e.g. B0_baseline)")
@@ -132,8 +137,24 @@ def main() -> int:
     mode_cfg = get_processing_mode_config(args.mode)
     fps = float(video["fps"])
 
-    windows = [(_trim_frame_window(t, video["recording_start_datetime"], fps,
-                                   video["total_frames"]), t) for t in trims]
+    if args.start_hms:
+        # Single custom window (quick bucket) instead of the full trims.
+        rec_start = datetime.fromisoformat(video["recording_start_datetime"])
+        date = rec_start.date().isoformat()
+        t0 = datetime.fromisoformat(f"{date}T{args.start_hms}")
+        s = int((t0 - rec_start).total_seconds() * fps)
+        e = s + int(args.minutes * 60 * fps)
+        s = max(0, min(s, video["total_frames"]))
+        e = max(s, min(e, video["total_frames"]))
+        label_trim = {
+            "trim_id": trims[0]["trim_id"] if trims else None,
+            "start_wallclock": args.start_hms,
+            "end_wallclock": f"+{args.minutes:g}min",
+        }
+        windows = [((s, e), label_trim)]
+    else:
+        windows = [(_trim_frame_window(t, video["recording_start_datetime"], fps,
+                                       video["total_frames"]), t) for t in trims]
 
     existing = conn.execute(
         "SELECT COUNT(*) FROM vehicle_events WHERE camera_id=?", (args.camera,),
