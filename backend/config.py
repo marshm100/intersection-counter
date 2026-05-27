@@ -158,7 +158,11 @@ ORIGIN_POLYLINE_HEADING_GATE_DEG = 25.0
 # regenerated (the original 9,785 were deleted; only ~144 remain).
 USE_JOINT_PARTIAL_FRECHET_SCORER = True
 JOINT_SCORER_MAX_COST_PX = 28.0        # reject matches whose Fréchet cost exceeds this
-JOINT_SCORER_MIN_COVERAGE_FRAC = 0.45  # matched sub-curve must span >= this of path arc length
+# Deliberately LOW: a mid-turn entry (the failure mode this scorer rescues)
+# covers only the path suffix (~0.40-0.55 of arc length), so a high floor would
+# reject exactly those tracks. Keep this just high enough to kill tiny-fragment
+# matches; lean on the soft coverage term (weight below) + max_cost for quality.
+JOINT_SCORER_MIN_COVERAGE_FRAC = 0.28  # hard floor on matched sub-curve arc-length fraction
 JOINT_SCORER_TAIL_WINDOW = 7           # tail points used for the exit-direction prior
 JOINT_SCORER_TAIL_WEIGHT = 0.35        # blend weight of tail prior vs shape cost
 JOINT_SCORER_COVERAGE_WEIGHT = 0.15    # blend weight of coverage term

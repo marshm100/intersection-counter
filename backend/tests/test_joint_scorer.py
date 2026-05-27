@@ -97,7 +97,9 @@ def test_best_partial_frechet_matches_suffix():
     traj = _trace(PATHS[0]["polyline"], frac_start=0.6, step=10.0)
     start, end, cost = _best_partial_frechet(traj, poly)
     assert cost < 8.0  # follows the suffix closely
-    assert start > 0   # matched a suffix, not the whole polyline
+    assert start > 0              # matched a suffix, not the whole polyline
+    assert start < len(poly) - 5  # ...an INTERNAL start, not the shortest 2-pt suffix
+    assert end == len(poly) - 1   # end stays anchored at the exit
 
 
 # --- score_path_joint ----------------------------------------------------
@@ -125,8 +127,10 @@ def test_mid_turn_entry_still_picks_correct_path_and_origin():
     # THE core scenario: vehicle only seen for the back 45% of the through
     # movement. Origin (L18) must be READ OFF the path, not estimated from the
     # entry tangent (which here would look like mid-sweep, not an approach).
+    # Uses the production default min_coverage_frac (0.28) — no override. A
+    # higher floor would reject exactly this mid-turn case (the coverage tension).
     traj = _trace(PATHS[0]["polyline"], frac_start=0.55, step=9.0)
-    r = score_path_joint(traj, PATHS, min_coverage_frac=0.35)
+    r = score_path_joint(traj, PATHS)
     assert r["path_id"] == 1
     assert r["origin_leg_id"] == 18
     assert r["movement_label"] == "through"

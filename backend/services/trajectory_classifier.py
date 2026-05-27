@@ -456,7 +456,7 @@ def score_path_joint(
     paths: list,
     *,
     max_cost: float = 28.0,
-    min_coverage_frac: float = 0.45,
+    min_coverage_frac: float = 0.28,
     tail_window: int = 7,
     tail_weight: float = 0.35,
     coverage_weight: float = 0.15,

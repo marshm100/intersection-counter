@@ -593,6 +593,12 @@ class ProcessingPipeline:
                     if origin_leg is not None and origin_leg.get("reference_heading") is not None:
                         vehicle["reference_heading"] = origin_leg["reference_heading"]
                     self.n_origin_via_polyline += 1
+                    # NOTE: classify_trajectory() already ran above against the
+                    # PROVISIONAL reference_heading, so the stored classifier_*
+                    # audit columns are relative to the old origin for these
+                    # joint-scorer hits. The reported movement comes from the
+                    # path label (not classification), so counts are unaffected;
+                    # only the diagnostic columns are stale. Acceptable for v1.
 
         if self._paths and polyline_dest is None:
             polyline_dest = score_destination_by_polyline(
