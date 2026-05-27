@@ -306,3 +306,34 @@ instrumented audit → explicit OC-SORT go/no-go; (3) tune joint scorer (AM/PM h
 re-snapshot; (4) if go: OC-SORT retrack → C pair; (5) OpenVINO parity (parallel with 3/4);
 (6) final validation. The reprocess doesn't just unblock — it **resurrects the statistical
 power** of every downstream experiment; treat its runtime as high-leverage parallel build time.
+
+---
+
+## Phase 2 validation — 3-min balanced bucket (2026-05-27)
+
+Ran a 3-min balanced reprocess (07:00–07:03, 113 events) instead of the overnight peak run.
+
+**Pipeline validated end-to-end:** reprocess + cache write-through (11,176 detections) + audit
+(170 tracks) + all three analysis tools ran cleanly.
+
+**Audit (P2.C) → OC-SORT justified:** of 39 lost/short tracks, **100% emitted-but-fragmented,
+0% never-detected** → loss is association, not detector recall. (Caveat: 3-min 7am sample.)
+
+**Accuracy → joint currently WORSE than legacy** (agg_err 138% vs 98% vs the manual 7:00
+bucket). Dominant error: real throughs (L23/L22) labeled as phantom right turns (L22-right
+manual≈1.5, ours≈43).
+
+**Phantom root cause (diagnose_phantom.py) — NOT the scorer:** trajectories match the L22→L25
+"right" polyline at cost 8–23px and the L22→L23 "through" polyline at 60–98px (0/67 turn-labeled
+events have the through path within 5px or passing gates). The scorer faithfully matches shape;
+the **hand-drawn polyline bank disagrees with the manual ground truth** (all `supporting_count=0`).
+This is the "polylines don't match modal paths" risk (Risk #3) confirmed. **Threshold tuning
+cannot fix it.**
+
+**Objective fix (P2.B):** the robust cap `0.15*cell-manual` was blind to phantoms (manual=0 → 0)
+and tiny-manual over-attribution; replaced with a uniform `0.05*total_manual` cap. Robust metric
+now discriminates (legacy 34.6% vs joint 37.2%).
+
+**Redirect:** the next bottleneck is **calibration, not the attribution algorithm** — re-verify
+the polyline geometry + leg definitions + manual→leg mapping against the actual intersection
+video before any more scorer tuning. OC-SORT remains a justified parallel track.
