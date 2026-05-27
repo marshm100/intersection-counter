@@ -273,6 +273,15 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     if "destination_posterior_json" not in ev_cols:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_posterior_json TEXT")
 
+    # Detection cache (Attribution v2 / Step 1): a stable content hash per video
+    # keys the per-(camera, hash) Parquet detection cache. Nullable; computed
+    # lazily on first cache write. See backend/services/detection_cache.py.
+    vid_cols = [r[1] for r in conn.execute("PRAGMA table_info(videos)").fetchall()]
+    if "content_hash" not in vid_cols:
+        conn.execute("ALTER TABLE videos ADD COLUMN content_hash TEXT DEFAULT NULL")
+    if "content_hash_method" not in vid_cols:
+        conn.execute("ALTER TABLE videos ADD COLUMN content_hash_method TEXT DEFAULT NULL")
+
     cp_cols = [r[1] for r in conn.execute("PRAGMA table_info(checkpoint)").fetchall()]
     if "current_video_id" not in cp_cols:
         conn.execute("ALTER TABLE checkpoint ADD COLUMN current_video_id INTEGER DEFAULT NULL")
