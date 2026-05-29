@@ -38,8 +38,23 @@ from replay_attribution_changes import PROJECT_DB, load_events, load_legs
 # Manual study approaches; the two Belt Line ones carry the through arterial.
 BELT_APPROACHES = ["NB N Belt Line Rd", "SB N Belt Line Rd"]   # arterial (through pair)
 SIDE_APPROACHES = ["EB Northwest Dr", "WB Private Driveway"]    # side streets (turns)
-APPROACH_TO_LEG = {"SB N Belt Line Rd": 22, "NB N Belt Line Rd": 23,
-                   "WB Private Driveway": 24, "EB Northwest Dr": 25}
+# Corrected 2026-05-29: leg labels were 180°-rotated (see memory
+# project_leg_labels_swapped). NB=22, SB=23, EB=24, WB=25.
+APPROACH_TO_LEG = {"NB N Belt Line Rd": 22, "SB N Belt Line Rd": 23,
+                   "EB Northwest Dr": 24, "WB Private Driveway": 25}
+# Miovision OD destination for each (approach, turn) — the ground-truth where each
+# turn EXITS (from the per-minute XML OD matrix; memory reference_miovision_perminute_od).
+# Used to route turn clusters geometrically instead of by fragile count-match.
+OD_DEST = {
+    ("NB N Belt Line Rd", "left"):  "EB Northwest Dr",
+    ("NB N Belt Line Rd", "right"): "WB Private Driveway",
+    ("SB N Belt Line Rd", "left"):  "WB Private Driveway",
+    ("SB N Belt Line Rd", "right"): "EB Northwest Dr",
+    ("EB Northwest Dr", "left"):    "SB N Belt Line Rd",
+    ("EB Northwest Dr", "right"):   "NB N Belt Line Rd",
+    ("WB Private Driveway", "left"):  "NB N Belt Line Rd",
+    ("WB Private Driveway", "right"): "SB N Belt Line Rd",
+}
 THROUGH_TOL_DEG = 45.0
 POLYLINE_PTS = 15
 
@@ -136,7 +151,8 @@ def manual_for_window(window):
 
 
 def derive_turn_paths(trajs, legs_by_id, manual, center, *, min_support=5,
-                      turn_curv_thresh=55.0, max_clusters=8):
+                      turn_curv_thresh=55.0, max_clusters=8, vol_factor=2.0,
+                      min_arc_px=130.0):
     """Exit-driven turn-path derivation (docs/turn_attribution_plan_2026-05-29.md).
 
     Split turns from throughs by cumulative curvature (robust to truncated
@@ -182,30 +198,68 @@ def derive_turn_paths(trajs, legs_by_id, manual, center, *, min_support=5,
             "polyline": _fit_mean_polyline(ts, POLYLINE_PTS),
         })
 
-    cells = []  # manual turn cells = weak supervisor for (origin, label)
+    # OD-anchored routing (memory reference_miovision_perminute_od): a turn's
+    # (origin_leg -> dest_leg) is FIXED by the Miovision OD matrix, so route each
+    # cluster geometrically against that matrix instead of count-matching rotation
+    # sense (which force-fit arterial-contaminated clusters onto cross-street cells
+    # and over-attributed). valid_od[(origin_leg, dest_leg)] = (movement, manual_cnt).
+    valid_od = {}
     for appr, leg_id in APPROACH_TO_LEG.items():
         for mv in ("left", "right"):
             cnt = manual.get(appr, {}).get(mv, 0.0)
-            if cnt >= min_support:
-                cells.append({"approach": appr, "origin_leg": leg_id,
-                              "movement": mv, "count": cnt})
+            dest_appr = OD_DEST.get((appr, mv))
+            dest_leg = APPROACH_TO_LEG.get(dest_appr) if dest_appr else None
+            if cnt >= min_support and dest_leg is not None:
+                valid_od[(leg_id, dest_leg)] = (mv, cnt, appr)
 
     leg_bear = {lid: _bearing(center, lg["origin"]) for lid, lg in legs_by_id.items()}
-    paths, assigned, used = [], [], set()
-    for cl in sorted(clusters, key=lambda c: -c["count"]):
+
+    def _dist(p, lid):
+        o = legs_by_id[lid]["origin"]
+        return math.hypot(p[0] - o[0], p[1] - o[1])
+
+    # Route every cluster to an OD movement, then keep ONE path per
+    # (origin, dest, movement) — the intersection_paths schema is UNIQUE on
+    # (camera, origin, dest), and multiple clusters per movement are sub-arcs of
+    # one maneuver. Keep the dominant (largest) cluster as the representative.
+    best: dict = {}   # (o, d, mv) -> (cluster, cnt, appr)
+    for cl in clusters:
         dest = min(leg_bear, key=lambda lid: _ang_diff(leg_bear[lid], cl["tail"]))
-        cand = [(i, c) for i, c in enumerate(cells)
-                if c["movement"] == cl["rotation"] and i not in used
-                and c["origin_leg"] != dest]
-        if not cand:
+        start = cl["polyline"][0]
+        cands = [(o, d, mv, cnt, appr) for (o, d), (mv, cnt, appr) in valid_od.items()
+                 if d == dest and mv == cl["rotation"]]
+        if not cands:
             continue
-        i_best, cell = max(cand, key=lambda ic: ic[1]["count"])
-        used.add(i_best)
-        paths.append({"origin_leg_id": cell["origin_leg"], "destination_leg_id": dest,
-                      "movement_label": cell["movement"],
+        o, d, mv, cnt, appr = min(cands, key=lambda c: _dist(start, c[0]))
+        key = (o, d, mv)
+        if key not in best or cl["count"] > best[key][0]["count"]:
+            best[key] = (cl, cnt, appr)
+
+    def _arc(poly):
+        return sum(math.hypot(poly[i][0]-poly[i-1][0], poly[i][1]-poly[i-1][1])
+                   for i in range(1, len(poly)))
+
+    paths, assigned = [], []
+    for (o, d, mv), (cl, cnt, appr) in best.items():
+        # Volume-sanity gate (plan validation gate): a representative cluster far
+        # larger than the manual movement is arterial-contaminated (the EB
+        # over-attribution) — drop rather than emit a polyline that vacuums
+        # through traffic.
+        if cl["count"] > vol_factor * cnt:
+            assigned.append((appr, mv, cl["count"], d, round(cl["tail"]), "DROP>vol"))
+            continue
+        # Min-arc gate: a stub turn polyline (short observed arc) over-attributes —
+        # any through passing through its region clears the coverage floor. A real
+        # turn traverses a substantial arc. (Drops the EB cross-street stubs that
+        # steal through traffic; keeps the long arterial turns like NB-left.)
+        if _arc(cl["polyline"]) < min_arc_px:
+            assigned.append((appr, mv, cl["count"], d, round(cl["tail"]), "DROP<arc"))
+            continue
+        paths.append({"origin_leg_id": o, "destination_leg_id": d,
+                      "movement_label": mv,
                       "polyline": [[round(x, 1), round(y, 1)] for x, y in cl["polyline"]],
                       "supporting_count": cl["count"], "source": "data-driven"})
-        assigned.append((cell["approach"], cell["movement"], cl["count"], dest, round(cl["tail"])))
+        assigned.append((appr, mv, cl["count"], d, round(cl["tail"]), "ok"))
     return paths, assigned
 
 
@@ -259,19 +313,30 @@ def main() -> int:
                              float(np.median([x[0][1] for x in g]))]}
     gstats = {k: stat(g) for k, g in groups.items() if len(g) >= args.min_support}
 
-    # --- Step 3: assign through pair -> Belt Line legs by count rank vs manual thru ---
-    manual_thru_rank = sorted(BELT_APPROACHES, key=lambda a: -manual[a]["thru"])  # NB(56) then SB(37)
+    # --- Step 3: assign through pair -> Belt legs by GEOMETRY (direction) ---
+    # Count-rank (biggest group -> biggest manual) is fragile: when one direction
+    # is over-counted enough to outrank the other it mis-assigns NB<->SB (it did,
+    # post-relabel). Instead anchor on geometry: each belt leg's through travels
+    # from its entry origin toward the OPPOSITE belt leg, so match each observed
+    # through group to the leg whose expected through-heading its tail is nearest.
+    # (Leg labels corrected 2026-05-29 — memory project_leg_labels_swapped.)
+    leg_origin = {lg["leg_id"]: lg["origin_zone"][0] for lg in legs if lg.get("origin_zone")}
+    belt_legs = [APPROACH_TO_LEG[a] for a in BELT_APPROACHES]   # [NB, SB]
+    other_of = {belt_legs[0]: belt_legs[1], belt_legs[1]: belt_legs[0]}
+    exp_tail = {lid: _bearing(leg_origin[lid], leg_origin[other_of[lid]]) for lid in belt_legs}
+    leg_to_appr = {APPROACH_TO_LEG[a]: a for a in BELT_APPROACHES}
     updated_legs, paths = [], []
     assigned = {}
-    for i, gk in enumerate(thru_groups[:2]):
+    used_legs: set = set()
+    for gk in thru_groups[:2]:
         gs = gstats.get(gk)
         if gs is None:
             continue
-        appr = manual_thru_rank[i] if i < len(manual_thru_rank) else BELT_APPROACHES[i]
-        leg_id = APPROACH_TO_LEG[appr]
-        # through exits to the OTHER belt leg
-        other = manual_thru_rank[1 - i] if i < 2 else appr
-        dest_leg = APPROACH_TO_LEG[other]
+        cand = [lid for lid in belt_legs if lid not in used_legs]
+        leg_id = min(cand, key=lambda lid: _ang_diff(exp_tail[lid], gs["tail"]))
+        used_legs.add(leg_id)
+        appr = leg_to_appr[leg_id]
+        dest_leg = other_of[leg_id]
         # origin_point intentionally NOT emitted. At this camera detection is
         # late and starts span the full road width, so median(start) is a band
         # centroid, not a real approach entry (see module docstring). We keep the
@@ -298,10 +363,11 @@ def main() -> int:
     turn_paths, turn_assigned = derive_turn_paths(
         trajs, legs_by_id, manual, center, min_support=args.min_support)
     paths.extend(turn_paths)
-    print(f"\n=== Turn paths (exit-driven, n={len(turn_paths)}; center={[round(c) for c in center]}) ===")
-    for appr, mvt, cnt, dest, tail in turn_assigned:
-        assigned[(appr, mvt)] = cnt
-        print(f"  {appr} {mvt} n={cnt} -> dest L{dest} (tail={tail})")
+    print(f"\n=== Turn paths (OD-anchored, n={len(turn_paths)}; center={[round(c) for c in center]}) ===")
+    for appr, mvt, cnt, dest, tail, status in turn_assigned:
+        if status == "ok":
+            assigned[(appr, mvt)] = cnt
+        print(f"  {appr} {mvt} n={cnt} -> dest L{dest} (tail={tail}) [{status}]")
 
     # --- Validation gate: assigned vs manual ---
     print(f"\n=== Gate: assigned vs manual (window) ===")

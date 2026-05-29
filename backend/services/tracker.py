@@ -125,14 +125,23 @@ class OcSortBackend:
         min_hits: int = 2,
         delta_t: int = 3,
         inertia: float = 0.2,
+        # use_byte=True runs OC-SORT's second association round on LOW-confidence
+        # detections (below det_thresh). On a dense linear queue those marginal
+        # boxes cause ID-switches that split one through vehicle into two tracks
+        # (the Sunnyvale SB-through overcount); use_byte=False / a higher
+        # det_thresh trades a little recall for fewer such switches. det_thresh
+        # defaults to the activation threshold when None.
+        use_byte: bool = True,
+        det_thresh: float | None = None,
     ):
         from boxmot.trackers.ocsort.ocsort import OcSort  # lazy
+        eff_det_thresh = track_activation_threshold if det_thresh is None else det_thresh
         self._init_kwargs = dict(
             min_conf=track_activation_threshold, delta_t=delta_t, inertia=inertia,
-            use_byte=True,
+            use_byte=use_byte,
         )
         self._base_kwargs = dict(
-            det_thresh=track_activation_threshold, max_age=lost_track_buffer,
+            det_thresh=eff_det_thresh, max_age=lost_track_buffer,
             min_hits=min_hits, iou_threshold=1.0 - minimum_matching_threshold,
         )
         self._OcSort = OcSort
@@ -215,6 +224,9 @@ class VehicleTracker:
         minimum_matching_threshold: float = TRACKER_MATCH_THRESHOLD,
         frame_rate: int = 30,
         backend: str = "bytetrack",
+        # Extra backend-specific constructor kwargs (e.g. OC-SORT use_byte,
+        # det_thresh, inertia, min_hits). Splatted into the backend ctor.
+        backend_kwargs: dict | None = None,
     ):
         self.backend_name = backend
         self._backend = create_tracker_backend(
@@ -223,6 +235,7 @@ class VehicleTracker:
             lost_track_buffer=lost_track_buffer,
             minimum_matching_threshold=minimum_matching_threshold,
             frame_rate=frame_rate,
+            **(backend_kwargs or {}),
         )
 
     def update(self, detections: list[dict], frame_number: int) -> list[dict]:

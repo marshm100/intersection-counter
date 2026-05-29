@@ -101,6 +101,13 @@ TRAJECTORY_UTURN_MIN_ANGLE = 135
 TRAJECTORY_MIN_POINTS = 5
 TRAJECTORY_MIN_DISTANCE_PX = 50
 TRAJECTORY_CURVATURE_THRESHOLD = 40  # cumulative curvature tiebreaker for ambiguous zone
+# A real U-turn vehicle traverses the intersection and ends a meaningful distance
+# from where it entered. A trajectory that classifies as a U-turn (>=135° net
+# heading change) but ends very close to its start, having looped through a large
+# cumulative arc, is a TRACKING ARTIFACT (ID-switch / coasting doubling back), not
+# a vehicle — at the Sunnyvale cam1 these phantom U-turns were 20/30min vs ~0
+# real. Gate on net (start->end) displacement, NOT path arc length.
+TRAJECTORY_UTURN_MIN_NET_DISPLACEMENT_PX = 90
 
 # Tracker tuning — ByteTrack defaults are 0.25 / 0.8 / 30 fps with
 # track_buffer=30 frames. We bump track_buffer to 5s (150) so brief

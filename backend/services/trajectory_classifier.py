@@ -17,6 +17,7 @@ from backend.config import (
     TRAJECTORY_THROUGH_MAX_ANGLE,
     TRAJECTORY_TURN_MIN_ANGLE,
     TRAJECTORY_UTURN_MIN_ANGLE,
+    TRAJECTORY_UTURN_MIN_NET_DISPLACEMENT_PX,
 )
 
 logger = logging.getLogger(__name__)
@@ -190,6 +191,21 @@ def classify_trajectory(
     #    and cumulative curvature as tiebreaker for ambiguous cases.
 
     if abs_change >= eff_uturn:
+        # Reject doubling-back tracking artifacts: a real U-turn ends a meaningful
+        # net distance from its entry; an ID-switch/coasting loop ends near its
+        # start despite a large arc. Gate on net (start->end) displacement.
+        sx, sy = trajectory[0][0], trajectory[0][1]
+        ex, ey = trajectory[-1][0], trajectory[-1][1]
+        if math.hypot(ex - sx, ey - sy) < TRAJECTORY_UTURN_MIN_NET_DISPLACEMENT_PX:
+            return {
+                "movement": "insufficient_data",
+                "confidence": 0.0,
+                "net_heading_change": net_change,
+                "cumulative_curvature": curvature,
+                "path_straightness": straightness,
+                "path_distance": path_dist,
+                "num_points": num_points,
+            }
         movement = "uturn"
     elif abs_change <= eff_through:
         movement = "through"

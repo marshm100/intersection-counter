@@ -96,6 +96,11 @@ class ProcessingPipeline:
         # based, sustains turning vehicles through aspect change + short
         # detection gaps; needs boxmot). See backend/services/tracker.py.
         tracker_backend: str = "bytetrack",
+        # Extra backend-specific constructor kwargs (e.g. OC-SORT use_byte,
+        # det_thresh, inertia, min_hits). None = backend defaults. Threaded
+        # verbatim to the backend so tracker behaviour can be tuned without
+        # touching the call sites; ignored by backends that don't accept them.
+        tracker_kwargs: dict | None = None,
     ):
         self.project_id = project_id
         self.db_path = db_path
@@ -118,6 +123,7 @@ class ProcessingPipeline:
         self._calibration_params = calibration_params or {}
         self._paths: list[dict] = list(paths) if paths else []
         self._tracker_backend = tracker_backend
+        self._tracker_kwargs = dict(tracker_kwargs) if tracker_kwargs else {}
 
         # Components (lazy-loaded to avoid loading YOLO in tests)
         self._detector: VehicleDetector | None = None
@@ -200,6 +206,8 @@ class ProcessingPipeline:
                 kw["minimum_matching_threshold"] = self._tracker_match_threshold
             if self._tracker_activation_threshold is not None:
                 kw["track_activation_threshold"] = self._tracker_activation_threshold
+            if self._tracker_kwargs:
+                kw["backend_kwargs"] = self._tracker_kwargs
             self._tracker = VehicleTracker(**kw)
         return self._tracker
 
