@@ -34,19 +34,46 @@ from backend.services.pipeline import ProcessingPipeline
 from reprocess_camera import _load_camera_context
 import per_movement_accuracy as pma
 from test_recal_effect import list_paths_for_camera_tmp
+from datetime import timedelta
+from od_accuracy import manual_per_minute, our_per_minute, LEG_IDX
+from groundtruth import VIDEO_START
 
-# (leg_id, movement) cells to surface per run.
-WATCH = [(22, "thru"), (23, "thru"), (23, "left"), (22, "left"), (23, "right")]
+# (leg_id, movement) cells to surface per run. Under CORRECTED labels: 22=NB,
+# 23=SB. So L22thr=NB-thru, L23thr=SB-thru, L22lef=NB-left(turn recovery — must
+# be preserved), L23rig=SB-right.
+WATCH = [(22, "thru"), (23, "thru"), (22, "left"), (23, "right"), (23, "left")]
 
+# Reduce OC-SORT fragment PRODUCTION at the source while preserving the 2x turn
+# recovery (NB-left = L22 left). Higher inertia/delta_t trust motion (fewer
+# ID-switches); higher min_hits suppresses spurious short tracks; lower max_age
+# stops long coasts re-attaching to followers; use_byte/det_thresh gate low-conf.
 CONFIGS = [
-    ("baseline (use_byte=T,det=.25)", {}),
-    ("use_byte=F + det=0.35",        {"use_byte": False, "det_thresh": 0.35}),
-    ("use_byte=F + det=0.30",        {"use_byte": False, "det_thresh": 0.30}),
-    ("use_byte=F + det=0.40",        {"use_byte": False, "det_thresh": 0.40}),
+    ("baseline",                {}),
+    ("inertia=0.4",             {"inertia": 0.4}),
+    ("inertia=0.4 delta_t=4",   {"inertia": 0.4, "delta_t": 4}),
+    ("min_hits=3",              {"min_hits": 3}),
+    ("inertia=0.4 min_hits=3",  {"inertia": 0.4, "min_hits": 3}),
+    ("det=0.30 inertia=0.4",    {"det_thresh": 0.30, "inertia": 0.4}),
 ]
 
 
-def measure(db_path, video, legs_ctx, calib, mode_cfg, sug, s, e, pq, camera, kwargs):
+def _gross(tdb, start_sec, end_sec, t0, minutes):
+    """Per-minute gross error (sum over minutes of |ours-manual| / total manual)."""
+    mins = [t0 + timedelta(minutes=i) for i in range(int(minutes))]
+    _, m_mv, _ = manual_per_minute()
+    _, o_mv = our_per_minute(tdb, start_sec, end_sec, legmap=LEG_IDX)
+    cells = set()
+    for mn in mins:
+        cells |= set(m_mv.get(mn, {})) | set(o_mv.get(mn, {}))
+    tman = tgross = 0
+    for c in cells:
+        tman += sum(m_mv.get(mn, {}).get(c, 0) for mn in mins)
+        tgross += sum(abs(o_mv.get(mn, {}).get(c, 0) - m_mv.get(mn, {}).get(c, 0)) for mn in mins)
+    return tgross / tman * 100 if tman else 0.0
+
+
+def measure(db_path, video, legs_ctx, calib, mode_cfg, sug, s, e, pq, camera, kwargs,
+            start_sec=None, t0=None, minutes=30.0):
     tmpdir = Path(tempfile.mkdtemp(prefix="ocsweep_"))
     try:
         tdb = tmpdir / "recal.db"
@@ -92,7 +119,8 @@ def measure(db_path, video, legs_ctx, calib, mode_cfg, sug, s, e, pq, camera, kw
             cells = pma.build_cells(agg)
             metric = pma.compute_metric(cells)
             cellmap = {(c["leg_id"], c["movement"]): c for c in cells}
-            return metric["agg_err_pct"], metric["total_ours"], cellmap
+            gross = _gross(tdb, start_sec, e / float(video["fps"]), t0, minutes) if start_sec is not None else 0.0
+            return metric["agg_err_pct"], metric["total_ours"], cellmap, gross
         finally:
             groundtruth.PROJECT_DB = orig
     finally:
@@ -103,7 +131,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, default=30.0)
     ap.add_argument("--start-hms", default="07:00:00")
-    ap.add_argument("--suggestion", default="evaluations/recal_cam1_nbleftonly.json")
+    ap.add_argument("--suggestion", default="evaluations/recal_cam1_relabeled.json")
     args = ap.parse_args()
     camera = 1
     db_path = Path("data/projects/97a7849a/project.db")
@@ -120,15 +148,16 @@ def main() -> int:
                                           total_frames=video["total_frames"])
     pq = parquet_path("97a7849a", camera, chash, DEFAULT_VARIANT)
 
-    print(f"window {args.start_hms}+{args.minutes}min  cache={pq.name}\n")
-    hdr = f"{'config':<32} {'agg_err':>8} {'total':>6}  " + "  ".join(f"L{l}{m[:3]:<3}" for l, m in WATCH)
+    print(f"window {args.start_hms}+{args.minutes}min  cache={pq.name}  (NB-left=L22lef must be preserved)\n")
+    hdr = f"{'config':<26} {'net':>6} {'gross':>6} {'tot':>5}  " + "  ".join(f"L{l}{m[:3]:<3}" for l, m in WATCH)
     print(hdr); print("-" * len(hdr))
     for label, kw in CONFIGS:
-        agg, total, cm = measure(db_path, video, ctx, calib, mode_cfg, sug, s, e, pq, camera, kw)
+        agg, total, cm, gross = measure(db_path, video, ctx, calib, mode_cfg, sug, s, e, pq, camera, kw,
+                                        start_sec=(t0 - VIDEO_START).total_seconds(), t0=t0, minutes=args.minutes)
         cellvals = "  ".join(f"{cm.get(c, {}).get('ours', 0):>6}" for c in WATCH)
-        print(f"{label:<32} {agg:>7.1f}% {total:>6}  {cellvals}")
+        print(f"{label:<26} {agg:>5.1f}% {gross:>5.1f}% {total:>5}  {cellvals}")
     man = "  ".join(f"{cm.get(c, {}).get('manual', 0):>6.0f}" for c in WATCH)
-    print(f"{'(manual)':<32} {'':>8} {1211:>6}  {man}")
+    print(f"{'(manual)':<26} {'':>6} {'':>6} {1211:>5}  {man}")
     return 0
 
 

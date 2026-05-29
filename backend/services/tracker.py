@@ -122,9 +122,15 @@ class OcSortBackend:
         minimum_matching_threshold: float = TRACKER_MATCH_THRESHOLD,
         frame_rate: int = 30,
         frame_size: tuple[int, int] = (480, 640),
-        min_hits: int = 2,
+        # min_hits=3 (vs OC-SORT's looser 2) suppresses spurious short tracks
+        # (the fragments that inflate counts); inertia=0.4 (vs 0.2) trusts the
+        # motion model more, reducing ID-switches on dense linear queues. Tuned
+        # on the Sunnyvale cam1 30-min window (per-minute gross 35.7%->30.3%,
+        # NB-left turn recovery preserved) — both are sane general OC-SORT
+        # values, not scene-specific. See docs/dedup_plan_2026-05-29.md.
+        min_hits: int = 3,
         delta_t: int = 3,
-        inertia: float = 0.2,
+        inertia: float = 0.4,
         # use_byte=True runs OC-SORT's second association round on LOW-confidence
         # detections (below det_thresh). On a dense linear queue those marginal
         # boxes cause ID-switches that split one through vehicle into two tracks
