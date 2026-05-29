@@ -263,6 +263,67 @@ def derive_turn_paths(trajs, legs_by_id, manual, center, *, min_support=5,
     return paths, assigned
 
 
+def derive_turn_paths_od(trajs, legs_by_id, manual, *, min_support=5,
+                         vol_factor=2.5, min_arc_px=120.0):
+    """OD-DIRECT turn-path derivation (supersedes the cluster-route version).
+
+    For each REAL Miovision OD turn movement, gather the trajectories executing
+    it by geometry — start nearest the origin leg AND end nearest the dest leg —
+    fit a mean polyline, and emit. No clustering, so no arterial contamination;
+    and through-fragments naturally don't match (they end at their own arterial
+    leg, not a cross-street), which avoids the NB-right phantom. This is what the
+    Phase A0 probe showed is needed: the EB cross-street turns ARE detected/tracked
+    (EB-left ~24, EB-right ~22) but were dropped by the cluster-route. Returns
+    (paths, assigned_rows)."""
+    leg_ids = list(legs_by_id)
+
+    def nearest(pt):
+        return min(leg_ids, key=lambda lid: math.hypot(
+            pt[0] - legs_by_id[lid]["origin"][0], pt[1] - legs_by_id[lid]["origin"][1]))
+
+    # real OD turn cells: (origin_leg, dest_leg) -> (movement, manual_count, approach)
+    cells = {}
+    for appr, leg_id in APPROACH_TO_LEG.items():
+        for mv in ("left", "right"):
+            cnt = manual.get(appr, {}).get(mv, 0.0)
+            dest_appr = OD_DEST.get((appr, mv))
+            dest_leg = APPROACH_TO_LEG.get(dest_appr) if dest_appr else None
+            if cnt >= min_support and dest_leg is not None:
+                cells[(leg_id, dest_leg)] = (mv, cnt, appr)
+
+    groups: dict = {}
+    for t in trajs:
+        if len(t) < 4:
+            continue
+        o, d = nearest(t[0]), nearest(t[-1])
+        if (o, d) in cells:
+            groups.setdefault((o, d), []).append(t)
+
+    def _arc(poly):
+        return sum(math.hypot(poly[i][0]-poly[i-1][0], poly[i][1]-poly[i-1][1])
+                   for i in range(1, len(poly)))
+
+    paths, assigned = [], []
+    for (o, d), (mv, cnt, appr) in cells.items():
+        g = groups.get((o, d), [])
+        if len(g) < min_support:
+            assigned.append((appr, mv, len(g), d, "too_few"))
+            continue
+        if len(g) > vol_factor * cnt:                       # contamination guard
+            assigned.append((appr, mv, len(g), d, "DROP>vol"))
+            continue
+        poly = _fit_mean_polyline(g, POLYLINE_PTS)
+        if _arc(poly) < min_arc_px:                         # stub guard
+            assigned.append((appr, mv, len(g), d, "DROP<arc"))
+            continue
+        paths.append({"origin_leg_id": o, "destination_leg_id": d,
+                      "movement_label": mv,
+                      "polyline": [[round(x, 1), round(y, 1)] for x, y in poly],
+                      "supporting_count": len(g), "source": "data-driven"})
+        assigned.append((appr, mv, len(g), d, "ok"))
+    return paths, assigned
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="evaluations/recal_cam1.json")
@@ -360,14 +421,14 @@ def main() -> int:
                   for lg in legs if lg.get("origin_zone")}
     center = [float(np.mean([g["origin"][0] for g in legs_by_id.values()])),
               float(np.mean([g["origin"][1] for g in legs_by_id.values()]))]
-    turn_paths, turn_assigned = derive_turn_paths(
-        trajs, legs_by_id, manual, center, min_support=args.min_support)
+    turn_paths, turn_assigned = derive_turn_paths_od(
+        trajs, legs_by_id, manual, min_support=args.min_support)
     paths.extend(turn_paths)
-    print(f"\n=== Turn paths (OD-anchored, n={len(turn_paths)}; center={[round(c) for c in center]}) ===")
-    for appr, mvt, cnt, dest, tail, status in turn_assigned:
+    print(f"\n=== Turn paths (OD-DIRECT, n={len(turn_paths)}) ===")
+    for appr, mvt, cnt, dest, status in turn_assigned:
         if status == "ok":
             assigned[(appr, mvt)] = cnt
-        print(f"  {appr} {mvt} n={cnt} -> dest L{dest} (tail={tail}) [{status}]")
+        print(f"  {appr} {mvt} n={cnt} -> dest L{dest} [{status}]")
 
     # --- Validation gate: assigned vs manual ---
     print(f"\n=== Gate: assigned vs manual (window) ===")
