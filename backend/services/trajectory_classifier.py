@@ -583,6 +583,8 @@ def score_path_joint(
     traj_cap: int = 30,
     stride: int = 1,
     cost_metric: str = "dtw_mean",
+    turn_tail_prior_floor: float = 0.85,
+    turn_min_coverage: float = 0.40,
 ) -> dict:
     """Joint origin+destination+movement scorer via partial Fréchet.
 
@@ -651,6 +653,17 @@ def score_path_joint(
         exit_dir = _unit(ex[0] - ex_prev[0], ex[1] - ex_prev[1])
         tail_cos = (tail_dir[0] * exit_dir[0] + tail_dir[1] * exit_dir[1])
         tail_prior = (tail_cos + 1.0) / 2.0  # [0, 1]
+
+        # Strict gate for TURN-labelled paths: a turn may only claim a track
+        # whose tail genuinely aligns with the turn's exit tangent and that
+        # covers enough of the turn arc. Without this, a straight through
+        # trajectory shape-matches a turn polyline's sub-curve and gets
+        # mislabelled (the EB over-attribution: 245 vs manual 36). Through tails
+        # don't align with a turn's exit, so they're rejected here; real turns
+        # pass. See docs/turn_attribution_plan_2026-05-29.md.
+        if (p.get("movement_label") in ("left", "right", "u_turn")
+                and (tail_prior < turn_tail_prior_floor or coverage < turn_min_coverage)):
+            continue
 
         shape_term = 1.0 / (1.0 + cost / 10.0)  # squash; lower cost -> higher
         composite = (

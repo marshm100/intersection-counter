@@ -1,0 +1,50 @@
+A new version of Grok Build is available: 0.2.8 -> 0.2.11 [stable]
+**H1 dominates (the turn signal is physically gone from most captured trajectories). H2 and H3 are real secondary amplifiers.**
+
+### Code-grounded validation of the hypotheses (from the three files + wiring)
+
+**score_origin_by_polyline** (origin_detector.py:280) only ever sees `trajectory_prefix` (first ≤8 points) and only matches against `_entry_segment` (first ~half) of the *existing* paths' polylines, with a 25° bearing gate on the first-3-segment circular mean (312-330). At apply time only the two arterial through polylines exist (L23→L22 and L22→L23, refs 83°/262°). Any late-detected post-turn track has a prefix whose bearing is already the *exit* direction; it fails the gate or has no candidate. Early `_assign_origin` (pipeline.py:557) therefore rarely gets the right arterial origin for a turner and never gets a cross-street one via polyline.
+
+Tripwire fallback (origin_detector.py:129, using `compute_reference_heading` 349) and heading fallback (pipeline.py:611, full-traj displacement heading vs ref within ≤90°, L24 "Driveway" excluded via config HEADING_FALLBACK_EXCLUDE) then fire on stale L24 (312.9°) / L25 (172.8°) refs or the wrong arterial. This is exactly H2.
+
+**At finalization** (pipeline.py:661):
+- Joint `score_path_joint` (trajectory_classifier.py:573) is active (config:159, True, dtw_mean, min_coverage 0.28, heavy tail prior 0.35). It only iterates the paths that exist. A straight post-turn segment on a cross-street arm will not clear cost/coverage against an arterial through polyline → no origin override, no movement from path label.
+- `score_destination_by_polyline` (270) filters candidates to the (already-wrong) `origin_leg_id`'s paths → same dead end.
+- Falls to `score_destination_leg` (776: exit_vel + exit_pos_dir dot expected dir from center) + `derive_movement` (850).
+
+`derive_movement` (887) does `(dest_ref - origin_ref) % 360`, sorts the *other* three legs by that delta, and does rank → left/through/right (or the n==2 special case). Stale cross-street refs directly corrupt the deltas and the sort order. This is H3. Even a correct dest (exits *are* reliable) produces the wrong label when origin or the four refs are bad. The phantoms you list (SB-left 87, NB-right 54, NB-left 1) are the direct output of this path on the fallback population.
+
+`classify_trajectory` (149) itself (the net_heading_change path) is only used for the pre-polyline classification snapshot; the final movement for polyline hits comes from the path label, and for fallback hits from derive. Either way the input origin is frequently garbage for turners.
+
+### Q1 — which dominates, is the signal recoverable?
+
+**H1 dominates.** The 30-min numbers you cite are diagnostic: 916 of 1049 events are geometrically E→E or W→W (straight on the captured segment). Only ~133 show any direction change in the pixel data that reached the DB, and most of those are the anomalous W→E 180° reversals (not the perpendicular turns the manual TMC counted). Real NB-left (96), SB-right (34), and the EB-NW turns have essentially zero clean geometric representatives in the captured set.
+
+The turn curve occurs at/before the intersection. Late/truncated detection (26-46% of the road, entries missing) means the first YOLO box for a turner is typically already on the exit leg, heading straight along it. The stored trajectory is a short straight segment whose tail *is* the exit direction. No amount of shape scoring, partial Fréchet, tail weighting, or derive can see a curve that was never in the point list. Arterial throughs were rescued because their long, reliable *tails* still exist in-frame and match the two emitted paths. Turns were not.
+
+H2 and H3 explain the specific wrong *labels* on the minority of tracks that do get attributed (and the phantom cross-traffic), but they do not explain why the 193 manual turners largely vanished from the turn cells.
+
+### Q2 — destination-leg-first instead?
+
+Destination scoring is already more robust here for the "which way did it leave" part — `score_destination_leg` explicitly trusts the tail (exactly as the joint scorer's tail prior does), and exits are the trustworthy signal per the Sunnyvale analysis. The joint scorer was written *because* entry tangents are garbage at this camera (see pipeline.py:718 comment and trajectory_classifier.py:330 "vehicles enter YOLO's FOV mid-turn").
+
+It would not be a simple drop-in win for the following code reasons:
+- `derive_movement` (and the whole event/aggregation/TMC model) is origin-centric: it needs a credible origin_leg to compute the CCW rank among the other legs' heading deltas. A perfect dest on a post-turn straight track still yields the wrong left/through/right if the origin is wrong or the refs are stale.
+- When only through paths exist, `score_destination_by_polyline` (292) *filters to the assigned origin's paths* before scoring. No turn paths → no rescue.
+- "All cross-street straights are turns from the perpendicular arterial" is a post-aggregation heuristic, not per-vehicle attribution. It would lose the per-event `origin_leg_id`, trajectory_data, classifier_* audit columns, and provenance that the rest of the system (dedup, v3_aggregator, excel) relies on. The joint scorer already does the "read both o+d from path, ignore bad entry" thing — it just had nothing but through paths to read.
+
+A dest-prioritized *fallback rule* (when straightness high + curvature low + large apparent delta from assigned origin) could be added cheaply as a safety net, but it would still need some way to pick the *correct* origin for the count.
+
+### Q3 — lowest-risk concrete next step (no full recall rebuild)
+
+**Recalibrate L24 + L25 (origin_point + fresh reference_heading from the same data-driven procedure) and force-emit real turn paths with destination_leg_id populated, then apply.**
+
+- This directly kills H3.
+- The apply gate (apply_recal_updates.py:156) only skips `destination_leg_id is None`. Once the cross-street legs have correct headings, re-run the clustering (or hand-author 4-6 turn polylines using the known origin points you listed + the reliable exit tails) and emit them with real dest ids and movement labels. The existing joint scorer + `score_destination_by_polyline` will then match any turner whose captured tail *does* have enough shape/position to align with a turn-path suffix.
+- Can be done today against the existing 30-min sample + diag_turn_attribution harness + the two arterial paths that already worked. No new detection pass, no GPU.
+
+This will give a partial, measurable lift (especially L25 rights and L24 movements) and will clean up some phantoms via better derive deltas. It will *not* recover the mass of NB-lefts etc. whose curves were never captured — those tracks are geometrically throughs on the exit arm.
+
+If the target is manual TMC parity within ~10-15% on the turn cells, a detector recall improvement (earlier boxes on turning vehicles, before they complete the maneuver) is required. The information is not present in the current truncated observations. The 44% residual error after the arterial-only recal is the expected signature of exactly this situation.
+
+The joint scorer + tail emphasis already did exactly what it was designed to do for the population whose tails are observable (arterials). The turn population was outside that population by construction of the camera + detection latency.

@@ -1,0 +1,59 @@
+**READ-ONLY review complete.** No files were modified.
+
+### Concrete CORRECTNESS/SAFETY bugs (severity in [brackets])
+
+**1. No path deletes/orphans vehicle_events (pass on direct delete, latent risk)**
+- Script + all called paths (`_update_leg_geometry`, `clear_paths_for_camera`, `upsert_path`, suggestion helpers) only touch `legs` (narrow UPDATE), `intersection_paths`, or `calibration_suggestions`. Zero DELETEs or UPDATEs on `vehicle_events`. Matches design ("never delete legs/events").
+- No orphaning: `intersection_paths` has no FK from events; leg_id values are stable; no triggers/CASCADEs.
+- **Latent**: concurrent pipeline writer during apply (see #3) can interleave new events against partially-updated legs/paths. Not prevented (only a print).
+- **Severity**: [Low] for this script; design intent holds.
+
+**2. VACUUM INTO backup soundness + ordering**
+- Ordering correct: `_backup_db` runs immediately after `--apply` guard and "ensure no processing" print, before any `_update_leg_geometry` or `clear_paths`.
+- Implementation flaws:
+  - Uses plain `sqlite3.connect()` (never `get_connection`), so no `busy_timeout`, no explicit WAL participation tuning, no `wal_checkpoint` before snapshot.
+  - No `PRAGMA wal_checkpoint(TRUNCATE)` (cf. `projects.py:111` which does exactly this for Windows WAL cleanup).
+  - No verification: backup "success" does not open the file, does not assert `vehicle_events` count matches pre-count, does not check size/integrity. Resulting `.db` can be silently incomplete or unopenable later.
+  - Target `backups/project_YYYYMMDDTHHMMSSZ.db` has second-granularity stamp + no existence check/overwrite handling. `VACUUM INTO` fails if file exists (no backup produced, apply aborts).
+- **Severity**: [High] — exactly the "WAL-consistent?" and "silently wrong" risk called out. On this workload the backup is the only safety net for 113 real events.
+
+**3. Per-op open/close vs. single txn (partial-apply window)**
+- Every mutation is a separate `get_connection()` + (in some cases `with conn:`) + `close()`:
+  - Leg loop: N independent txns (one per `_update_leg_geometry`).
+  - `clear_paths_for_camera` (own txn + commit).
+  - Path loop: N independent `upsert_path` txns.
+  - Then two more separate calls (`save_calibration_suggestion`, `mark_suggestion_applied`).
+- No outer transaction, no savepoint/rollback strategy, no all-or-nothing.
+- Failure modes: crash after leg 1/2 but before paths, after `clear` but before all `upsert`s, or during suggestion writes → legs partially geometry-changed + paths half-cleared/half-written + audit row possibly missing. Camera left in inconsistent state (new origins, stale or missing data-driven paths). Re-running script does not auto-heal.
+- Same non-atomic pattern exists in the "official" `apply_camera_suggestion` (calibration.py:546), but this script is the high-stakes bypass.
+- **Severity**: [Critical] for a no-backup production apply of real data. Violates the "consistent" claim in the module docstring.
+
+**4. _event_count preservation invariant (camera_id OR origin_leg_id)**
+- Code:
+  ```sql
+  WHERE camera_id = ? OR origin_leg_id IN (SELECT leg_id FROM legs WHERE camera_id = ?)
+  ```
+  (used both pre and post, and printed with PRESERVED/CHANGED! check).
+- This is **identical** to the predicate in the destructive `save_camera_calibration` (calibration.py:238-243) and its comment explicitly calls out the legacy `camera_id=NULL` rows that still have valid `origin_leg_id` FKs.
+- Schema + migration comments confirm `origin_leg_id` is NOT NULL and events for a camera's trajectories carry one of its leg_ids.
+- Therefore the invariant is correctly implemented for both modern and legacy rows. Post-apply count comparison is sound (absent concurrent writers).
+- **Severity**: [None] — this part is correct and properly mirrors the documented legacy catch-all.
+
+**5. WAL/OneDrive Windows locking making backup silently wrong**
+- Project root + all `data/projects/*/project.db` (including 97a7849a) live inside a OneDrive-synced folder (workspace path evidence + `PROJECTS_DIR`).
+- Known hazards (SQLite docs + Windows + OneDrive/Dropbox filter drivers): advisory locking breaks, `-wal`/`-shm` memory-maps get interfered with, sync can delay/rename files mid-operation, hot readers can see torn state.
+- Script does nothing to mitigate:
+  - No checkpoint before `VACUUM INTO`.
+  - No `busy_timeout`.
+  - Backup file written into same synced tree (`.../backups/`).
+  - No post-backup validation.
+- The only Windows WAL hygiene in the entire codebase (`_release_sqlite_wal`) is for project deletion, not for this path.
+- Result: `VACUUM INTO` can report success while the backup file either (a) misses committed events still in the live WAL, (b) is corrupt/unopenable after OneDrive conflict rename, or (c) the engineer later discovers the "backup" path in `job_metadata` no longer exists.
+- **Severity**: [Critical] — directly matches the "highest-stakes apply ... ~113 real vehicle_events, NO BACKUP" + "WAL/OneDrive Windows locking making backup silently wrong" framing in the query. This is the primary residual data-loss vector even when `--apply` is used.
+
+### Additional related issues (medium/low)
+- Repeated `get_connection()` calls (which run the entire SCHEMA + 20+ migration `ALTER`/`CREATE INDEX` statements) inside the apply loops unnecessarily lengthen the partial-update window.
+- No enforcement of the "no processing running" precondition (only a prompt); a live v3 pipeline holds leg_ids and can write events while legs/paths are mutating.
+- Backup path stored in audit row but never validated on subsequent opens.
+
+**Summary ranking**: The non-atomic apply (#3) + unverified OneDrive-exposed VACUUM backup (#2/#5) are the two defects that turn the "narrow safe in-place" design into a real operational risk for the exact 113-event scenario this script was written to protect. The event-count invariant (#4) and "no event deletion" (#1) are implemented correctly.

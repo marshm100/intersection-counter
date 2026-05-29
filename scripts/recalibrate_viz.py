@@ -80,15 +80,33 @@ def main() -> int:
         cv2.putText(canvas, f"L{p['origin_leg_id']} {p['movement_label']} n={p['supporting_count']}",
                     (int(mid[0]) + 4, int(mid[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.5, col, 2, cv2.LINE_AA)
 
-    # recalibrated leg origins + heading arrows
+    # recalibrated leg origins + heading arrows. The recal updates the heading
+    # only and keeps the engineer-placed origin (median-start is unreliable at
+    # this camera), so when the suggestion omits origin_point we draw the dot at
+    # the EXISTING leg origin read from the DB — the honest "what will be applied".
+    c2 = sqlite3.connect(str(PROJECT_DB))
+    leg_origins = {}
+    for lid, zone in c2.execute("SELECT leg_id, origin_zone FROM legs WHERE camera_id=1"):
+        try:
+            z = json.loads(zone) if zone else None
+            if z:
+                leg_origins[lid] = z[0]
+        except Exception:
+            pass
+    c2.close()
     for lg in sug["updated_legs"]:
-        ox, oy = lg["origin_point"]
+        origin = lg.get("origin_point") or leg_origins.get(lg["leg_id"])
+        if origin is None:
+            continue
+        ox, oy = origin
+        kept = "origin_point" not in lg
         cv2.circle(canvas, (int(ox), int(oy)), 6, (0, 255, 255), -1)
         r = math.radians(lg["reference_heading"])
         dx, dy = math.sin(r), -math.cos(r)
         cv2.arrowedLine(canvas, (int(ox), int(oy)),
                         (int(ox + dx * 55), int(oy + dy * 55)), (0, 255, 255), 2, tipLength=0.3)
-        cv2.putText(canvas, f"L{lg['leg_id']} {lg.get('approach','')} ref={lg['reference_heading']:.0f}",
+        tag = "(kept)" if kept else ""
+        cv2.putText(canvas, f"L{lg['leg_id']} {lg.get('approach','')} ref={lg['reference_heading']:.0f} {tag}",
                     (int(ox) + 8, int(oy) - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1, cv2.LINE_AA)
 
     # manual vs assigned panel

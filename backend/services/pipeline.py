@@ -24,6 +24,8 @@ from backend.config import (
     JOINT_SCORER_MIN_COVERAGE_FRAC,
     JOINT_SCORER_TAIL_WEIGHT,
     JOINT_SCORER_TAIL_WINDOW,
+    JOINT_SCORER_TURN_MIN_COVERAGE,
+    JOINT_SCORER_TURN_TAIL_PRIOR_FLOOR,
     ORIGIN_ASSIGN_MIN_FRAMES,
     TRACK_FINALIZE_GAP_FRAMES,
     TRAJECTORY_MIN_DISTANCE_PX,
@@ -90,6 +92,10 @@ class ProcessingPipeline:
         # supporting_count. List comes from
         # backend.database.list_paths_for_camera.
         paths: list[dict] | None = None,
+        # Tracker backend: "bytetrack" (default, IoU-only) or "ocsort" (motion-
+        # based, sustains turning vehicles through aspect change + short
+        # detection gaps; needs boxmot). See backend/services/tracker.py.
+        tracker_backend: str = "bytetrack",
     ):
         self.project_id = project_id
         self.db_path = db_path
@@ -111,6 +117,7 @@ class ProcessingPipeline:
         self._tracker_activation_threshold = tracker_activation_threshold
         self._calibration_params = calibration_params or {}
         self._paths: list[dict] = list(paths) if paths else []
+        self._tracker_backend = tracker_backend
 
         # Components (lazy-loaded to avoid loading YOLO in tests)
         self._detector: VehicleDetector | None = None
@@ -188,7 +195,7 @@ class ProcessingPipeline:
             # mode we detect every 3rd frame, so the tracker sees an
             # effective 10 fps when the source is 30.
             effective_fps = max(1, int(self.fps / self.detection_skip))
-            kw: dict = {"frame_rate": effective_fps}
+            kw: dict = {"frame_rate": effective_fps, "backend": self._tracker_backend}
             if self._tracker_match_threshold is not None:
                 kw["minimum_matching_threshold"] = self._tracker_match_threshold
             if self._tracker_activation_threshold is not None:
@@ -729,6 +736,8 @@ class ProcessingPipeline:
                 tail_weight=JOINT_SCORER_TAIL_WEIGHT,
                 coverage_weight=JOINT_SCORER_COVERAGE_WEIGHT,
                 cost_metric=JOINT_SCORER_COST_METRIC,
+                turn_tail_prior_floor=JOINT_SCORER_TURN_TAIL_PRIOR_FLOOR,
+                turn_min_coverage=JOINT_SCORER_TURN_MIN_COVERAGE,
             )
             if joint.get("destination_leg_id") is not None:
                 polyline_dest = joint

@@ -1,0 +1,42 @@
+**READ-ONLY diagnostic complete.** All analysis from direct reads of [backend/config.py](/D:/Onedrive/OneDrive - DeShazo Group Inc/Documents/intersection-counter/backend/config.py), [backend/services/tracker.py](/D:/Onedrive/OneDrive - DeShazo Group Inc/Documents/intersection-counter/backend/services/tracker.py), [backend/services/pipeline.py](/D:/Onedrive/OneDrive - DeShazo Group Inc/Documents/intersection-counter/backend/services/pipeline.py) (full 1028 lines), [backend/services/detector.py](/D:/Onedrive/OneDrive - DeShazo Group Inc/Documents/intersection-counter/backend/services/detector.py), [backend/services/v3_orchestrator.py](/D:/Onedrive/OneDrive - DeShazo Group Inc/Documents/intersection-counter/backend/services/v3_orchestrator.py) + [backend/routers/intersections.py:626-692](/D:/Onedrive/OneDrive - DeShazo Group Inc/Documents/intersection-counter/backend/routers/intersections.py) (mode→pipeline wiring), preprocessor, device, tests, recal scripts, and supporting docs/evals. No files modified.
+
+### Core flow (the defect surface)
+- `PROCESSING_MODES` (config:36-83): accurate/balanced ship `tracker_activation_threshold=0.25` + `detection_skip=1` + low `yolo_confidence` (0.08/0.10). Fast alone drops activation to 0.15 + raises conf floor + skip=3 (explicit comment: "lets single-detection fast vehicles start a track rather than dying in the BYTE association queue").
+- Detector (detector:92-101): YOLO call with the floor conf only → returns every box ≥ floor (including 0.08-0.24). No internal gate.
+- Tracker (tracker:32-43, 62): `sv.ByteTrack(track_thresh=activation, track_buffer=150, match_thresh=...)` receives the raw list. Birth/promotion of a track_id is gated inside ByteTrack (high-conf first-stage + BYTE low-conf rescue). Output tracks from `update()` are what pipeline ever sees.
+- Pipeline (pipeline:258, 365, 510-530, 543): `run_detection = frame_number % detection_skip == 0`; on those frames only, `_ingest_detections` → `tracker.update` → for every returned track, `_process_vehicle` **immediately appends center to trajectory[0]** and attempts origin at ≥2 points. Persisted `trajectory_data` starts at ByteTrack's first emission for that id. Exits ride Kalman + 150-frame buffer + 60-frame finalize grace (TRACK_FINALIZE_GAP_FRAMES). No ROI, no entry-side crop, preprocessor is only CLAHE/gamma.
+- v3 launch (intersections:628-691): project `processing_mode` (default accurate) → `get_processing_mode_config` → explicit `tracker_activation_threshold=mode_cfg[...] ` passed through. Balanced (the practical CPU choice per its own description) = 0.25 + yolo26s@960 every frame.
+
+The 173 s camera-1 window (balanced/accurate) therefore births tracks only after vehicles reach ~0.25 conf in the image — exactly the user's median start_x=418/444 pattern, 5-10% edge capture, and 26-46% x-span.
+
+### Answers to the four questions
+
+**1. Primary cause ranking for late entry-side track birth (L23/L22 through truncation)**  
+1. **activation_threshold=0.25 (dominant)** — Hard gate. YOLO happily emits 0.08-0.24 detections on distant small vehicles (the deliberate low floor in accurate/balanced comments); ByteTrack holds them in the low-conf BYTE queue and only emits a track_id once a detection hits the thresh or a rescue association succeeds. First recorded point is therefore mid-road. Exits are captured because once born the track coasts.  
+2. **imgsz + model recall on small/distant vehicles (strong secondary)** — Balanced (yolo26s@960) has materially weaker small-object recall than accurate (yolo26l@1280). Even a 0.18 detection may never appear at all on far approaches. Fast (640) is worse by design.  
+3. **frame-skip cadence (minor here)** — Not active in balanced/accurate (skip=1). The skip-3 regime in fast is why they lowered activation; the mismatch comment in config:73-77 is exactly the Kalman under-prediction risk. In a skip=1 run this is not the lever.
+
+**2. +14-30% overcount source**  
+Yes, overwhelmingly fragmentation → duplicate IDs for the same physical vehicle.  
+- 32% tracks <15 points + 8 tracks <10 points are not plausible vehicles; they are birth sparks, re-acquisitions after brief misses, or low-conf noise that finally cleared the 0.25 gate.  
+- Re-id churn drivers in the current config: pure motion+conf ByteTrack (no appearance model), match_thresh=0.8 (or 0.95 in fast), generous buffer=150 but still vulnerable to momentary association failure when a vehicle is small, turning, or partially occluded, or when its conf flickers below internal rescue thresholds. The 60-frame finalize grace + tracker lost_buffer mitigate *within-ID* flicker but do nothing once ByteTrack itself mints a new id on re-detection. Each new id that reaches origin assignment + classification increments the count. The observed thru overcount (64 vs 56, 48 vs 37) matches exactly this 1-vehicle → 1.2-1.5 IDs pattern on the arterial throughs.
+
+**3. Highest-leverage, lowest-risk change on this exact CPU-only hardware (i5-1135G7 / Iris Xe / 8GB, no CUDA)**  
+**Lower tracker_activation_threshold to 0.15-0.18 for balanced + accurate (and keep the existing per-mode override path).**  
+
+This is the direct, one-line, zero-cost attack on the birth gate the fast mode already proved works. On CPU the inference cost is unchanged (same YOLO calls).  
+
+Strong supporting low-risk companion: raise `TRAJECTORY_MIN_POINTS` (currently 5) and `TRAJECTORY_MIN_DISTANCE_PX` (50) and/or add a cheap "min real YOLO hits" filter (the `_audit_mode` machinery in pipeline:409-463 already counts `real_yolo_hits` vs coasted frames per track; reuse it). This kills the fragment overcount without touching detection.  
+
+Lower-risk than: raising imgsz+large model (config itself calls accurate ~60× slower than RT; balanced@960 is the practical ceiling), static ROI crops (breaks every tripwire/polyline/path contract and geometry), or two-stage init (requires tracker fork or heavy pipeline surgery). Detection cache + `process_cached` already exists precisely to A/B these tracker/activation experiments in minutes once a cache is written.
+
+**4. Strategic: PAUSE recalibration application; fix upstream first.**  
+**Yes — pause broad data-driven recal (paths + updated_legs) until detection/tracking is repaired and a full reprocess repopulates complete trajectories.**  
+
+The recal code itself (scripts/recalibrate_camera.py:4-10 and docs/recalibration_plan_2026-05-27.md:7-11) already documents the exact problem: "detection is late and starts span a continuous horizontal band, so origins are NOT recoverable from start-point clustering." It correctly pivots to tail headings + count-matching as the only trustworthy signals. The joint scorer (pipeline:723-747, config:159-177) with `JOINT_SCORER_TAIL_WEIGHT=0.35` + `TAIL_WINDOW=7` was explicitly built to lean on the reliable exit tails for this reason.
+
+However, the 113-trajectory 173 s data (median start_x hundreds of pixels inside the true entry edges, only 5-9% of throughs capture entry-to-exit span, 32% micro-fragments) proves the truncation is still severe enough that even the "shape" portion of any polyline fit or partial-Fréchet scorer is trained on systematically missing prefixes. Applying now bakes the artifact into the reference paths and any downstream origin logic that still consumes early trajectory segments.  
+
+Tails + manual count matching can still give a useful heading/arterial axis today, but the engineer's rejection is correct: the paths are being fit on defective input. Highest-ROI sequence is (1) detection/tracking birth + fragmentation fix (activation + min-length filter), (2) reprocess the window (or full day via balanced + cache), (3) *then* re-run polyline fitting / auto-cal on clean full-span trajectories. The existing suggestion/review/apply harness + detection cache makes this cheap and reversible.
+
+**Bottom line**: The upstream detection→ByteTrack birth gate at 0.25 (with low YOLO floor) on balanced/accurate is the root mechanical cause of both the truncated entries *and* the fragmentation overcount. Everything downstream (classifier, joint scorer, recal) is operating on compromised trajectory shapes. Fix the birth condition first; recal after the data is whole. The architecture (mode overrides, cache + process_cached, audit hooks) already contains the levers.

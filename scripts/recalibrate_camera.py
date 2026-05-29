@@ -62,6 +62,44 @@ def _circ_mean(degs):
     return math.degrees(math.atan2(s, c)) % 360 if degs else 0.0
 
 
+def _resample(traj, n=12):
+    """Arc-length resample a trajectory to n points (reduces jitter)."""
+    pts = np.asarray(traj, dtype=float)
+    if len(pts) < 2:
+        return pts
+    seg = np.sqrt(((pts[1:] - pts[:-1]) ** 2).sum(1))
+    cum = np.concatenate([[0.0], np.cumsum(seg)])
+    if cum[-1] == 0:
+        return pts
+    want = np.linspace(0, cum[-1], n)
+    return np.column_stack([np.interp(want, cum, pts[:, 0]),
+                            np.interp(want, cum, pts[:, 1])])
+
+
+def _signed_curvature(traj):
+    """(cumulative_abs_turn_deg, signed_sum_deg) over a resampled trajectory.
+
+    Robust to entry truncation: it measures how much the OBSERVED path bends,
+    independent of the (unreliable) absolute entry heading. Signed sum > 0 is a
+    right rotation (image convention), < 0 left. Distinguishes a turn (high
+    cumulative bend) from a through (low) even when tails coincide (NB-left tail
+    == SB-through tail)."""
+    p = _resample(traj, 12)
+    if len(p) < 3:
+        return 0.0, 0.0
+    abs_t, signed = 0.0, 0.0
+    for i in range(1, len(p) - 1):
+        a = math.atan2(p[i][0] - p[i-1][0], -(p[i][1] - p[i-1][1]))
+        b = math.atan2(p[i+1][0] - p[i][0], -(p[i+1][1] - p[i][1]))
+        d = math.degrees((b - a + math.pi) % (2 * math.pi) - math.pi)
+        abs_t += abs(d); signed += d
+    return abs_t, signed
+
+
+def _bearing(frm, to):
+    return math.degrees(math.atan2(to[0] - frm[0], -(to[1] - frm[1]))) % 360
+
+
 def detect_axis(tails, bin_deg=15):
     """Return (dir_a, dir_b) — the two opposite dominant tail directions."""
     nb = int(360 / bin_deg)
@@ -95,6 +133,80 @@ def manual_for_window(window):
                 for m in ALL_MVT:
                     out[a][m] += bucket[a][m] * sc
     return out
+
+
+def derive_turn_paths(trajs, legs_by_id, manual, center, *, min_support=5,
+                      turn_curv_thresh=55.0, max_clusters=8):
+    """Exit-driven turn-path derivation (docs/turn_attribution_plan_2026-05-29.md).
+
+    Split turns from throughs by cumulative curvature (robust to truncated
+    entries), cluster the turn pool on the reliable exit suffix, assign
+    destination by tail->leg bearing and origin+label by manual count-match on
+    rotation sense. Returns (paths, assigned_rows). Emits REAL (origin, dest,
+    label) rows so the joint scorer attributes turns at Tier-0."""
+    from scipy.cluster.hierarchy import fcluster, linkage
+
+    pool = []  # (traj, signed_curv)
+    for t in trajs:
+        absc, signed = _signed_curvature(t)
+        if absc >= turn_curv_thresh:
+            pool.append((t, signed))
+    if len(pool) < min_support:
+        return [], []
+
+    feats = []
+    for t, _ in pool:
+        rs = _resample(t, 12)
+        tail = _tail_heading(t)
+        half = rs[len(rs) // 2:]            # latter (observed) half only
+        end = rs[-1]
+        feats.append([end[0], end[1],
+                      math.sin(math.radians(tail)) * 60,
+                      math.cos(math.radians(tail)) * 60,
+                      *half[::2].flatten()])
+    F = np.asarray(feats, dtype=float)
+    F = (F - F.mean(0)) / (F.std(0) + 1e-6)
+    K = min(max_clusters, len(pool))
+    labels = fcluster(linkage(F, method="ward"), t=K, criterion="maxclust")
+
+    clusters = []
+    for c in set(labels):
+        ms = [pool[i] for i in range(len(pool)) if labels[i] == c]
+        if len(ms) < min_support:
+            continue
+        ts = [m[0] for m in ms]
+        clusters.append({
+            "count": len(ts),
+            "tail": _circ_mean([_tail_heading(t) for t in ts]),
+            "rotation": "right" if np.median([m[1] for m in ms]) > 0 else "left",
+            "polyline": _fit_mean_polyline(ts, POLYLINE_PTS),
+        })
+
+    cells = []  # manual turn cells = weak supervisor for (origin, label)
+    for appr, leg_id in APPROACH_TO_LEG.items():
+        for mv in ("left", "right"):
+            cnt = manual.get(appr, {}).get(mv, 0.0)
+            if cnt >= min_support:
+                cells.append({"approach": appr, "origin_leg": leg_id,
+                              "movement": mv, "count": cnt})
+
+    leg_bear = {lid: _bearing(center, lg["origin"]) for lid, lg in legs_by_id.items()}
+    paths, assigned, used = [], [], set()
+    for cl in sorted(clusters, key=lambda c: -c["count"]):
+        dest = min(leg_bear, key=lambda lid: _ang_diff(leg_bear[lid], cl["tail"]))
+        cand = [(i, c) for i, c in enumerate(cells)
+                if c["movement"] == cl["rotation"] and i not in used
+                and c["origin_leg"] != dest]
+        if not cand:
+            continue
+        i_best, cell = max(cand, key=lambda ic: ic[1]["count"])
+        used.add(i_best)
+        paths.append({"origin_leg_id": cell["origin_leg"], "destination_leg_id": dest,
+                      "movement_label": cell["movement"],
+                      "polyline": [[round(x, 1), round(y, 1)] for x, y in cl["polyline"]],
+                      "supporting_count": cl["count"], "source": "data-driven"})
+        assigned.append((cell["approach"], cell["movement"], cl["count"], dest, round(cl["tail"])))
+    return paths, assigned
 
 
 def main() -> int:
@@ -160,9 +272,15 @@ def main() -> int:
         # through exits to the OTHER belt leg
         other = manual_thru_rank[1 - i] if i < 2 else appr
         dest_leg = APPROACH_TO_LEG[other]
+        # origin_point intentionally NOT emitted. At this camera detection is
+        # late and starts span the full road width, so median(start) is a band
+        # centroid, not a real approach entry (see module docstring). We keep the
+        # engineer-placed leg origin and update reference_heading only; the
+        # data-driven PATHS carry attribution (pipeline._assign_origin is
+        # polyline-first). median_start is recorded for audit/debug only.
         updated_legs.append({"leg_id": leg_id, "approach": appr,
-                             "origin_point": [round(gs["start_pt"][0], 1), round(gs["start_pt"][1], 1)],
-                             "reference_heading": round(gs["tail"], 1)})
+                             "reference_heading": round(gs["tail"], 1),
+                             "median_start": [round(gs["start_pt"][0], 1), round(gs["start_pt"][1], 1)]})
         paths.append({"origin_leg_id": leg_id, "destination_leg_id": dest_leg,
                       "movement_label": "through",
                       "polyline": [[round(x, 1), round(y, 1)] for x, y in gs["polyline"]],
@@ -171,20 +289,19 @@ def main() -> int:
         print(f"\n  through group {gk} (n={gs['count']}, tail={gs['tail']:.0f}) -> "
               f"{appr} (L{leg_id}) through, dest L{dest_leg}, ref={gs['tail']:.0f}")
 
-    # Turn groups -> side-street approaches by count (best-effort on thin data)
-    turn_groups = sorted([k for k in gstats if k.startswith("turn")],
-                         key=lambda k: -gstats[k]["count"])
-    for i, gk in enumerate(turn_groups):
-        gs = gstats[gk]
-        appr = SIDE_APPROACHES[i] if i < len(SIDE_APPROACHES) else SIDE_APPROACHES[-1]
-        mvt = "right" if gk == "turn_right" else "left"
-        leg_id = APPROACH_TO_LEG[appr]
-        paths.append({"origin_leg_id": leg_id, "destination_leg_id": None,
-                      "movement_label": mvt,
-                      "polyline": [[round(x, 1), round(y, 1)] for x, y in gs["polyline"]],
-                      "supporting_count": gs["count"], "source": "data-driven"})
-        assigned[(appr, mvt)] = gs["count"]
-        print(f"  turn group {gk} (n={gs['count']}) -> {appr} (L{leg_id}) {mvt} (best-effort)")
+    # --- Turn paths: exit-driven clustering + count-match (real dest + label) ---
+    legs_by_id = {lg["leg_id"]: {"origin": lg["origin_zone"][0],
+                                 "ref": lg["reference_heading"], "label": lg["label"]}
+                  for lg in legs if lg.get("origin_zone")}
+    center = [float(np.mean([g["origin"][0] for g in legs_by_id.values()])),
+              float(np.mean([g["origin"][1] for g in legs_by_id.values()]))]
+    turn_paths, turn_assigned = derive_turn_paths(
+        trajs, legs_by_id, manual, center, min_support=args.min_support)
+    paths.extend(turn_paths)
+    print(f"\n=== Turn paths (exit-driven, n={len(turn_paths)}; center={[round(c) for c in center]}) ===")
+    for appr, mvt, cnt, dest, tail in turn_assigned:
+        assigned[(appr, mvt)] = cnt
+        print(f"  {appr} {mvt} n={cnt} -> dest L{dest} (tail={tail})")
 
     # --- Validation gate: assigned vs manual ---
     print(f"\n=== Gate: assigned vs manual (window) ===")

@@ -1,0 +1,76 @@
+**READ-ONLY analysis. No edits.**
+
+I inspected the current detector (`backend/services/detector.py`), trajectory classifier (`backend/services/trajectory_classifier.py` — both the legacy net-heading path and the joint partial-Fréchet / subsequence-DTW path), pipeline wiring, config (accurate = yolo26l@1280 every frame; balanced = yolo26s@960), tracker (ByteTrack via supervision), the Sunnyvale-specific research (`docs/methodology_research_2026-05-26.md`, `evaluations/grok_turn_diag.txt`), hand-crafted paths, accuracy plans, and geometry fixtures. This is the exact same intersection (NBeltLineRd-NorthwestDr, camera 1) and the exact same failure mode documented there.
+
+### 1. More recall → full turn recovery, or hard FOV/occlusion limit?
+
+**Hard camera-FOV / geometric limit for the missed movement (dominant NB-left, image E->N geometry).**
+
+The l@1280 run recovering substantial EB through entries (median start_x 418→197, x-span 26%→56%, band detections up ~39%) while the dominant turn stayed at ~0 is diagnostic. The research docs already state the root cause explicitly: "vehicles enter YOLO's FOV mid-turn" at this camera. The curving portion of several cross-street turns (especially the NB-left you flag) occurs either behind the effective observation volume of this placement/angle/lens or at distances where the vehicles are still sub-20-25 px blobs when the maneuver begins. Once they are large enough for reliable detection + sustained tracking, their stored trajectory is already a short straight segment on the exit leg. No downstream classifier (net heading change, curvature, partial Fréchet + tail prior, derive_movement rank) can recover a curve that was never observed in the point list.
+
+**Cheap disambiguation (30-60 min, do this first):**
+- Pull the exact 3-min window.
+- Timestamp the ~10 manual NB-left vehicles.
+- Step the video (VLC or the app's review/playback) at the precise frame where each vehicle *initiates* the left turn (steering input or lane departure).
+- For each: is the vehicle already inside the frame? How many pixels tall is it? Can you draw a clear unobstructed line along its pre-turn approach inside the image, or is it emerging from the right edge / behind structure / already committed?
+
+If the answer is "the turn arc happens at or before the right frame boundary and the vehicle is only unambiguously detectable once it is straightening on the north leg," this camera from this position is physically blind to the geometry. More recall (any amount) cannot create photons that never hit the sensor or were too small/ambiguous at the critical moment. The through recovery proves the detector scaling works when the geometry cooperates; the persistent zero on the main turn proves it does not for this movement.
+
+### 2. Recall lever ranking (distant small vehicles)
+
+Assuming the disambiguation above surprisingly says "recoverable tiny vehicles still visible on approach" (low probability given the data):
+
+Ranked by recall-gain per extra compute on CPU for small distant vehicles:
+
+1. **Far-field ROI crop at high res (clear winner)**: Define 1-2 tight rectangles on the problem approach(es) only. Run a second detector pass (same or higher imgsz, or even 2× bilinear upsample of the crop) just on those crops, fuse boxes back into the main list with adjusted coordinates. Enormous gain per FLOP because you ignore 80-90% of the frame. Tractable on current Iris Xe for 1-2 ROIs. This is standard practice in production traffic systems (virtual stopbar ROIs, dedicated approach cameras). Everything else is wasteful.
+
+2. **Higher full-frame imgsz (1536-1920)**: Linear-to-quadratic cost increase. Marginal additional recall over 1280 on the already-tested l model for the approaches that *are* in view. On this CPU hardware, "accurate" (l@1280, every frame) is already described in config as "only practical for short clips" / overnight for full day. 1536+ makes daily production non-viable without hardware change.
+
+3. **SAHI / tiled inference**: Worst recall-per-compute. 4-9× (or more) full inferences + tile fusion/NMS. Helps small objects in principle (aerial heritage), but the multiplier destroys CPU viability. Only makes sense on a strong discrete GPU. Do not pursue on this target.
+
+**CPU reality check**: Only targeted far-field ROI (#1) is even worth prototyping on the current 8 GB Iris Xe box for anything resembling daily production turnaround. Full-frame higher imgsz or tiling = GPU (or at minimum OpenVINO + iGPU offload at scale) is now mandatory for production-viable high-recall configs.
+
+### 3. Non-detection complement worth doing in parallel?
+
+**Yes. This is the robust answer.**
+
+One camera, however well placed for "seeing the intersection," is structurally limited for complete 12-movement TMC at real-world 4-leg sites:
+- Perspective + distance makes far vehicles tiny.
+- Lens wide enough for the whole intersection clips the critical pre-turn approach segments for some movements.
+- Real occluders (signs, poles, trees, structures, the intersection itself) exist.
+
+Industry practice (Miovision, GoodVision, Iteris, etc.) and the v3 data model both acknowledge this. The v3 schema (Intersection-Day → multiple Cameras → per-camera Legs + polylines + cross-camera dedup) was explicitly built for parallel/gap coverage and for exactly this situation.
+
+**Concrete robust options**:
+- Add a second cheap camera (or reuse an existing traffic cam) that looks straight down the missed NB approach or at the actual left-turn curve. Treat it as Camera 2 in the v3 flow. The dedup layer already exists to collapse duplicates in overlap.
+- Accept that this particular camera delivers excellent through counts + the turns it can geometrically see, and stop pretending one angle can deliver the full matrix.
+- (Higher effort, sometimes cheapest long-term) Physically move or add a higher/better-angled primary camera that sees more approach length before the turns initiate.
+
+Single-camera "hero placement" is a commercial marketing claim, not an engineering reality for full-turn accuracy.
+
+### 4. Recommended robust sequence to turn parity
+
+**Blunt truth**: This single CPU machine + this single camera angle, as currently configured and placed, will **never** reach manual TMC parity on the full turn set (especially the dominant NB-left E->N). Your l@1280 experiment is the confirmation. The information for that movement's trajectory shape is not reliably present in the video stream from this viewpoint. Chasing it with SAHI, 1920 imgsz, or fine-tuning is engineering theater.
+
+**Recommended sequence (honest about constraints)**:
+
+1. **Immediate due diligence (today)**: Execute the cheap frame-by-frame disambiguation in Q1. Screenshot + document the pixel sizes and line-of-sight at turn initiation for the missed vehicles. This is non-negotiable before any further detector work.
+
+2. **If geometry/FOV limit confirmed (expected)**:
+   - Stop treating "better detection" as the path to complete turn parity on this camera.
+   - Activate / finish the v3 multi-camera + trim + dedup path for this intersection (the data model and orchestrator already exist for exactly this).
+   - Add the minimal second viewpoint covering the blind movement(s). Even a low-end second clip is higher-accuracy and lower-risk than any single-camera heroics.
+   - Use the existing review UI + manual correction for the residual 5-15% that remains hard even with two cameras. That is the production-grade, engineer-in-the-loop reality (matches what the commercial tools actually do behind the marketing).
+
+3. **Only pursue if disambiguation shows recoverable approach vehicles**:
+   - Prototype the targeted far-field ROI secondary detector pass (Q2 #1) as an optional per-camera high-recall mode.
+   - Combine with the joint polyline scorer (already in tree) + future OC-SORT gap recovery (accuracy plan) + OpenVINO acceleration for the base detector.
+   - Accept that full-day balanced/accurate runs on this hardware will still be overnight-class; daily production volume requires hardware (OpenVINO on Iris Xe or a cheap discrete GPU).
+
+4. **Always**:
+   - Keep the non-detection robustness work (better polylines, attribution, fast human correction in review). The system already has the right escape hatch.
+   - For any new intersection, do a 3-5 minute manual audit of all 12 movements against the candidate camera angle(s) *before* committing to single-camera processing. The v3 model makes multi-camera the default, not the exception.
+
+**Production posture**: The robust fix for turn parity is multi-view coverage on the movements this camera physically cannot observe cleanly. The code architecture (v3) was built to support it. The user's demand for a "COMPLETE robust production fix" is best met by acknowledging the sensor limit and adding the second viewpoint rather than by further tuning the wrong end of the pipe on a single 8 GB CPU box.
+
+This matches every diagnostic artifact already in the repo. No amount of additional single-camera recall engineering erases geometry.

@@ -1,0 +1,39 @@
+**Recommendation: (a) — do not update `origin_point` at all in the recal path.**
+
+### Why (a) wins (ranked)
+
+| Option | Tier-1 tripwire correctness | Visual gate honesty | Robustness to full-width start band | Risk level | Verdict |
+|--------|-----------------------------|---------------------|-------------------------------------|------------|---------|
+| **(a)** Keep existing engineer-placed origin | Harmless (stays at human-chosen location; new `reference_heading` makes `crossing_direction` correct) | Preserves the actual gate the engineer placed and reviewed | Ignores the bad signal entirely | Lowest | **Best** |
+| **(c)** Polyline first point (entry end) | Better than median, but still inside the late-detection band | Dot jumps to a data artifact, not a deliberate gate | Partially robust (on the flow line, not the scatter centroid) | Medium | Acceptable fallback |
+| **(b)** Extrapolate polyline to frame edge | Fragile (tripwire may sit where no track ever crosses inside the image) | Dot can appear to float in empty space or on the wrong road curve | Depends on straight-line assumption outside observed data | High | Risky |
+| (d) variants | Depends | Depends | Depends | Varies | See below |
+
+### Core reasoning (from the code)
+
+- **Tier 0 is deliberately polyline-first and does not use `origin_point`** (pipeline.py:557-570). `score_origin_by_polyline` matches the track prefix against `_entry_segment` (first ~half of the path polyline, origin_detector.py:239-250) + a bearing gate on the first few segments. The paths written by the recal script come from `_fit_mean_polyline` on temporally ordered trajectories, so they already carry the correct entry-to-intersection direction and the reliable `reference_heading` (tail-derived). This path is the whole point of Phase 3.
+
+- **Tier 1 is the fallback only** (pipeline.py:580-604). When `origin_zone` has length 1 it calls `tripwire_from_point(origin_zone[0], reference_heading, half_length=120)` (origin_detector.py:129-157) and then `crossing_direction(..., reference_heading=...)`. The tripwire is a **synthetic perpendicular** whose only job is to give the legacy line-crossing logic something to test. With a correct `reference_heading`, a reasonable (even if not perfect) location is "harmless."
+
+- The recal script itself documents the problem (recalibrate_camera.py:4-5): "detection is late and starts span a continuous horizontal band, so origins are NOT recoverable from start-point clustering." Then it immediately violates its own diagnosis by writing `gs["start_pt"]` (the median) as `origin_point` (line 164) and `apply_recal_updates.py` blindly turns it into `origin_zone = [[x,y]]` (line 206).
+
+- The engineer's visual gate (recalibrate_viz.py + UI) and the original leg placement are the **only** honest signal for where the approach "begins" in the image. The median of a 500+ px wide detection band is not that signal.
+
+### Second-order risks (any choice that writes a new point)
+
+- **Tripwire half-length (120 px)**: Moving the point upstream (especially to frame edge) can place the synthesized perpendicular where early detections never reach, or where it clips the frame asymmetrically. The 120 px value was already increased because shorter wires missed late first-detections.
+- **NB vs SB directionality**: Not ambiguous for the *polylines* — `_fit_mean_polyline` + arclength resampling preserves input trajectory order, so the first point of a through polyline is always the entry end (consistent with `_entry_segment`). But any backward extrapolation must walk *opposite* the first segment bearing, and that assumption can break on curves or angled approaches.
+- **UI / review confusion**: Jumping the visible origin dot between engineer placement and a recal-computed point makes before/after comparison and the mandatory visual gate harder to reason about.
+- **Precedent**: A similar "backward extrapolate to synthetic entry" Tier was implemented, committed, then reverted as net-negative (task log entries around 2026-05-20/21).
+
+### Concrete (d) variant worth considering (but still secondary to (a))
+
+In the suggestion JSON, either:
+- Omit the `origin_point` key for legs that have data-driven paths, **or**
+- Add an explicit `"preserve_origin": true`
+
+Then teach `apply_recal_updates.py` (the only writer) to skip the `origin_zone` update when that signal is present/absent. This makes the "we are not claiming to know the gate location" decision *auditable* in the suggestion artifact and the calibration_suggestions row.
+
+This is the only change that would be required outside the recal script itself.
+
+**Bottom line**: The recal's contract is "we can recover direction and path shape from tails + counts + manual matching." It cannot recover the gate location from the observed starts. (a) is the only choice that does not pretend otherwise, keeps the fallback harmless, and leaves the engineer's visual contract intact. Write the paths and the `reference_heading`; leave the origin dot alone.

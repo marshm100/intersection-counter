@@ -175,6 +175,13 @@ JOINT_SCORER_MIN_COVERAGE_FRAC = 0.28  # hard floor on matched sub-curve arc-len
 JOINT_SCORER_TAIL_WINDOW = 7           # tail points used for the exit-direction prior
 JOINT_SCORER_TAIL_WEIGHT = 0.35        # blend weight of tail prior vs shape cost
 JOINT_SCORER_COVERAGE_WEIGHT = 0.15    # blend weight of coverage term
+# Strict gate for TURN-labelled paths only (left/right/u_turn): a turn path may
+# claim a track only if the track's tail aligns with the turn's exit tangent
+# (tail_prior >= floor) AND it covers enough of the turn arc. Stops straight
+# through trajectories from shape-matching a turn polyline's sub-curve and being
+# mislabelled as turns. See docs/turn_attribution_plan_2026-05-29.md.
+JOINT_SCORER_TURN_TAIL_PRIOR_FLOOR = 0.85
+JOINT_SCORER_TURN_MIN_COVERAGE = 0.40
 
 # Pipeline-level grace period before considering a tracker-missing vehicle
 # "lost" and finalizing it. YOLO detection can flicker (detect, miss, detect)

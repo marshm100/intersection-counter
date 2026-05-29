@@ -104,11 +104,90 @@ class ByteTrackBackend:
         self.byte_track = pickle.loads(state)  # noqa: S301
 
 
-# Backend registry. OC-SORT (boxmot) registers here once the Step 0 audit
-# green-lights it; until then only ByteTrack is available and importing boxmot
-# is intentionally avoided (no speculative dependency).
+class OcSortBackend:
+    """OC-SORT backend (boxmot). Motion-based (observation-centric momentum +
+    virtual-trajectory gap recovery), so it sustains tracks through turns and
+    short detection gaps far better than IoU-only ByteTrack — the gap diagnosed
+    at the Sunnyvale camera (turning vehicles fragmented into straight stubs).
+
+    boxmot is imported lazily so this module still imports without the dep.
+    OC-SORT is appearance-free, so update() needs only a dummy frame of the
+    right size for bounds; we never decode real frames for it.
+    """
+
+    def __init__(
+        self,
+        track_activation_threshold: float = TRACKER_ACTIVATION_THRESHOLD,
+        lost_track_buffer: int = TRACKER_LOST_BUFFER,
+        minimum_matching_threshold: float = TRACKER_MATCH_THRESHOLD,
+        frame_rate: int = 30,
+        frame_size: tuple[int, int] = (480, 640),
+        min_hits: int = 2,
+        delta_t: int = 3,
+        inertia: float = 0.2,
+    ):
+        from boxmot.trackers.ocsort.ocsort import OcSort  # lazy
+        self._init_kwargs = dict(
+            min_conf=track_activation_threshold, delta_t=delta_t, inertia=inertia,
+            use_byte=True,
+        )
+        self._base_kwargs = dict(
+            det_thresh=track_activation_threshold, max_age=lost_track_buffer,
+            min_hits=min_hits, iou_threshold=1.0 - minimum_matching_threshold,
+        )
+        self._OcSort = OcSort
+        self.ocsort = OcSort(**self._init_kwargs, **self._base_kwargs)
+        self._img = np.zeros((frame_size[0], frame_size[1], 3), dtype=np.uint8)
+        self._active_track_ids: set[int] = set()
+
+    def update(self, detections: list[dict], frame_number: int) -> list[dict]:
+        if not detections:
+            dets = np.empty((0, 6), dtype=np.float32)
+        else:
+            dets = np.array(
+                [[*d["bbox"], d["confidence"], d["class_id"]] for d in detections],
+                dtype=np.float32,
+            )
+        tracked = np.asarray(self.ocsort.update(dets, self._img))
+        results = []
+        for row in tracked:
+            x1, y1, x2, y2 = float(row[0]), float(row[1]), float(row[2]), float(row[3])
+            track_id = int(row[4]); conf = float(row[5]); cid = int(row[6])
+            w, h = x2 - x1, y2 - y1
+            results.append({
+                "track_id": track_id,
+                "bbox": [x1, y1, x2, y2],
+                "center": [(x1 + x2) / 2, (y1 + y2) / 2],
+                "class_id": cid,
+                "class_name": ALL_CLASSES.get(cid, f"class_{cid}"),
+                "confidence": conf,
+                "is_vehicle": cid in VEHICLE_CLASSES,
+                "bbox_width": w, "bbox_height": h, "bbox_area": w * h,
+            })
+        self._active_track_ids = {r["track_id"] for r in results}
+        return results
+
+    def get_active_track_ids(self) -> list[int]:
+        return sorted(self._active_track_ids)
+
+    def reset(self):
+        self.ocsort = self._OcSort(**self._init_kwargs, **self._base_kwargs)
+        self._active_track_ids = set()
+
+    def get_state(self) -> bytes:
+        return pickle.dumps(self.ocsort)
+
+    def load_state(self, state: bytes):
+        self.ocsort = pickle.loads(state)  # noqa: S301
+
+
+# Backend registry. ByteTrack is the default; OC-SORT (boxmot) is opt-in via
+# backend="ocsort" (gated on the turn-tracking audit — see the Sunnyvale
+# turn-fragmentation diagnosis). boxmot is imported lazily inside OcSortBackend
+# so this module imports fine without the dependency installed.
 _BACKENDS = {
     "bytetrack": ByteTrackBackend,
+    "ocsort": OcSortBackend,
 }
 
 

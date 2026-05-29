@@ -6,6 +6,7 @@ openpyxl==3.1.2
 numpy==1.26.2
 scipy==1.11.4
 supervision==0.17.1
+boxmot>=18        # OC-SORT tracker backend (motion-based; sustains turning vehicles through gaps). Lazy-imported, only when tracker_backend="ocsort".
 sse-starlette==1.8.2
 python-multipart==0.0.6
 scikit-learn==1.3.2
