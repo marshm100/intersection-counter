@@ -12,6 +12,19 @@ def detect_device(override: str | None = None) -> str:
     if normalized == "cpu":
         return "cpu"
 
+    # OpenVINO on the Intel iGPU (Iris Xe). Requested explicitly via
+    # DEVICE=openvino. Returns "openvino" only if the runtime + an Intel GPU are
+    # present; otherwise falls back to cpu (the detector handles model loading).
+    # ~3.7x over PyTorch-CPU on yolo26s@960 (scripts/bench_openvino.py).
+    if normalized == "openvino":
+        try:
+            import openvino as ov
+            if "GPU" in ov.Core().available_devices:
+                return "openvino"
+        except Exception:
+            pass
+        return "cpu"
+
     # Lazy torch import — avoid loading torch at module-import time so tests
     # that don't need it stay fast.
     try:

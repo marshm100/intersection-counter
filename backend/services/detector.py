@@ -1,6 +1,8 @@
 """YOLO vehicle detector wrapper."""
 
+import logging
 import os
+from pathlib import Path
 
 import numpy as np
 
@@ -18,6 +20,7 @@ from backend.config import (
 )
 from backend.services.device import detect_device
 
+logger = logging.getLogger(__name__)
 ALL_CLASSES = VEHICLE_CLASSES
 
 
@@ -45,12 +48,43 @@ class VehicleDetector:
         Defaults pull from config (accurate mode); the v3 orchestrator
         passes per-mode overrides. Model auto-downloads on first use.
         """
-        self.model = YOLO(model_path or YOLO_MODEL)
+        mp = model_path or YOLO_MODEL
         self.imgsz = imgsz if imgsz is not None else YOLO_IMGSZ
         self.confidence = (
             confidence if confidence is not None else YOLO_CONFIDENCE_THRESHOLD
         )
         self._device = detect_device(os.environ.get("DEVICE"))
+        if self._device == "openvino":
+            # Iris-Xe GPU via OpenVINO: load the exported _openvino_model (export
+            # once, imgsz baked in) and run on the Intel GPU. Falls back to the
+            # PyTorch .pt on CPU if export/load fails — never blocks processing.
+            self.model = self._load_openvino(mp)
+        else:
+            self.model = YOLO(mp)
+
+    def _load_openvino(self, model_path: str):
+        """Load (exporting if needed) the OpenVINO model for the Intel GPU.
+        On any failure, fall back to the PyTorch model on CPU.
+
+        The export dir MUST keep ultralytics' '<stem>_openvino_model' suffix —
+        that's how ultralytics auto-detects the OpenVINO format. imgsz is baked
+        in at export, tracked via a sidecar so a different imgsz re-exports.
+        (balanced=yolo26s@960 and accurate=yolo26l@1280 have different stems, so
+        they don't collide in practice.)"""
+        try:
+            ov_dir = Path(model_path).with_suffix("").as_posix() + "_openvino_model"
+            marker = Path(ov_dir) / ".imgsz"
+            cur = marker.read_text().strip() if marker.exists() else None
+            if not (Path(ov_dir).exists() and cur == str(self.imgsz)):
+                logger.info("Exporting %s -> OpenVINO (imgsz=%d, FP16)...", model_path, self.imgsz)
+                YOLO(model_path).export(format="openvino", imgsz=self.imgsz, half=True)
+                marker.write_text(str(self.imgsz))
+            self._device = "intel:gpu"
+            return YOLO(ov_dir, task="detect")
+        except Exception as e:
+            logger.warning("OpenVINO load failed (%s); falling back to PyTorch CPU.", e)
+            self._device = "cpu"
+            return YOLO(model_path)
 
     def _parse_results(self, results) -> list[dict]:
         """Extract detection dicts from a single YOLO Results object."""

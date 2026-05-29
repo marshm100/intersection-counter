@@ -36,3 +36,6 @@ logs/
 # Ad-hoc UI screenshots — debugging artifacts, not deliverables
 screenshots/*
 !screenshots/.gitkeep
+
+# Generated OpenVINO model exports (bulky, regenerated on demand)
+*_openvino_model/
