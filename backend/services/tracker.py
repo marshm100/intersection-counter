@@ -196,13 +196,91 @@ class OcSortBackend:
         self.ocsort = pickle.loads(state)  # noqa: S301
 
 
-# Backend registry. ByteTrack is the default; OC-SORT (boxmot) is opt-in via
-# backend="ocsort" (gated on the turn-tracking audit — see the Sunnyvale
-# turn-fragmentation diagnosis). boxmot is imported lazily inside OcSortBackend
-# so this module imports fine without the dependency installed.
+class BotSortBackend:
+    """BoT-SORT backend (boxmot), motion-only (with_reid=False). Its association
+    (IoU + Kalman, ByteTrack-style high/low two-stage) is less momentum-reliant
+    than OC-SORT's observation-centric model, which mispredicts on SHARP turns
+    (the Sunnyvale EB cross-street turns: the boxes exist across the curve — the
+    greedy NN-linker recovers ~22 — but OC-SORT's momentum breaks the track and
+    only ~4 survive). cmc_method='none' because this is a STATIC camera, so no
+    image is needed → runs on the bbox-only detection cache like OC-SORT.
+    """
+
+    def __init__(
+        self,
+        track_activation_threshold: float = TRACKER_ACTIVATION_THRESHOLD,
+        lost_track_buffer: int = TRACKER_LOST_BUFFER,
+        minimum_matching_threshold: float = TRACKER_MATCH_THRESHOLD,
+        frame_rate: int = 30,
+        frame_size: tuple[int, int] = (480, 640),
+        new_track_thresh: float = 0.3,
+        track_low_thresh: float = 0.1,
+    ):
+        from boxmot.trackers.botsort.botsort import BotSort  # lazy
+        self._kwargs = dict(
+            reid_model=None, with_reid=False, cmc_method="ecc",
+            track_high_thresh=track_activation_threshold,
+            track_low_thresh=track_low_thresh,
+            new_track_thresh=new_track_thresh,
+            track_buffer=lost_track_buffer,
+            match_thresh=minimum_matching_threshold,
+            frame_rate=frame_rate,
+        )
+        self._BotSort = BotSort
+        self.bot = BotSort(**self._kwargs)
+        self._img = np.zeros((frame_size[0], frame_size[1], 3), dtype=np.uint8)
+        self._active_track_ids: set[int] = set()
+
+    def update(self, detections: list[dict], frame_number: int) -> list[dict]:
+        if not detections:
+            dets = np.empty((0, 6), dtype=np.float32)
+        else:
+            dets = np.array(
+                [[*d["bbox"], d["confidence"], d["class_id"]] for d in detections],
+                dtype=np.float32,
+            )
+        tracked = np.asarray(self.bot.update(dets, self._img))
+        results = []
+        for row in tracked:
+            if len(row) < 7:
+                continue
+            x1, y1, x2, y2 = float(row[0]), float(row[1]), float(row[2]), float(row[3])
+            track_id = int(row[4]); conf = float(row[5]); cid = int(row[6])
+            w, h = x2 - x1, y2 - y1
+            results.append({
+                "track_id": track_id,
+                "bbox": [x1, y1, x2, y2],
+                "center": [(x1 + x2) / 2, (y1 + y2) / 2],
+                "class_id": cid,
+                "class_name": ALL_CLASSES.get(cid, f"class_{cid}"),
+                "confidence": conf,
+                "is_vehicle": cid in VEHICLE_CLASSES,
+                "bbox_width": w, "bbox_height": h, "bbox_area": w * h,
+            })
+        self._active_track_ids = {r["track_id"] for r in results}
+        return results
+
+    def get_active_track_ids(self) -> list[int]:
+        return sorted(self._active_track_ids)
+
+    def reset(self):
+        self.bot = self._BotSort(**self._kwargs)
+        self._active_track_ids = set()
+
+    def get_state(self) -> bytes:
+        return pickle.dumps(self.bot)
+
+    def load_state(self, state: bytes):
+        self.bot = pickle.loads(state)  # noqa: S301
+
+
+# Backend registry. ByteTrack is the default; OC-SORT and BoT-SORT (boxmot) are
+# opt-in. boxmot is imported lazily inside each backend so this module imports
+# fine without the dependency installed.
 _BACKENDS = {
     "bytetrack": ByteTrackBackend,
     "ocsort": OcSortBackend,
+    "botsort": BotSortBackend,
 }
 
 

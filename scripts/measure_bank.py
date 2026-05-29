@@ -24,6 +24,7 @@ def main() -> int:
     ap.add_argument("--start-hms", default="07:00:00")
     ap.add_argument("--minutes", type=float, default=30.0)
     ap.add_argument("--out-db", default="data/projects/97a7849a/_hybrid_tmp/relabeled.db")
+    ap.add_argument("--backend", default="ocsort")
     args = ap.parse_args()
     camera = 1
     conn = sqlite3.connect("data/projects/97a7849a/project.db"); ctx = _load_camera_context(conn, camera); conn.close()
@@ -37,7 +38,7 @@ def main() -> int:
     chash, _ = compute_video_content_hash(video["path"], file_size_bytes=video.get("file_size_bytes"), total_frames=video["total_frames"])
     pq = parquet_path("97a7849a", camera, chash, DEFAULT_VARIANT)
     tdb = Path(args.out_db)
-    retrack(tdb, "ocsort", video, ctx, calib, mode_cfg, sug, s, e, pq, camera)
+    retrack(tdb, args.backend, video, ctx, calib, mode_cfg, sug, s, e, pq, camera)
 
     mins = [t0 + timedelta(minutes=i) for i in range(int(args.minutes))]
     m_od, m_mv, _ = manual_per_minute()
