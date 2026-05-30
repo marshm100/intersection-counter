@@ -274,7 +274,15 @@ class BotSortBackend:
         self.bot = pickle.loads(state)  # noqa: S301
 
 
-# Backend registry. ByteTrack is the default; OC-SORT and BoT-SORT (boxmot) are
+# NB: a position-NN track-recovery wrapper over OC-SORT was tried 2026-05-29 and
+# REMOVED as net-harmful: on the dense arterial OC-SORT does drop-and-respawn and
+# the nearby respawn is a FOLLOWER -> wrong merge (NB-thru 150->77, NB-left
+# 97->34), while it did NOT recover the sharp EB turns at all (OC doesn't respawn
+# a catchable nearby id there — turn-sustaining is BoT-SORT's *association*
+# property, not post-hoc recoverable). Position-based sequential recovery is a
+# dead end at this scene; the robust turn fix needs BoT-style association or ReID.
+
+# Backend registry. ByteTrack is the default; OC-SORT/BoT-SORT (boxmot) are
 # opt-in. boxmot is imported lazily inside each backend so this module imports
 # fine without the dependency installed.
 _BACKENDS = {
