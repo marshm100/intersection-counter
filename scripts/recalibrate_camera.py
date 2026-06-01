@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.auto_calibrate import _fit_mean_polyline
 from backend.services.trajectory_classifier import _exit_velocity
+import groundtruth
 from groundtruth import (
     ALL_MVT, BUCKET_SECONDS, bucket_to_footage_seconds, db_processed_window,
     overlap_seconds, parse_manual_csv,
@@ -328,12 +329,21 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="evaluations/recal_cam1.json")
     ap.add_argument("--min-support", type=int, default=5)
+    ap.add_argument("--db", default=None,
+                    help="Events DB to derive the bank from (default: project.db). "
+                         "Point at a BoT-SORT-retracked temp DB to derive turn paths "
+                         "from BoT-SORT trajectories.")
     args = ap.parse_args()
 
-    conn = sqlite3.connect(str(PROJECT_DB))
+    db_path = Path(args.db) if args.db else PROJECT_DB
+    # db_processed_window() reads groundtruth.PROJECT_DB — repoint it so the manual
+    # window matches the temp DB's event span (e.g. 07:00-07:30 cache window).
+    groundtruth.PROJECT_DB = db_path
+    conn = sqlite3.connect(str(db_path))
     legs = load_legs(conn)
     events = load_events(conn)
     conn.close()
+    print(f"deriving from DB: {db_path}")
     trajs = [e["trajectory"] for e in events if e["trajectory"] and len(e["trajectory"]) >= 4]
     window = db_processed_window()
     manual = manual_for_window(window)
