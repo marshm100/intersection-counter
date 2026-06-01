@@ -30,18 +30,46 @@ def camera_xml(camera_id: int) -> Path:
 
 
 XML = camera_xml(1)  # cam1 default (per-camera approach maps differ — see camera_xml)
-APPROACH = {0: "SB N Belt Line Rd", 1: "WB Private Driveway", 2: "EB Northwest Dr", 3: "NB N Belt Line Rd"}
 
 
-def parse() -> dict:
-    """Return {minute_iso: {slot_index: count}} summed over vehicle classes,
-    plus .movements = [(name, in_idx, out_idx)] for each slot."""
-    txt = XML.read_text(encoding="utf-8-sig")
+def _root(camera_id: int | None):
+    """Parse a camera's Miovision XML to an ElementTree root.
+    camera_id None -> the module-default XML (cam1), for legacy callers."""
+    xml = XML if camera_id is None else camera_xml(camera_id)
+    txt = xml.read_text(encoding="utf-8-sig")
     txt = re.sub(r"<\?xml[^>]*\?>", "", txt, count=1).lstrip()
-    root = ET.fromstring(txt)
+    return ET.fromstring(txt)
+
+
+def approaches(camera_id: int | None = None) -> dict[int, str]:
+    """{approach_idx: approach Name} read straight from the camera's XML
+    <Approaches> (e.g. {0:'SB N Belt Line Rd', ...}). Data-driven — the per-
+    camera approach order and count (3 for a T, 4 for a 4-way) come from the
+    file, not a hardcoded table."""
+    root = _root(camera_id)
+    return {i: a.findtext("Name")
+            for i, a in enumerate(root.find("Approaches").findall("Approach"))}
+
+
+# cam1 approach map kept as a module constant for legacy callers (verify(), etc.)
+APPROACH = approaches(None)
+
+
+def parse(camera_id: int | None = None) -> dict:
+    """Return {minute_iso: [count per slot]} summed over vehicle classes, plus
+    .movements = [(name, in_idx, out_idx)] for each slot. Slot count follows the
+    camera's movement count (9 for a T-intersection, 16 for a 4-way)."""
+    root = _root(camera_id)
     s = lambda t: t.split("}")[-1]
 
-    per_min: dict[str, list[int]] = defaultdict(lambda: [0] * 16)
+    movements = []
+    for m in (x for x in root.iter() if s(x.tag) == "Movement"):
+        movements.append((m.findtext("Name"),
+                          int(m.findtext("InApproachIndex")),
+                          int(m.findtext("OutApproachIndex"))))
+    n = len(movements)
+
+    per_min: dict[str, list[int]] = defaultdict(lambda: [0] * n)
     for g in (x for x in root.iter() if s(x.tag) == "Group"):
         for b in (x for x in g.iter() if s(x.tag) == "Bin"):
             tm = b.findtext("Time")
@@ -50,22 +78,17 @@ def parse() -> dict:
             for i, v in enumerate(vols):
                 acc[i] += v
 
-    movements = []
-    for m in (x for x in root.iter() if s(x.tag) == "Movement"):
-        movements.append((m.findtext("Name"),
-                          int(m.findtext("InApproachIndex")),
-                          int(m.findtext("OutApproachIndex"))))
-    out = {"per_min": dict(per_min), "movements": movements}
-    return out
+    return {"per_min": dict(per_min), "movements": movements}
 
 
 # slot -> (approach_name, movement_label) using Name T/R/L + InApproachIndex
-def slot_labels(movements):
+def slot_labels(movements, camera_id: int | None = None):
+    appr = APPROACH if camera_id is None else approaches(camera_id)
     NAME = {"T": "thru", "R": "right", "L": "left", "U": "uturn"}
     labels = []
     for name, i_in, i_out in movements:
         mv = NAME.get(name, "uturn" if i_in == i_out else name)
-        labels.append((APPROACH[i_in], mv, APPROACH.get(i_out)))
+        labels.append((appr[i_in], mv, appr.get(i_out)))
     return labels
 
 

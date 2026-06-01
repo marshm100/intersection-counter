@@ -109,6 +109,12 @@ def main() -> int:
                          "without it, prints the plan and exits")
     ap.add_argument("--no-cache", action="store_true",
                     help="don't write the detection cache (regenerate events only)")
+    ap.add_argument("--cache-only", action="store_true",
+                    help="NON-DESTRUCTIVE: build the detection cache without touching "
+                         "project.db events. The pipeline writes its events to a throwaway "
+                         "temp DB (discarded); the real cache parquet is still written. Use "
+                         "to (re)build caches for ALREADY-SHIPPED cameras without losing their "
+                         "events. Implies cache write-through.")
     ap.add_argument("--audit", action="store_true",
                     help="collect per-track detection-vs-association audit stats "
                          "(P2.C) to detections/<hash>/track_audit.json")
@@ -120,7 +126,16 @@ def main() -> int:
     ap.add_argument("--baseline", default=None,
                     help="after the run, snapshot per_movement_accuracy to "
                          "evaluations/<name>.json (e.g. B0_baseline)")
+    ap.add_argument("--device", default="openvino",
+                    help="detector device: 'openvino' (Intel iGPU, ~3x CPU, "
+                         "DEFAULT), 'cpu', or 'auto'. The Intel GPU path is "
+                         "proven (yolo26s@960 ~7fps vs 2.33 CPU); it needs a "
+                         "pre-exported model (auto-exported below if missing).")
     args = ap.parse_args()
+
+    # Detector reads DEVICE from the env at construction (see detect_device).
+    import os
+    os.environ["DEVICE"] = args.device
 
     db_path = _project_db(args.project)
     if not db_path.exists():
@@ -166,6 +181,8 @@ def main() -> int:
           f"rec_start={video['recording_start_datetime']}")
     print(f"Mode: {args.mode} -> model={mode_cfg['yolo_model']} imgsz={mode_cfg['yolo_imgsz']} "
           f"conf={mode_cfg['yolo_confidence']} skip={mode_cfg['detection_skip']}")
+    print(f"Device: {args.device}"
+          + ("  (Intel iGPU via OpenVINO)" if args.device == "openvino" else ""))
     print(f"Legs: {len(legs)}  Paths: {len(paths)}  Trims: {len(trims)}")
     total_frames_to_do = 0
     for (s, e), t in windows:
@@ -182,12 +199,40 @@ def main() -> int:
         conn.close()
         return 0
 
-    # Destructive: clean the camera's events for a fresh repopulate.
-    print(f"\nDeleting {existing} existing camera-{args.camera} events ...")
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("DELETE FROM vehicle_events WHERE camera_id=?", (args.camera,))
-    conn.commit()
-    conn.close()
+    # Pre-export the OpenVINO model BEFORE the destructive delete, out of the
+    # pipeline hot path. The detector raises (no silent CPU fallback) if the
+    # export is missing/mismatched, so doing it here means a missing export
+    # fails loud BEFORE we delete events — never deleting for a run that can't
+    # detect. (Skips instantly if the export already matches.)
+    if args.device == "openvino":
+        from scripts.export_yolo_openvino import export_one
+        print("\nEnsuring OpenVINO export (Intel iGPU) ...")
+        export_one(mode_cfg["yolo_model"], int(mode_cfg["yolo_imgsz"]))
+
+    # The pipeline writes its events to pipeline_db. Normally that's the real
+    # project.db (after a destructive clean). In --cache-only mode we point it at
+    # a throwaway COPY so the real project.db events are NEVER touched — only the
+    # detection cache (written independently below) lands for real.
+    pipeline_db = str(db_path)
+    tmp_db = None
+    if args.cache_only:
+        import shutil, tempfile
+        # Scratch lives in the SYSTEM temp dir, not the OneDrive project dir —
+        # OneDrive holds file locks (WinError 5/32) that block cleanup. Unique
+        # name per process so concurrent/leftover runs never collide on the copy.
+        tmp_db = Path(tempfile.gettempdir()) / f"_cacheonly_p{os.getpid()}_cam{args.camera}.db"
+        shutil.copy2(db_path, tmp_db)
+        pipeline_db = str(tmp_db)
+        print(f"\n[cache-only] NON-DESTRUCTIVE: events -> throwaway {tmp_db}; "
+              f"real camera-{args.camera} events left intact.")
+        conn.close()
+    else:
+        # Destructive: clean the camera's events for a fresh repopulate.
+        print(f"\nDeleting {existing} existing camera-{args.camera} events ...")
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("DELETE FROM vehicle_events WHERE camera_id=?", (args.camera,))
+        conn.commit()
+        conn.close()
 
     # One detection-cache writer per (camera, video-hash) covering all trims.
     writer = None
@@ -205,8 +250,8 @@ def main() -> int:
             "windows": [[s, e] for (s, e), _ in windows],
         })
         print(f"Cache -> {pq}  (hash {chash[:16]}…)")
-        # Persist the hash on the videos row.
-        c2 = sqlite3.connect(str(db_path))
+        # Persist the hash on the videos row (pipeline_db == real db unless cache-only).
+        c2 = sqlite3.connect(pipeline_db)
         c2.execute("UPDATE videos SET content_hash=?, content_hash_method=? WHERE video_id=?",
                    (chash, method, video["video_id"]))
         c2.commit(); c2.close()
@@ -218,7 +263,7 @@ def main() -> int:
         for (s, e), t in windows:
             print(f"\n=== Trim {t['trim_id']} frames [{s}, {e}) ===")
             pipeline = ProcessingPipeline(
-                project_id=args.project, db_path=str(db_path),
+                project_id=args.project, db_path=pipeline_db,
                 video_path=video["path"], legs=legs, fps=fps,
                 video_start_time=video["recording_start_datetime"],
                 video_id=video["video_id"],
@@ -262,14 +307,31 @@ def main() -> int:
             print(f"Audit: wrote {len(audit_records)} track records -> {audit_path}")
 
     elapsed = time.time() - run_start
-    conn = sqlite3.connect(str(db_path))
-    new_count = conn.execute(
-        "SELECT COUNT(*) FROM vehicle_events WHERE camera_id=?", (args.camera,),
-    ).fetchone()[0]
-    conn.close()
-    print(f"\nDone in {elapsed/60:.1f} min. Regenerated {new_count} camera-{args.camera} events.")
+    if tmp_db is not None:
+        c3 = sqlite3.connect(pipeline_db)
+        new_count = c3.execute(
+            "SELECT COUNT(*) FROM vehicle_events WHERE camera_id=?", (args.camera,)).fetchone()[0]
+        c3.close()
+        # Release any lingering pipeline sqlite handles before unlinking.
+        del pipeline
+        import gc; gc.collect()
+        for p in (tmp_db, tmp_db.with_name(tmp_db.name + "-wal"), tmp_db.with_name(tmp_db.name + "-shm")):
+            try:
+                if p.exists():
+                    p.unlink()
+            except OSError as ex:
+                print(f"  (scratch leftover, harmless: {p.name}: {ex})")
+        print(f"\nDone in {elapsed/60:.1f} min. [cache-only] cache built; "
+              f"real project.db events untouched (scratch had {new_count} cam-{args.camera} events).")
+    else:
+        conn = sqlite3.connect(str(db_path))
+        new_count = conn.execute(
+            "SELECT COUNT(*) FROM vehicle_events WHERE camera_id=?", (args.camera,),
+        ).fetchone()[0]
+        conn.close()
+        print(f"\nDone in {elapsed/60:.1f} min. Regenerated {new_count} camera-{args.camera} events.")
 
-    if args.baseline:
+    if args.baseline and not args.cache_only:
         print(f"\nSnapshotting baseline -> evaluations/{args.baseline}.json")
         subprocess.run([sys.executable, "scripts/per_movement_accuracy.py",
                         "--save", args.baseline], check=False)

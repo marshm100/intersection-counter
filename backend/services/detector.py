@@ -63,28 +63,46 @@ class VehicleDetector:
             self.model = YOLO(mp)
 
     def _load_openvino(self, model_path: str):
-        """Load (exporting if needed) the OpenVINO model for the Intel GPU.
-        On any failure, fall back to the PyTorch model on CPU.
+        """Load the pre-exported OpenVINO model and run it on the Intel GPU.
 
-        The export dir MUST keep ultralytics' '<stem>_openvino_model' suffix —
-        that's how ultralytics auto-detects the OpenVINO format. imgsz is baked
-        in at export, tracked via a sidecar so a different imgsz re-exports.
-        (balanced=yolo26s@960 and accurate=yolo26l@1280 have different stems, so
-        they don't collide in practice.)"""
-        try:
-            ov_dir = Path(model_path).with_suffix("").as_posix() + "_openvino_model"
-            marker = Path(ov_dir) / ".imgsz"
-            cur = marker.read_text().strip() if marker.exists() else None
-            if not (Path(ov_dir).exists() and cur == str(self.imgsz)):
-                logger.info("Exporting %s -> OpenVINO (imgsz=%d, FP16)...", model_path, self.imgsz)
-                YOLO(model_path).export(format="openvino", imgsz=self.imgsz, half=True)
-                marker.write_text(str(self.imgsz))
-            self._device = "intel:gpu"
-            return YOLO(ov_dir, task="detect")
-        except Exception as e:
-            logger.warning("OpenVINO load failed (%s); falling back to PyTorch CPU.", e)
-            self._device = "cpu"
-            return YOLO(model_path)
+        DEVICE=openvino is an EXPLICIT request — detect_device() only returns
+        "openvino" when the OV runtime + an Intel GPU are both present — so a
+        failure here is surfaced LOUDLY (raise), never silently degraded to CPU.
+        A silent fallback once masked a missing/heavy export as a "GPU stall":
+        the run quietly went CPU-bound at ~2.33 fps and the GPU got blamed. If
+        you wanted the GPU and can't have it, you want to know, not to discover
+        it from the throughput.
+
+        Export is a separate, explicit step (scripts/export_yolo_openvino.py) —
+        we do NOT export inside the pipeline hot path (a low-RAM in-pipeline
+        export at imgsz=1280 is exactly what stalled before). The export dir
+        keeps ultralytics' '<stem>_openvino_model' suffix (how ultralytics
+        auto-detects the format) and a '.imgsz' sidecar records the baked-in
+        imgsz so a mode/imgsz mismatch is caught here instead of mis-detecting.
+        """
+        ov_dir = Path(model_path).with_suffix("").as_posix() + "_openvino_model"
+        marker = Path(ov_dir) / ".imgsz"
+        export_cmd = (
+            f"py scripts/export_yolo_openvino.py --model {model_path} --imgsz {self.imgsz}"
+        )
+        if not Path(ov_dir).exists():
+            raise RuntimeError(
+                f"DEVICE=openvino requested but no OpenVINO export at '{ov_dir}'. "
+                f"Pre-export it first:  {export_cmd}"
+            )
+        cur = marker.read_text().strip() if marker.exists() else None
+        if cur != str(self.imgsz):
+            raise RuntimeError(
+                f"OpenVINO export '{ov_dir}' was built for imgsz={cur}, but this "
+                f"run needs imgsz={self.imgsz}. Re-export:  {export_cmd}"
+            )
+        model = YOLO(ov_dir, task="detect")
+        self._device = "intel:gpu"
+        logger.info(
+            "OpenVINO detector ready on Intel GPU (intel:gpu): %s @ imgsz=%d",
+            ov_dir, self.imgsz,
+        )
+        return model
 
     def _parse_results(self, results) -> list[dict]:
         """Extract detection dicts from a single YOLO Results object."""

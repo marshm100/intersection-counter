@@ -29,22 +29,59 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from groundtruth import LEG_TO_APPROACH, NORM_MVT, VIDEO_START
-from parse_miovision_xml import APPROACH, parse, slot_labels
+from parse_miovision_xml import APPROACH, approaches, parse, slot_labels
 
-# our leg_id -> Miovision approach index (via approach name). LEG_TO_APPROACH was
-# corrected 2026-05-29 (legs were 180°-mislabeled — memory project_leg_labels_swapped),
-# so this mapping is now the verified-correct one.
+PROJECT_DB = "data/projects/97a7849a/project.db"
+
+# leg.cardinal_direction (N/S/E/W) -> the 2-letter cardinal that prefixes the
+# matching Miovision approach Name (e.g. "SB N Belt Line Rd"). This is the
+# universal, data-driven join between our legs and a camera's XML approaches —
+# it reproduces the hand-built cam1 LEG_TO_APPROACH and the cam2 shim's LEG_IDX.
+_CARD2PREFIX = {"N": "NB", "S": "SB", "E": "EB", "W": "WB"}
+
+
+def leg_idx(camera_id: int, db: str = PROJECT_DB) -> dict[int, int]:
+    """{leg_id: approach_idx} for a camera, by matching leg.cardinal_direction to
+    the cardinal prefix of the camera's XML approach Names. Works for 3-leg (T)
+    and 4-way intersections alike."""
+    appr = approaches(camera_id)                                  # {idx: name}
+    prefix_to_idx = {(name or "").split()[0]: idx for idx, name in appr.items()}
+    conn = sqlite3.connect(str(db))
+    legs = conn.execute(
+        "SELECT leg_id, cardinal_direction FROM legs WHERE camera_id=?", (camera_id,)
+    ).fetchall()
+    conn.close()
+    out: dict[int, int] = {}
+    for leg_id, card in legs:
+        idx = prefix_to_idx.get(_CARD2PREFIX.get((card or "").upper()))
+        if idx is not None:
+            out[leg_id] = idx
+    return out
+
+
+def idx_name(camera_id: int) -> dict[int, str]:
+    """{approach_idx: short cardinal name} (e.g. {0:'SB',...}) from the camera's
+    XML — the approach Name's leading token."""
+    return {i: (name or "").split()[0] for i, name in approaches(camera_id).items()}
+
+
+# Cam1 module-level defaults, kept for the existing cam1 callers that import
+# LEG_IDX / IDX_NAME (hybrid_ocbot, process_camera_reid, visual_gate, ...). These
+# are derived without a DB hit; the cardinal-based leg_idx(1) agrees with them.
+# LEG_TO_APPROACH was corrected 2026-05-29 (legs were 180°-mislabeled — memory
+# project_leg_labels_swapped), so this mapping is the verified-correct one.
 _NAME_TO_IDX = {v: k for k, v in APPROACH.items()}
 LEG_IDX = {leg: _NAME_TO_IDX[name] for leg, name in LEG_TO_APPROACH.items()}
 IDX_NAME = {i: APPROACH[i].replace(" N Belt Line Rd", "").replace(" Northwest Dr", "").replace(" Private Driveway", "")
             for i in APPROACH}
 
 
-def manual_per_minute():
+def manual_per_minute(camera_id: int = 1):
     """Return (od, mv): od[minute_dt][(in,out)]=count, mv[minute_dt][(in,mvt)]=count,
     and od_label[(in,out)] = 'SB->EB right'."""
-    data = parse()
-    labels = slot_labels(data["movements"])  # slot -> (in_name, mvt, out_name)
+    inm = idx_name(camera_id) if camera_id != 1 else IDX_NAME
+    data = parse(camera_id)
+    labels = slot_labels(data["movements"], camera_id)  # slot -> (in_name, mvt, out_name)
     movements = data["movements"]             # slot -> (Name, in_idx, out_idx)
     od = defaultdict(lambda: defaultdict(int))
     mv = defaultdict(lambda: defaultdict(int))
@@ -56,18 +93,18 @@ def manual_per_minute():
             _, mvt, _ = labels[i]
             od[dt][(in_i, out_i)] += v
             mv[dt][(in_i, mvt)] += v
-            od_label[(in_i, out_i)] = f"{IDX_NAME[in_i]}->{IDX_NAME[out_i]} {mvt}"
+            od_label[(in_i, out_i)] = f"{inm[in_i]}->{inm[out_i]} {mvt}"
     return od, mv, od_label
 
 
-def manual_od_by_cell(start_hms="07:00:00", minutes=30.0, legmap=None):
+def manual_od_by_cell(start_hms="07:00:00", minutes=30.0, legmap=None, camera_id=1):
     """Miovision OD totals for the [start_hms, +minutes) WINDOW, keyed by our
     (origin_leg, dest_leg). Used as the expected per-cell turn volume for the
     intra-turn merge volume-gate and the raw-track path real-movement gate. NB:
     must be window-restricted — summing all minutes gives whole-day totals."""
-    legmap = legmap or LEG_IDX
+    legmap = legmap or (LEG_IDX if camera_id == 1 else leg_idx(camera_id))
     inv = {idx: leg for leg, idx in legmap.items()}
-    m_od, _, _ = manual_per_minute()
+    m_od, _, _ = manual_per_minute(camera_id)
     t0 = datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{start_hms}")
     win = {t0 + timedelta(minutes=i) for i in range(int(minutes))}
     out = defaultdict(float)
@@ -81,14 +118,23 @@ def manual_od_by_cell(start_hms="07:00:00", minutes=30.0, legmap=None):
     return out
 
 
-def our_per_minute(db, start_sec, end_sec, legmap=None):
-    """Bin our events by wall-clock minute. Returns (od, mv) same shape as manual."""
+def our_per_minute(db, start_sec, end_sec, legmap=None, camera_id=None):
+    """Bin our events by wall-clock minute. Returns (od, mv) same shape as manual.
+    legmap already isolates the target camera's legs (leg_ids are globally unique
+    per camera); pass camera_id to also scope the SQL explicitly."""
     legmap = legmap or LEG_IDX
     conn = sqlite3.connect(str(db))
-    rows = conn.execute(
-        "SELECT origin_leg_id, destination_leg_id, movement, timestamp_video "
-        "FROM vehicle_events WHERE rejected=0 AND timestamp_video>=? AND timestamp_video<?",
-        (start_sec, end_sec)).fetchall()
+    if camera_id is not None:
+        rows = conn.execute(
+            "SELECT origin_leg_id, destination_leg_id, movement, timestamp_video "
+            "FROM vehicle_events WHERE camera_id=? AND rejected=0 "
+            "AND timestamp_video>=? AND timestamp_video<?",
+            (camera_id, start_sec, end_sec)).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT origin_leg_id, destination_leg_id, movement, timestamp_video "
+            "FROM vehicle_events WHERE rejected=0 AND timestamp_video>=? AND timestamp_video<?",
+            (start_sec, end_sec)).fetchall()
     conn.close()
     od = defaultdict(lambda: defaultdict(int))
     mv = defaultdict(lambda: defaultdict(int))
@@ -107,11 +153,13 @@ def our_per_minute(db, start_sec, end_sec, legmap=None):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default="data/projects/97a7849a/project.db")
+    ap.add_argument("--camera", type=int, default=1, help="camera_id (default 1)")
     ap.add_argument("--start-hms", default="07:00:00")
     ap.add_argument("--minutes", type=float, default=30.0)
     ap.add_argument("--show-od", action="store_true", help="print per-OD-cell table")
     args = ap.parse_args()
-    legmap = LEG_IDX
+    legmap = LEG_IDX if args.camera == 1 else leg_idx(args.camera)
+    inm = IDX_NAME if args.camera == 1 else idx_name(args.camera)
 
     # footage-second window from the wall-clock start
     day = VIDEO_START.date().isoformat()
@@ -120,8 +168,9 @@ def main() -> int:
     end_sec = start_sec + args.minutes * 60
     minutes = [t0 + timedelta(minutes=i) for i in range(int(args.minutes))]
 
-    m_od, m_mv, od_label = manual_per_minute()
-    o_od, o_mv = our_per_minute(Path(args.db), start_sec, end_sec, legmap=legmap)
+    m_od, m_mv, od_label = manual_per_minute(args.camera)
+    o_od, o_mv = our_per_minute(Path(args.db), start_sec, end_sec, legmap=legmap,
+                                camera_id=args.camera)
 
     # ---- Movement-level (origin, mvt): net + per-minute gross ----
     cells = set()
@@ -140,7 +189,7 @@ def main() -> int:
         if man == 0 and ours == 0:
             continue
         in_i, mvt = cell
-        print(f"{IDX_NAME[in_i]+' '+mvt:<18}{man:>7}{ours:>6}{net:>8}{gross:>9}{gross-net:>7}")
+        print(f"{inm[in_i]+' '+mvt:<18}{man:>7}{ours:>6}{net:>8}{gross:>9}{gross-net:>7}")
     print(f"{'TOTAL':<18}{tot_man:>7}{'':>6}{tot_net:>8}{tot_gross:>9}{tot_gross-tot_net:>7}")
     print(f"  net agg_err   = {tot_net/tot_man*100:5.1f}%   (matches per_movement_accuracy)")
     print(f"  per-min gross = {tot_gross/tot_man*100:5.1f}%   (true error; gap = compensating/timing)")
@@ -160,7 +209,7 @@ def main() -> int:
             lbl = od_label.get(cell)
             if lbl is None:
                 in_i, out_i = cell
-                lbl = f"{IDX_NAME.get(in_i,in_i)}->{IDX_NAME.get(out_i,'?') if out_i is not None else 'None'}"
+                lbl = f"{inm.get(in_i,in_i)}->{inm.get(out_i,'?') if out_i is not None else 'None'}"
             print(f"{lbl:<22}{man:>7}{ours:>6}{abs(ours-man):>8}{gross:>9}")
     return 0
 
