@@ -827,7 +827,19 @@ class ProcessingPipeline:
             avg_conf,
         )
 
-        timestamp_video = frame_number / self.fps
+        # Timestamp the event at the ORIGIN-CROSSING frame, not the finalization
+        # frame. `frame_number` here is when the track was finalized — it lags the
+        # actual crossing by transit time + up to the lost-track buffer (~15s),
+        # which mis-bins vehicles into later per-minute / 15-min TMC periods (a
+        # 07:14:58 crossing counted at 07:15). Miovision (and any TMC) counts at the
+        # crossing, so use vehicle["origin_frame"] (set when the vehicle crossed its
+        # origin leg; always present once origin_leg_id is assigned, which is a
+        # precondition for writing an event). The finalization frame is still kept
+        # verbatim in the `frame_number` column for audit.
+        crossing_frame = vehicle.get("origin_frame")
+        if crossing_frame is None:
+            crossing_frame = frame_number
+        timestamp_video = crossing_frame / self.fps
 
         timestamp_real = None
         if self.video_start_time:

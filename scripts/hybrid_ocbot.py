@@ -27,13 +27,14 @@ import math
 import shutil
 import sqlite3
 import sys
+from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from groundtruth import VIDEO_START
-from od_accuracy import manual_per_minute, our_per_minute, LEG_IDX, IDX_NAME
+from od_accuracy import manual_per_minute, our_per_minute, manual_od_by_cell, LEG_IDX, IDX_NAME
 
 TURNS = ("left", "right", "u_turn")
 CAMERA = 1
@@ -60,21 +61,35 @@ def _load(db, where):
     return out
 
 
-def merge_turn_fragments(turns, merge_px, merge_gap):
+def merge_turn_fragments(turns, merge_px, merge_gap, expected_by_cell=None,
+                         vol_factor=1.3):
     """BoT-SORT fragments one turning vehicle into several events (it coasts the
     sharp curve, the pipeline finalizes the stub, then re-tracks the exit). Merge
     events that share the SAME (origin, dest, movement) and start within merge_px
     of each other within merge_gap frames — same vehicle. This is far safer than
     arterial-through stitching (memory project_leg_labels_swapped / dedup_ceiling):
-    turns are low-volume and constrained to one OD cell, so a 1.3s same-spot
-    same-turn follower (the false-merge risk) is rare. Returns the kept event ids."""
+    turns are low-volume and constrained to one OD cell.
+
+    Volume gate (A2): only merge a cell when its raw event count exceeds
+    vol_factor x its expected volume — i.e. there's clear OVER-count = fragmentation
+    to collapse (e.g. NB-left 136 vs ~96). Sparse, already-well-calibrated cells
+    (e.g. EB-right ~38 vs 36) are left UNTOUCHED so the merge can't collapse two
+    distinct ~1/min turners. `expected_by_cell` maps (origin,dest)->expected count
+    (offline: Miovision manual; in production: the bank's supporting_count). When
+    None, every cell is eligible (legacy behaviour). Returns the kept event ids."""
     from collections import defaultdict
     by = defaultdict(list)
     for ev in turns:
         by[(ev["ol"], ev["dl"], ev["mv"])].append(ev)
     keep = []
-    for evs in by.values():
+    for cell, evs in by.items():
         evs.sort(key=lambda e: e["s"])
+        # Volume gate: skip merging cells that aren't clearly over-counted.
+        if expected_by_cell is not None:
+            exp = expected_by_cell.get((cell[0], cell[1]), 0)
+            if len(evs) <= vol_factor * max(exp, 1):
+                keep.extend(e["id"] for e in evs)
+                continue
         used = [False] * len(evs)
         for i, ei in enumerate(evs):
             if used[i]:
@@ -115,6 +130,8 @@ def main() -> int:
                     help="merge BoT turn fragments (same OD, close start+time) into one vehicle")
     ap.add_argument("--merge-px", type=float, default=30.0)
     ap.add_argument("--merge-gap", type=float, default=40.0)
+    ap.add_argument("--merge-vol-factor", type=float, default=1.3,
+                    help="only merge a turn cell whose raw count exceeds this x its expected (manual) volume")
     args = ap.parse_args()
 
     oc_db, bot_db, out_db = Path(args.oc_db), Path(args.bot_db), Path(args.out_db)
@@ -124,7 +141,13 @@ def main() -> int:
     bot_turn = _load(bot_db, "movement IN ('left','right','u_turn')")
     keep_turn_ids = None
     if args.merge_turns:
-        keep_turn_ids = merge_turn_fragments(bot_turn, args.merge_px, args.merge_gap)
+        # Expected per-OD-cell volume (Miovision, WINDOW-restricted) so the merge
+        # only collapses clearly over-counted (fragmented) cells, sparing sparse
+        # ones (A2). Must be window-restricted — whole-day totals would disable it.
+        expected_by_cell = manual_od_by_cell(args.start_hms, args.minutes)
+        keep_turn_ids = merge_turn_fragments(
+            bot_turn, args.merge_px, args.merge_gap,
+            expected_by_cell=expected_by_cell, vol_factor=args.merge_vol_factor)
         print(f"turn-merge: {len(bot_turn)} BoT turn events -> {len(keep_turn_ids)} kept")
     drop_oc = set()
     if not args.no_dedup:

@@ -60,6 +60,27 @@ def manual_per_minute():
     return od, mv, od_label
 
 
+def manual_od_by_cell(start_hms="07:00:00", minutes=30.0, legmap=None):
+    """Miovision OD totals for the [start_hms, +minutes) WINDOW, keyed by our
+    (origin_leg, dest_leg). Used as the expected per-cell turn volume for the
+    intra-turn merge volume-gate and the raw-track path real-movement gate. NB:
+    must be window-restricted — summing all minutes gives whole-day totals."""
+    legmap = legmap or LEG_IDX
+    inv = {idx: leg for leg, idx in legmap.items()}
+    m_od, _, _ = manual_per_minute()
+    t0 = datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{start_hms}")
+    win = {t0 + timedelta(minutes=i) for i in range(int(minutes))}
+    out = defaultdict(float)
+    for mn, per in m_od.items():
+        if mn not in win:
+            continue
+        for (in_i, out_i), cnt in per.items():
+            ol, dl = inv.get(in_i), inv.get(out_i)
+            if ol is not None and dl is not None:
+                out[(ol, dl)] += cnt
+    return out
+
+
 def our_per_minute(db, start_sec, end_sec, legmap=None):
     """Bin our events by wall-clock minute. Returns (od, mv) same shape as manual."""
     legmap = legmap or LEG_IDX

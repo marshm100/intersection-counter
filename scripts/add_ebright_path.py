@@ -30,9 +30,23 @@ from backend.services.detection_cache import (
 from backend.services.tracker import create_tracker_backend
 from scripts.auto_calibrate import _fit_mean_polyline
 from groundtruth import VIDEO_START
+from od_accuracy import manual_od_by_cell
 
-CELLS = [  # (origin_leg, dest_leg, movement) sparse cross-street turns to source from raw tracks
-    (24, 22, "right"),   # EB-right (EB Northwest Dr -> NB Belt Line)
+# All (origin_leg, dest_leg, movement) turn cells (cam1 OD geometry, from
+# recalibrate_camera.OD_DEST with corrected labels {22:NB,23:SB,24:EB,25:WB}). The
+# script SKIPS any cell already present in the bank (the event-based derivation
+# covered it) and any with < min_support raw tracks — so it only FILLS sparse
+# cross-street cells the post-pipeline derivation missed (cam1: just EB-right; the
+# rest are camera-general for Phase D corridor rollout).
+CELLS = [
+    (22, 24, "left"),    # NB-left  -> EB
+    (22, 25, "right"),   # NB-right -> WB
+    (23, 25, "left"),    # SB-left  -> WB
+    (23, 24, "right"),   # SB-right -> EB
+    (24, 23, "left"),    # EB-left  -> SB
+    (24, 22, "right"),   # EB-right -> NB  (the cam1 sparse-loss cell)
+    (25, 22, "left"),    # WB-left  -> NB
+    (25, 23, "right"),   # WB-right -> SB
 ]
 
 
@@ -70,18 +84,29 @@ def main() -> int:
         for tk in be.update(dets, fidx):
             tr[tk["track_id"]].append(tuple(tk["center"]))
 
+    # Real-movement gate: only fill a cell that Miovision says is a REAL turn in
+    # this WINDOW (manual >= min_support). Without this, through-FRAGMENTS that
+    # geometrically end mid-arterial (e.g. NB-through stubs near L25) would have
+    # >=5 raw tracks and we'd add a PHANTOM NB-right path, inflating the very
+    # phantom we fight. (Window-restricted — whole-day totals defeat the gate.)
+    manual_by_cell = manual_od_by_cell(args.start_hms, args.minutes)
+
     bank = json.loads(Path(args.inp).read_text())
     existing = {(p["origin_leg_id"], p["destination_leg_id"]) for p in bank["paths"]}
     added = []
     for o, d, mv in CELLS:
+        man = manual_by_cell.get((o, d), 0.0)
+        if man < args.min_support:
+            print(f"  cell {o}->{d} {mv}: manual {man:.0f} (< {args.min_support}) — not a real movement, SKIP")
+            continue
+        if (o, d) in existing:
+            print(f"  cell {o}->{d}: already in bank — SKIP")
+            continue
         grp = [pts for pts in tr.values()
                if len(pts) >= 4 and path_len(pts) >= args.min_path
                and nearest(pts[0]) == o and nearest(pts[-1]) == d]
         if len(grp) < args.min_support:
             print(f"  cell {o}->{d} {mv}: only {len(grp)} raw tracks (< {args.min_support}) — SKIP")
-            continue
-        if (o, d) in existing:
-            print(f"  cell {o}->{d}: already in bank — SKIP")
             continue
         poly = _fit_mean_polyline(grp, args.poly_pts)
         bank["paths"].append({
