@@ -50,6 +50,49 @@ review — the honest outcome, not months of integration on a dead signal.
 - Metric stays per-minute GROSS via od_accuracy.py; corrected labels {22:NB,23:SB,
   24:EB,25:WB}. Baseline to beat = OC+BoT hybrid 27.3% gross / 15.8% net.
 
+## RESULTS 2026-06-01 (Stages 0-3 run; ReID delivered on the through tension)
+
+| config | net | per-min gross |
+|---|---|---|
+| OC-SORT baseline | 21.8% | 30.7% |
+| OC+BoT position hybrid | 15.8% | 27.3% |
+| BoT motion-only | 24.4% | 32.0% |
+| BoT+ReID (default thresh) | 16.1% | 30.6% |
+| **BoT+ReID throughs + BoT-motion turns + intra-turn merge** | **10.0%** | 27.6% |
+| **…same, events timestamped at ENTRY not finalization** | **10.0%** | **22.8%** |
+
+- **Stage 3 (through tension) SOLVED by ReID — the main prize.** BoT motion-only badly
+  under-counts low-conf throughs (SB-thru 346, NB-thru 492 vs manual 425/595); ReID
+  re-associates them across gaps → **SB-thru 346→429 (≈exact), NB-thru 492→542.**
+  BoT+ReID throughs now BEAT OC's (OC over-counts SB to 486). This is exactly the
+  "recover throughs without the min_hits penalty" win memory predicted.
+- **Best tracker config = BoT+ReID for throughs + BoT-motion for turns + intra-turn
+  merge** (`scripts/hybrid_ocbot.py --oc-db botreid.db --bot-db botsort_fresh.db
+  --no-dedup --merge-turns`). Net **10.0%** (from 21.8%), robust on sub-windows
+  (gross 27.4 / 27.8). ReID turns are slightly dirtier (NB-right phantom 24 vs motion's
+  9), so motion turns win the turn regime; ReID wins throughs.
+- **Stage 2 (EB-right) — ReID is NOT the lever; it's PIPELINE-bound.** Raising
+  proximity_thresh to 0.9 did not recover EB-right (still 1) and over-merged throughs.
+  Geometric EB-right trajectories in the event DB: motion 2 → ReID 4-5, but raw BoT
+  sustains 11 — the loss is the pipeline EVENT layer (sharp-cross-street finalize/
+  no-origin), which a tracker-level appearance fix can't reach. The 4-5 that survive
+  are now mis-attributed (no EB-right path in bank) — a small attribution gain is
+  possible (derive an EB-right path from the 5), but the dominant EB-right gap needs a
+  separate PIPELINE fix. Routes to human review until then.
+- **TIMESTAMP artifact found (big, cheap, general).** Events are timestamped at
+  `frame_number/fps` = the FINALIZATION frame (pipeline.py:830), which lags the actual
+  crossing by transit + up to `track_buffer=150`/10fps = 15s, mis-binning vehicles into
+  later per-minute (and 15-min TMC) bins. Re-binning by ENTRY (`start_frame`) drops
+  gross with NO change to net (same counts, correct bins): ReID-mix 27.6→**22.8%**, and
+  it generalizes (OC 30.7→27.7, hybrid 27.3→24.9). **This is a real product
+  correctness bug** (a 07:14:58 crossing counted in the 07:15 bin), not just a metric
+  trick — recommend timestamping events at the origin-crossing frame.
+
+**Net from OC baseline → ReID-mix + entry-timestamp: 21.8%→10.0% net, 30.7%→22.8%
+gross.** Remaining gross = EB-right (pipeline-bound, ~3%) + residual entry-vs-stopbar
+timing + genuine count error. The 15% gross target is closer; the next levers are the
+EB-right pipeline fix and tightening the crossing timestamp (origin_frame vs start_frame).
+
 ## Staged plan (each stage has a hard kill-gate)
 
 ### Stage 0 — Embedding discriminability go/no-go  *(DONE 2026-06-01 → GO)*
