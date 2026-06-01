@@ -29,7 +29,7 @@ from od_accuracy import manual_per_minute, our_per_minute, LEG_IDX, IDX_NAME
 from groundtruth import VIDEO_START
 
 PROJECT = "97a7849a"
-CARD = {22: "NB", 23: "SB", 24: "EB", 25: "WB"}   # corrected labels
+_CARD_FULL = {"N": "NB", "S": "SB", "E": "EB", "W": "WB"}
 
 
 def main() -> int:
@@ -45,8 +45,11 @@ def main() -> int:
     conn = sqlite3.connect(f"data/projects/{PROJECT}/project.db")
     vrow = conn.execute("SELECT path FROM videos WHERE camera_id=? ORDER BY sort_order LIMIT 1",
                         (args.camera,)).fetchone()
-    legs = {lid: (json.loads(oz)[0] if oz else None)
-            for lid, oz in conn.execute("SELECT leg_id,origin_zone FROM legs WHERE camera_id=?", (args.camera,))}
+    legs = {}
+    card = {}
+    for lid, oz, cd in conn.execute("SELECT leg_id,origin_zone,cardinal_direction FROM legs WHERE camera_id=?", (args.camera,)):
+        legs[lid] = json.loads(oz)[0] if oz else None
+        card[lid] = _CARD_FULL.get(cd, cd or "?")
     conn.close()
     video = vrow[0]
     secs = (datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{args.start_hms}") - VIDEO_START).total_seconds()
@@ -61,7 +64,7 @@ def main() -> int:
     for lid, origin in legs.items():
         if origin is None:
             continue
-        draw_zone(img, origin, radius=16, color=(255, 255, 255), label=f"L{lid} {CARD.get(lid,'?')}")
+        draw_zone(img, origin, radius=16, color=(255, 255, 255), label=f"L{lid} {card.get(lid,'?')}")
 
     # per-cell our vs manual (movement level)
     t0 = datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{args.start_hms}")
