@@ -111,6 +111,22 @@ gross.** Remaining gross = EB-right (pipeline-bound, ~3%) + residual entry-vs-st
 timing + genuine count error. The 15% gross target is closer; the next levers are the
 EB-right pipeline fix and tightening the crossing timestamp (origin_frame vs start_frame).
 
+## SHIPPED 2026-06-01 — cam1 in production at net 7.2% / gross 18.8%
+Executed the approved follow-on plan (C:\Users\onkar\.claude\plans\greedy-growing-rabbit.md):
+- **Phase A** (commit ffae271): crossing-timestamp fix (pipeline.py — `timestamp_video`
+  from `origin_frame`, not finalization), volume-gated intra-turn merge, generalized
+  raw-track path derivation. cam1 **7.2% / 18.8%** native (from 7.7/20.8 re-bin). 520 tests pass.
+- **Phase B** (commit e64bbf4): `scripts/process_camera_reid.py` B-batch orchestrator
+  (cache→embed sidecar→retrack BoT+ReID + BoT-motion→combine_regimes→final events;
+  `--apply` backs up + swaps events + applies bank). Fresh end-to-end reproduces 7.2/18.8.
+  **ReID GPU = dead end** (osnet on Iris-Xe 0.86×, parity 1.0000; commit 1fdccac).
+- **Phase C** (commit 4883319): `scripts/visual_gate.py` overlay → engineer APPROVED →
+  applied to production. Live project.db verified: net 7.2 / gross 18.8, cardinals
+  {22:N,23:S,24:E,25:W}, 6 paths incl EB-right. Backup backups/20260512_pre_reid_apply_cam1.db.
+- **Phase D (cam2-5): NOT STARTED.** Heavy: those cameras have NO detection cache yet, so
+  each needs a full-video detection pass (hours/CPU) before embed/retrack. Check the 180°
+  mislabel per camera first.
+
 ## Staged plan (each stage has a hard kill-gate)
 
 ### Stage 0 — Embedding discriminability go/no-go  *(DONE 2026-06-01 → GO)*
