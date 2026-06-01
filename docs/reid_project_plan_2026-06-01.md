@@ -60,6 +60,24 @@ review — the honest outcome, not months of integration on a dead signal.
 | BoT+ReID (default thresh) | 16.1% | 30.6% |
 | **BoT+ReID throughs + BoT-motion turns + intra-turn merge** | **10.0%** | 27.6% |
 | **…same, events timestamped at ENTRY not finalization** | **10.0%** | **22.8%** |
+| **+ EB-right path from raw tracks (Stage E)** | **7.7%** | 25.4% |
+| **FINAL: + EB-right path + entry-timestamp** | **7.7%** | **20.8%** |
+
+### Stage E — EB-right recovered (DONE 2026-06-01): the pipeline-loss fix
+Diagnosed (`scripts/diagnose_ebright_loss.py`): the pipeline PRODUCES 13 EB-right
+(L24→L22) tracks and assigns all 13 origin L24 — but **11/13 are DROPPED at
+destination attribution** (pipeline.py:812): with no EB-right path in the bank the
+joint scorer won't match them to the EB-left path, and the fallback `derive_movement`
+returns insufficient_data. Chicken-and-egg: the path is needed to KEEP the tracks, but
+the dropped events can't DERIVE the path. **Fix:** derive the EB-right polyline from the
+RAW BoT tracker tracks (which sustain 13), bypassing the event-layer loss, and add it to
+the bank (`scripts/add_ebright_path.py` → `recal_cam1_odturns_ebr.json`). EB-right
+**1 → 38** in the turn arm (manual 36), **26** after the intra-turn merge. This is the
+general fix for sparse cross-street turns the post-pipeline derivation misses.
+Final combine: net **7.7%** / gross **25.4%** (20.8% with entry-timestamp), robust on
+sub-windows (gross 26.5 / 24.5). **Residual now = genuine NB-thru recall (542 vs 595,
+−53; the harder glare side ReID only partly recovers) + EB-right slightly under (26 vs
+36) + timing.** All committed; nothing applied to production (visual gate pending).
 
 - **Stage 3 (through tension) SOLVED by ReID — the main prize.** BoT motion-only badly
   under-counts low-conf throughs (SB-thru 346, NB-thru 492 vs manual 425/595); ReID
