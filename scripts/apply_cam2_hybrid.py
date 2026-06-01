@@ -97,15 +97,15 @@ def main() -> int:
         c = sqlite3.connect(PROJ_DB)
         cols = [r[1] for r in c.execute("PRAGMA table_info(vehicle_events)").fetchall() if r[1] != "event_id"]
         cl = ",".join(cols)
+        c.execute("ATTACH DATABASE ? AS h", (args.out_db,))
         with c:
             before = c.execute("SELECT COUNT(*) FROM vehicle_events WHERE camera_id=?", (CAMERA,)).fetchone()[0]
-            c.execute("ATTACH DATABASE ? AS h", (args.out_db,))
             c.execute("DELETE FROM vehicle_events WHERE camera_id=?", (CAMERA,))
             c.execute(f"INSERT INTO vehicle_events ({cl}) SELECT {cl} FROM h.vehicle_events WHERE camera_id=?", (CAMERA,))
             c.execute("DELETE FROM intersection_paths WHERE camera_id=?", (CAMERA,))
             c.execute(f"INSERT INTO intersection_paths SELECT * FROM h.intersection_paths WHERE camera_id=?", (CAMERA,))
             after = c.execute("SELECT COUNT(*) FROM vehicle_events WHERE camera_id=?", (CAMERA,)).fetchone()[0]
-            c.execute("DETACH DATABASE h")
+        c.execute("DETACH DATABASE h")
         c.close()
         print(f"[apply] cam2 events {before} -> {after}; bank applied. Backup {backup}")
     return 0
