@@ -215,10 +215,22 @@ class BotSortBackend:
         frame_size: tuple[int, int] = (480, 640),
         new_track_thresh: float = 0.3,
         track_low_thresh: float = 0.1,
+        # ReID (Stage 1, docs/reid_project_plan_2026-06-01.md). When with_reid is
+        # True we feed PRE-COMPUTED appearance embeddings (from the sidecar built by
+        # scripts/build_reid_cache.py) via boxmot's embs= path — so reid_model stays
+        # None (no get_features call, no per-frame video decode) and the bbox-cache
+        # iteration loop is preserved. reid_embeddings is a provider exposing
+        # embs_for(frame_number, detections) -> (N,512) float32 aligned to detections.
+        with_reid: bool = False,
+        reid_embeddings=None,
+        proximity_thresh: float | None = None,
+        appearance_thresh: float | None = None,
     ):
         from boxmot.trackers.botsort.botsort import BotSort  # lazy
+        self._with_reid = bool(with_reid)
+        self._reid = reid_embeddings if self._with_reid else None
         self._kwargs = dict(
-            reid_model=None, with_reid=False, cmc_method="ecc",
+            reid_model=None, with_reid=self._with_reid, cmc_method="ecc",
             track_high_thresh=track_activation_threshold,
             track_low_thresh=track_low_thresh,
             new_track_thresh=new_track_thresh,
@@ -226,6 +238,10 @@ class BotSortBackend:
             match_thresh=minimum_matching_threshold,
             frame_rate=frame_rate,
         )
+        if proximity_thresh is not None:
+            self._kwargs["proximity_thresh"] = proximity_thresh
+        if appearance_thresh is not None:
+            self._kwargs["appearance_thresh"] = appearance_thresh
         self._BotSort = BotSort
         self.bot = BotSort(**self._kwargs)
         self._img = np.zeros((frame_size[0], frame_size[1], 3), dtype=np.uint8)
@@ -239,7 +255,11 @@ class BotSortBackend:
                 [[*d["bbox"], d["confidence"], d["class_id"]] for d in detections],
                 dtype=np.float32,
             )
-        tracked = np.asarray(self.bot.update(dets, self._img))
+        if self._with_reid and self._reid is not None:
+            embs = self._reid.embs_for(frame_number, detections)  # (N,512), aligned
+            tracked = np.asarray(self.bot.update(dets, self._img, embs=embs))
+        else:
+            tracked = np.asarray(self.bot.update(dets, self._img))
         results = []
         for row in tracked:
             if len(row) < 7:

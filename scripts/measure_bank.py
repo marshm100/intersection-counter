@@ -25,6 +25,11 @@ def main() -> int:
     ap.add_argument("--minutes", type=float, default=30.0)
     ap.add_argument("--out-db", default="data/projects/97a7849a/_hybrid_tmp/relabeled.db")
     ap.add_argument("--backend", default="ocsort")
+    ap.add_argument("--reid-cache", default=None,
+                    help="ReID embedding sidecar npz (build_reid_cache.py). Enables "
+                         "appearance association on the botsort backend.")
+    ap.add_argument("--proximity-thresh", type=float, default=None)
+    ap.add_argument("--appearance-thresh", type=float, default=None)
     args = ap.parse_args()
     camera = 1
     conn = sqlite3.connect("data/projects/97a7849a/project.db"); ctx = _load_camera_context(conn, camera); conn.close()
@@ -38,7 +43,18 @@ def main() -> int:
     chash, _ = compute_video_content_hash(video["path"], file_size_bytes=video.get("file_size_bytes"), total_frames=video["total_frames"])
     pq = parquet_path("97a7849a", camera, chash, DEFAULT_VARIANT)
     tdb = Path(args.out_db)
-    retrack(tdb, args.backend, video, ctx, calib, mode_cfg, sug, s, e, pq, camera)
+    tracker_kwargs = None
+    if args.reid_cache:
+        from reid_embedding_cache import ReidEmbeddingCache
+        tracker_kwargs = {"with_reid": True,
+                          "reid_embeddings": ReidEmbeddingCache(args.reid_cache)}
+        if args.proximity_thresh is not None:
+            tracker_kwargs["proximity_thresh"] = args.proximity_thresh
+        if args.appearance_thresh is not None:
+            tracker_kwargs["appearance_thresh"] = args.appearance_thresh
+        print(f"ReID ON (sidecar {args.reid_cache})")
+    retrack(tdb, args.backend, video, ctx, calib, mode_cfg, sug, s, e, pq, camera,
+            tracker_kwargs=tracker_kwargs)
 
     mins = [t0 + timedelta(minutes=i) for i in range(int(args.minutes))]
     m_od, m_mv, _ = manual_per_minute()

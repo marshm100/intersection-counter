@@ -38,7 +38,8 @@ WATCH = [(22, "thru"), (23, "thru"), (23, "left"), (22, "left"), (23, "right")]
 TURNS = {"left", "right", "uturn", "u_turn"}
 
 
-def retrack(tdb, backend, video, ctx, calib, mode_cfg, sug, s, e, pq, camera):
+def retrack(tdb, backend, video, ctx, calib, mode_cfg, sug, s, e, pq, camera,
+            tracker_kwargs=None):
     shutil.copy2(Path("data/projects/97a7849a/project.db"), tdb)
     c = sqlite3.connect(str(tdb))
     with c:
@@ -65,7 +66,8 @@ def retrack(tdb, backend, video, ctx, calib, mode_cfg, sug, s, e, pq, camera):
         fps=float(video["fps"]), video_start_time=video["recording_start_datetime"], video_id=video["video_id"],
         yolo_model=mode_cfg["yolo_model"], yolo_imgsz=mode_cfg["yolo_imgsz"], yolo_confidence=mode_cfg["yolo_confidence"],
         detection_skip=mode_cfg["detection_skip"], tracker_match_threshold=mode_cfg.get("tracker_match_threshold"),
-        tracker_activation_threshold=0.25, calibration_params=calib, paths=paths, tracker_backend=backend)
+        tracker_activation_threshold=0.25, calibration_params=calib, paths=paths, tracker_backend=backend,
+        tracker_kwargs=tracker_kwargs)
     pipe._v3_camera_id = camera
     pipe._v3_trim_id = (list_trims("97a7849a", ctx["intersection_id"]) or [{"trim_id": None}])[0]["trim_id"]
     pipe.process_cached(DetectionCacheReader(pq), s, e, detection_skip=mode_cfg["detection_skip"])
