@@ -52,7 +52,27 @@ review — the honest outcome, not months of integration on a dead signal.
 
 ## Staged plan (each stage has a hard kill-gate)
 
-### Stage 0 — Embedding discriminability go/no-go  *(cheap, ~½ day, DO FIRST)*
+### Stage 0 — Embedding discriminability go/no-go  *(DONE 2026-06-01 → GO)*
+**Result (`scripts/probe_reid_separability.py`, osnet_x0_25, 07:00–07:30, 400
+high-purity greedy tracks):** appearance IS discriminative at this scene's size.
+Judged on the REALISTIC cross-gap case (same-vehicle embeddings 5–15 frames apart vs
+distinct vehicles co-present same frame):
+
+| size | same-med | diff-med | cross-gap AUC |
+|---|---|---|---|
+| 20–30px | 0.865 | 0.614 | **0.886** |
+| 30–40px | 0.863 | 0.573 | **0.872** |
+| >40px | 0.811 | 0.609 | 0.758 |
+
+Both gate buckets pass (≥0.85 @30-40, ≥0.75 @20-30). Consecutive-frame AUC is higher
+still (0.95/0.93). The "ReID weak at 20–40px" worry is disproven *for discriminability*
+— osnet_x0_25 cleanly separates same-vehicle (sim ~0.86) from a co-present different
+vehicle (~0.61). (>40px is lower — trucks/buses look alike / more pose change — but
+that's not the dominant vehicle size and not a gate cell.) **VERDICT: GO → Stage 1.**
+Caveat: discriminability ≠ end-to-end win; Stages 2–3 still have to convert this
+signal into association gains without new false-merges on the dense arterial.
+
+### Stage 0 (original spec) — Embedding discriminability go/no-go  *(cheap, ~½ day, DO FIRST)*
 Build `scripts/probe_reid_separability.py`:
 - Take a few hundred high-confidence GREEDY/BoT tracks (link_detections) over the
   07:00–07:30 window — these are trusted "same vehicle" sequences.
