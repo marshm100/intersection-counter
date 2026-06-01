@@ -113,6 +113,58 @@ def _overlap(a, b):
     return not (a["e"] < b["s"] or b["e"] < a["s"])
 
 
+def combine_regimes(oc_db, bot_db, out_db, *, merge_turns=True, merge_px=30.0,
+                    merge_gap=40.0, merge_vol_factor=1.3, no_dedup=True,
+                    dedup_px=60.0, start_hms="07:00:00", minutes=30.0):
+    """Assemble the regime-split combined DB: OC/throughs arm + BoT/turns arm.
+    combined = {oc_db events movement='through'} U {bot_db turn events}, with the
+    A2 volume-gated intra-turn merge and (default-off) cross-backend boundary dedup.
+    Writes out_db (a copy of oc_db with camera-1 events replaced) and returns
+    (oc_throughs_kept, oc_dropped, bot_turns_inserted). Shared by hybrid_ocbot.main
+    (offline measure) and process_camera_reid.py (production orchestrator)."""
+    oc_thru = _load(oc_db, "movement = 'through'")
+    bot_turn = _load(bot_db, "movement IN ('left','right','u_turn')")
+    keep_turn_ids = None
+    if merge_turns:
+        expected = manual_od_by_cell(start_hms, minutes)
+        keep_turn_ids = merge_turn_fragments(bot_turn, merge_px, merge_gap,
+                                             expected_by_cell=expected, vol_factor=merge_vol_factor)
+    drop_oc = set()
+    if not no_dedup:
+        for bt in bot_turn:
+            if bt["start"] is None:
+                continue
+            for oc in oc_thru:
+                if oc["id"] in drop_oc or oc["start"] is None:
+                    continue
+                if _overlap(oc, bt) and math.hypot(
+                        oc["start"][0] - bt["start"][0],
+                        oc["start"][1] - bt["start"][1]) <= dedup_px:
+                    drop_oc.add(oc["id"])
+                    break
+    shutil.copy2(oc_db, out_db)
+    c = sqlite3.connect(str(out_db))
+    cols = [r[1] for r in c.execute("PRAGMA table_info(vehicle_events)").fetchall()
+            if r[1] != "event_id"]
+    collist = ",".join(cols)
+    with c:
+        c.execute("DELETE FROM vehicle_events WHERE camera_id=? AND NOT (movement='through')", (CAMERA,))
+        if drop_oc:
+            c.executemany("DELETE FROM vehicle_events WHERE event_id=?", [(i,) for i in drop_oc])
+        c.execute("ATTACH DATABASE ? AS botdb", (str(bot_db),))
+        sel = collist.replace("vehicle_track_id", "-999 AS vehicle_track_id")
+        id_filter = ""
+        if keep_turn_ids is not None:
+            id_filter = " AND event_id IN (%s)" % ",".join(str(i) for i in keep_turn_ids)
+        n = c.execute(
+            f"INSERT INTO vehicle_events ({collist}) SELECT {sel} FROM botdb.vehicle_events "
+            f"WHERE camera_id=? AND rejected=0 AND movement IN ('left','right','u_turn'){id_filter}",
+            (CAMERA,)).rowcount
+    c.execute("DETACH DATABASE botdb")
+    c.close()
+    return len(oc_thru) - len(drop_oc), len(drop_oc), n
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--oc-db", default="data/projects/97a7849a/_hybrid_tmp/relabeled.db",
@@ -136,60 +188,14 @@ def main() -> int:
 
     oc_db, bot_db, out_db = Path(args.oc_db), Path(args.bot_db), Path(args.out_db)
 
-    # --- boundary dedup: which OC throughs are really BoT turns? ---
-    oc_thru = _load(oc_db, "movement = 'through'")
-    bot_turn = _load(bot_db, "movement IN ('left','right','u_turn')")
-    keep_turn_ids = None
+    kept, dropped, n = combine_regimes(
+        oc_db, bot_db, out_db, merge_turns=args.merge_turns, merge_px=args.merge_px,
+        merge_gap=args.merge_gap, merge_vol_factor=args.merge_vol_factor,
+        no_dedup=args.no_dedup, dedup_px=args.dedup_px,
+        start_hms=args.start_hms, minutes=args.minutes)
     if args.merge_turns:
-        # Expected per-OD-cell volume (Miovision, WINDOW-restricted) so the merge
-        # only collapses clearly over-counted (fragmented) cells, sparing sparse
-        # ones (A2). Must be window-restricted — whole-day totals would disable it.
-        expected_by_cell = manual_od_by_cell(args.start_hms, args.minutes)
-        keep_turn_ids = merge_turn_fragments(
-            bot_turn, args.merge_px, args.merge_gap,
-            expected_by_cell=expected_by_cell, vol_factor=args.merge_vol_factor)
-        print(f"turn-merge: {len(bot_turn)} BoT turn events -> {len(keep_turn_ids)} kept")
-    drop_oc = set()
-    if not args.no_dedup:
-        for bt in bot_turn:
-            if bt["start"] is None:
-                continue
-            for oc in oc_thru:
-                if oc["id"] in drop_oc or oc["start"] is None:
-                    continue
-                if _overlap(oc, bt) and math.hypot(
-                        oc["start"][0] - bt["start"][0],
-                        oc["start"][1] - bt["start"][1]) <= args.dedup_px:
-                    drop_oc.add(oc["id"])
-                    break
-
-    # --- assemble combined DB: copy OC arm, drop OC turns + deduped throughs,
-    #     insert BoT turn events as fresh rows (track_id=-999) ---
-    shutil.copy2(oc_db, out_db)
-    c = sqlite3.connect(str(out_db))
-    cols = [r[1] for r in c.execute("PRAGMA table_info(vehicle_events)").fetchall()
-            if r[1] != "event_id"]
-    collist = ",".join(cols)
-    with c:
-        # keep ONLY OC throughs (minus the deduped ones)
-        c.execute(f"DELETE FROM vehicle_events WHERE camera_id=? AND "
-                  f"NOT (movement='through')", (CAMERA,))
-        if drop_oc:
-            c.executemany("DELETE FROM vehicle_events WHERE event_id=?",
-                          [(i,) for i in drop_oc])
-        # bring BoT turns in (optionally only the merged-fragment representatives)
-        c.execute("ATTACH DATABASE ? AS botdb", (str(bot_db),))
-        sel = collist.replace("vehicle_track_id", "-999 AS vehicle_track_id")
-        id_filter = ""
-        if keep_turn_ids is not None:
-            id_filter = " AND event_id IN (%s)" % ",".join(str(i) for i in keep_turn_ids)
-        n = c.execute(
-            f"INSERT INTO vehicle_events ({collist}) SELECT {sel} FROM botdb.vehicle_events "
-            f"WHERE camera_id=? AND rejected=0 AND movement IN ('left','right','u_turn'){id_filter}",
-            (CAMERA,)).rowcount
-    c.execute("DETACH DATABASE botdb")
-    c.close()
-    print(f"OC throughs kept={len(oc_thru)-len(drop_oc)} (dropped {len(drop_oc)} as BoT-turn dups)  "
+        print("turn-merge: volume-gated intra-turn fragment merge applied")
+    print(f"OC throughs kept={kept} (dropped {dropped} as BoT-turn dups)  "
           f"+ BoT turns inserted={n}  -> {out_db}")
 
     # --- measure (per-minute, movement + OD level) ---
