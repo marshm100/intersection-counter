@@ -1,4 +1,4 @@
-# Handoff: finish the corridor (cam4–5 left; cam1/2/3 shipped) — intersection-counter
+# Handoff: corridor COMPLETE (all 5 shipped) — intersection-counter
 
 ## Shipped today (2026-06-01), live in `data/projects/97a7849a/project.db`
 - **cam1** (N Belt Line & Northwest Dr): **net 7.2% / per-min gross 18.8%** (from 21.8/30.7).
@@ -9,7 +9,27 @@
   GPU cache (openvino, 6.7 min) → BoT-retrack-with-bank (`apply_bank.py`). Cleanest corridor cam yet.
   Note: cam3's BYTETRACK throughs were BAD (61 phantom EB-throughs from the T-stem origin-misassignment);
   BoT+bank fixed it (picked the throughs tracker by measurement, per the pattern). 5-min sample, yolo26s.
-- Backups: `backups/20260512_pre_reid_apply_cam1.db`, `_pre_cam2_hybrid.db`, `_pre_cam3_bank.db`.
+- **cam4** (N Belt Line & Sunnyvale Donut Dr, T-intersection): **net 22.7% / gross 32.7%** (30-min window).
+  bytetrack-throughs hybrid (`apply_hybrid`). Overnight run.
+- **cam5** (N Belt Line & Barnes Bridge Rd, 4-way): **net 29.1% / gross 43.2%** (30-min window).
+  bytetrack-throughs hybrid (`apply_hybrid`). Overnight run. (Worst of the 5 — complex 4-way; improvable.)
+- Backups: `backups/20260512_pre_*` (cam1 reid, cam2 hybrid, cam3 bank, cam4 bank+hybrid, cam5 bank+hybrid).
+
+## Overnight run findings (2026-06-01, scripts/overnight_corridor.py, 3.4h, GPU, 0 crashes)
+- **Corridor finished**: cam4+cam5 shipped; all 5 cameras live. Validated the GPU + generalized
+  `--camera N` stack + `--cache-only` over a 3.4h unattended run.
+- **KEY FINDING — the BoT+bank path STEALS throughs at longer windows.** BoT+bank gross degraded
+  5min→30min (cam4 18.5→66.7, cam5 37→98.7, cam3 13.2→18.3) while bytetrack-HYBRID *improved*
+  (cam4 43→33, cam5 69→43). Root cause: a low-support RARE-TURN bank path becomes a "snap magnet"
+  that captures the dominant throughs (cam4 30min: EB-left manual 6 → ours 325, NB-thru 728→349).
+  At 5-min the rare turn is below min_support=5 so no such path exists; at 30-min it clears the gate
+  and corrupts throughs. **min_support=5 is too low at scale; the bank needs a path-quality / through-
+  protection gate.** The hybrid is immune (keeps bytetrack throughs, BoT only for turns) — that's why
+  it won at 30-min. NEXT-SESSION FIX: gate rare-turn paths (higher/relative min_support, path-shape
+  quality, or forbid turn paths from capturing through-geometry tracks). Then re-measure cam3/cam4/cam5.
+- cam4/cam5 shipped at 30-min HYBRID (more coverage + better than their 5-min). cam2/cam3 left at
+  shipped 5-min (preview was non-destructive; cam2's 30-min preview only measured bank-only=87.5%,
+  NOT comparable to its hybrid ship — ignore that number). 30-min preview banks in recal_cam{2,3}_30min.json.
 
 ## The winning pattern (proven cam1 + cam2)
 **Regime split:** good-throughs tracker ∪ good-turns tracker, + volume-gated intra-turn
