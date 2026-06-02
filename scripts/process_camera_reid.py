@@ -41,6 +41,7 @@ from build_reid_cache import sidecar_path
 from reid_embedding_cache import ReidEmbeddingCache
 from od_accuracy import manual_per_minute, our_per_minute, leg_idx, LEG_IDX, IDX_NAME
 from groundtruth import VIDEO_START
+from scratch import scratch_dir
 
 PROJECT = "97a7849a"
 
@@ -72,7 +73,7 @@ def main() -> int:
     ap.add_argument("--start-hms", default="07:00:00")
     ap.add_argument("--minutes", type=float, default=30.0)
     ap.add_argument("--reid-cache", default=None, help="embedding sidecar npz (default: auto-locate)")
-    ap.add_argument("--workdir", default=f"data/projects/{PROJECT}/_hybrid_tmp")
+    ap.add_argument("--workdir", default=None, help="scratch dir (default: system temp, NOT OneDrive)")
     ap.add_argument("--reuse-arms", action="store_true",
                     help="reuse existing arm DBs in workdir instead of retracking")
     ap.add_argument("--apply", action="store_true",
@@ -96,7 +97,8 @@ def main() -> int:
     pq = parquet_path(PROJECT, camera, chash, DEFAULT_VARIANT)
 
     side = Path(args.reid_cache) if args.reid_cache else sidecar_path(pq)
-    workdir = Path(args.workdir); workdir.mkdir(parents=True, exist_ok=True)
+    workdir = Path(args.workdir) if args.workdir else scratch_dir(PROJECT)
+    workdir.mkdir(parents=True, exist_ok=True)
     arm_reid = workdir / f"prod_reid_cam{camera}.db"
     arm_motion = workdir / f"prod_motion_cam{camera}.db"
     final_db = workdir / f"prod_final_cam{camera}.db"

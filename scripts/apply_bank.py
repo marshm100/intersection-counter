@@ -22,6 +22,7 @@ from backend.services.detection_cache import (
 from reprocess_camera import _load_camera_context
 from hybrid_prototype import retrack
 from groundtruth import VIDEO_START
+from scratch import scratch_dir
 
 PROJECT = "97a7849a"
 
@@ -39,7 +40,7 @@ def main() -> int:
     args = ap.parse_args()
     cam = args.camera
     bank = args.bank or f"evaluations/recal_cam{cam}.json"
-    out_db = Path(args.out_db or f"data/projects/{PROJECT}/_hybrid_tmp/cam{cam}_bank.db")
+    out_db = Path(args.out_db or scratch_dir(PROJECT) / f"cam{cam}_bank.db")
     out_db.parent.mkdir(parents=True, exist_ok=True)
 
     proj_db = f"data/projects/{PROJECT}/project.db"

@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from groundtruth import VIDEO_START, NORM_MVT
 from hybrid_ocbot import merge_turn_fragments
 from od_accuracy import manual_per_minute, leg_idx
+from scratch import scratch_dir
 
 PROJECT = "97a7849a"
 PROJ_DB = f"data/projects/{PROJECT}/project.db"
@@ -115,8 +116,8 @@ def main() -> int:
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
     cam = args.camera
-    out_db = args.out_db or f"data/projects/{PROJECT}/_hybrid_tmp/cam{cam}_hybrid.db"
-    bot_db = args.bot_db or f"data/projects/{PROJECT}/_hybrid_tmp/cam{cam}_bank.db"
+    out_db = args.out_db or str(scratch_dir(PROJECT) / f"cam{cam}_hybrid.db")
+    bot_db = args.bot_db or str(scratch_dir(PROJECT) / f"cam{cam}_bank.db")
     bank = args.bank or f"evaluations/recal_cam{cam}.json"
     Path(out_db).parent.mkdir(parents=True, exist_ok=True)
 

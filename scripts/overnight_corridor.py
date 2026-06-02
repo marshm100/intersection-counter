@@ -24,6 +24,9 @@ import re, subprocess, sys, time
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from scratch import scratch_dir   # scratch DBs live in system temp, not OneDrive
+
 ROOT = Path(__file__).resolve().parent.parent
 PY = sys.executable
 LOG = ROOT / "evaluations" / "overnight_2026-06-01.log"
@@ -79,8 +82,8 @@ def finish_camera(cam: int, minutes: float, apply_winner: bool):
     """cam4/cam5 path: destructive reprocess -> bank -> measure both trackers -> apply winner."""
     tag = f"cam{cam}@{minutes:g}min"
     bank = f"evaluations/recal_cam{cam}.json"
-    bank_db = f"data/projects/97a7849a/_hybrid_tmp/cam{cam}_bank.db"
-    hyb_db = f"data/projects/97a7849a/_hybrid_tmp/cam{cam}_hybrid.db"
+    bank_db = str(scratch_dir() / f"cam{cam}_bank.db")
+    hyb_db = str(scratch_dir() / f"cam{cam}_hybrid.db")
     rec = {"tag": tag, "camera": cam, "minutes": minutes, "mode": "finish",
            "bank": None, "hybrid": None, "applied": None, "ok": False}
     try:
@@ -121,7 +124,7 @@ def preview_camera(cam: int, minutes: float):
     """cam2/cam3 path (SHIPPED): non-destructive cache-only -> BoT+bank measure, NO apply."""
     tag = f"cam{cam}@{minutes:g}min-preview"
     bank = f"evaluations/recal_cam{cam}_{int(minutes)}min.json"   # never clobber the live bank
-    bank_db = f"data/projects/97a7849a/_hybrid_tmp/cam{cam}_bank.db"
+    bank_db = str(scratch_dir() / f"cam{cam}_bank.db")
     rec = {"tag": tag, "camera": cam, "minutes": minutes, "mode": "preview",
            "bank": None, "hybrid": None, "applied": "NONE (preview — gate in AM)", "ok": False}
     try:
