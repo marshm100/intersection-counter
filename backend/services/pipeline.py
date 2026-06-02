@@ -27,6 +27,8 @@ from backend.config import (
     JOINT_SCORER_TURN_MIN_COVERAGE,
     JOINT_SCORER_TURN_TAIL_PRIOR_FLOOR,
     ORIGIN_ASSIGN_MIN_FRAMES,
+    ORIGIN_REWRITE_GATE_ENABLED,
+    ORIGIN_REWRITE_GATE_STRAIGHTNESS,
     TRACK_FINALIZE_GAP_FRAMES,
     TRAJECTORY_MIN_DISTANCE_PX,
     USE_JOINT_PARTIAL_FRECHET_SCORER,
@@ -156,6 +158,9 @@ class ProcessingPipeline:
         # through to the legacy tripwire/heading/softmax tiers.
         self.n_origin_via_polyline: int = 0
         self.n_destination_via_polyline: int = 0
+        # Snap-magnet defence: turn matches rejected because a straight (through)
+        # track's origin was being rewritten to a non-nearest leg.
+        self.n_origin_rewrite_gated: int = 0
 
         # Optional detection-cache write-through (Attribution v2, Step 1). When
         # set (a DetectionCacheWriter), every live detection frame is persisted
@@ -558,6 +563,22 @@ class ProcessingPipeline:
             if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES:
                 self._assign_origin(track_id, frame_number)
 
+    def _nearest_origin_leg_id(self, point) -> int | None:
+        """leg_id whose origin_zone point is closest to `point`. Used by the
+        origin-rewrite gate to detect a turn match that wants to rewrite origin
+        to a leg the track never entered from. Returns None if no leg has an
+        origin_zone."""
+        best, best_d = None, float("inf")
+        for leg in self.legs:
+            zone = leg.get("origin_zone")
+            if not zone:
+                continue
+            p0 = zone[0]
+            d = (point[0] - p0[0]) ** 2 + (point[1] - p0[1]) ** 2
+            if d < best_d:
+                best_d, best = d, leg["leg_id"]
+        return best
+
     def _assign_origin(self, track_id: int, frame_number: int):
         vehicle = self.active_vehicles[track_id]
         traj = vehicle["trajectory"]
@@ -747,6 +768,23 @@ class ProcessingPipeline:
                 turn_tail_prior_floor=JOINT_SCORER_TURN_TAIL_PRIOR_FLOOR,
                 turn_min_coverage=JOINT_SCORER_TURN_MIN_COVERAGE,
             )
+            # Origin-rewrite gate (snap-magnet defence): a straight "turn"
+            # polyline can capture a THROUGH track and rewrite its origin to a
+            # leg the track never entered from. Reject a TURN match that would
+            # rewrite origin away from the nearest origin-zone to the track's
+            # first point — but ONLY when the track itself is geometrically
+            # straight (a through). Real turns curve, so genuine mid-turn-entry
+            # turns stay below the floor and pass. See config notes.
+            if (joint.get("destination_leg_id") is not None
+                    and ORIGIN_REWRITE_GATE_ENABLED
+                    and joint.get("movement_label") in ("left", "right", "u_turn")
+                    and joint.get("origin_leg_id") is not None
+                    and classification["path_straightness"] >= ORIGIN_REWRITE_GATE_STRAIGHTNESS):
+                near = self._nearest_origin_leg_id(trajectory[0])
+                if near is not None and near != joint["origin_leg_id"]:
+                    joint = {**joint, "destination_leg_id": None}
+                    self.n_origin_rewrite_gated += 1
+
             if joint.get("destination_leg_id") is not None:
                 polyline_dest = joint
                 # Origin is read off the winning path — override the

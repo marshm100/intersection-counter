@@ -190,6 +190,21 @@ JOINT_SCORER_COVERAGE_WEIGHT = 0.15    # blend weight of coverage term
 JOINT_SCORER_TURN_TAIL_PRIOR_FLOOR = 0.85
 JOINT_SCORER_TURN_MIN_COVERAGE = 0.40
 
+# Origin-rewrite gate (snap-magnet defence, 2026-06-02). The joint scorer READS
+# origin off the winning path, which lets a straight "turn" polyline capture a
+# THROUGH track and rewrite its origin to a leg the track never entered from
+# (the cam4 EB-left magnet: manual 6, attributed 214). This gate rejects a TURN
+# match that would rewrite origin to a leg that is NOT the nearest origin-zone to
+# the track's first point — BUT ONLY when the trajectory is itself geometrically
+# straight (a through). Real turns curve, so a genuine mid-turn-FOV-entry turn
+# (the joint scorer's raison d'être at cam1) stays BELOW the straightness floor
+# and is spared. Self-limiting and data-driven — no per-camera flag needed.
+# Validated on the snap-magnet replay (scripts/replay_snapmagnet.py): cam4
+# 22.7%->7.0% net, cam1/cam2/cam3 unharmed. See memory
+# project_accuracy_snap_magnet_mechanism.
+ORIGIN_REWRITE_GATE_ENABLED = True
+ORIGIN_REWRITE_GATE_STRAIGHTNESS = 0.97  # only gate tracks at/above this straightness
+
 # Pipeline-level grace period before considering a tracker-missing vehicle
 # "lost" and finalizing it. YOLO detection can flicker (detect, miss, detect)
 # on consecutive frames; without a grace window every flicker fragments a

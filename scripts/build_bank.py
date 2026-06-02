@@ -69,6 +69,17 @@ def main() -> int:
     ap.add_argument("--min-support", type=int, default=5)
     ap.add_argument("--min-path", type=float, default=80.0)
     ap.add_argument("--poly-pts", type=int, default=15)
+    # Snap-magnet defence: a TURN polyline that is geometrically STRAIGHT and
+    # wildly OVER-SUPPORTED vs its manual volume is not a real turn — it's a
+    # straight corridor (throughs) that endpoint-grouping mislabelled as a turn,
+    # and at apply it captures throughs. Real turns curve (straightness well
+    # below the floor) and have support ~ manual. The over-support condition is
+    # what spares low-volume genuine turns (cam2). See memory
+    # project_accuracy_snap_magnet_mechanism.
+    ap.add_argument("--magnet-straight-thr", type=float, default=0.95,
+                    help="reject turn polylines straighter than this (if also over-supported)")
+    ap.add_argument("--magnet-support-factor", type=float, default=3.0,
+                    help="a turn polyline is a magnet only if support > factor*manual")
     args = ap.parse_args()
     cam = args.camera
     out_path = args.out or f"evaluations/recal_cam{cam}.json"
@@ -119,6 +130,17 @@ def main() -> int:
         if len(g) < args.min_support:
             continue
         poly = _fit_mean_polyline(g, args.poly_pts)
+        # Snap-magnet polyline-quality gate (turns only): reject a straight,
+        # over-supported "turn" path before it can capture throughs at apply.
+        if mv in ("left", "right", "u_turn"):
+            pl = plen(poly)
+            straightness = (math.hypot(poly[-1][0] - poly[0][0], poly[-1][1] - poly[0][1]) / pl
+                            if pl > 1e-9 else 1.0)
+            if (straightness > args.magnet_straight_thr
+                    and len(g) > args.magnet_support_factor * max(man, 1)):
+                print(f"{f'L{ol}->L{dl} {mv}':<22}{man:>7.0f}{len(g):>7}  "
+                      f"MAGNET_REJECTED (straightness={straightness:.3f}, support>{args.magnet_support_factor:.0f}x manual)")
+                continue
         paths.append({"origin_leg_id": ol, "destination_leg_id": dl, "movement_label": mv,
                       "polyline": [[round(x, 1), round(y, 1)] for x, y in poly],
                       "supporting_count": len(g), "source": "data-driven-rawtrack"})
