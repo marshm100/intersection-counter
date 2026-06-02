@@ -80,6 +80,7 @@ def main() -> int:
                     help="reject turn polylines straighter than this (if also over-supported)")
     ap.add_argument("--magnet-support-factor", type=float, default=3.0,
                     help="a turn polyline is a magnet only if support > factor*manual")
+    ap.add_argument("--variant", default=None, help="detection-cache variant (default DEFAULT_VARIANT)")
     args = ap.parse_args()
     cam = args.camera
     out_path = args.out or f"evaluations/recal_cam{cam}.json"
@@ -95,7 +96,7 @@ def main() -> int:
     c.close()
     fps = float(v[3])
     ch, _ = compute_video_content_hash(v[0], file_size_bytes=v[1], total_frames=v[2])
-    pq = parquet_path(PROJECT, cam, ch, DEFAULT_VARIANT)
+    pq = parquet_path(PROJECT, cam, ch, args.variant or DEFAULT_VARIANT)
     t0 = datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{args.start_hms}")
     f_lo = int((t0 - VIDEO_START).total_seconds() * fps)
     f_hi = f_lo + int(args.minutes * 60 * fps)

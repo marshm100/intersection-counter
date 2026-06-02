@@ -36,6 +36,10 @@ def main() -> int:
     ap.add_argument("--out-db", default=None)
     ap.add_argument("--mode", default="balanced")
     ap.add_argument("--backend", default="botsort", help="tracker backend: botsort (turns) or bytetrack (throughs)")
+    ap.add_argument("--variant", default=None, help="detection-cache variant (default DEFAULT_VARIANT); "
+                    "set to retrack over a non-default cache e.g. accurate_1280_skip1")
+    ap.add_argument("--tracker-kwargs", default=None, help="JSON dict of extra tracker kwargs "
+                    "(e.g. '{\"track_buffer\": 50}') for param sweeps")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
     cam = args.camera
@@ -54,9 +58,11 @@ def main() -> int:
     s = max(0, min(s, video["total_frames"])); e = max(s, min(e, video["total_frames"]))
     chash, _ = compute_video_content_hash(video["path"], file_size_bytes=video.get("file_size_bytes"),
                                           total_frames=video["total_frames"])
-    pq = parquet_path(PROJECT, cam, chash, DEFAULT_VARIANT)
-    print(f"retrack {args.backend} cam{cam} with bank ({len(sug.get('paths',[]))} paths) -> {out_db}")
-    retrack(out_db, args.backend, video, ctx, calib, mode_cfg, sug, s, e, pq, cam, tracker_kwargs=None)
+    pq = parquet_path(PROJECT, cam, chash, args.variant or DEFAULT_VARIANT)
+    tk = json.loads(args.tracker_kwargs) if args.tracker_kwargs else None
+    print(f"retrack {args.backend} cam{cam} (variant={args.variant or DEFAULT_VARIANT}) "
+          f"with bank ({len(sug.get('paths',[]))} paths) -> {out_db}")
+    retrack(out_db, args.backend, video, ctx, calib, mode_cfg, sug, s, e, pq, cam, tracker_kwargs=tk)
 
     if args.apply:
         ts = VIDEO_START.strftime("%Y%m%d")
