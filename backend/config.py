@@ -33,6 +33,25 @@ YOLO_CONFIDENCE_THRESHOLD = 0.08
 YOLO_IOU_THRESHOLD = 0.45
 YOLO_IMGSZ = 1280
 
+# Class-agnostic NMS applied to cached detections BEFORE the tracker (Stage-2
+# anti-duplication, 2026-06-02). The detector double-boxes one vehicle (e.g. a
+# 'car' AND a 'truck' box) in ~83% of frames at IoU>0.6 — model-independent
+# (yolo26s@960 and yolo26l@1280 both do it). bytetrack tracks each box as its
+# own ID, producing parallel duplicate THROUGH tracks (the cam5 NB-thru +162).
+# YOLO's own per-class NMS (YOLO_IOU_THRESHOLD) does NOT suppress cross-class
+# duplicates, so we collapse them class-agnostically at the tracking input. The
+# detection CACHE stays raw (written before _ingest_detections); only tracking
+# sees the deduped stream.
+# DEFAULT OFF (None): measured per-camera and it is NOT corridor-safe — at IoU 0.7
+# it over-merges DENSE but distinct throughs (cam4 NB-thru 728→~644) for only a
+# ~0.4pp gain where it helps (cam5). The real Stage-2 through win came from
+# REFRESHING stale shipped throughs (apply_hybrid --throughs-db), not NMS. Set to
+# a float (e.g. 0.7) to enable for a specific camera's retrack; env override
+# PRE_TRACK_NMS_IOU=<float> turns it on per-run.
+import os as _os
+_nms_env = _os.environ.get("PRE_TRACK_NMS_IOU")
+PRE_TRACK_NMS_IOU = float(_nms_env) if (_nms_env and _nms_env != "off") else None
+
 PROCESSING_MODES = {
     "accurate": {
         "yolo_model": "yolo26l.pt",

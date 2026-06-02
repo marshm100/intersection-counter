@@ -38,6 +38,7 @@ def sidecar_path(pq: Path) -> Path:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--camera", type=int, default=1)
     ap.add_argument("--start-hms", default="07:00:00")
     ap.add_argument("--minutes", type=float, default=30.0)
     ap.add_argument("--device", default="cpu")
@@ -46,11 +47,11 @@ def main() -> int:
 
     conn = sqlite3.connect("data/projects/97a7849a/project.db")
     v = conn.execute("SELECT path,file_size_bytes,total_frames,fps FROM videos "
-                     "WHERE camera_id=1 ORDER BY sort_order LIMIT 1").fetchone()
+                     "WHERE camera_id=? ORDER BY sort_order LIMIT 1", (args.camera,)).fetchone()
     conn.close()
     vpath, fsize, total_frames, fps = v[0], v[1], v[2], float(v[3])
     ch, _ = compute_video_content_hash(vpath, file_size_bytes=fsize, total_frames=total_frames)
-    pq = parquet_path("97a7849a", 1, ch, DEFAULT_VARIANT)
+    pq = parquet_path("97a7849a", args.camera, ch, DEFAULT_VARIANT)
     out = sidecar_path(pq)
 
     t0 = datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{args.start_hms}")

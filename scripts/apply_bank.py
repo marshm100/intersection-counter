@@ -34,6 +34,7 @@ def main() -> int:
     ap.add_argument("--minutes", type=float, default=5.0)
     ap.add_argument("--out-db", default=None)
     ap.add_argument("--mode", default="balanced")
+    ap.add_argument("--backend", default="botsort", help="tracker backend: botsort (turns) or bytetrack (throughs)")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
     cam = args.camera
@@ -53,8 +54,8 @@ def main() -> int:
     chash, _ = compute_video_content_hash(video["path"], file_size_bytes=video.get("file_size_bytes"),
                                           total_frames=video["total_frames"])
     pq = parquet_path(PROJECT, cam, chash, DEFAULT_VARIANT)
-    print(f"retrack BoT-motion cam{cam} with bank ({len(sug.get('paths',[]))} paths) -> {out_db}")
-    retrack(out_db, "botsort", video, ctx, calib, mode_cfg, sug, s, e, pq, cam, tracker_kwargs=None)
+    print(f"retrack {args.backend} cam{cam} with bank ({len(sug.get('paths',[]))} paths) -> {out_db}")
+    retrack(out_db, args.backend, video, ctx, calib, mode_cfg, sug, s, e, pq, cam, tracker_kwargs=None)
 
     if args.apply:
         ts = VIDEO_START.strftime("%Y%m%d")

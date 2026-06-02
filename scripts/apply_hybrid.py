@@ -64,16 +64,24 @@ def _bot_turn_keep_ids(camera_id, bot_db, start_hms, minutes):
     return keep, len(turns)
 
 
-def build(camera_id, out_db, bot_db, bank, start_hms, minutes):
+def build(camera_id, out_db, bot_db, bank, start_hms, minutes, throughs_db=None):
     keep, n_turn = _bot_turn_keep_ids(camera_id, bot_db, start_hms, minutes)
     shutil.copy2(PROJ_DB, out_db)
     c = sqlite3.connect(out_db)
     cols = [r[1] for r in c.execute("PRAGMA table_info(vehicle_events)").fetchall() if r[1] != "event_id"]
     cl = ",".join(cols)
     c.execute("ATTACH DATABASE ? AS bot", (bot_db,))
+    if throughs_db:
+        c.execute("ATTACH DATABASE ? AS thr", (throughs_db,))
     with c:
         # keep bytetrack THROUGHS already in project.db; drop bytetrack turns
         c.execute("DELETE FROM vehicle_events WHERE camera_id=? AND NOT (movement='through')", (camera_id,))
+        # Optionally swap in FRESH throughs (e.g. an NMS bytetrack retrack) instead
+        # of project.db's — fixes stale/duplicated shipped throughs.
+        if throughs_db:
+            c.execute("DELETE FROM vehicle_events WHERE camera_id=? AND movement='through'", (camera_id,))
+            c.execute(f"INSERT INTO vehicle_events ({cl}) SELECT {cl} FROM thr.vehicle_events "
+                      f"WHERE camera_id=? AND rejected=0 AND movement='through'", (camera_id,))
         idf = ",".join(str(i) for i in keep) or "-1"
         ins = c.execute(f"INSERT INTO vehicle_events ({cl}) SELECT {cl} FROM bot.vehicle_events "
                         f"WHERE camera_id=? AND movement IN ('left','right','u_turn') AND event_id IN ({idf})",
@@ -87,6 +95,8 @@ def build(camera_id, out_db, bot_db, bank, start_hms, minutes):
                       (camera_id, p["origin_leg_id"], p["destination_leg_id"], json.dumps(p["polyline"]),
                        p["movement_label"], p.get("supporting_count", 0), p.get("source", "data-driven"), now))
     c.execute("DETACH DATABASE bot")
+    if throughs_db:
+        c.execute("DETACH DATABASE thr")
     c.close()
     print(f"hybrid cam{camera_id}: bytetrack throughs kept + BoT turns {n_turn}->{ins} merged -> {out_db}")
 
@@ -99,6 +109,9 @@ def main() -> int:
     ap.add_argument("--out-db", default=None)
     ap.add_argument("--bot-db", default=None)
     ap.add_argument("--bank", default=None)
+    ap.add_argument("--throughs-db", default=None,
+                    help="swap throughs from this DB (e.g. an NMS bytetrack retrack) "
+                         "instead of project.db's stale throughs")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
     cam = args.camera
@@ -107,7 +120,7 @@ def main() -> int:
     bank = args.bank or f"evaluations/recal_cam{cam}.json"
     Path(out_db).parent.mkdir(parents=True, exist_ok=True)
 
-    build(cam, out_db, bot_db, bank, args.start_hms, args.minutes)
+    build(cam, out_db, bot_db, bank, args.start_hms, args.minutes, throughs_db=args.throughs_db)
 
     # measure the hybrid DB with the universal metric
     print()

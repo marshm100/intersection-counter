@@ -39,18 +39,20 @@ from hybrid_prototype import retrack
 from hybrid_ocbot import combine_regimes
 from build_reid_cache import sidecar_path
 from reid_embedding_cache import ReidEmbeddingCache
-from od_accuracy import manual_per_minute, our_per_minute, LEG_IDX, IDX_NAME
+from od_accuracy import manual_per_minute, our_per_minute, leg_idx, LEG_IDX, IDX_NAME
 from groundtruth import VIDEO_START
 
 PROJECT = "97a7849a"
 
 
-def _measure(db, start_hms, minutes):
+def _measure(db, start_hms, minutes, camera_id=1):
+    legmap = LEG_IDX if camera_id == 1 else leg_idx(camera_id)
     t0 = datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{start_hms}")
     start_sec = (t0 - VIDEO_START).total_seconds()
     minutes_list = [t0 + timedelta(minutes=i) for i in range(int(minutes))]
-    m_od, m_mv, _ = manual_per_minute()
-    o_od, o_mv = our_per_minute(db, start_sec, start_sec + minutes * 60, legmap=LEG_IDX)
+    m_od, m_mv, _ = manual_per_minute(camera_id)
+    o_od, o_mv = our_per_minute(db, start_sec, start_sec + minutes * 60, legmap=legmap,
+                                camera_id=camera_id)
     cells = set()
     for mn in minutes_list:
         cells |= set(m_mv.get(mn, {})) | set(o_mv.get(mn, {}))
@@ -117,10 +119,10 @@ def main() -> int:
     print(f"[3/3] regime combine + intra-turn merge -> {final_db}")
     kept, dropped, n = combine_regimes(
         arm_reid, arm_motion, final_db, merge_turns=True, no_dedup=True,
-        start_hms=args.start_hms, minutes=args.minutes)
+        start_hms=args.start_hms, minutes=args.minutes, camera_id=camera)
     print(f"  throughs(ReID) kept={kept}  turns(motion, merged) inserted={n}")
 
-    net, gross = _measure(final_db, args.start_hms, args.minutes)
+    net, gross = _measure(final_db, args.start_hms, args.minutes, camera_id=camera)
     print(f"\nFINAL cam{camera}: net {net:.1f}%  per-min gross {gross:.1f}%")
 
     if args.apply:

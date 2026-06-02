@@ -29,6 +29,7 @@ from backend.config import (
     ORIGIN_ASSIGN_MIN_FRAMES,
     ORIGIN_REWRITE_GATE_ENABLED,
     ORIGIN_REWRITE_GATE_STRAIGHTNESS,
+    PRE_TRACK_NMS_IOU,
     TRACK_FINALIZE_GAP_FRAMES,
     TRAJECTORY_MIN_DISTANCE_PX,
     USE_JOINT_PARTIAL_FRECHET_SCORER,
@@ -54,6 +55,36 @@ logger = logging.getLogger(__name__)
 _FATAL_ERRORS = (MemoryError, OSError, SystemExit)
 
 MAX_CONSECUTIVE_ERRORS = 50
+
+
+def _class_agnostic_nms(detections: list[dict], iou_thresh: float) -> list[dict]:
+    """Greedy class-agnostic NMS: drop a lower-confidence detection that overlaps
+    a kept one at IoU > iou_thresh, IGNORING class. The detector double-boxes one
+    vehicle across classes (e.g. 'car' + 'truck'); YOLO's per-class NMS leaves
+    those, and the tracker then assigns each box its own ID (parallel duplicate
+    tracks). Collapsing them here, at the tracking input only, removes the
+    duplicate IDs without touching the raw detection cache. See config
+    PRE_TRACK_NMS_IOU."""
+    order = sorted(detections, key=lambda d: -d.get("confidence", 0.0))
+    kept: list[dict] = []
+    for d in order:
+        bx = d["bbox"]
+        dup = False
+        for k in kept:
+            kb = k["bbox"]
+            ix1, iy1 = max(bx[0], kb[0]), max(bx[1], kb[1])
+            ix2, iy2 = min(bx[2], kb[2]), min(bx[3], kb[3])
+            iw, ih = max(0.0, ix2 - ix1), max(0.0, iy2 - iy1)
+            inter = iw * ih
+            if inter <= 0:
+                continue
+            ua = ((bx[2]-bx[0])*(bx[3]-bx[1]) + (kb[2]-kb[0])*(kb[3]-kb[1]) - inter)
+            if ua > 0 and inter / ua > iou_thresh:
+                dup = True
+                break
+        if not dup:
+            kept.append(d)
+    return kept
 
 
 class ProcessingPipeline:
@@ -382,6 +413,8 @@ class ProcessingPipeline:
         re-inferring the video — the tracker/attribution path is agnostic to
         whether detections came live or from the Parquet cache.
         """
+        if PRE_TRACK_NMS_IOU is not None and len(detections) > 1:
+            detections = _class_agnostic_nms(detections, PRE_TRACK_NMS_IOU)
         tracked = self.tracker.update(detections, frame_number)
         self._latest_tracks = tracked
 

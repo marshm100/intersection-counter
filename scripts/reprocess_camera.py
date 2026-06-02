@@ -104,6 +104,11 @@ def main() -> int:
     ap.add_argument("--project", default="97a7849a")
     ap.add_argument("--camera", type=int, default=1)
     ap.add_argument("--mode", default="balanced")
+    ap.add_argument("--variant", default=None,
+                    help="detection-cache variant name (parquet stem). Defaults to "
+                         "DEFAULT_VARIANT (balanced_960_skip1). Set this to write a "
+                         "non-default cache (e.g. accurate_1280_skip1) WITHOUT clobbering "
+                         "the shipped 960 cache.")
     ap.add_argument("--yes", action="store_true",
                     help="actually run (DELETES the camera's events first); "
                          "without it, prints the plan and exits")
@@ -241,7 +246,7 @@ def main() -> int:
             video["path"], file_size_bytes=video.get("file_size_bytes"),
             total_frames=video["total_frames"],
         )
-        pq = parquet_path(args.project, args.camera, chash, DEFAULT_VARIANT)
+        pq = parquet_path(args.project, args.camera, chash, args.variant or DEFAULT_VARIANT)
         writer = DetectionCacheWriter(pq_path=pq, metadata={
             "camera_id": args.camera, "content_hash": chash, "method": method,
             "model": mode_cfg["yolo_model"], "imgsz": mode_cfg["yolo_imgsz"],

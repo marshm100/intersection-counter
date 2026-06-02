@@ -40,13 +40,13 @@ TURNS = ("left", "right", "u_turn")
 CAMERA = 1
 
 
-def _load(db, where):
+def _load(db, where, camera_id=CAMERA):
     c = sqlite3.connect(str(db))
     rows = c.execute(
         "SELECT event_id, movement, origin_leg_id, destination_leg_id, "
         "start_frame, frame_number, trajectory_data "
         f"FROM vehicle_events WHERE camera_id=? AND rejected=0 AND ({where})",
-        (CAMERA,)).fetchall()
+        (camera_id,)).fetchall()
     c.close()
     out = []
     for eid, mv, ol, dl, sf, ef, tj in rows:
@@ -115,18 +115,20 @@ def _overlap(a, b):
 
 def combine_regimes(oc_db, bot_db, out_db, *, merge_turns=True, merge_px=30.0,
                     merge_gap=40.0, merge_vol_factor=1.3, no_dedup=True,
-                    dedup_px=60.0, start_hms="07:00:00", minutes=30.0):
+                    dedup_px=60.0, start_hms="07:00:00", minutes=30.0,
+                    camera_id=CAMERA):
     """Assemble the regime-split combined DB: OC/throughs arm + BoT/turns arm.
     combined = {oc_db events movement='through'} U {bot_db turn events}, with the
     A2 volume-gated intra-turn merge and (default-off) cross-backend boundary dedup.
-    Writes out_db (a copy of oc_db with camera-1 events replaced) and returns
+    Writes out_db (a copy of oc_db with this camera's events replaced) and returns
     (oc_throughs_kept, oc_dropped, bot_turns_inserted). Shared by hybrid_ocbot.main
-    (offline measure) and process_camera_reid.py (production orchestrator)."""
-    oc_thru = _load(oc_db, "movement = 'through'")
-    bot_turn = _load(bot_db, "movement IN ('left','right','u_turn')")
+    (offline measure) and process_camera_reid.py (production orchestrator).
+    camera_id parameterizes the camera (default cam1 for the legacy offline path)."""
+    oc_thru = _load(oc_db, "movement = 'through'", camera_id)
+    bot_turn = _load(bot_db, "movement IN ('left','right','u_turn')", camera_id)
     keep_turn_ids = None
     if merge_turns:
-        expected = manual_od_by_cell(start_hms, minutes)
+        expected = manual_od_by_cell(start_hms, minutes, camera_id=camera_id)
         keep_turn_ids = merge_turn_fragments(bot_turn, merge_px, merge_gap,
                                              expected_by_cell=expected, vol_factor=merge_vol_factor)
     drop_oc = set()
@@ -148,7 +150,7 @@ def combine_regimes(oc_db, bot_db, out_db, *, merge_turns=True, merge_px=30.0,
             if r[1] != "event_id"]
     collist = ",".join(cols)
     with c:
-        c.execute("DELETE FROM vehicle_events WHERE camera_id=? AND NOT (movement='through')", (CAMERA,))
+        c.execute("DELETE FROM vehicle_events WHERE camera_id=? AND NOT (movement='through')", (camera_id,))
         if drop_oc:
             c.executemany("DELETE FROM vehicle_events WHERE event_id=?", [(i,) for i in drop_oc])
         c.execute("ATTACH DATABASE ? AS botdb", (str(bot_db),))
@@ -159,7 +161,7 @@ def combine_regimes(oc_db, bot_db, out_db, *, merge_turns=True, merge_px=30.0,
         n = c.execute(
             f"INSERT INTO vehicle_events ({collist}) SELECT {sel} FROM botdb.vehicle_events "
             f"WHERE camera_id=? AND rejected=0 AND movement IN ('left','right','u_turn'){id_filter}",
-            (CAMERA,)).rowcount
+            (camera_id,)).rowcount
     c.execute("DETACH DATABASE botdb")
     c.close()
     return len(oc_thru) - len(drop_oc), len(drop_oc), n
