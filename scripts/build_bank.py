@@ -130,6 +130,10 @@ def main() -> int:
                     help="reject turn polylines straighter than this (if also over-supported)")
     ap.add_argument("--magnet-support-factor", type=float, default=3.0,
                     help="a turn polyline is a magnet only if support > factor*manual")
+    ap.add_argument("--recovery-overcollect-factor", type=float, default=3.0,
+                    help="reject a heading-recovered cell whose support exceeds this "
+                         "factor * manual (over-collection guard; independent of the "
+                         "straightness-paired magnet gate)")
     ap.add_argument("--variant", default=None, help="detection-cache variant (default DEFAULT_VARIANT)")
     args = ap.parse_args()
     cam = args.camera
@@ -191,10 +195,24 @@ def main() -> int:
         if len(g) < args.min_support:
             hg = hgroups.get((ol, dl), [])
             if len(hg) >= args.min_support:
-                print(f"{f'L{ol}->L{dl} {mv}':<22}{man:>7.0f}{len(g):>7}  "
-                      f"RECOVERED via heading ({len(hg)} tracks)")
-                g = hg
-                source = "data-driven-heading-recovered"
+                # Over-collection gate: heading re-binning is looser than
+                # nearest-anchor, so on dense/ID-switchy cameras it can sweep in
+                # unrelated tracks. If it collects FAR more than Miovision says
+                # exist, it's noise, not a recovered movement — reject (the cell
+                # falls through to its under-supported primary and is skipped).
+                # Distinct from the magnet gate (which also needs straightness):
+                # a recovered TURN curves, so only over-collection flags it.
+                # cam2 SB-left 27->26: 75 tracks vs manual 19 -> rejected (would
+                # snap-magnet 66 at apply); EB-thru 25/31 and WB-left 22/14 kept.
+                if len(hg) > args.recovery_overcollect_factor * max(man, 1):
+                    print(f"{f'L{ol}->L{dl} {mv}':<22}{man:>7.0f}{len(g):>7}  "
+                          f"RECOVERY_REJECTED (heading {len(hg)} > "
+                          f"{args.recovery_overcollect_factor:.0f}x manual {man:.0f} — over-collecting)")
+                else:
+                    print(f"{f'L{ol}->L{dl} {mv}':<22}{man:>7.0f}{len(g):>7}  "
+                          f"RECOVERED via heading ({len(hg)} tracks)")
+                    g = hg
+                    source = "data-driven-heading-recovered"
         status = "ok" if len(g) >= args.min_support else f"too_few({len(g)})"
         if source == "data-driven-rawtrack":
             print(f"{f'L{ol}->L{dl} {mv}':<22}{man:>7.0f}{len(g):>7}  {status}")
