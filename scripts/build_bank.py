@@ -35,6 +35,56 @@ PROJECT = "97a7849a"
 MV_OUT = {"thru": "through", "left": "left", "right": "right", "uturn": "u_turn"}
 
 
+# --- Heading-based OD recovery (Phase: fix the build_bank blind spot) ---------
+# Primary grouping is nearest-leg-anchor on the track endpoints (cheap, correct
+# for most cells). It FAILS for turns whose tracks start/end near the SAME leg
+# anchor — e.g. a right turn that queues by the cross-street's anchor: both
+# endpoints bin to that leg, so the real (origin,dest) cell gets zero tracks and
+# the Miovision movement is silently dropped (cam5 EB-right 38->39: 36 real BoT
+# tracks all mis-binned to (39,39); the data-driven bank then had no path, so the
+# pipeline's polyline attribution had nothing to match and the whole movement read
+# 0). Heading recovery re-bins by DIRECTION OF TRAVEL vs each leg's calibrated
+# reference_heading (entry bearing ~= origin leg heading; exit bearing ~= reverse
+# of dest leg heading), which is robust to where the track happens to start/end.
+# It is used ONLY to RECOVER a Miovision cell that nearest-anchor left
+# under-supported (never to override a cell that already works), so it cannot
+# regress cameras whose anchors are fine (e.g. cam3 T: no dropped cells -> no-op).
+def _seg_bearing(a, b) -> float:
+    """Bearing a->b, 0deg=N(up), 90deg=E(right). Image coords (y down)."""
+    return math.degrees(math.atan2(b[0] - a[0], -(b[1] - a[1]))) % 360
+
+
+def _avg_bearing(poly, k: int = 3, tail: bool = False):
+    """Circular mean of the first (or last, if tail) k segment bearings.
+    Returns None if degenerate (too short / all zero-length)."""
+    pts = poly[-k - 1:] if tail else poly[:k + 1]
+    s = co = 0.0
+    n = 0
+    for i in range(len(pts) - 1):
+        h = math.radians(_seg_bearing(pts[i], pts[i + 1]))
+        s += math.sin(h); co += math.cos(h); n += 1
+    if n == 0 or (abs(s) < 1e-9 and abs(co) < 1e-9):
+        return None
+    return math.degrees(math.atan2(s, co)) % 360
+
+
+def _bearing_diff(a: float, b: float) -> float:
+    return abs((a - b + 180) % 360 - 180)
+
+
+def heading_origin_dest(poly, refh: dict):
+    """(origin_leg, dest_leg) for a track by matching its entry bearing to each
+    leg's reference_heading and its exit bearing to the reverse heading.
+    Either may be None when the bearing is degenerate."""
+    eb = _avg_bearing(poly, 3, tail=False)
+    xb = _avg_bearing(poly, 3, tail=True)
+    o = (min(refh, key=lambda l: _bearing_diff(eb, refh[l]))
+         if eb is not None and refh else None)
+    d = (min(refh, key=lambda l: _bearing_diff(xb, (refh[l] + 180) % 360))
+         if xb is not None and refh else None)
+    return o, d
+
+
 def cells_for_camera(camera_id: int, start_hms: str, minutes: float) -> dict:
     """(origin_leg, dest_leg, db_movement) -> manual count for the window, from
     the camera's Miovision OD + the cardinal leg<->approach map."""
@@ -91,8 +141,10 @@ def main() -> int:
     c = sqlite3.connect(f"data/projects/{PROJECT}/project.db")
     v = c.execute("SELECT path,file_size_bytes,total_frames,fps FROM videos "
                   "WHERE camera_id=? ORDER BY sort_order LIMIT 1", (cam,)).fetchone()
-    legs = {lid: json.loads(oz)[0] for lid, oz in
-            c.execute("SELECT leg_id,origin_zone FROM legs WHERE camera_id=?", (cam,)) if oz}
+    leg_rows = c.execute("SELECT leg_id,origin_zone,reference_heading FROM legs "
+                         "WHERE camera_id=?", (cam,)).fetchall()
+    legs = {lid: json.loads(oz)[0] for lid, oz, _ in leg_rows if oz}
+    refh = {lid: rh for lid, _, rh in leg_rows if rh is not None}
     c.close()
     fps = float(v[3])
     ch, _ = compute_video_content_hash(v[0], file_size_bytes=v[1], total_frames=v[2])
@@ -114,10 +166,14 @@ def main() -> int:
     def plen(p):
         return sum(math.hypot(p[i][0] - p[i-1][0], p[i][1] - p[i-1][1]) for i in range(1, len(p)))
 
-    groups = defaultdict(list)
+    groups = defaultdict(list)        # primary: nearest-anchor (origin,dest)
+    hgroups = defaultdict(list)       # recovery: heading-based (origin,dest)
     for pts in tr.values():
         if len(pts) >= 4 and plen(pts) >= args.min_path:
             groups[(nearest(pts[0]), nearest(pts[-1]))].append(pts)
+            ho, hd = heading_origin_dest(pts, refh)
+            if ho is not None and hd is not None:
+                hgroups[(ho, hd)].append(pts)
 
     paths = []
     print(f"cam{cam} bank — window {args.start_hms}+{args.minutes:.0f}min, {len(frames)} cached frames")
@@ -126,8 +182,22 @@ def main() -> int:
         if man < args.min_support:
             continue
         g = groups.get((ol, dl), [])
+        source = "data-driven-rawtrack"
+        # Blind-spot recovery: nearest-anchor left this real Miovision cell
+        # under-supported. Re-bin by direction of travel (heading vs the legs'
+        # calibrated reference_headings) before giving up. Only RECOVERS dropped
+        # cells; never overrides a working one — so it is a no-op where anchors
+        # already suffice and cannot regress those cameras.
+        if len(g) < args.min_support:
+            hg = hgroups.get((ol, dl), [])
+            if len(hg) >= args.min_support:
+                print(f"{f'L{ol}->L{dl} {mv}':<22}{man:>7.0f}{len(g):>7}  "
+                      f"RECOVERED via heading ({len(hg)} tracks)")
+                g = hg
+                source = "data-driven-heading-recovered"
         status = "ok" if len(g) >= args.min_support else f"too_few({len(g)})"
-        print(f"{f'L{ol}->L{dl} {mv}':<22}{man:>7.0f}{len(g):>7}  {status}")
+        if source == "data-driven-rawtrack":
+            print(f"{f'L{ol}->L{dl} {mv}':<22}{man:>7.0f}{len(g):>7}  {status}")
         if len(g) < args.min_support:
             continue
         poly = _fit_mean_polyline(g, args.poly_pts)
@@ -144,7 +214,7 @@ def main() -> int:
                 continue
         paths.append({"origin_leg_id": ol, "destination_leg_id": dl, "movement_label": mv,
                       "polyline": [[round(x, 1), round(y, 1)] for x, y in poly],
-                      "supporting_count": len(g), "source": "data-driven-rawtrack"})
+                      "supporting_count": len(g), "source": source})
     out = {"project": PROJECT, "camera_id": cam, "updated_legs": [], "paths": paths}
     Path(out_path).write_text(json.dumps(out, indent=2))
     print(f"\nwrote {out_path}  ({len(paths)} paths)")
