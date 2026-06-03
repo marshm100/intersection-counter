@@ -225,10 +225,24 @@ def main() -> int:
             pl = plen(poly)
             straightness = (math.hypot(poly[-1][0] - poly[0][0], poly[-1][1] - poly[0][1]) / pl
                             if pl > 1e-9 else 1.0)
-            if (straightness > args.magnet_straight_thr
-                    and len(g) > args.magnet_support_factor * max(man, 1)):
+            recovered = source == "data-driven-heading-recovered"
+            # A real turn CURVES (cam5 EB-right 0.43, cam2 WB-left 0.54). A
+            # heading-recovered "turn" that is geometrically STRAIGHT is arterial
+            # throughs mis-binned by exit heading — it snap-magnets throughs at
+            # apply (cam4 35->34: straightness 0.993, support 12 but captures 184).
+            # For recovered turns, straightness alone is the magnet signal: the
+            # over-support condition can't be required (recovery support is low by
+            # construction, so it would evade the gate). Primary turns keep the
+            # straightness+over-support pairing that spares low-volume genuine
+            # turns (cam2). See memory project_build_bank_recovery.
+            magnet = (straightness > args.magnet_straight_thr
+                      and len(g) > args.magnet_support_factor * max(man, 1))
+            straight_recovery = recovered and straightness > args.magnet_straight_thr
+            if magnet or straight_recovery:
+                why = ("straight recovery — mis-binned throughs" if straight_recovery
+                       else f"support>{args.magnet_support_factor:.0f}x manual")
                 print(f"{f'L{ol}->L{dl} {mv}':<22}{man:>7.0f}{len(g):>7}  "
-                      f"MAGNET_REJECTED (straightness={straightness:.3f}, support>{args.magnet_support_factor:.0f}x manual)")
+                      f"MAGNET_REJECTED (straightness={straightness:.3f}, {why})")
                 continue
         paths.append({"origin_leg_id": ol, "destination_leg_id": dl, "movement_label": mv,
                       "polyline": [[round(x, 1), round(y, 1)] for x, y in poly],
