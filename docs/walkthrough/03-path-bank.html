@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>3. The Path Bank — intersection-counter walkthrough</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="top">
+  <a class="home" href="index.html">intersection-counter</a>
+  <a href="00-overview.html">0. Overview</a>
+  <a href="01-calibration.html">1. Calibration</a>
+  <a href="02-detection-tracking.html">2. Detect+Track</a>
+  <a href="03-path-bank.html" class="current">3. Path Bank</a>
+  <a href="04-origin-attribution.html">4. Origin</a>
+  <a href="05-classification.html">5. Classify</a>
+  <a href="06-aggregation.html">6. Aggregate</a>
+  <a href="07-accuracy.html">7. Accuracy</a>
+  <a href="08-corridor.html">8. Corridor</a>
+</nav>
+<main>
+  <h1>3. The Path Bank</h1>
+  <p class="lede">
+    The single most important object in the current pipeline. A per-camera set of
+    polylines — one per real turning movement — that captures the <em>actual shape</em>
+    of every road through the intersection. Origin, destination, and movement are all
+    read off the path a vehicle matches, not guessed from a point and an angle.
+  </p>
+
+  <h2>Why a single origin point isn't enough</h2>
+  <p>
+    Calibration (page 1) captures one click per leg plus a heading. That was the whole
+    geometry in the v2 pipeline, and it has a structural flaw at these cameras:
+    <strong>vehicles enter YOLO's field of view already mid-turn.</strong> A track's first
+    few points reflect where it is in the <em>turn</em>, not which approach it came from —
+    so the entry tangent points the wrong way, and a point-and-heading scheme mis-attributes
+    it. Queuing, occlusion, and edge-of-frame entry make it worse.
+  </p>
+  <p>
+    The fix is to match against the <strong>whole road</strong>, not a point. If we know the
+    shape of "EB Barnes Bridge → NB Belt Line (a right turn)" as a curve in image space, a
+    vehicle that traces that curve is that movement — regardless of where in the curve YOLO
+    first caught it. The bank is that library of road shapes.
+  </p>
+
+  <h2>What a path is</h2>
+  <p>
+    One row in the <code>intersection_paths</code> table (mirrored on disk as
+    <code>evaluations/recal_cam&lt;N&gt;.json</code>). Each path is a single
+    origin→destination movement with the polyline that vehicles making it actually follow:
+  </p>
+  <pre>{
+  "origin_leg_id":      38,            # EB Barnes Bridge Rd
+  "destination_leg_id": 39,            # NB N Belt Line Rd
+  "movement_label":     "right",
+  "polyline": [[633,252],[610,244],[586,234],[546,222],   # image-space curve,
+               [540,205],[560,196],[575,192],[581,189]],  # entry → through → exit
+  "supporting_count":   43,            # how many real tracks fit it when built
+  "source": "data-driven-heading-recovered"
+}</pre>
+  <p>
+    A four-leg intersection has up to 12 turning movements (each of 4 legs → the other 3);
+    a real one has fewer, because not every movement physically exists. The bank holds
+    <em>only the movements Miovision confirms occur</em> — typically 6–10 paths per camera.
+  </p>
+
+  <h2>How the bank is derived</h2>
+  <p>
+    The bank is <strong>not hand-drawn</strong>. <code>scripts/build_bank.py</code> derives it
+    from real tracks, gated by ground-truth volumes. Turn <em>geometry</em> comes from the
+    video; which turns are <em>real</em> comes from Miovision — neither is ever guessed.
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" font-size="12">
+      <!-- 1. raw tracks -->
+      <rect x="16" y="40" width="170" height="170" rx="6" fill="#1a2128" stroke="#2a323c"/>
+      <text x="101" y="32" text-anchor="middle" fill="#8a96a3" font-size="11">raw BoT-SORT tracks</text>
+      <g fill="none" stroke-width="1.2" opacity="0.8" class="wt-pulse">
+        <path d="M30,180 C70,150 120,120 175,95" stroke="#5fc7ff"/>
+        <path d="M34,185 C74,156 120,126 172,102" stroke="#5fc7ff"/>
+        <path d="M40,60 C70,110 110,150 175,185" stroke="#7ee787"/>
+        <path d="M36,64 C68,112 108,150 172,182" stroke="#7ee787"/>
+        <path d="M170,55 C120,80 80,120 30,140" stroke="#d27bff"/>
+        <path d="M30,120 C90,130 130,120 175,70" stroke="#ff7b3a"/>
+      </g>
+      <text x="101" y="226" text-anchor="middle" fill="#8a96a3" font-size="10">messy, jittery, fragmented</text>
+
+      <line x1="190" y1="125" x2="232" y2="125" stroke="#8a96a3" marker-end="url(#a)" class="wt-flow"/>
+      <text x="211" y="116" text-anchor="middle" fill="#8a96a3" font-size="10">group + gate</text>
+
+      <!-- 2. Miovision OD -->
+      <rect x="238" y="40" width="180" height="170" rx="6" fill="#1a2128" stroke="#2a323c"/>
+      <text x="328" y="32" text-anchor="middle" fill="#8a96a3" font-size="11">Miovision OD (truth)</text>
+      <g font-family="SF Mono, Consolas, monospace" font-size="10.5" fill="#8a96a3">
+        <text x="252" y="66">cell        vol</text>
+        <text x="252" y="86" fill="#7ee787">39→37 thru  650 ✓</text>
+        <text x="252" y="104" fill="#7ee787">38→39 right  39 ✓</text>
+        <text x="252" y="122" fill="#7ee787">39→38 left   86 ✓</text>
+        <text x="252" y="140" fill="#ff7777">39→36 right   5 ✗</text>
+        <text x="252" y="158" fill="#8a96a3">(below floor)</text>
+        <text x="252" y="182">gates which cells</text>
+        <text x="252" y="196">are real movements</text>
+      </g>
+
+      <line x1="422" y1="125" x2="464" y2="125" stroke="#8a96a3" marker-end="url(#a)" class="wt-flow"/>
+      <text x="443" y="116" text-anchor="middle" fill="#8a96a3" font-size="10">fit polyline</text>
+
+      <!-- 3. the bank -->
+      <rect x="470" y="40" width="274" height="170" rx="6" fill="#1a2128" stroke="#5fb3ff"/>
+      <text x="607" y="32" text-anchor="middle" fill="#e8edf2" font-size="11" font-weight="600">the path bank</text>
+      <g fill="none" stroke-width="2.5">
+        <path id="bank-thru" d="M486,170 C540,150 600,120 728,98" stroke="#7ee787"/>
+        <path id="bank-turn" d="M500,60 C520,110 560,150 620,165 C670,176 700,150 730,120" stroke="#5fc7ff"/>
+        <path id="bank-left" d="M730,60 C660,80 560,120 486,135" stroke="#d27bff"/>
+      </g>
+      <!-- vehicles ride the clean bank curves: every car of a movement follows the one learned shape -->
+      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#7ee787"><animateMotion dur="4s"   repeatCount="indefinite" rotate="auto"><mpath href="#bank-thru"/></animateMotion></rect>
+      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#5fc7ff"><animateMotion dur="4.6s" begin="-1.5s" repeatCount="indefinite" rotate="auto"><mpath href="#bank-turn"/></animateMotion></rect>
+      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#d27bff"><animateMotion dur="3.6s" begin="-0.8s" repeatCount="indefinite" rotate="auto"><mpath href="#bank-left"/></animateMotion></rect>
+      <text x="607" y="196" text-anchor="middle" fill="#8a96a3" font-size="10">one clean curve per real movement — every car follows it</text>
+
+      <defs>
+        <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8a96a3"/></marker>
+      </defs>
+    </svg>
+    <figcaption>build_bank: messy raw tracks, grouped into the movements Miovision says are real, each fit to one mean polyline.</figcaption>
+  </figure>
+
+  <div class="pipeline-step"><span class="num">1</span>
+    <span><strong>Track the calibration window</strong> — run BoT-SORT over the detection cache
+    (page 2) for a representative window. Each surviving track is a point list.</span></div>
+  <div class="pipeline-step"><span class="num">2</span>
+    <span><strong>Read the real movements from Miovision</strong> — the per-minute origin→destination
+    matrix says which <code>(origin_leg, dest_leg, movement)</code> cells occur and at what volume.
+    Cells below <code>min_support</code> are skipped.</span></div>
+  <div class="pipeline-step"><span class="num">3</span>
+    <span><strong>Group tracks into cells</strong> — primary binning is by the nearest leg origin-anchor
+    to each track's start and end. (Where that drops a real movement, a heading-based recovery re-bins
+    by direction of travel — see page 7.)</span></div>
+  <div class="pipeline-step"><span class="num">4</span>
+    <span><strong>Fit one mean polyline per cell</strong> — average the grouped tracks into a single
+    smooth curve of ~15 points.</span></div>
+  <div class="pipeline-step"><span class="num">5</span>
+    <span><strong>Quality-gate it</strong> — reject paths that would misbehave at attribution time
+    (below).</span></div>
+
+  <h2>The quality gates</h2>
+  <p>
+    A fitted polyline can be geometrically wrong in ways that cause it to <em>steal</em> traffic
+    at attribution time — a "snap-magnet." The gates are all data-driven (no per-camera flags):
+  </p>
+  <table>
+    <thead><tr><th>Gate</th><th>Rejects</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="mono">magnet</td>
+        <td>a TURN path that is geometrically <strong>straight</strong> (chord/arc &gt; 0.95)
+            <em>and</em> over-supported (support &gt; 3× its Miovision volume)</td>
+        <td>a straight "turn" is really an arterial through mislabeled by endpoint grouping; at apply
+            it captures the through stream</td>
+      </tr>
+      <tr>
+        <td class="mono">over-collection</td>
+        <td>a heading-<em>recovered</em> cell whose support exceeds 3× its Miovision volume</td>
+        <td>looser heading binning can sweep in unrelated tracks on dense cameras</td>
+      </tr>
+      <tr>
+        <td class="mono">straight-recovery</td>
+        <td>a recovered TURN that is straight (chord/arc &gt; 0.95), regardless of support</td>
+        <td>a recovered turn that doesn't curve is arterial throughs in disguise — real turns curve
+            (a genuine recovered right turn measures ~0.43)</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    These exist because the bank is built <em>from tracker output</em>, so it inherits the tracker's
+    mistakes. The whole story of catching and gating those mistakes — including the per-camera A/B
+    discipline that is the final gate — lives on page 7.
+  </p>
+
+  <h2>What the bank then drives</h2>
+  <p>
+    Once built, the bank is the geometry every downstream stage reads from:
+  </p>
+  <ul>
+    <li><strong>Origin &amp; attribution</strong> (page 4) — each live trajectory is matched against the
+      bank's sub-curves; origin is <em>read off</em> the winning path.</li>
+    <li><strong>Movement classification</strong> (page 5) — the matched path already carries its
+      <code>movement_label</code> and destination leg.</li>
+  </ul>
+  <div class="callout">
+    <strong>Apply it safely.</strong> Writing a bank into <code>project.db</code> goes through
+    <code>scripts/apply_bank.py</code> / <code>apply_hybrid.py</code>, which back up first.
+    A direct <code>PUT /calibration/legs</code> is destructive — it wipes the camera's events —
+    so bank changes never go through that path.
+  </div>
+
+  <footer class="page-foot">
+    <a href="02-detection-tracking.html">← 2. Detection &amp; Tracking</a>
+    <a href="04-origin-attribution.html">4. Origin &amp; Attribution →</a>
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>7. Accuracy &amp; Validation — intersection-counter walkthrough</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="top">
+  <a class="home" href="index.html">intersection-counter</a>
+  <a href="00-overview.html">0. Overview</a>
+  <a href="01-calibration.html">1. Calibration</a>
+  <a href="02-detection-tracking.html">2. Detect+Track</a>
+  <a href="03-path-bank.html">3. Path Bank</a>
+  <a href="04-origin-attribution.html">4. Origin</a>
+  <a href="05-classification.html">5. Classify</a>
+  <a href="06-aggregation.html">6. Aggregate</a>
+  <a href="07-accuracy.html" class="current">7. Accuracy</a>
+  <a href="08-corridor.html">8. Corridor</a>
+</nav>
+<main>
+  <h1>7. Accuracy &amp; Validation</h1>
+  <p class="lede">
+    The pipeline is judged against a commercial ground truth (Miovision) and tuned until it agrees.
+    This page is the measurement discipline and the specific defenses that close the gap — the part
+    of the system that turns "it runs" into "it's right."
+  </p>
+
+  <h2>The metric</h2>
+  <p>
+    Ground truth is the Miovision <strong>per-minute origin→destination matrix</strong>. The headline
+    number is <strong>net error at TMC granularity</strong>: for each 15-minute per-movement cell,
+    <code>|ours − Miovision|</code>, summed and normalized. We report <em>net</em> (not per-minute gross)
+    because the deliverable is a 15-minute TMC, and minute-level timing jitter — a vehicle Miovision
+    logs at 07:14:59 and we log at 07:15:01 — isn't a real error at that granularity.
+  </p>
+  <table>
+    <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><strong>net error</strong></td><td>disagreement at 15-min granularity — the deliverable's accuracy</td></tr>
+      <tr><td><strong>gross error</strong></td><td>per-minute disagreement — always higher; the gap to net is timing + compensating over/under counts</td></tr>
+      <tr><td><strong>hidden</strong></td><td>a cell that's right on net but wrong on gross (an over-count cancels an under-count)</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <strong>≤1% is aspirational, not a floor.</strong> On busy approaches the timing jitter alone, plus
+    Miovision's own counting noise, sets a floor above zero. The goal is to match Miovision within that
+    noise, not to beat it. <code>scripts/od_accuracy.py --camera N</code> prints the per-movement table.
+  </div>
+
+  <h2>The iteration loop</h2>
+  <p>
+    The <a href="02-detection-tracking.html">detection cache</a> makes tuning fast: detection runs once;
+    every tracker/bank/attribution experiment <em>retracks</em> the cached detections in minutes. So the
+    loop is tight:
+  </p>
+  <div class="pipeline-step"><span class="num">1</span><span><code>build_bank.py</code> — derive the bank from cached tracks + Miovision OD</span></div>
+  <div class="pipeline-step"><span class="num">2</span><span><code>apply_bank.py</code> / <code>apply_hybrid.py</code> — retrack the window with that bank (no re-detection)</span></div>
+  <div class="pipeline-step"><span class="num">3</span><span><code>od_accuracy.py</code> — measure net error per movement</span></div>
+  <div class="pipeline-step"><span class="num">4</span><span>compare A/B, keep the winner, repeat</span></div>
+
+  <h2>Defense 1 — the snap-magnet</h2>
+  <p>
+    Reading origin/movement off a matched path (page 4) fails badly when a bank path is geometrically
+    <strong>straight</strong>: a "turn" polyline that runs straight down the arterial will shape-match the
+    through stream and swallow it, rewriting hundreds of throughs into a turn with manual volume 6.
+  </p>
+  <figure>
+    <svg viewBox="0 0 640 220" xmlns="http://www.w3.org/2000/svg" style="background:#0a0e12;border:1px solid #2a323c;">
+      <!-- arterial through stream -->
+      <g stroke="#7ee787" stroke-width="1.2" opacity="0.55" fill="none">
+        <path d="M40,110 L600,96"/><path d="M40,118 L600,104"/><path d="M40,126 L600,112"/>
+        <path d="M40,134 L600,120"/><path d="M40,102 L600,88"/>
+      </g>
+      <text x="40" y="84" fill="#7ee787" font-size="11">arterial through stream (manual: hundreds)</text>
+      <!-- the throughs themselves, flowing straight down the arterial -->
+      <path id="mag-art" d="M34,118 L606,104" fill="none"/>
+      <g fill="#7ee787">
+        <circle r="4"><animateMotion dur="3s" begin="0s"    repeatCount="indefinite"><mpath href="#mag-art"/></animateMotion></circle>
+        <circle r="4"><animateMotion dur="3s" begin="-0.75s" repeatCount="indefinite"><mpath href="#mag-art"/></animateMotion></circle>
+        <circle r="4"><animateMotion dur="3s" begin="-1.5s"  repeatCount="indefinite"><mpath href="#mag-art"/></animateMotion></circle>
+        <circle r="4"><animateMotion dur="3s" begin="-2.25s" repeatCount="indefinite"><mpath href="#mag-art"/></animateMotion></circle>
+      </g>
+      <!-- straight "turn" path overlaid — collinear with the arterial, so it swallows the stream -->
+      <path d="M40,120 L600,106" fill="none" stroke="#ff7777" stroke-width="3" class="wt-flow"/>
+      <text x="360" y="150" fill="#ff7777" font-size="12">straight "turn" path — manual vol 6</text>
+      <text x="360" y="168" fill="#ff7777" font-size="12" class="wt-pulse">captures the through stream → attributes 214</text>
+    </svg>
+    <figcaption>A straight turn polyline is collinear with the arterial, so it magnets the throughs. Real turns curve away — that's the tell.</figcaption>
+  </figure>
+  <p>Three data-driven gates kill it, none needing a per-camera flag:</p>
+  <ul>
+    <li><strong>Build-time magnet gate</strong> — reject a turn path that is straight (chord/arc &gt; 0.95)
+      <em>and</em> over-supported (&gt; 3× manual volume).</li>
+    <li><strong>Origin-rewrite gate</strong> (attribution, page 4) — refuse to rewrite a straight track's
+      origin to a non-nearest leg (<code>straightness ≥ 0.97</code>). cam4 22.7% → 7.0% net.</li>
+    <li><strong>Straight-recovery gate</strong> — reject a heading-recovered turn that's straight, even at
+      low support (the build-time gate's over-support condition can't catch it).</li>
+  </ul>
+
+  <h2>Defense 2 — recovering dropped movements</h2>
+  <p>
+    The bank is built by grouping tracks on the nearest leg <em>anchor</em> to each endpoint. That
+    silently <strong>drops</strong> any movement whose tracks start and end near the same anchor — a
+    right turn that queues by the cross-street, say. cam5's EB→NB right was tracked 36 times but binned
+    to a nonsense (NB,NB) cell, so the bank had no path and the movement read <strong>1 of 39</strong>.
+  </p>
+  <figure>
+    <svg viewBox="0 0 640 200" xmlns="http://www.w3.org/2000/svg" style="background:#0a0e12;border:1px solid #2a323c;">
+      <!-- two anchors close together -->
+      <circle cx="470" cy="60" r="6" fill="#5fc7ff" class="wt-pulse"/><text x="482" y="64" fill="#5fc7ff" font-size="11">NB anchor</text>
+      <circle cx="485" cy="150" r="6" fill="#ff7b3a" class="wt-pulse"/><text x="497" y="154" fill="#ff7b3a" font-size="11">EB anchor</text>
+      <!-- the EB->NB right turn: starts bottom-right, rises to top-right -->
+      <path id="rec-turn" d="M500,150 C470,130 450,110 470,68" fill="none" stroke="#e8edf2" stroke-width="2.5" marker-end="url(#a)"/>
+      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#e8edf2"><animateMotion dur="3.2s" repeatCount="indefinite" rotate="auto"><mpath href="#rec-turn"/></animateMotion></rect>
+      <text x="250" y="120" fill="#e8edf2" font-size="11" text-anchor="end">EB→NB right turn:</text>
+      <text x="250" y="138" fill="#8a96a3" font-size="11" text-anchor="end">start &amp; end both nearest the NB anchor</text>
+      <text x="250" y="156" fill="#ff7777" font-size="11" text-anchor="end">→ binned (NB,NB), dropped</text>
+      <text x="250" y="180" fill="#7ee787" font-size="11" text-anchor="end">heading recovery re-bins by travel direction → (EB,NB)</text>
+      <defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e8edf2"/></marker></defs>
+    </svg>
+    <figcaption>Heading recovery re-bins by direction of travel vs each leg's reference heading when nearest-anchor drops a real Miovision movement.</figcaption>
+  </figure>
+  <p>
+    <strong>Heading recovery</strong> re-bins those tracks by their <em>direction of travel</em> (entry
+    bearing ≈ origin's heading; exit bearing ≈ reverse of the destination's). It only fires for a real
+    Miovision cell that nearest-anchor left under-supported — so it never overrides a working cell, and
+    is a no-op on cameras whose anchors are fine (cam5 EB→NB recovered 1→16; cam2's dead EB-through 1→38).
+  </p>
+
+  <h2>Defense 3 — duplication</h2>
+  <p>
+    A 25 fps camera double-boxes and ID-switches the same vehicle, inflating throughs. A strict
+    <strong>class-agnostic NMS</strong> before tracking (<code>PRE_TRACK_NMS_IOU = 0.85</code>) collapses
+    the duplicates: cam2 dropped from 29.8% → 20.2% net with the duplicated NB/SB throughs alone fixed.
+    It ships <em>default-off</em> and is enabled per-camera, because on lower-fps cameras it over-merges
+    genuinely-separate vehicles.
+  </p>
+
+  <h2>The discipline: per-camera measurement rules everything</h2>
+  <div class="callout bad">
+    <strong>Every "global" lever flipped sign on some camera.</strong> Fresh throughs helped cam5 and
+    regressed cam4. A pure heading-grouped bank helped cam1 and broke cam3. NMS helps 25 fps and hurts
+    10 fps. There is no corridor-wide knob — so nothing is applied to a camera until it's measured
+    <em>on that camera</em>.
+  </div>
+  <p>The rules that follow from that:</p>
+  <ul>
+    <li><strong>A/B is the ultimate gate.</strong> Build-time gates just stop the worst paths reaching it;
+      the clean A/B (bank ± one change, identical pipeline) is what decides. Build-time support can be low
+      while apply-time capture is catastrophic — only the A/B sees that.</li>
+    <li><strong>Engineer visual gate + atomic backup</strong> before any write to <code>project.db</code>.
+      Every apply backs up first.</li>
+    <li><strong>Pick the tracker per camera by measurement</strong> — see the hybrid on page 2 and the
+      corridor on page 8.</li>
+    <li><strong>No silent caps.</strong> If a step drops data (a gate, a window limit), it's logged, not
+      swallowed.</li>
+  </ul>
+
+  <h2>Offline replay harnesses</h2>
+  <p>
+    Because every event stores its trajectory and <code>classifier_*</code> diagnostics, fixes can be
+    validated offline without re-running detection: <code>scripts/replay_snapmagnet.py</code>,
+    <code>replay_dedup.py</code>, and the overnight <code>overnight_accuracy.py</code> orchestrator
+    re-score stored trajectories under a proposed change and report the net-error delta.
+  </p>
+
+  <footer class="page-foot">
+    <a href="06-aggregation.html">← 6. Aggregation</a>
+    <a href="08-corridor.html">8. The Corridor →</a>
+  </footer>
+</main>
+</body>
+</html>

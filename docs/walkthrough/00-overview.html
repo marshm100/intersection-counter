@@ -11,9 +11,12 @@
   <a href="00-overview.html" class="current">0. Overview</a>
   <a href="01-calibration.html">1. Calibration</a>
   <a href="02-detection-tracking.html">2. Detect+Track</a>
-  <a href="03-origin-assignment.html">3. Origin</a>
-  <a href="04-trajectory-classification.html">4. Classify</a>
-  <a href="05-aggregation.html">5. Aggregate</a>
+  <a href="03-path-bank.html">3. Path Bank</a>
+  <a href="04-origin-attribution.html">4. Origin</a>
+  <a href="05-classification.html">5. Classify</a>
+  <a href="06-aggregation.html">6. Aggregate</a>
+  <a href="07-accuracy.html">7. Accuracy</a>
+  <a href="08-corridor.html">8. Corridor</a>
 </nav>
 <main>
   <h1>0. Overview</h1>
@@ -54,27 +57,27 @@
       <text x="715" y="66" text-anchor="middle" fill="#8a96a3" font-size="11">1+ per camera</text>
 
       <!-- Arrows -->
-      <line x1="180" y1="50" x2="220" y2="50" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)"/>
-      <line x1="410" y1="50" x2="450" y2="50" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)"/>
-      <line x1="610" y1="50" x2="650" y2="50" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="180" y1="50" x2="220" y2="50" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)" class="wt-flow"/>
+      <line x1="410" y1="50" x2="450" y2="50" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)" class="wt-flow"/>
+      <line x1="610" y1="50" x2="650" y2="50" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)" class="wt-flow"/>
 
       <!-- Per-camera child: Legs -->
       <rect x="450" y="140" width="160" height="60" rx="6" fill="#1a2128" stroke="#7ee787"/>
       <text x="530" y="168" text-anchor="middle" fill="#e8edf2" font-weight="600">Legs</text>
       <text x="530" y="186" text-anchor="middle" fill="#8a96a3" font-size="11">3–4 per camera</text>
-      <line x1="530" y1="80" x2="530" y2="140" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="530" y1="80" x2="530" y2="140" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)" class="wt-flow"/>
 
       <!-- Per-intersection-day child: Trims -->
       <rect x="220" y="140" width="190" height="60" rx="6" fill="#1a2128" stroke="#ffb35f"/>
       <text x="315" y="168" text-anchor="middle" fill="#e8edf2" font-weight="600">Trims</text>
       <text x="315" y="186" text-anchor="middle" fill="#8a96a3" font-size="11">wall-clock processing windows</text>
-      <line x1="315" y1="80" x2="315" y2="140" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="315" y1="80" x2="315" y2="140" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)" class="wt-flow"/>
 
       <!-- Per-clip child: vehicle_events -->
       <rect x="650" y="140" width="130" height="60" rx="6" fill="#1a2128" stroke="#d27bff"/>
       <text x="715" y="168" text-anchor="middle" fill="#e8edf2" font-weight="600">vehicle_events</text>
       <text x="715" y="186" text-anchor="middle" fill="#8a96a3" font-size="11">one row per detected pass</text>
-      <line x1="715" y1="80" x2="715" y2="140" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="715" y1="80" x2="715" y2="140" stroke="#8a96a3" stroke-width="1.5" marker-end="url(#arr)" class="wt-flow"/>
 
       <!-- Cross-camera dedup note -->
       <text x="400" y="265" text-anchor="middle" fill="#8a96a3" font-style="italic" font-size="12">
@@ -96,22 +99,78 @@
   <h2>The pipeline at a glance</h2>
   <p>From a video file to a TMC count, the pipeline runs these stages per camera, per clip:</p>
 
+  <figure>
+    <svg viewBox="0 0 760 120" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" font-size="11">
+      <!-- travel path for the data token -->
+      <path id="ov-flow" d="M30,62 L730,62" fill="none"/>
+      <!-- connectors -->
+      <g stroke="#5fb3ff" stroke-width="2" marker-end="url(#ovh)">
+        <line x1="150" y1="62" x2="170" y2="62" class="wt-flow"/>
+        <line x1="298" y1="62" x2="318" y2="62" class="wt-flow"/>
+        <line x1="446" y1="62" x2="466" y2="62" class="wt-flow"/>
+        <line x1="594" y1="62" x2="614" y2="62" class="wt-flow"/>
+      </g>
+      <!-- 5 condensed stage cards -->
+      <g>
+        <rect x="20" y="40" width="130" height="44" rx="6" fill="#1a2128" stroke="#2a323c"/>
+        <text x="85" y="60" text-anchor="middle" fill="#e8edf2" font-weight="600">Video</text>
+        <text x="85" y="75" text-anchor="middle" fill="#8a96a3">frames in</text>
+
+        <rect x="168" y="40" width="130" height="44" rx="6" fill="#1a2128" stroke="#2a323c"/>
+        <text x="233" y="60" text-anchor="middle" fill="#e8edf2" font-weight="600">Detect + Track</text>
+        <text x="233" y="75" text-anchor="middle" fill="#8a96a3">YOLO → trajectories</text>
+
+        <rect x="316" y="40" width="130" height="44" rx="6" fill="#1a2128" stroke="#5fb3ff"/>
+        <text x="381" y="60" text-anchor="middle" fill="#e8edf2" font-weight="600">Path-bank match</text>
+        <text x="381" y="75" text-anchor="middle" fill="#8a96a3">whole-shape compare</text>
+
+        <rect x="464" y="40" width="130" height="44" rx="6" fill="#1a2128" stroke="#5fb3ff"/>
+        <text x="529" y="60" text-anchor="middle" fill="#e8edf2" font-weight="600">Attribute</text>
+        <text x="529" y="75" text-anchor="middle" fill="#8a96a3">origin · move · dest</text>
+
+        <rect x="612" y="40" width="130" height="44" rx="6" fill="#1a2128" stroke="#7ee787"/>
+        <text x="677" y="60" text-anchor="middle" fill="#e8edf2" font-weight="600">TMC Excel</text>
+        <text x="677" y="75" text-anchor="middle" fill="#8a96a3">15-min counts</text>
+      </g>
+      <text x="30" y="24" fill="#8a96a3">one vehicle's data, flowing left → right</text>
+      <!-- the traveling data token + a trailing echo -->
+      <circle r="6" fill="#ffd23f"><animateMotion dur="6.5s" repeatCount="indefinite"><mpath href="#ov-flow"/></animateMotion></circle>
+      <circle r="6" fill="#ffd23f" opacity="0.35"><animateMotion dur="6.5s" begin="-0.4s" repeatCount="indefinite"><mpath href="#ov-flow"/></animateMotion></circle>
+      <defs>
+        <marker id="ovh" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5fb3ff"/></marker>
+      </defs>
+    </svg>
+    <figcaption>The same vehicle's data moving through the five condensed stages. Stages 3–4 (the path bank and what reads off it) are the heart of the v3 pipeline.</figcaption>
+  </figure>
+
   <div class="pipeline-step"><span class="num">1</span>
     <span><strong>Preprocess</strong> — adaptive: histogram correction for low-light frames, no-op otherwise.</span></div>
   <div class="pipeline-step"><span class="num">2</span>
-    <span><strong>Detect</strong> — YOLO finds vehicle bounding boxes per frame.</span></div>
+    <span><strong>Detect</strong> — YOLO finds vehicle bounding boxes per frame; detections are cached so later
+    experiments retrack without re-detecting. <a href="02-detection-tracking.html">Page 2</a>.</span></div>
   <div class="pipeline-step"><span class="num">3</span>
-    <span><strong>Track</strong> — ByteTrack associates same-vehicle detections across frames into <code>track_id</code>s.</span></div>
+    <span><strong>Track</strong> — ByteTrack or BoT-SORT associates same-vehicle detections across frames
+    into <code>track_id</code>s (the tracker is picked per camera by measurement).</span></div>
   <div class="pipeline-step"><span class="num">4</span>
     <span><strong>Accumulate trajectory</strong> — append each frame's bbox center to the track's point list.</span></div>
   <div class="pipeline-step"><span class="num">5</span>
-    <span><strong>Assign origin leg</strong> — three-tier: tripwire crossing → backward extrapolation → heading fallback.</span></div>
+    <span><strong>Match the path bank</strong> — a joint partial-Fréchet scorer matches the trajectory against
+    the camera's learned road polylines. <a href="03-path-bank.html">Page 3</a>.</span></div>
   <div class="pipeline-step"><span class="num">6</span>
-    <span><strong>Finalize &amp; classify</strong> — when the track is lost, score the trajectory to pick destination leg + movement type.</span></div>
+    <span><strong>Read origin + destination + movement</strong> off the matched path — origin is read off the
+    path, not guessed from the entry tangent. <a href="04-origin-attribution.html">Pages 4–5</a>.</span></div>
   <div class="pipeline-step"><span class="num">7</span>
-    <span><strong>Persist event</strong> — write one row to <code>vehicle_events</code> with trajectory, origin, movement, timestamps.</span></div>
+    <span><strong>Persist event</strong> — write one row to <code>vehicle_events</code> with trajectory, origin,
+    movement, timestamps.</span></div>
   <div class="pipeline-step"><span class="num">8</span>
-    <span><strong>Aggregate</strong> — at export time, bin events into 15-min windows and write the TMC Excel.</span></div>
+    <span><strong>Aggregate</strong> — at export time, bin events into 15-min windows and write the TMC Excel.
+    <a href="06-aggregation.html">Page 6</a>.</span></div>
+
+  <p style="color: var(--muted); font-size: 13px; margin-top: 14px;">
+    Stages 5–6 are the heart of the current ("v3") pipeline: instead of attributing each vehicle from a
+    single calibrated point + heading, the system learns the actual shape of every road through the
+    intersection — the <a href="03-path-bank.html">path bank</a> — and matches whole trajectories against it.
+  </p>
 
   <h2>Hard constraints</h2>
   <ul>
@@ -126,9 +185,10 @@
 
   <h2>Where to go next</h2>
   <p>
-    The next two pages set up the geometry and the per-frame work.
-    Pages 3–5 cover the algorithmically interesting parts (origin attribution,
-    classification, aggregation).
+    Pages 1–2 set up the geometry and the per-frame work. Page 3 (the path bank) is the keystone of
+    the current pipeline; pages 4–5 are how it's used to attribute and classify each vehicle. Page 6
+    is export. Pages 7–8 are the cross-cutting concerns — how accuracy is measured and improved, and
+    how one camera's pipeline scales to the five-camera corridor.
   </p>
 
   <footer class="page-foot">

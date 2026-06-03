@@ -161,3 +161,35 @@ footer.page-foot {
 }
 footer.page-foot a { color: var(--accent); text-decoration: none; }
 footer.page-foot a:hover { text-decoration: underline; }
+
+/* ----------------------------------------------------------------------
+   Ambient animation layer (no JS).
+   Two techniques, both looping:
+     - SMIL <animateMotion> drives vehicle dots along a path by id (DRY:
+       it reuses the visible <path>, so geometry is never duplicated).
+     - CSS @keyframes below drive stroke "drawing", marching-ants flow,
+       gentle pulses, and value "ticks".
+   prefers-reduced-motion disables the CSS set; SMIL motion is kept slow
+   and gentle so a reduced-motion reader is never jolted.
+   ---------------------------------------------------------------------- */
+@keyframes wt-draw  { to { stroke-dashoffset: 0; } }          /* line draws itself in */
+@keyframes wt-flow  { to { stroke-dashoffset: -140; } }       /* marching ants along a path */
+@keyframes wt-pulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+@keyframes wt-blink { 0%,100% { opacity: 0.12; } 50% { opacity: 0.9; } }
+@keyframes wt-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+@keyframes wt-fade  { 0%,70% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Utility classes used inside the inline SVGs. */
+.wt-flow      { stroke-dasharray: 7 9;  animation: wt-flow 2.2s linear infinite; }
+.wt-flow-slow { stroke-dasharray: 6 12; animation: wt-flow 4s   linear infinite; }
+.wt-pulse     { animation: wt-pulse 2.6s ease-in-out infinite; }
+.wt-blink     { animation: wt-blink 1.5s ease-in-out infinite; }
+.wt-breathe   { transform-box: fill-box; transform-origin: center; animation: wt-breathe 2.4s ease-in-out infinite; }
+/* a line/curve that draws itself on a loop — element must set its own
+   stroke-dasharray to its path length, e.g. style="--len: 600". */
+.wt-trace { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: wt-draw 3.2s ease-in-out infinite alternate; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wt-flow, .wt-flow-slow, .wt-pulse, .wt-blink, .wt-breathe, .wt-trace { animation: none; }
+  .wt-trace { stroke-dashoffset: 0; }   /* show the finished line, not a blank one */
+}

@@ -13,35 +13,91 @@
 <main>
   <h1>Walkthrough</h1>
   <p class="lede">
-    Six static pages that explain what the app does and how each pipeline stage works.
-    Built for self-review — concrete diagrams using the Sunnyvale intersection geometry
-    so the math has something to anchor on.
+    Nine static pages that explain what the app does and how each pipeline stage works —
+    from a raw traffic video to a Turning-Movement-Count spreadsheet. Built for self-review,
+    with concrete diagrams anchored on the real Sunnyvale TX corridor so the math has
+    something to stand on.
   </p>
+
+  <figure>
+    <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" font-size="12" style="background:#0a0e12;border:1px solid #2a323c;border-radius:4px;">
+      <!-- road bands -->
+      <rect x="330" y="0" width="100" height="220" fill="#161c22"/>
+      <rect x="0" y="78" width="760" height="64" fill="#161c22"/>
+      <!-- lane dashes -->
+      <line x1="380" y1="0" x2="380" y2="220" stroke="#2a323c" stroke-width="2" stroke-dasharray="10 12"/>
+      <line x1="0" y1="110" x2="760" y2="110" stroke="#2a323c" stroke-width="2" stroke-dasharray="10 12"/>
+      <text x="392" y="16" fill="#8a96a3" font-size="10">N Belt Line Rd</text>
+      <text x="14" y="72" fill="#8a96a3" font-size="10">cross street</text>
+
+      <!-- invisible motion paths -->
+      <path id="ix-nb" d="M366,230 L366,-12" fill="none"/>
+      <path id="ix-sb" d="M396,-12 L396,230" fill="none"/>
+      <path id="ix-wb" d="M772,92 L-12,92" fill="none"/>
+      <path id="ix-turn" d="M-12,126 Q352,126 366,-12" fill="none"/>
+      <!-- show the turn path faintly so the curve reads -->
+      <path d="M-12,126 Q352,126 366,-12" fill="none" stroke="#5fb3ff" stroke-width="1.5" opacity="0.25" stroke-dasharray="4 5"/>
+
+      <!-- NB through stream (cyan) -->
+      <g fill="#5fc7ff">
+        <rect x="-6" y="-3.5" width="12" height="7" rx="2"><animateMotion dur="3.4s" begin="0s"    repeatCount="indefinite" rotate="auto"><mpath href="#ix-nb"/></animateMotion></rect>
+        <rect x="-6" y="-3.5" width="12" height="7" rx="2"><animateMotion dur="3.4s" begin="-1.7s" repeatCount="indefinite" rotate="auto"><mpath href="#ix-nb"/></animateMotion></rect>
+      </g>
+      <!-- SB through stream (orange) -->
+      <g fill="#ff7b3a">
+        <rect x="-6" y="-3.5" width="12" height="7" rx="2"><animateMotion dur="3.8s" begin="-0.9s" repeatCount="indefinite" rotate="auto"><mpath href="#ix-sb"/></animateMotion></rect>
+        <rect x="-6" y="-3.5" width="12" height="7" rx="2"><animateMotion dur="3.8s" begin="-2.8s" repeatCount="indefinite" rotate="auto"><mpath href="#ix-sb"/></animateMotion></rect>
+      </g>
+      <!-- WB through (green) -->
+      <rect x="-7" y="-4" width="14" height="8" rx="2" fill="#7ee787"><animateMotion dur="4.6s" begin="-1.2s" repeatCount="indefinite" rotate="auto"><mpath href="#ix-wb"/></animateMotion></rect>
+      <!-- EB->NB right turn (magenta) -->
+      <rect x="-7" y="-4" width="14" height="8" rx="2" fill="#d27bff"><animateMotion dur="5.2s" begin="-0.4s" repeatCount="indefinite" rotate="auto"><mpath href="#ix-turn"/></animateMotion></rect>
+    </svg>
+    <figcaption>One intersection: through movements run straight, a turning vehicle traces a curve. The whole job is counting which vehicle did which — accurately enough to replace a commercial tool.</figcaption>
+  </figure>
 
   <ol style="font-size: 15px; line-height: 2.2; padding-left: 0; list-style: none;">
     <li><a href="00-overview.html">0. Overview</a>
-      <span style="color: var(--muted);"> — data model + pipeline at a glance</span></li>
+      <span style="color: var(--muted);"> — what it produces, the data model, the pipeline at a glance</span></li>
     <li><a href="01-calibration.html">1. Calibration</a>
       <span style="color: var(--muted);"> — legs, origin points, reference headings, tripwires</span></li>
     <li><a href="02-detection-tracking.html">2. Detection &amp; Tracking</a>
-      <span style="color: var(--muted);"> — YOLO + ByteTrack + processing modes</span></li>
-    <li><a href="03-origin-assignment.html">3. Origin Assignment</a>
-      <span style="color: var(--muted);"> — three-tier fallback (tripwire → backward-extrap → heading)</span></li>
-    <li><a href="04-trajectory-classification.html">4. Trajectory Classification</a>
-      <span style="color: var(--muted);"> — movement + destination-leg scoring</span></li>
-    <li><a href="05-aggregation.html">5. Aggregation</a>
+      <span style="color: var(--muted);"> — YOLO + the detection cache + ByteTrack / BoT-SORT</span></li>
+    <li><a href="03-path-bank.html">3. The Path Bank</a>
+      <span style="color: var(--muted);"> — learned road geometry: data-driven polylines from real tracks + Miovision OD</span></li>
+    <li><a href="04-origin-attribution.html">4. Origin &amp; Attribution</a>
+      <span style="color: var(--muted);"> — the joint partial-Fréchet scorer that reads origin off the matched path</span></li>
+    <li><a href="05-classification.html">5. Movement Classification</a>
+      <span style="color: var(--muted);"> — destination leg + left/through/right/U-turn from trajectory shape</span></li>
+    <li><a href="06-aggregation.html">6. Aggregation</a>
       <span style="color: var(--muted);"> — events → 15-min buckets → TMC Excel</span></li>
+    <li><a href="07-accuracy.html">7. Accuracy &amp; Validation</a>
+      <span style="color: var(--muted);"> — measuring vs Miovision, and the snap-magnet / recovery defenses</span></li>
+    <li><a href="08-corridor.html">8. The Corridor</a>
+      <span style="color: var(--muted);"> — five cameras, one arterial: multi-camera generalization</span></li>
   </ol>
 
   <div class="callout">
-    All diagrams use the Sunnyvale TX intersection (project <code>97a7849a</code>,
-    camera 1). Frame is 640×480. The four legs:
+    The diagrams use the <strong>Sunnyvale TX</strong> study (project <code>97a7849a</code>) — a
+    five-intersection corridor along N&nbsp;Belt&nbsp;Line&nbsp;Rd, one camera each. Frames are 640×480.
+    The single-camera examples use <strong>camera&nbsp;1</strong> (Belt Line &amp; Northwest Dr), a four-leg
+    intersection; the four legs, by cardinal approach:
     <ul style="margin: 6px 0 0;">
-      <li><strong style="color: var(--L18);">L18</strong> SB N Belt Line Rd — origin (474, 211), ref heading 259.3°</li>
-      <li><strong style="color: var(--L19);">L19</strong> NB N Belt Line Rd — origin (85, 370), ref heading 61.0°</li>
-      <li><strong style="color: var(--L20);">L20</strong> WB Private Driveway — origin (547, 326), ref heading 290.8°</li>
-      <li><strong style="color: var(--L21);">L21</strong> EB Northwest Dr — origin (217, 234), ref heading 123.1°</li>
+      <li><strong style="color: var(--L19);">L22</strong> NB N Belt Line Rd — origin (495, 218), ref 262.5°</li>
+      <li><strong style="color: var(--L18);">L23</strong> SB N Belt Line Rd — origin (143, 358), ref 82.7°</li>
+      <li><strong style="color: var(--L20);">L24</strong> EB Northwest Dr — origin (542, 358), ref 312.9°</li>
+      <li><strong style="color: var(--L21);">L25</strong> WB Private Driveway — origin (228, 227), ref 172.8°</li>
     </ul>
+    <p style="margin: 8px 0 0; font-size: 13px;">
+      The four-way example (page 7–8) uses <strong>camera&nbsp;5</strong> (Belt Line &amp; Barnes Bridge Rd),
+      legs L36–L39 (W/S/E/N).
+    </p>
+  </div>
+
+  <div class="callout good">
+    <strong>Live accuracy snapshot</strong> (net error vs Miovision, TMC granularity, 07:00 peak window):
+    cam1&nbsp;7.2% · cam2&nbsp;16.4% · cam3&nbsp;9.8% · cam4&nbsp;8.4% · cam5&nbsp;7.7%.
+    See <a href="07-accuracy.html">Accuracy &amp; Validation</a> for how this is measured and improved.
   </div>
 </main>
 </body>

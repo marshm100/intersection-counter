@@ -11,16 +11,20 @@
   <a href="00-overview.html">0. Overview</a>
   <a href="01-calibration.html">1. Calibration</a>
   <a href="02-detection-tracking.html" class="current">2. Detect+Track</a>
-  <a href="03-origin-assignment.html">3. Origin</a>
-  <a href="04-trajectory-classification.html">4. Classify</a>
-  <a href="05-aggregation.html">5. Aggregate</a>
+  <a href="03-path-bank.html">3. Path Bank</a>
+  <a href="04-origin-attribution.html">4. Origin</a>
+  <a href="05-classification.html">5. Classify</a>
+  <a href="06-aggregation.html">6. Aggregate</a>
+  <a href="07-accuracy.html">7. Accuracy</a>
+  <a href="08-corridor.html">8. Corridor</a>
 </nav>
 <main>
   <h1>2. Detection &amp; Tracking</h1>
   <p class="lede">
-    Each frame is run through YOLO to find vehicle bounding boxes. ByteTrack stitches
-    same-vehicle detections across frames into a track. Each track accumulates a
-    trajectory — the list of bbox centers over time.
+    Each frame is run through YOLO to find vehicle bounding boxes; the detections are cached so the rest
+    of the pipeline can be re-run without re-detecting. A tracker — ByteTrack or BoT-SORT, chosen per
+    camera — stitches same-vehicle detections across frames into a track that accumulates a trajectory
+    (the list of bbox centers over time).
   </p>
 
   <h2>Per-frame data flow</h2>
@@ -34,14 +38,14 @@
       <text x="80" y="138" text-anchor="middle" fill="#8a96a3" font-size="10">2 detections</text>
 
       <!-- Arrow -->
-      <line x1="145" y1="80" x2="180" y2="80" stroke="#8a96a3" marker-end="url(#a)"/>
+      <line x1="145" y1="80" x2="180" y2="80" stroke="#8a96a3" marker-end="url(#a)" class="wt-flow"/>
 
       <!-- ByteTrack associate -->
       <rect x="190" y="50" width="120" height="60" rx="4" fill="#1a2128" stroke="#5fb3ff"/>
       <text x="250" y="76" text-anchor="middle" fill="#e8edf2" font-weight="600">ByteTrack</text>
       <text x="250" y="94" text-anchor="middle" fill="#8a96a3" font-size="11">associate by IoU</text>
 
-      <line x1="315" y1="80" x2="350" y2="80" stroke="#8a96a3" marker-end="url(#a)"/>
+      <line x1="315" y1="80" x2="350" y2="80" stroke="#8a96a3" marker-end="url(#a)" class="wt-flow"/>
 
       <!-- Tracked output -->
       <text x="360" y="30" fill="#8a96a3" font-size="11">tracked output</text>
@@ -51,7 +55,7 @@
       <rect x="420" y="85" width="26" height="16" fill="none" stroke="#ff7b3a" stroke-width="1.5"/>
       <text x="452" y="97" fill="#ff7b3a" font-size="11">id=9</text>
 
-      <line x1="525" y1="80" x2="560" y2="80" stroke="#8a96a3" marker-end="url(#a)"/>
+      <line x1="525" y1="80" x2="560" y2="80" stroke="#8a96a3" marker-end="url(#a)" class="wt-flow"/>
 
       <!-- Trajectory accumulate -->
       <rect x="570" y="50" width="160" height="60" rx="4" fill="#1a2128" stroke="#7ee787"/>
@@ -66,13 +70,13 @@
       <rect x="93" y="250" width="26" height="16" fill="none" stroke="#ff7b3a" stroke-width="1.5"/>
       <text x="80" y="308" text-anchor="middle" fill="#8a96a3" font-size="10">2 detections (shifted)</text>
 
-      <line x1="145" y1="250" x2="180" y2="250" stroke="#8a96a3" marker-end="url(#a)"/>
+      <line x1="145" y1="250" x2="180" y2="250" stroke="#8a96a3" marker-end="url(#a)" class="wt-flow"/>
 
       <rect x="190" y="220" width="120" height="60" rx="4" fill="#1a2128" stroke="#5fb3ff"/>
       <text x="250" y="246" text-anchor="middle" fill="#e8edf2" font-weight="600">ByteTrack</text>
       <text x="250" y="264" text-anchor="middle" fill="#8a96a3" font-size="11">IoU&gt;0.2 → same id</text>
 
-      <line x1="315" y1="250" x2="350" y2="250" stroke="#8a96a3" marker-end="url(#a)"/>
+      <line x1="315" y1="250" x2="350" y2="250" stroke="#8a96a3" marker-end="url(#a)" class="wt-flow"/>
 
       <rect x="360" y="210" width="160" height="80" fill="#1a2128" stroke="#2a323c"/>
       <rect x="388" y="225" width="22" height="14" fill="none" stroke="#ff7b3a" stroke-width="1.5"/>
@@ -80,7 +84,7 @@
       <rect x="423" y="250" width="26" height="16" fill="none" stroke="#ff7b3a" stroke-width="1.5"/>
       <text x="455" y="262" fill="#ff7b3a" font-size="11">id=9</text>
 
-      <line x1="525" y1="250" x2="560" y2="250" stroke="#8a96a3" marker-end="url(#a)"/>
+      <line x1="525" y1="250" x2="560" y2="250" stroke="#8a96a3" marker-end="url(#a)" class="wt-flow"/>
 
       <rect x="570" y="220" width="160" height="60" rx="4" fill="#1a2128" stroke="#7ee787"/>
       <text x="650" y="246" text-anchor="middle" fill="#e8edf2" font-weight="600">trajectories</text>
@@ -99,6 +103,44 @@
     <figcaption>Per-frame loop: detect → associate → accumulate. Finalization fires when a track goes silent.</figcaption>
   </figure>
 
+  <h2>What tracking looks like over time</h2>
+  <p>
+    Across frames, association turns per-frame boxes into one moving identity with a growing trail.
+    When two vehicles pass through near-occlusion, that identity can jump — the failure mode the
+    tracker choice (and the path bank downstream) has to survive.
+  </p>
+  <figure>
+    <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" font-size="11">
+      <!-- LEFT: persistent ID -->
+      <rect x="10" y="14" width="365" height="200" rx="6" fill="#0a0e12" stroke="#2a323c"/>
+      <text x="26" y="34" fill="#7ee787" font-weight="600">one vehicle → one persistent id</text>
+      <path id="trk-clean" d="M50,180 C130,160 165,95 245,86 C305,79 335,120 352,165" fill="none"/>
+      <!-- accumulated trail -->
+      <path d="M50,180 C130,160 165,95 245,86 C305,79 335,120 352,165" fill="none" stroke="#5fc7ff" stroke-width="2" opacity="0.35"/>
+      <g fill="#5fc7ff" opacity="0.5">
+        <circle cx="50" cy="180" r="2"/><circle cx="130" cy="142" r="2"/><circle cx="200" cy="98" r="2"/>
+        <circle cx="260" cy="84" r="2"/><circle cx="320" cy="118" r="2"/><circle cx="352" cy="165" r="2"/>
+      </g>
+      <!-- axis-aligned bbox (no rotation) + label that ride the path -->
+      <rect x="-13" y="-9" width="26" height="18" fill="none" stroke="#ff7b3a" stroke-width="2"><animateMotion dur="5s" repeatCount="indefinite"><mpath href="#trk-clean"/></animateMotion></rect>
+      <text x="0" y="-15" text-anchor="middle" fill="#ff7b3a" font-size="11" font-weight="600">id=9<animateMotion dur="5s" repeatCount="indefinite"><mpath href="#trk-clean"/></animateMotion></text>
+
+      <!-- RIGHT: ID switch -->
+      <rect x="385" y="14" width="365" height="200" rx="6" fill="#0a0e12" stroke="#2a323c"/>
+      <text x="401" y="34" fill="#ff7777" font-weight="600">near-occlusion → ID switch risk</text>
+      <path id="trk-a" d="M410,70 L735,185" fill="none"/>
+      <path id="trk-b" d="M410,185 L735,70" fill="none"/>
+      <line x1="410" y1="70" x2="735" y2="185" stroke="#5fc7ff" stroke-width="1.5" opacity="0.3"/>
+      <line x1="410" y1="185" x2="735" y2="70" stroke="#d27bff" stroke-width="1.5" opacity="0.3"/>
+      <rect x="-12" y="-8" width="24" height="16" fill="none" stroke="#5fc7ff" stroke-width="2"><animateMotion dur="4.4s" repeatCount="indefinite"><mpath href="#trk-a"/></animateMotion></rect>
+      <rect x="-12" y="-8" width="24" height="16" fill="none" stroke="#d27bff" stroke-width="2"><animateMotion dur="4.4s" repeatCount="indefinite"><mpath href="#trk-b"/></animateMotion></rect>
+      <!-- crossing hazard -->
+      <circle cx="572" cy="127" r="13" fill="none" stroke="#ff7777" stroke-width="2" class="wt-pulse"/>
+      <text x="572" y="170" text-anchor="middle" fill="#8a96a3" font-size="10">overlap here: IoU can match the wrong box</text>
+    </svg>
+    <figcaption>Left: association across frames yields one identity (<code>id=9</code>) with an accumulating trajectory. Right: when paths cross under occlusion, the cheaper IoU-only tracker can hand an id to the wrong vehicle — why BoT-SORT (motion + appearance) is chosen where turns cross.</figcaption>
+  </figure>
+
   <h2>YOLO detection</h2>
   <p>
     Model is configurable per processing mode. Vehicle classes (COCO):
@@ -110,6 +152,36 @@
     1080p with the large model, partially-backlit vehicles can return at conf
     0.10–0.14; raising the floor would silently drop them.
   </p>
+
+  <h2>The detection cache — detect once, retrack many</h2>
+  <p>
+    Detection is by far the slowest stage. So every frame's detections are written to a
+    <strong>per-camera Parquet cache</strong> (<code>balanced_960_skip1.parquet</code>), keyed by a
+    content hash of the video. Anything downstream — a different tracker, a new bank, a tweaked
+    attribution rule — replays against the cache in <em>minutes</em> instead of re-running YOLO for
+    hours. This is what makes the accuracy iteration loop (<a href="07-accuracy.html">page 7</a>)
+    practical: <code>apply_bank.py</code> and <code>apply_hybrid.py</code> "retrack" cached detections,
+    never re-detecting.
+  </p>
+  <div class="callout">
+    <strong>Class-agnostic NMS (optional, pre-track).</strong> On a high-frame-rate camera the same
+    vehicle is sometimes double-boxed, which inflates counts downstream. A strict non-max-suppression
+    pass before tracking (<code>PRE_TRACK_NMS_IOU = 0.85</code>) collapses the duplicates. It ships
+    <em>default-off</em> and is enabled per camera — on lower-fps cameras it over-merges genuinely
+    separate vehicles. (cam2, at 25 fps, is the one that needs it — see page 7.)
+    <svg viewBox="0 0 470 84" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" style="display:block;margin:10px auto 0;max-width:470px;">
+      <text x="12" y="14" fill="#8a96a3" font-size="10">before: 2 boxes, 1 car</text>
+      <rect x="42" y="34" width="58" height="32" rx="3" fill="#33414d"/>
+      <rect x="36" y="30" width="64" height="40" fill="none" stroke="#7ee787" stroke-width="2"/>
+      <rect x="48" y="36" width="64" height="40" fill="none" stroke="#ff7777" stroke-width="2" stroke-dasharray="4,3" class="wt-blink"/>
+      <line x1="150" y1="50" x2="280" y2="50" stroke="#8a96a3" stroke-width="2" marker-end="url(#nmsa)" class="wt-flow"/>
+      <text x="215" y="42" text-anchor="middle" fill="#8a96a3" font-size="10">IoU &gt; 0.85 → drop the duplicate</text>
+      <text x="318" y="14" fill="#8a96a3" font-size="10">after: 1 box</text>
+      <rect x="350" y="34" width="58" height="32" rx="3" fill="#33414d"/>
+      <rect x="344" y="30" width="64" height="40" fill="none" stroke="#7ee787" stroke-width="2"/>
+      <defs><marker id="nmsa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8a96a3"/></marker></defs>
+    </svg>
+  </div>
 
   <h2>ByteTrack association</h2>
   <p>
@@ -124,6 +196,33 @@
   <p>
     Tracks survive brief occlusions via <code>TRACKER_LOST_BUFFER</code> (150 frames ≈ 5s @ 30fps,
     up from ByteTrack's default 30).
+  </p>
+
+  <h2>ByteTrack vs BoT-SORT — and the hybrid</h2>
+  <p>
+    ByteTrack associates purely by IoU and motion. <strong>BoT-SORT</strong> adds camera-motion
+    compensation and (optionally) appearance re-identification, so it holds an identity through longer
+    gaps and curved paths — but on dense, high-fps scenes it can over-extend a track and over-count.
+    Neither wins everywhere, so the tracker is picked <strong>per camera by measurement</strong>.
+  </p>
+  <p>
+    In practice the two are combined into a <strong>hybrid</strong>, because throughs and turns have
+    opposite needs:
+  </p>
+  <table>
+    <thead><tr><th>Movement</th><th>Tracker</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Throughs</strong> (the dominant volume)</td><td class="mono">ByteTrack</td>
+        <td>straight, fast, dense — IoU association is enough and doesn't over-extend</td></tr>
+      <tr><td><strong>Turns</strong> (sparse, curved)</td><td class="mono">BoT-SORT</td>
+        <td>curved paths through occlusion need the stronger motion/appearance model to stay one track</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <code>apply_hybrid.py</code> keeps the ByteTrack throughs and grafts in the BoT-SORT turns, gated by
+    the <a href="03-path-bank.html">path bank</a>. cam1 goes a step further with full BoT-SORT + ReID.
+    Which combination ships for a given camera is decided by the net-error measurement on page 7 — there
+    is no global default.
   </p>
 
   <h2>Processing modes</h2>
@@ -199,7 +298,7 @@
 
   <footer class="page-foot">
     <a href="01-calibration.html">← 1. Calibration</a>
-    <a href="03-origin-assignment.html">3. Origin Assignment →</a>
+    <a href="03-path-bank.html">3. The Path Bank →</a>
   </footer>
 </main>
 </body>
