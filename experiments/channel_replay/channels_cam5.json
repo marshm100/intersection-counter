@@ -1,0 +1,23 @@
+{
+  "camera": 5,
+  "frame": "seed_cam5.png",
+  "frame_size": [640, 480],
+  "channels": [
+    {"origin_leg": 38, "destination_leg": 36, "movement": "through", "entry": [615.5, 268.5], "apex": [323.2, 223.6], "exit": [200.5, 192.8], "width_in": 55, "width_out": 17},
+    {"origin_leg": 38, "destination_leg": 39, "movement": "right", "entry": [614.1, 268.5], "apex": [544, 234.8], "exit": [560.1, 193.5], "width_in": 40, "width_out": 47},
+    {"origin_leg": 38, "destination_leg": 37, "movement": "left", "entry": [615.5, 268.5], "apex": [254.5, 246], "exit": [39.3, 265.7], "width_in": 40, "width_out": 78},
+    {"origin_leg": 38, "destination_leg": 38, "movement": "u_turn", "entry": [615.5, 267.8], "apex": [410.8, 271.3], "exit": [492.1, 431.8], "width_in": 40, "width_out": 313},
+    {"origin_leg": 37, "destination_leg": 39, "movement": "through", "entry": [39.3, 405.9], "apex": [384.1, 276.2], "exit": [559.4, 194.2], "width_in": 184, "width_out": 42},
+    {"origin_leg": 37, "destination_leg": 38, "movement": "right", "entry": [39.3, 405.2], "apex": [286, 381.3], "exit": [548.9, 437.4], "width_in": 166, "width_out": 256},
+    {"origin_leg": 37, "destination_leg": 36, "movement": "left", "entry": [37.9, 404.5], "apex": [310.5, 279], "exit": [201.9, 194.2], "width_in": 193, "width_out": 17},
+    {"origin_leg": 37, "destination_leg": 37, "movement": "u_turn", "entry": [38.6, 398.9], "apex": [305.6, 267.8], "exit": [41.4, 270.6], "width_in": 171, "width_out": 86},
+    {"origin_leg": 36, "destination_leg": 38, "movement": "through", "entry": [175.2, 206.8], "apex": [268.5, 276.2], "exit": [535.6, 425.5], "width_in": 42, "width_out": 246},
+    {"origin_leg": 36, "destination_leg": 37, "movement": "right", "entry": [175.2, 206.1], "apex": [143.7, 246], "exit": [38.6, 270.6], "width_in": 40, "width_out": 72},
+    {"origin_leg": 36, "destination_leg": 39, "movement": "left", "entry": [179.5, 206.1], "apex": [340.7, 243.2], "exit": [558, 197], "width_in": 36, "width_out": 53},
+    {"origin_leg": 36, "destination_leg": 36, "movement": "u_turn", "entry": [177.3, 206.8], "apex": [237.6, 215.2], "exit": [206.1, 194.2], "width_in": 26, "width_out": 26},
+    {"origin_leg": 39, "destination_leg": 37, "movement": "through", "entry": [442.3, 187.2], "apex": [268.5, 227.8], "exit": [37.2, 266.4], "width_in": 33, "width_out": 89},
+    {"origin_leg": 39, "destination_leg": 38, "movement": "left", "entry": [441.6, 187.2], "apex": [327.4, 277.6], "exit": [537, 412.2], "width_in": 40, "width_out": 216},
+    {"origin_leg": 39, "destination_leg": 36, "movement": "right", "entry": [440.9, 186.5], "apex": [282.5, 215.9], "exit": [208.2, 194.2], "width_in": 40, "width_out": 40},
+    {"origin_leg": 39, "destination_leg": 39, "movement": "u_turn", "entry": [441.6, 185.8], "apex": [290.2, 233.4], "exit": [557.3, 200.5], "width_in": 40, "width_out": 53}
+  ]
+}
