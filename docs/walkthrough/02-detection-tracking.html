@@ -166,7 +166,7 @@
   <div class="callout">
     <strong>Class-agnostic NMS (optional, pre-track).</strong> On a high-frame-rate camera the same
     vehicle is sometimes double-boxed, which inflates counts downstream. A strict non-max-suppression
-    pass before tracking (<code>PRE_TRACK_NMS_IOU = 0.85</code>) collapses the duplicates. It ships
+    pass before tracking (<code>PRE_TRACK_NMS_IOU</code>, 0.85 on cam2) collapses the duplicates. It ships
     <em>default-off</em> and is enabled per camera — on lower-fps cameras it over-merges genuinely
     separate vehicles. (cam2, at 25 fps, is the one that needs it — see page 7.)
     <svg viewBox="0 0 470 84" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" style="display:block;margin:10px auto 0;max-width:470px;">

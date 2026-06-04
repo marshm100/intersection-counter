@@ -27,33 +27,47 @@
   </p>
 
   <figure>
-    <svg viewBox="0 0 760 210" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" font-size="12">
-      <!-- faint cross per panel -->
-      <g stroke="#222a32" stroke-width="10">
-        <line x1="100" y1="20" x2="100" y2="190"/><line x1="20" y1="105" x2="180" y2="105"/>
-        <line x1="288" y1="20" x2="288" y2="190"/><line x1="208" y1="105" x2="368" y2="105"/>
-        <line x1="476" y1="20" x2="476" y2="190"/><line x1="396" y1="105" x2="556" y2="105"/>
-        <line x1="664" y1="20" x2="664" y2="190"/><line x1="584" y1="105" x2="744" y2="105"/>
+    <svg viewBox="0 0 760 238" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" font-size="12">
+      <defs>
+        <marker id="mvh-thru"  viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7ee787"/></marker>
+        <marker id="mvh-left"  viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5fc7ff"/></marker>
+        <marker id="mvh-right" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#d27bff"/></marker>
+        <marker id="mvh-uturn" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff7b3a"/></marker>
+      </defs>
+      <!-- roads: filled bands (vertical + horizontal arm) per intersection -->
+      <g fill="#161c22">
+        <rect x="76" y="18" width="48" height="184"/>  <rect x="14"  y="86" width="172" height="48"/>
+        <rect x="264" y="18" width="48" height="184"/> <rect x="202" y="86" width="172" height="48"/>
+        <rect x="452" y="18" width="48" height="184"/> <rect x="390" y="86" width="172" height="48"/>
+        <rect x="640" y="18" width="48" height="184"/> <rect x="578" y="86" width="172" height="48"/>
       </g>
-      <!-- movement shapes -->
-      <path id="mv-thru"  d="M100,188 L100,22"                   fill="none" stroke="#7ee787" stroke-width="2.5"/>
-      <path id="mv-left"  d="M288,188 C288,120 250,105 210,105"  fill="none" stroke="#5fc7ff" stroke-width="2.5"/>
-      <path id="mv-right" d="M476,188 C476,120 514,105 554,105"  fill="none" stroke="#d27bff" stroke-width="2.5"/>
-      <path id="mv-uturn" d="M656,188 C632,80 696,80 672,188"    fill="none" stroke="#ff7b3a" stroke-width="2.5"/>
+      <!-- yellow centerlines: the visual cue for "keep right" (opposing flows split) -->
+      <g stroke="#c9a227" stroke-width="1.5" stroke-dasharray="7 7" opacity="0.5">
+        <line x1="100" y1="18" x2="100" y2="202"/> <line x1="14"  y1="110" x2="186" y2="110"/>
+        <line x1="288" y1="18" x2="288" y2="202"/> <line x1="202" y1="110" x2="374" y2="110"/>
+        <line x1="476" y1="18" x2="476" y2="202"/> <line x1="390" y1="110" x2="562" y2="110"/>
+        <line x1="664" y1="18" x2="664" y2="202"/> <line x1="578" y1="110" x2="750" y2="110"/>
+      </g>
+      <!-- movement shapes: every vehicle enters in the RIGHT lane (east half of the south leg).
+           through stays right · right hugs the near corner · left pivots at the center (no corner-cut) -->
+      <path id="mv-thru"  d="M112,202 L112,18"                   fill="none" stroke="#7ee787" stroke-width="2.5" marker-end="url(#mvh-thru)"/>
+      <path id="mv-left"  d="M300,202 C300,152 296,102 202,98"   fill="none" stroke="#5fc7ff" stroke-width="2.5" marker-end="url(#mvh-left)"/>
+      <path id="mv-right" d="M488,202 C488,160 500,122 562,122"  fill="none" stroke="#d27bff" stroke-width="2.5" marker-end="url(#mvh-right)"/>
+      <path id="mv-uturn" d="M676,202 C676,82 652,82 652,202"    fill="none" stroke="#ff7b3a" stroke-width="2.5" marker-end="url(#mvh-uturn)"/>
       <!-- vehicles tracing each shape -->
       <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#7ee787"><animateMotion dur="3.2s" repeatCount="indefinite" rotate="auto"><mpath href="#mv-thru"/></animateMotion></rect>
-      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#5fc7ff"><animateMotion dur="3.2s" begin="-0.6s" repeatCount="indefinite" rotate="auto"><mpath href="#mv-left"/></animateMotion></rect>
-      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#d27bff"><animateMotion dur="3.2s" begin="-1.2s" repeatCount="indefinite" rotate="auto"><mpath href="#mv-right"/></animateMotion></rect>
+      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#5fc7ff"><animateMotion dur="3.4s" begin="-0.6s" repeatCount="indefinite" rotate="auto"><mpath href="#mv-left"/></animateMotion></rect>
+      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#d27bff"><animateMotion dur="3.0s" begin="-1.2s" repeatCount="indefinite" rotate="auto"><mpath href="#mv-right"/></animateMotion></rect>
       <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#ff7b3a"><animateMotion dur="3.8s" begin="-0.3s" repeatCount="indefinite" rotate="auto"><mpath href="#mv-uturn"/></animateMotion></rect>
       <!-- labels -->
       <g text-anchor="middle" font-size="13" font-weight="600">
-        <text x="100" y="206" fill="#7ee787">through</text>
-        <text x="288" y="206" fill="#5fc7ff">left</text>
-        <text x="476" y="206" fill="#d27bff">right</text>
-        <text x="664" y="206" fill="#ff7b3a">U-turn</text>
+        <text x="100" y="226" fill="#7ee787">through</text>
+        <text x="288" y="226" fill="#5fc7ff">left</text>
+        <text x="476" y="226" fill="#d27bff">right</text>
+        <text x="664" y="226" fill="#ff7b3a">U-turn</text>
       </g>
     </svg>
-    <figcaption>The four movement labels are just trajectory <em>shapes</em> — no exit zones, no turn matrix. The path bank already carries the label; the geometric fallback re-derives it from the same shape.</figcaption>
+    <figcaption>The four movement labels are just trajectory <em>shapes</em> — no exit zones, no turn matrix. Each vehicle enters in the right-hand lane (right-hand traffic): the <span style="color:#d27bff">right</span> turn hugs the near corner, the <span style="color:#5fc7ff">left</span> pivots at the intersection center rather than cutting across it. The path bank already carries the label; the geometric fallback re-derives it from the same shape.</figcaption>
   </figure>
 
   <h2>Primary route: read it off the path</h2>

@@ -131,7 +131,7 @@
   <h2>Defense 3 — duplication</h2>
   <p>
     A 25 fps camera double-boxes and ID-switches the same vehicle, inflating throughs. A strict
-    <strong>class-agnostic NMS</strong> before tracking (<code>PRE_TRACK_NMS_IOU = 0.85</code>) collapses
+    <strong>class-agnostic NMS</strong> before tracking (<code>PRE_TRACK_NMS_IOU</code>, off by default, 0.85 on cam2) collapses
     the duplicates: cam2 dropped from 29.8% → 20.2% net with the duplicated NB/SB throughs alone fixed.
     It ships <em>default-off</em> and is enabled per-camera, because on lower-fps cameras it over-merges
     genuinely-separate vehicles.

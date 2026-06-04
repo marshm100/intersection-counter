@@ -95,8 +95,8 @@
     <tbody>
       <tr><td>cost metric</td><td class="mono">JOINT_SCORER_COST_METRIC = dtw_mean</td><td>robust mean coupled distance, not sup-norm Fréchet</td></tr>
       <tr><td>max cost</td><td class="mono">JOINT_SCORER_MAX_COST_PX = 35</td><td>reject matches whose mean coupled distance exceeds this</td></tr>
-      <tr><td>min coverage</td><td class="mono">MIN_COVERAGE_FRAC = 0.28</td><td>the matched sub-curve must cover ≥28% of the path's arc (kept low — mid-turn entries cover little)</td></tr>
-      <tr><td>tail prior</td><td class="mono">TAIL_WEIGHT = 0.35</td><td>the track's exit direction (last 7 points) breaks ties — tails are the trustworthy directional signal here</td></tr>
+      <tr><td>min coverage</td><td class="mono">JOINT_SCORER_MIN_COVERAGE_FRAC = 0.28</td><td>the matched sub-curve must cover ≥28% of the path's arc (kept low — mid-turn entries cover little)</td></tr>
+      <tr><td>tail weight</td><td class="mono">JOINT_SCORER_TAIL_WEIGHT = 0.35</td><td>the track's exit direction (last 7 points) breaks ties — tails are the trustworthy directional signal here</td></tr>
     </tbody>
   </table>
 
