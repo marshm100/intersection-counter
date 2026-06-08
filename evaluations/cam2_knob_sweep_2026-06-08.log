@@ -1,0 +1,11 @@
+cam2 ByteTrack knob sweep  window 07:00:00+30.0min  NMS=0.85  cache=balanced_960_skip1.parquet
+(scored by od_accuracy --camera 2; SB/NB-thru 'ours' should approach manual)
+
+config                       net    SB thru    NB thru
+------------------------------------------------------
+baseline buf150 m0.80      21.1%        349        624
+buf90 m0.80                21.3%        350        622
+buf300 m0.80               21.6%        350        624
+buf150 m0.90               17.4%        314        611
+buf150 m0.70               29.2%        372        595
+(manual)                                310        626
