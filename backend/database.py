@@ -1368,31 +1368,42 @@ def ensure_default_intersection_for_legacy(project_id: str) -> int | None:
     created (or already existed for legacy data); None if there's nothing
     to migrate.
     """
+    # Once a project has been initialized under v3 (via save-labels or a prior
+    # bootstrap), never auto-create a default intersection again — otherwise
+    # deleting an intersection (which unlinks its videos) would resurrect a
+    # phantom 'Main intersection' on the next list.
+    if get_project_info(project_id, "v3_initialized"):
+        return None
+
     conn = get_connection(project_id)
     try:
-        # If there are no videos at all, nothing to migrate.
         n_videos = conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
-        if n_videos == 0:
-            return None
-
-        # If every video already has a camera_id, we're already on v3.
-        n_unlinked = conn.execute(
-            "SELECT COUNT(*) FROM videos WHERE camera_id IS NULL"
-        ).fetchone()[0]
-        if n_unlinked == 0:
-            return None
-
-        # Pick a date: earliest recording_start_time or recording_start_datetime
-        # among unlinked videos, falling back to today.
-        date_row = conn.execute(
-            """SELECT COALESCE(MIN(recording_start_datetime),
-                               MIN(recording_start_time),
-                               MIN(creation_time))
-               FROM videos WHERE camera_id IS NULL"""
-        ).fetchone()
-        date_str = (date_row[0] or datetime.now().isoformat())[:10]
+        n_unlinked = (
+            conn.execute(
+                "SELECT COUNT(*) FROM videos WHERE camera_id IS NULL"
+            ).fetchone()[0]
+            if n_videos else 0
+        )
+        date_str = None
+        if n_videos and n_unlinked:
+            # Earliest recording time among unlinked videos; fall back to today.
+            date_row = conn.execute(
+                """SELECT COALESCE(MIN(recording_start_datetime),
+                                   MIN(recording_start_time),
+                                   MIN(creation_time))
+                   FROM videos WHERE camera_id IS NULL"""
+            ).fetchone()
+            date_str = (date_row[0] or datetime.now().isoformat())[:10]
     finally:
         conn.close()
+
+    if n_videos == 0:
+        return None
+    if n_unlinked == 0:
+        # Already linked by a v3 path — mark initialized so a later unlink
+        # (e.g. an intersection delete) can't trigger a phantom bootstrap.
+        set_project_info(project_id, "v3_initialized", "1")
+        return None
 
     iid = upsert_intersection(project_id, "Main intersection", date_str, leg_count=4)
     cid = upsert_camera(project_id, iid, "Camera 1")
@@ -1445,4 +1456,5 @@ def ensure_default_intersection_for_legacy(project_id: str) -> int | None:
             except Exception:
                 pass
 
+    set_project_info(project_id, "v3_initialized", "1")
     return iid

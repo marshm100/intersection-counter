@@ -23,7 +23,7 @@ from backend.config import (
 )
 from backend.database import (
     CLEAR_TO_DEFAULT,
-    add_trim, clear_v3_run_state,
+    add_trim, clear_v3_run_state, ensure_default_intersection_for_legacy,
     get_camera_calibration_params, get_camera,
     get_connection, get_db_path, get_intersection, get_project_info,
     get_v3_run_state, heal_v3_running_to_interrupted,
@@ -308,6 +308,11 @@ def _trim_to_interval(date_str: str, trim: dict) -> Interval:
 def get_intersections(project_id: str):
     """List all intersection-day cards in the project."""
     _require_project(project_id)
+    # Lazy v2->v3 migration: the first time a legacy flat-video project is
+    # viewed under v3, auto-create its default intersection/camera/trim and link
+    # existing videos/legs/events. Idempotent and cheap (early-returns once every
+    # video is linked), so it's safe to call on every list.
+    ensure_default_intersection_for_legacy(project_id)
     return list_intersections(project_id)
 
 
