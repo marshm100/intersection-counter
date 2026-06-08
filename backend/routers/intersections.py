@@ -18,7 +18,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.config import (
-    DEFAULT_PROCESSING_MODE, PROCESSING_MODES, PROJECTS_DIR,
+    DEFAULT_PROCESSING_MODE, MAX_CONCURRENT_PIPELINES, PROCESSING_MODES, PROJECTS_DIR,
     get_processing_mode_config,
 )
 from backend.database import (
@@ -51,6 +51,44 @@ import time
 
 _v3_jobs: dict[tuple[str, int], dict] = {}
 _v3_jobs_lock = threading.Lock()
+
+# A job is "in flight" once its pipeline thread has been started and until it
+# reaches a terminal state. Used to enforce MAX_CONCURRENT_PIPELINES ACROSS
+# intersection-days: a start beyond the cap is held as 'queued' (thread NOT
+# spawned) and promoted when a running job finishes. Without this, every
+# intersection-day spawned an unbounded thread — an overload risk on modest
+# hardware. Mirrors the v2 batch-queue cap in routers/processing.py.
+_V3_TERMINAL_STATUSES = {"complete", "error", "cancelled"}
+
+
+def _v3_active_count_locked() -> int:
+    """Count in-flight pipelines. Call while holding _v3_jobs_lock. Counts jobs
+    whose thread was started and that haven't terminated — robust to the brief
+    'queued'->'running' transition window of a just-spawned job."""
+    return sum(
+        1 for j in _v3_jobs.values()
+        if j.get("_started") and j.get("status") not in _V3_TERMINAL_STATUSES
+    )
+
+
+def _v3_promote_queued() -> None:
+    """If a slot is free, start the oldest waiting (queued, unstarted) job.
+    Called when a running job terminates. Spawns the thread OUTSIDE the lock
+    (the pipeline thread re-acquires _v3_jobs_lock immediately)."""
+    spawn = None
+    with _v3_jobs_lock:
+        if _v3_active_count_locked() >= MAX_CONCURRENT_PIPELINES:
+            return
+        for k, j in _v3_jobs.items():
+            if (j.get("status") == "queued" and not j.get("_started")
+                    and j.get("_segments") is not None):
+                j["_started"] = True
+                spawn = (k[0], k[1], j["_segments"])
+                break
+    if spawn is not None:
+        threading.Thread(
+            target=_run_v3_pipeline, args=spawn, daemon=True,
+        ).start()
 
 # Live preview state — mirrors the v2 pattern in routers/processing.py but
 # scoped per (project, intersection) so multiple intersections can run.
@@ -863,6 +901,8 @@ def _run_v3_pipeline(
         # briefly so the client's MJPEG stream sees a final frame before
         # the server stops yielding.
         _stop_v3_preview_worker(key)
+        # A slot just freed — start the next intersection-day waiting for one.
+        _v3_promote_queued()
 
 
 @router.post("/projects/{project_id}/intersections/{intersection_id}/processing/start")
@@ -913,6 +953,10 @@ def processing_start(project_id: str, intersection_id: int):
                 status_code=409,
                 detail="Processing already running for this intersection.",
             )
+        # Enforce MAX_CONCURRENT_PIPELINES across intersection-days: if the cap
+        # is reached, hold this job as 'queued' WITHOUT spawning a thread; it is
+        # promoted when a running job finishes (_v3_promote_queued).
+        at_capacity = _v3_active_count_locked() >= MAX_CONCURRENT_PIPELINES
         _v3_jobs[key] = {
             "status": "queued",
             "segment_count": len(plan.segments),
@@ -923,19 +967,28 @@ def processing_start(project_id: str, intersection_id: int):
             "error": None,
             "warnings": [],
             "cancel_requested": False,
+            "_segments": plan.segments,
+            "_started": not at_capacity,
         }
     set_v3_run_state(project_id, intersection_id, "queued")
 
-    t = threading.Thread(
+    if at_capacity:
+        return {
+            "status": "queued",
+            "queued_for_slot": True,
+            "segments": len(plan.segments),
+            "max_concurrent": MAX_CONCURRENT_PIPELINES,
+        }
+
+    threading.Thread(
         target=_run_v3_pipeline,
         args=(project_id, intersection_id, plan.segments),
         daemon=True,
-    )
-    t.start()
+    ).start()
     return {"status": "queued", "segments": len(plan.segments)}
 
 
-_JOB_NON_SERIALIZABLE_KEYS = {"pipeline"}
+_JOB_NON_SERIALIZABLE_KEYS = {"pipeline", "_segments"}
 
 
 def _is_intersection_configured(project_id: str, intersection: dict) -> bool:
@@ -1089,10 +1142,21 @@ def processing_cancel(project_id: str, intersection_id: int):
     _require_intersection(project_id, intersection_id)
     key = (project_id, intersection_id)
     pipeline = None
+    cancelled_queued = False
     with _v3_jobs_lock:
-        if key in _v3_jobs and _v3_jobs[key].get("status") == "running":
-            _v3_jobs[key]["cancel_requested"] = True
-            pipeline = _v3_jobs[key].get("pipeline")
+        job = _v3_jobs.get(key)
+        if job and job.get("status") == "running":
+            job["cancel_requested"] = True
+            pipeline = job.get("pipeline")
+        elif job and job.get("status") == "queued" and not job.get("_started"):
+            # Still waiting for a slot — drop it from the queue right away so it
+            # is never promoted, and free its run-state for a fresh start.
+            job["status"] = "cancelled"
+            job["_segments"] = None
+            cancelled_queued = True
+    if cancelled_queued:
+        set_v3_run_state(project_id, intersection_id, "cancelled")
+        return {"status": "cancelled"}
     # Flip is_running on the currently-running pipeline so process_video()
     # exits its while loop within one frame, instead of waiting until the
     # next segment-boundary check.
@@ -1193,6 +1257,17 @@ def processing_resume(project_id: str, intersection_id: int):
                 status_code=409,
                 detail="Processing already running for this intersection.",
             )
+        # Resume is a deliberate single action; rather than queue it (the resume
+        # kwargs make promotion awkward), refuse when at capacity so we never
+        # exceed MAX_CONCURRENT_PIPELINES. The user retries once a slot frees.
+        if _v3_active_count_locked() >= MAX_CONCURRENT_PIPELINES:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"{MAX_CONCURRENT_PIPELINES} intersection-days are already "
+                    "processing. Wait for one to finish, then Continue."
+                ),
+            )
         _v3_jobs[key] = {
             "status": "queued",
             "segment_count": len(plan.segments),
@@ -1203,6 +1278,7 @@ def processing_resume(project_id: str, intersection_id: int):
             "error": None,
             "warnings": [],
             "cancel_requested": False,
+            "_started": True,
         }
     set_v3_run_state(project_id, intersection_id, "queued")
 

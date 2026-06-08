@@ -456,3 +456,103 @@ class TestReprocess:
         assert after == 0
         assert not CheckpointManager(str(get_db_path(pid))).has_checkpoint()
         assert get_v3_run_state(pid, iid) is None
+
+
+class TestConcurrencyCap:
+    """MAX_CONCURRENT_PIPELINES enforced across intersection-days: at capacity a
+    start is held 'queued' (no thread), and promoted when a slot frees."""
+
+    def _fill(self, rm, n):
+        keys = []
+        with rm._v3_jobs_lock:
+            for i in range(n):
+                k = (f"_capfill_{i}", 999)
+                rm._v3_jobs[k] = {"status": "running", "_started": True}
+                keys.append(k)
+        return keys
+
+    def _drop(self, rm, *keys):
+        with rm._v3_jobs_lock:
+            for k in keys:
+                rm._v3_jobs.pop(k, None)
+
+    def test_start_queues_when_at_capacity(self, configured_intersection):
+        import backend.routers.intersections as rm
+        from backend.config import MAX_CONCURRENT_PIPELINES
+        from backend.database import clear_v3_run_state
+        pid, iid = configured_intersection
+        fill = self._fill(rm, MAX_CONCURRENT_PIPELINES)
+        try:
+            r = client.post(f"/api/projects/{pid}/intersections/{iid}/processing/start")
+            assert r.status_code == 200, r.text
+            assert r.json().get("queued_for_slot") is True
+            with rm._v3_jobs_lock:
+                job = rm._v3_jobs[(pid, iid)]
+                assert job["status"] == "queued"
+                assert job["_started"] is False  # no thread spawned
+        finally:
+            self._drop(rm, *fill, (pid, iid))
+            clear_v3_run_state(pid, iid)
+
+    def test_promote_starts_queued_when_slot_frees(self, configured_intersection, monkeypatch):
+        import time
+        import backend.routers.intersections as rm
+        captured = []
+        def stub(p, i, segs, **k):
+            with rm._v3_jobs_lock:
+                if (p, i) in rm._v3_jobs:
+                    rm._v3_jobs[(p, i)]["status"] = "running"
+            captured.append((p, i))
+        monkeypatch.setattr(rm, "_run_v3_pipeline", stub)
+        pid, iid = configured_intersection
+        # Isolate the shared in-memory job map so the active count is exactly the
+        # one running slot below (other tests may leave residue in _v3_jobs).
+        with rm._v3_jobs_lock:
+            saved = dict(rm._v3_jobs)
+            rm._v3_jobs.clear()
+            rm._v3_jobs[("_one", 999)] = {"status": "running", "_started": True}  # 1/2 slots
+            rm._v3_jobs[(pid, iid)] = {"status": "queued", "_started": False, "_segments": ["seg"]}
+        try:
+            rm._v3_promote_queued()
+            time.sleep(0.2)
+            assert (pid, iid) in captured
+            with rm._v3_jobs_lock:
+                assert rm._v3_jobs[(pid, iid)]["_started"] is True
+        finally:
+            with rm._v3_jobs_lock:
+                rm._v3_jobs.clear()
+                rm._v3_jobs.update(saved)
+
+    def test_promote_is_noop_when_full(self, configured_intersection, monkeypatch):
+        import backend.routers.intersections as rm
+        from backend.config import MAX_CONCURRENT_PIPELINES
+        captured = []
+        monkeypatch.setattr(rm, "_run_v3_pipeline", lambda *a, **k: captured.append(a))
+        pid, iid = configured_intersection
+        fill = self._fill(rm, MAX_CONCURRENT_PIPELINES)
+        with rm._v3_jobs_lock:
+            rm._v3_jobs[(pid, iid)] = {"status": "queued", "_started": False, "_segments": ["seg"]}
+        try:
+            rm._v3_promote_queued()
+            assert captured == []
+            with rm._v3_jobs_lock:
+                assert rm._v3_jobs[(pid, iid)]["_started"] is False
+        finally:
+            self._drop(rm, *fill, (pid, iid))
+
+    def test_cancel_drops_a_queued_job(self, configured_intersection):
+        import backend.routers.intersections as rm
+        from backend.database import set_v3_run_state, clear_v3_run_state
+        pid, iid = configured_intersection
+        with rm._v3_jobs_lock:
+            rm._v3_jobs[(pid, iid)] = {"status": "queued", "_started": False, "_segments": ["seg"]}
+        set_v3_run_state(pid, iid, "queued")
+        try:
+            r = client.post(f"/api/projects/{pid}/intersections/{iid}/processing/cancel")
+            assert r.status_code == 200
+            assert r.json()["status"] == "cancelled"
+            with rm._v3_jobs_lock:
+                assert rm._v3_jobs[(pid, iid)]["status"] == "cancelled"
+        finally:
+            self._drop(rm, (pid, iid))
+            clear_v3_run_state(pid, iid)
