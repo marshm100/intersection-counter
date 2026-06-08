@@ -19,7 +19,7 @@ _EVENT_FIELDS = (
     "event_id", "vehicle_track_id", "origin_leg_id", "leg_label",
     "movement", "vehicle_class", "fhwa_class", "detection_confidence",
     "trajectory_confidence", "timestamp_video", "timestamp_real",
-    "frame_number", "manually_edited", "rejected",
+    "frame_number", "manually_edited", "rejected", "trajectory_data",
 )
 
 _SELECT_EVENT = """
@@ -27,7 +27,7 @@ _SELECT_EVENT = """
     l.label AS leg_label, ve.movement, ve.vehicle_class, ve.fhwa_class,
     ve.detection_confidence, ve.trajectory_confidence,
     ve.timestamp_video, ve.timestamp_real, ve.frame_number,
-    ve.manually_edited, ve.rejected
+    ve.manually_edited, ve.rejected, ve.trajectory_data
 """
 
 
@@ -140,6 +140,80 @@ def patch_event(project_id: str, event_id: int, body: PatchEventBody):
                 params,
             )
             conn.commit()
+
+        row = conn.execute(
+            f"""SELECT {_SELECT_EVENT}
+                FROM vehicle_events ve
+                JOIN legs l ON ve.origin_leg_id = l.leg_id
+                WHERE ve.event_id = ?""",
+            (event_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    return _row_to_dict(row)
+
+
+class AddEventBody(BaseModel):
+    origin_leg_id: int
+    movement: str
+    timestamp_video: float
+    video_id: Optional[int] = None
+    trim_id: Optional[int] = None
+    destination_leg_id: Optional[int] = None
+    vehicle_class: str = "car"
+    x: Optional[float] = None  # click position, for a minimal overlay trajectory
+    y: Optional[float] = None
+
+
+@router.post("/projects/{project_id}/review")
+def add_event(project_id: str, body: AddEventBody):
+    """Create a manually-added ("missed") vehicle event from the playback view.
+    camera_id is derived from the origin leg (legs are per-camera) so the event
+    scopes correctly into v3 aggregation/dedup/Excel. frame_number is computed
+    from the video's fps. Marked manually_edited=1, rejected=0."""
+    if body.movement not in VALID_MOVEMENTS:
+        raise HTTPException(status_code=422, detail=f"Invalid movement: {body.movement}")
+    if body.vehicle_class not in VALID_CLASSES:
+        raise HTTPException(status_code=422, detail=f"Invalid vehicle_class: {body.vehicle_class}")
+
+    conn = get_connection(project_id)
+    try:
+        leg = conn.execute(
+            "SELECT leg_id, camera_id FROM legs WHERE leg_id = ?", (body.origin_leg_id,)
+        ).fetchone()
+        if not leg:
+            raise HTTPException(status_code=404, detail="Origin leg not found")
+        camera_id = leg[1]
+
+        # frame_number from the video's fps when a video is known (used by the
+        # frame-preview endpoint); defaults to 0 otherwise.
+        frame_number = 0
+        if body.video_id is not None:
+            vrow = conn.execute(
+                "SELECT fps FROM videos WHERE video_id = ?", (body.video_id,)
+            ).fetchone()
+            if vrow and vrow[0]:
+                frame_number = max(0, round(body.timestamp_video * float(vrow[0])))
+
+        # Minimal trajectory = the click point, so the overlay draws a marker and
+        # click-to-reject hit-testing works for the manually-added event too.
+        traj = json.dumps(
+            [[body.x, body.y]] if body.x is not None and body.y is not None else []
+        )
+        cur = conn.execute(
+            """INSERT INTO vehicle_events
+               (video_id, camera_id, trim_id, vehicle_track_id, origin_leg_id,
+                destination_leg_id, movement, trajectory_data, trajectory_confidence,
+                vehicle_class, detection_confidence, timestamp_video, frame_number,
+                manually_edited, rejected)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,0)""",
+            (body.video_id, camera_id, body.trim_id, -1, body.origin_leg_id,
+             body.destination_leg_id, body.movement, traj, 1.0,
+             body.vehicle_class, 1.0, body.timestamp_video, frame_number),
+        )
+        event_id = cur.lastrowid
+        conn.commit()
 
         row = conn.execute(
             f"""SELECT {_SELECT_EVENT}

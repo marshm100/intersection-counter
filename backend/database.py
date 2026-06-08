@@ -247,6 +247,10 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    # Wait up to 5s for a write lock instead of failing instantly with
+    # "database is locked" — matters under WAL when connections churn rapidly
+    # (and on OneDrive-backed paths that briefly hold file locks).
+    conn.execute("PRAGMA busy_timeout=5000")
     conn.executescript(SCHEMA)
 
     # Migrations for existing DBs created under earlier schemas.

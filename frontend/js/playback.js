@@ -305,16 +305,24 @@ async function pbConfirmAddMissed(x, y, timestamp) {
     const movSel = document.getElementById('pb-add-mov');
     if (!legSel || !movSel) return;
     const v = _pbVideos[_pbActiveVideoIdx];
-    if (!v) { alert('No active video.'); return; }
 
-    // The review router doesn't yet expose POST for new events; this is a
-    // Phase 10 polish item. For now we surface the intent so the user knows
-    // what would happen.
-    alert(`Phase 9 stub: would insert a missed vehicle\n` +
-          `leg_id=${legSel.value} movement=${movSel.value}\n` +
-          `at video_id=${v.video_id} t=${timestamp.toFixed(1)}s (${x.toFixed(0)},${y.toFixed(0)})\n\n` +
-          `The POST endpoint to create new events from the playback view is a\n` +
-          `Phase 10 deliverable.`);
+    let ev;
+    try {
+        ev = await API.post(`/api/projects/${pid}/review`, {
+            origin_leg_id: Number(legSel.value),
+            movement: movSel.value,
+            timestamp_video: timestamp,
+            video_id: v ? v.video_id : null,
+            x, y,
+        });
+    } catch (e) {
+        alert(`Failed to add vehicle: ${e.message || e}`);
+        return;
+    }
+    // Add to local state so it draws immediately and counts update live.
+    _pbEvents.push(ev);
+    await _refreshCountsPanel();
+    _drawOverlay();
     pbCancelAddMissed();
 }
 
