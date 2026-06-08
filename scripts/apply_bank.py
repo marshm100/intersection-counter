@@ -40,6 +40,10 @@ def main() -> int:
                     "set to retrack over a non-default cache e.g. accurate_1280_skip1")
     ap.add_argument("--tracker-kwargs", default=None, help="JSON dict of extra tracker kwargs "
                     "(e.g. '{\"track_buffer\": 50}') for param sweeps")
+    ap.add_argument("--match-thresh", type=float, default=None,
+                    help="override tracker match_thresh for THIS run only (knob sweep; no project.db write)")
+    ap.add_argument("--nms-iou", default=None,
+                    help="override pre-track NMS IoU for THIS run only: a float or 'off' (knob sweep; no project.db write)")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
     cam = args.camera
@@ -51,6 +55,13 @@ def main() -> int:
     conn = sqlite3.connect(proj_db); ctx = _load_camera_context(conn, cam); conn.close()
     video = ctx["video"]; fps = float(video["fps"])
     calib = get_camera_calibration_params(PROJECT, cam)
+    # Per-run knob overrides for sweeps — injected into the calib dict so they
+    # flow through the normal per-camera precedence (calib override > mode arg)
+    # WITHOUT mutating project.db. None/absent = use the persisted per-camera value.
+    if args.match_thresh is not None:
+        calib["tracker_match_threshold"] = args.match_thresh
+    if args.nms_iou is not None:
+        calib["pre_track_nms_iou"] = None if args.nms_iou == "off" else float(args.nms_iou)
     mode_cfg = get_processing_mode_config(args.mode)
     sug = json.loads(Path(bank).read_text())
     t0 = datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{args.start_hms}")
