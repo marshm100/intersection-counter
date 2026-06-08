@@ -1023,3 +1023,62 @@ def test_audit_report_classify():
                        "origin_assigned": True}) == "emitted_fragmented"
     assert m.classify({"real_yolo_hits": 5, "final_points": 30, "max_coasted_gap": 0,
                        "origin_assigned": True}) == "ok"
+
+
+class TestPerCameraKnobs:
+    """Per-camera detection/tracking knobs flow through the pipeline:
+    NMS from calibration, tracker buffers via VehicleTracker's explicit params
+    (not backend_kwargs), with explicit constructor args taking precedence."""
+
+    def _pipeline(self, env, **kw):
+        from backend.services.pipeline import ProcessingPipeline
+        return ProcessingPipeline(
+            project_id="test", db_path=env["db_path"],
+            video_path=env["video_path"], legs=env["legs"], fps=30.0, **kw,
+        )
+
+    def test_nms_threshold_honored_from_calibration(self, pipeline_env, monkeypatch):
+        import backend.services.pipeline as plmod
+        captured = {}
+        monkeypatch.setattr(plmod, "_class_agnostic_nms",
+                            lambda dets, iou: (captured.__setitem__("iou", iou), dets)[1])
+        p = self._pipeline(pipeline_env, calibration_params={"pre_track_nms_iou": 0.5})
+        p._ingest_detections([_make_detection(400, 400), _make_detection(420, 410)], 1)
+        assert captured.get("iou") == 0.5
+
+    def test_nms_off_by_default(self, pipeline_env, monkeypatch):
+        import backend.services.pipeline as plmod
+        captured = {"called": False}
+        def _spy(dets, iou):
+            captured["called"] = True
+            return dets
+        monkeypatch.setattr(plmod, "_class_agnostic_nms", _spy)
+        # No calibration override and global PRE_TRACK_NMS_IOU defaults to None.
+        p = self._pipeline(pipeline_env)
+        p._ingest_detections([_make_detection(400, 400), _make_detection(420, 410)], 1)
+        assert captured["called"] is False
+
+    def test_tracker_knobs_from_calibration(self, pipeline_env):
+        p = self._pipeline(pipeline_env, calibration_params={
+            "tracker_lost_buffer": 60, "tracker_match_threshold": 0.7,
+            "tracker_activation_threshold": 0.4})
+        init = p.tracker._backend._init_kwargs
+        assert init["track_buffer"] == 60
+        assert init["match_thresh"] == 0.7
+        assert init["track_thresh"] == 0.4
+
+    def test_calibration_override_beats_explicit(self, pipeline_env):
+        # A per-camera calibration OVERRIDE wins over an explicit arg, because
+        # callers pass the MODE DEFAULT as the explicit arg and a real per-camera
+        # tune must beat it. (A sweep that needs to force a value injects it into
+        # calibration_params, which is exactly this winning path.)
+        p = self._pipeline(pipeline_env, tracker_match_threshold=0.8,
+                           calibration_params={"tracker_match_threshold": 0.9})
+        assert p.tracker._backend._init_kwargs["match_thresh"] == 0.9
+
+    def test_explicit_used_when_no_calibration_override(self, pipeline_env):
+        # No per-camera override (key absent / None) -> the explicit arg (mode
+        # default or a deliberate sweep value like retrack_to_db's activation) drives.
+        p = self._pipeline(pipeline_env, tracker_match_threshold=0.65,
+                           calibration_params={"tracker_match_threshold": None})
+        assert p.tracker._backend._init_kwargs["match_thresh"] == 0.65

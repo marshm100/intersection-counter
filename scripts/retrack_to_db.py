@@ -18,7 +18,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.config import get_processing_mode_config
-from backend.database import get_calibration_params, list_paths_for_camera, list_trims
+from backend.database import (get_camera_calibration_params,
+                              list_paths_for_camera, list_trims)
 from backend.services.detection_cache import (
     DEFAULT_VARIANT, DetectionCacheReader, compute_video_content_hash, parquet_path,
 )
@@ -63,7 +64,7 @@ def main() -> int:
         yolo_confidence=mode_cfg["yolo_confidence"], detection_skip=mode_cfg["detection_skip"],
         tracker_match_threshold=mode_cfg.get("tracker_match_threshold"),
         tracker_activation_threshold=args.activation,
-        calibration_params=get_calibration_params(args.project, ctx["intersection_id"]),
+        calibration_params=get_camera_calibration_params(args.project, args.camera),
         paths=list_paths_for_camera(args.project, args.camera), tracker_backend=args.backend)
     pipe._v3_camera_id = args.camera
     pipe._v3_trim_id = (list_trims(args.project, ctx["intersection_id"]) or [{"trim_id": None}])[0]["trim_id"]

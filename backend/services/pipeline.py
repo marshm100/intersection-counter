@@ -238,10 +238,29 @@ class ProcessingPipeline:
             # effective 10 fps when the source is 30.
             effective_fps = max(1, int(self.fps / self.detection_skip))
             kw: dict = {"frame_rate": effective_fps, "backend": self._tracker_backend}
-            if self._tracker_match_threshold is not None:
-                kw["minimum_matching_threshold"] = self._tracker_match_threshold
-            if self._tracker_activation_threshold is not None:
-                kw["track_activation_threshold"] = self._tracker_activation_threshold
+            # Standard tracker knobs (match/activation/lost-buffer) go through
+            # VehicleTracker's EXPLICIT params, never backend_kwargs — passing
+            # them in backend_kwargs collides with the forwarded explicit args
+            # (duplicate keyword). Precedence: per-camera CALIBRATION OVERRIDE >
+            # explicit constructor arg (mode default or a deliberate sweep) >
+            # backend/config default. The override wins because callers routinely
+            # pass the MODE DEFAULT as the explicit arg (mode_cfg's match=0.8); a
+            # real per-camera tune must beat that. calibration_params carries the
+            # raw override (None when unset), so an unset knob falls through to
+            # the explicit arg and a sweep's deliberate value still applies.
+            match_thr = self._calibration_params.get("tracker_match_threshold")
+            if match_thr is None:
+                match_thr = self._tracker_match_threshold
+            if match_thr is not None:
+                kw["minimum_matching_threshold"] = match_thr
+            activation_thr = self._calibration_params.get("tracker_activation_threshold")
+            if activation_thr is None:
+                activation_thr = self._tracker_activation_threshold
+            if activation_thr is not None:
+                kw["track_activation_threshold"] = activation_thr
+            lost_buffer = self._calibration_params.get("tracker_lost_buffer")
+            if lost_buffer is not None:
+                kw["lost_track_buffer"] = int(lost_buffer)
             if self._tracker_kwargs:
                 kw["backend_kwargs"] = self._tracker_kwargs
             self._tracker = VehicleTracker(**kw)
@@ -413,8 +432,13 @@ class ProcessingPipeline:
         re-inferring the video — the tracker/attribution path is agnostic to
         whether detections came live or from the Parquet cache.
         """
-        if PRE_TRACK_NMS_IOU is not None and len(detections) > 1:
-            detections = _class_agnostic_nms(detections, PRE_TRACK_NMS_IOU)
+        # Per-camera NMS override (calibration) wins over the global default;
+        # NULL/absent override falls back to the process-global PRE_TRACK_NMS_IOU.
+        nms_iou = self._calibration_params.get("pre_track_nms_iou")
+        if nms_iou is None:
+            nms_iou = PRE_TRACK_NMS_IOU
+        if nms_iou is not None and len(detections) > 1:
+            detections = _class_agnostic_nms(detections, nms_iou)
         tracked = self.tracker.update(detections, frame_number)
         self._latest_tracks = tracked
 

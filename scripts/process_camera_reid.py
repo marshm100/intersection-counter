@@ -31,7 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from backend.config import get_processing_mode_config
-from backend.database import get_calibration_params
+from backend.database import get_camera_calibration_params
 from backend.services.detection_cache import (
     DEFAULT_VARIANT, compute_video_content_hash, parquet_path)
 from reprocess_camera import _load_camera_context
@@ -85,7 +85,7 @@ def main() -> int:
 
     conn = sqlite3.connect(proj_db); ctx = _load_camera_context(conn, camera); conn.close()
     video = ctx["video"]; fps = float(video["fps"])
-    calib = get_calibration_params(PROJECT, ctx["intersection_id"])
+    calib = get_camera_calibration_params(PROJECT, camera)
     mode_cfg = get_processing_mode_config("balanced")
     sug = json.loads(Path(args.bank).read_text())
 

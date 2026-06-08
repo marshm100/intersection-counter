@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.config import get_processing_mode_config
 from backend.database import (
-    get_calibration_params,
+    get_camera_calibration_params,
     list_paths_for_camera,
     list_trims,
 )
@@ -153,7 +153,7 @@ def main() -> int:
     legs = ctx["legs"]
     trims = list_trims(args.project, intersection_id)
     paths = list_paths_for_camera(args.project, args.camera)
-    calib = get_calibration_params(args.project, intersection_id)
+    calib = get_camera_calibration_params(args.project, args.camera)
     mode_cfg = get_processing_mode_config(args.mode)
     fps = float(video["fps"])
 

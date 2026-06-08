@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS cameras (
     label           TEXT NOT NULL,
     sort_order      INTEGER NOT NULL,
     created_at      TEXT NOT NULL,
+    -- v3.calibration: per-CAMERA detection/tracking knobs (override or NULL=fall
+    -- back to backend/config.py). These are camera+resolution artifacts (e.g. the
+    -- detector double-boxing one vehicle, the tracker duplicating IDs), distinct
+    -- from the per-INTERSECTION classification tunables on the intersections table.
+    calib_pre_track_nms_iou             REAL,    -- class-agnostic pre-track NMS IoU
+    calib_tracker_lost_buffer           INTEGER, -- frames a lost track survives
+    calib_tracker_match_threshold       REAL,    -- IoU match threshold
+    calib_tracker_activation_threshold  REAL,    -- detection conf to start a track
     FOREIGN KEY (intersection_id) REFERENCES intersections(intersection_id),
     UNIQUE(intersection_id, label)
 );
@@ -317,6 +325,17 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     leg_cols = [r[1] for r in conn.execute("PRAGMA table_info(legs)").fetchall()]
     if "camera_id" not in leg_cols:
         conn.execute("ALTER TABLE legs ADD COLUMN camera_id INTEGER DEFAULT NULL")
+
+    # v3.calibration: per-camera detection/tracking knobs (NULL = use config.py).
+    cam_cols = [r[1] for r in conn.execute("PRAGMA table_info(cameras)").fetchall()]
+    if "calib_pre_track_nms_iou" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_pre_track_nms_iou REAL")
+    if "calib_tracker_lost_buffer" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_tracker_lost_buffer INTEGER")
+    if "calib_tracker_match_threshold" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_tracker_match_threshold REAL")
+    if "calib_tracker_activation_threshold" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_tracker_activation_threshold REAL")
 
     # Indexes after migrations so legacy DBs that gained columns above
     # can be indexed on them now that they exist.
@@ -697,6 +716,115 @@ def get_calibration_params(project_id: str, intersection_id: int) -> dict:
     }
     return {k: (overrides[k] if overrides[k] is not None else defaults[k])
             for k in defaults}
+
+
+# Per-camera detection/tracking knob keys. Stored as calib_<key> columns on the
+# cameras table; resolved against backend/config.py defaults. Kept distinct from
+# the per-intersection classification tunables above (different table, different
+# concern: these are camera+resolution artifacts).
+_CAMERA_CALIB_KEYS = (
+    "pre_track_nms_iou",
+    "tracker_lost_buffer",
+    "tracker_match_threshold",
+    "tracker_activation_threshold",
+)
+
+
+def get_camera_calibration_params(project_id: str, camera_id: int) -> dict:
+    """Effective tunables for one camera's pipeline run: the per-INTERSECTION
+    classification tunables (from get_calibration_params, resolved to override-
+    or-default) MERGED with the per-CAMERA detection/tracking knobs.
+
+    NOTE the deliberate asymmetry: the per-camera knobs are returned as the RAW
+    OVERRIDE — the configured value, or **None when unset** — NOT resolved to a
+    config default. This is what feeds the pipeline's precedence chain
+    (per-camera override > explicit/mode arg > config default): returning a
+    resolved default here would make an unset knob indistinguishable from a real
+    override and clobber a deliberate explicit/sweep value. Use
+    resolve_camera_knob_defaults() for a display-friendly resolved view.
+
+    Raises ValueError if the camera doesn't exist.
+    """
+    cam = get_camera(project_id, camera_id)
+    if cam is None:
+        raise ValueError(f"camera {camera_id} not found in {project_id}")
+    params = get_calibration_params(project_id, cam["intersection_id"])
+
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT calib_pre_track_nms_iou, calib_tracker_lost_buffer, "
+            "calib_tracker_match_threshold, calib_tracker_activation_threshold "
+            "FROM cameras WHERE camera_id = ?",
+            (camera_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    params["pre_track_nms_iou"] = row["calib_pre_track_nms_iou"]
+    params["tracker_lost_buffer"] = row["calib_tracker_lost_buffer"]
+    params["tracker_match_threshold"] = row["calib_tracker_match_threshold"]
+    params["tracker_activation_threshold"] = row["calib_tracker_activation_threshold"]
+    return params
+
+
+def resolve_camera_knob_defaults(knobs: dict) -> dict:
+    """Resolve the per-camera knobs (raw overrides, None when unset) to their
+    effective values against backend/config.py — for display in the calibration
+    UI. The pipeline does NOT use this; it needs the raw overrides for its
+    precedence chain. NMS resolves to the global PRE_TRACK_NMS_IOU (may be None).
+    """
+    from backend.config import (
+        PRE_TRACK_NMS_IOU, TRACKER_LOST_BUFFER,
+        TRACKER_MATCH_THRESHOLD, TRACKER_ACTIVATION_THRESHOLD,
+    )
+    defaults = {
+        "pre_track_nms_iou": PRE_TRACK_NMS_IOU,
+        "tracker_lost_buffer": TRACKER_LOST_BUFFER,
+        "tracker_match_threshold": TRACKER_MATCH_THRESHOLD,
+        "tracker_activation_threshold": TRACKER_ACTIVATION_THRESHOLD,
+    }
+    return {k: (knobs[k] if knobs.get(k) is not None else defaults[k]) for k in defaults}
+
+
+def update_camera_calibration(
+    project_id: str,
+    camera_id: int,
+    *,
+    calib_pre_track_nms_iou: float | None | _ClearToDefault = None,
+    calib_tracker_lost_buffer: int | None | _ClearToDefault = None,
+    calib_tracker_match_threshold: float | None | _ClearToDefault = None,
+    calib_tracker_activation_threshold: float | None | _ClearToDefault = None,
+) -> None:
+    """Update a camera's per-camera detection/tracking knobs. Each arg is
+    three-state (mirrors update_intersection):
+      - default (None): don't touch this column
+      - CLEAR_TO_DEFAULT: set the column to NULL (revert to config default)
+      - value: set the column to that value
+    """
+    sets, params = [], []
+    for col, val, cast in (
+        ("calib_pre_track_nms_iou", calib_pre_track_nms_iou, float),
+        ("calib_tracker_lost_buffer", calib_tracker_lost_buffer, int),
+        ("calib_tracker_match_threshold", calib_tracker_match_threshold, float),
+        ("calib_tracker_activation_threshold", calib_tracker_activation_threshold, float),
+    ):
+        if val is None:
+            continue  # don't touch
+        sets.append(f"{col} = ?")
+        params.append(None if isinstance(val, _ClearToDefault) else cast(val))
+    if not sets:
+        return
+    params.append(camera_id)
+    conn = get_connection(project_id)
+    try:
+        conn.execute(
+            f"UPDATE cameras SET {', '.join(sets)} WHERE camera_id = ?",
+            params,
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def remove_intersection(project_id: str, intersection_id: int) -> None:

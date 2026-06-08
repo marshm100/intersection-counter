@@ -23,13 +23,15 @@ from backend.config import (
 )
 from backend.database import (
     CLEAR_TO_DEFAULT,
-    add_trim, clear_v3_run_state, get_calibration_params, get_camera,
+    add_trim, clear_v3_run_state,
+    get_camera_calibration_params, get_camera,
     get_connection, get_db_path, get_intersection, get_project_info,
     get_v3_run_state, heal_v3_running_to_interrupted,
     list_cameras, list_intersections, list_paths_for_camera,
     list_trims, list_videos_for_camera,
-    remove_camera, remove_intersection, remove_trim, set_v3_run_state,
-    update_camera, update_intersection, update_trim,
+    remove_camera, remove_intersection, remove_trim,
+    resolve_camera_knob_defaults, set_v3_run_state,
+    update_camera, update_camera_calibration, update_intersection, update_trim,
 )
 from backend.services.coverage import (
     CameraCoverage, Interval, compute_coverage_report,
@@ -182,6 +184,14 @@ class UpdateIntersectionBody(BaseModel):
 class UpdateCameraBody(BaseModel):
     label: Optional[str] = None
     sort_order: Optional[int] = None
+    # Per-camera detection/tracking knob overrides. Pass null to clear an
+    # override back to the backend/config.py default. These are camera+
+    # resolution artifacts (detector double-boxing, tracker ID duplication),
+    # distinct from the per-intersection classification angles.
+    calib_pre_track_nms_iou: Optional[float] = None
+    calib_tracker_lost_buffer: Optional[int] = None
+    calib_tracker_match_threshold: Optional[float] = None
+    calib_tracker_activation_threshold: Optional[float] = None
 
 
 class TrimBody(BaseModel):
@@ -396,11 +406,57 @@ def get_cameras(project_id: str, intersection_id: int):
 def patch_camera(
     project_id: str, intersection_id: int, camera_id: int, body: UpdateCameraBody,
 ):
+    """Rename/reorder a camera, or set its per-camera detection/tracking knob
+    overrides (NMS, tracker buffers). For the calib_* fields, pass null to clear
+    an override back to the config default."""
     _require_project(project_id)
     _require_intersection(project_id, intersection_id)
     _require_camera(project_id, camera_id)
+
+    set_fields = body.model_fields_set
+    # Range-check only the fields being set to a value (None = clear, skip).
+    def _v(field: str):
+        return getattr(body, field) if field in set_fields else None
+    nms = _v("calib_pre_track_nms_iou")
+    if nms is not None and not (0.0 < nms <= 1.0):
+        raise HTTPException(status_code=422,
+            detail="calib_pre_track_nms_iou must be in (0, 1]")
+    lost = _v("calib_tracker_lost_buffer")
+    if lost is not None and not (1 <= lost <= 1000):
+        raise HTTPException(status_code=422,
+            detail="calib_tracker_lost_buffer must be in [1, 1000]")
+    match = _v("calib_tracker_match_threshold")
+    if match is not None and not (0.0 < match <= 1.0):
+        raise HTTPException(status_code=422,
+            detail="calib_tracker_match_threshold must be in (0, 1]")
+    activation = _v("calib_tracker_activation_threshold")
+    if activation is not None and not (0.0 <= activation <= 1.0):
+        raise HTTPException(status_code=422,
+            detail="calib_tracker_activation_threshold must be in [0, 1]")
+
     update_camera(project_id, camera_id, label=body.label, sort_order=body.sort_order)
-    return get_camera(project_id, camera_id)
+
+    # Three-state translation (mirrors patch_intersection): field unset => don't
+    # touch; field present & null => clear to default; field present & value => set.
+    def _kwarg(field: str):
+        if field not in set_fields:
+            return None
+        v = getattr(body, field)
+        return CLEAR_TO_DEFAULT if v is None else v
+    update_camera_calibration(
+        project_id, camera_id,
+        calib_pre_track_nms_iou=_kwarg("calib_pre_track_nms_iou"),
+        calib_tracker_lost_buffer=_kwarg("calib_tracker_lost_buffer"),
+        calib_tracker_match_threshold=_kwarg("calib_tracker_match_threshold"),
+        calib_tracker_activation_threshold=_kwarg("calib_tracker_activation_threshold"),
+    )
+    cam = get_camera(project_id, camera_id)
+    # Surface the effective per-camera knobs (resolved override-or-default) so
+    # the UI can render current values without a second call. The getter returns
+    # raw overrides (None when unset); resolve them for display.
+    knobs = get_camera_calibration_params(project_id, camera_id)
+    cam["effective_calibration"] = resolve_camera_knob_defaults(knobs)
+    return cam
 
 
 @router.delete("/projects/{project_id}/intersections/{intersection_id}/cameras/{camera_id}")
@@ -667,9 +723,10 @@ def _run_v3_pipeline(
                     )
                 continue
 
-            # Per-intersection calibration overrides — resolved to effective
-            # values (override or global default) by get_calibration_params.
-            calib = get_calibration_params(project_id, intersection_id)
+            # Effective per-camera tunables: intersection classification
+            # overrides merged with this camera's detection/tracking knobs
+            # (NMS, tracker buffers), each resolved to override-or-default.
+            calib = get_camera_calibration_params(project_id, seg.camera_id)
             # Per-camera polyline paths. Empty list when this camera hasn't
             # been polyline-calibrated yet; pipeline falls back to legacy
             # tripwire+heading tiers in that case.
