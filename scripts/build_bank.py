@@ -130,6 +130,13 @@ def main() -> int:
                     help="reject turn polylines straighter than this (if also over-supported)")
     ap.add_argument("--magnet-support-factor", type=float, default=3.0,
                     help="a turn polyline is a magnet only if support > factor*manual")
+    ap.add_argument("--magnet-min-manual", type=int, default=20,
+                    help="never magnet-reject a movement Miovision counts >= this many "
+                         "times in the window: a phantom magnet is a RARE turn (manual ~5-6) "
+                         "whose support is inflated 30-100x; an established movement (manual "
+                         "dozens-to-hundreds) that happens to be straight + over-collected is "
+                         "real (cam2 PM EB-right manual 182, SB-left 77). Apply-side "
+                         "origin-rewrite gate handles its attribution quality.")
     ap.add_argument("--recovery-overcollect-factor", type=float, default=3.0,
                     help="reject a heading-recovered cell whose support exceeds this "
                          "factor * manual (over-collection guard; independent of the "
@@ -235,9 +242,21 @@ def main() -> int:
             # construction, so it would evade the gate). Primary turns keep the
             # straightness+over-support pairing that spares low-volume genuine
             # turns (cam2). See memory project_build_bank_recovery.
-            magnet = (straightness > args.magnet_straight_thr
+            #
+            # ABSOLUTE-MANUAL GUARD: the magnet mechanism is a RARE turn stealing
+            # throughs — every phantom we've caught has tiny manual (cam4 EB-left 6,
+            # cam5 NB-right 5) and support inflated 30-100x. A movement Miovision
+            # robustly observes is established, not a phantom, even if its fitted
+            # polyline is straight and over-collected (cam2 PM EB-right: manual 182,
+            # support 573 = 3.15x; SB-left: manual 77). The straight+3x heuristic was
+            # tuned on the AM sample where these turns were absent; without this guard
+            # it overfits and collapses cam2's dominant PM turns into adjacent throughs.
+            established = man >= args.magnet_min_manual
+            magnet = (not established
+                      and straightness > args.magnet_straight_thr
                       and len(g) > args.magnet_support_factor * max(man, 1))
-            straight_recovery = recovered and straightness > args.magnet_straight_thr
+            straight_recovery = (not established and recovered
+                                 and straightness > args.magnet_straight_thr)
             if magnet or straight_recovery:
                 why = ("straight recovery — mis-binned throughs" if straight_recovery
                        else f"support>{args.magnet_support_factor:.0f}x manual")
