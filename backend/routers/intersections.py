@@ -230,6 +230,10 @@ class UpdateCameraBody(BaseModel):
     calib_tracker_lost_buffer: Optional[int] = None
     calib_tracker_match_threshold: Optional[float] = None
     calib_tracker_activation_threshold: Optional[float] = None
+    # Phase 1 tracker knobs (docs/implementation_plan_architecture_2026-06-11.md)
+    calib_bbox_buffer_scale: Optional[float] = None
+    calib_track_quality_filter: Optional[int] = None
+    calib_new_track_thresh: Optional[float] = None
 
 
 class TrimBody(BaseModel):
@@ -476,6 +480,18 @@ def patch_camera(
     if activation is not None and not (0.0 <= activation <= 1.0):
         raise HTTPException(status_code=422,
             detail="calib_tracker_activation_threshold must be in [0, 1]")
+    buf = _v("calib_bbox_buffer_scale")
+    if buf is not None and not (1.0 <= buf <= 2.0):
+        raise HTTPException(status_code=422,
+            detail="calib_bbox_buffer_scale must be in [1, 2]")
+    tq = _v("calib_track_quality_filter")
+    if tq is not None and tq not in (0, 1):
+        raise HTTPException(status_code=422,
+            detail="calib_track_quality_filter must be 0 or 1")
+    ntt = _v("calib_new_track_thresh")
+    if ntt is not None and not (0.0 <= ntt <= 1.0):
+        raise HTTPException(status_code=422,
+            detail="calib_new_track_thresh must be in [0, 1]")
 
     update_camera(project_id, camera_id, label=body.label, sort_order=body.sort_order)
 
@@ -492,6 +508,9 @@ def patch_camera(
         calib_tracker_lost_buffer=_kwarg("calib_tracker_lost_buffer"),
         calib_tracker_match_threshold=_kwarg("calib_tracker_match_threshold"),
         calib_tracker_activation_threshold=_kwarg("calib_tracker_activation_threshold"),
+        calib_bbox_buffer_scale=_kwarg("calib_bbox_buffer_scale"),
+        calib_track_quality_filter=_kwarg("calib_track_quality_filter"),
+        calib_new_track_thresh=_kwarg("calib_new_track_thresh"),
     )
     cam = get_camera(project_id, camera_id)
     # Surface the effective per-camera knobs (resolved override-or-default) so

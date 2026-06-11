@@ -44,6 +44,17 @@ def main() -> int:
                     help="override tracker match_thresh for THIS run only (knob sweep; no project.db write)")
     ap.add_argument("--nms-iou", default=None,
                     help="override pre-track NMS IoU for THIS run only: a float or 'off' (knob sweep; no project.db write)")
+    # Phase 1 knobs (docs/implementation_plan_architecture_2026-06-11.md)
+    ap.add_argument("--activation", type=float, default=None,
+                    help="override tracker activation/track_high threshold (birth gate, 1.1)")
+    ap.add_argument("--new-track-thresh", type=float, default=None,
+                    help="botsort new_track_thresh (its separate birth gate, 1.1); merged into tracker kwargs")
+    ap.add_argument("--bbox-buffer", type=float, default=None,
+                    help="buffered-IoU box inflation scale at the tracking input (1.3), e.g. 1.3")
+    ap.add_argument("--tq-filter", action="store_true",
+                    help="enable the finalize-time track-quality gate (pairs with a loosened birth gate, 1.1)")
+    ap.add_argument("--stitch", action="store_true",
+                    help="enable inline ID-switch stitching (coasting-track remap, 1.5)")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
     cam = args.camera
@@ -62,6 +73,14 @@ def main() -> int:
         calib["tracker_match_threshold"] = args.match_thresh
     if args.nms_iou is not None:
         calib["pre_track_nms_iou"] = None if args.nms_iou == "off" else float(args.nms_iou)
+    if args.activation is not None:
+        calib["tracker_activation_threshold"] = args.activation
+    if args.bbox_buffer is not None:
+        calib["bbox_buffer_scale"] = args.bbox_buffer
+    if args.tq_filter:
+        calib["track_quality_filter"] = 1
+    if args.stitch:
+        calib["track_stitch"] = 1
     mode_cfg = get_processing_mode_config(args.mode)
     sug = json.loads(Path(bank).read_text())
     t0 = datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{args.start_hms}")
@@ -71,6 +90,8 @@ def main() -> int:
                                           total_frames=video["total_frames"])
     pq = parquet_path(PROJECT, cam, chash, args.variant or DEFAULT_VARIANT)
     tk = json.loads(args.tracker_kwargs) if args.tracker_kwargs else None
+    if args.new_track_thresh is not None:
+        tk = {**(tk or {}), "new_track_thresh": args.new_track_thresh}
     print(f"retrack {args.backend} cam{cam} (variant={args.variant or DEFAULT_VARIANT}) "
           f"with bank ({len(sug.get('paths',[]))} paths) -> {out_db}")
     retrack(out_db, args.backend, video, ctx, calib, mode_cfg, sug, s, e, pq, cam, tracker_kwargs=tk)

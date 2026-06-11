@@ -340,6 +340,15 @@ def get_connection(project_id: str) -> sqlite3.Connection:
         conn.execute("ALTER TABLE cameras ADD COLUMN calib_tracker_match_threshold REAL")
     if "calib_tracker_activation_threshold" not in cam_cols:
         conn.execute("ALTER TABLE cameras ADD COLUMN calib_tracker_activation_threshold REAL")
+    # Phase 1 tracker knobs (docs/implementation_plan_architecture_2026-06-11.md):
+    # buffered-IoU box inflation, finalize-time track-quality gate, and the
+    # BoT-SORT birth threshold (distinct from activation/track_high).
+    if "calib_bbox_buffer_scale" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_bbox_buffer_scale REAL")
+    if "calib_track_quality_filter" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_track_quality_filter INTEGER")
+    if "calib_new_track_thresh" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_new_track_thresh REAL")
 
     # Indexes after migrations so legacy DBs that gained columns above
     # can be indexed on them now that they exist.
@@ -731,6 +740,9 @@ _CAMERA_CALIB_KEYS = (
     "tracker_lost_buffer",
     "tracker_match_threshold",
     "tracker_activation_threshold",
+    "bbox_buffer_scale",
+    "track_quality_filter",
+    "new_track_thresh",
 )
 
 
@@ -759,7 +771,9 @@ def get_camera_calibration_params(project_id: str, camera_id: int) -> dict:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
             "SELECT calib_pre_track_nms_iou, calib_tracker_lost_buffer, "
-            "calib_tracker_match_threshold, calib_tracker_activation_threshold "
+            "calib_tracker_match_threshold, calib_tracker_activation_threshold, "
+            "calib_bbox_buffer_scale, calib_track_quality_filter, "
+            "calib_new_track_thresh "
             "FROM cameras WHERE camera_id = ?",
             (camera_id,),
         ).fetchone()
@@ -769,6 +783,9 @@ def get_camera_calibration_params(project_id: str, camera_id: int) -> dict:
     params["tracker_lost_buffer"] = row["calib_tracker_lost_buffer"]
     params["tracker_match_threshold"] = row["calib_tracker_match_threshold"]
     params["tracker_activation_threshold"] = row["calib_tracker_activation_threshold"]
+    params["bbox_buffer_scale"] = row["calib_bbox_buffer_scale"]
+    params["track_quality_filter"] = row["calib_track_quality_filter"]
+    params["new_track_thresh"] = row["calib_new_track_thresh"]
     return params
 
 
@@ -787,6 +804,10 @@ def resolve_camera_knob_defaults(knobs: dict) -> dict:
         "tracker_lost_buffer": TRACKER_LOST_BUFFER,
         "tracker_match_threshold": TRACKER_MATCH_THRESHOLD,
         "tracker_activation_threshold": TRACKER_ACTIVATION_THRESHOLD,
+        # Phase 1 knobs: defaults = feature off / library default.
+        "bbox_buffer_scale": 1.0,
+        "track_quality_filter": 0,
+        "new_track_thresh": 0.3,   # BoT-SORT wrapper default (tracker.py)
     }
     return {k: (knobs[k] if knobs.get(k) is not None else defaults[k]) for k in defaults}
 
@@ -799,6 +820,9 @@ def update_camera_calibration(
     calib_tracker_lost_buffer: int | None | _ClearToDefault = None,
     calib_tracker_match_threshold: float | None | _ClearToDefault = None,
     calib_tracker_activation_threshold: float | None | _ClearToDefault = None,
+    calib_bbox_buffer_scale: float | None | _ClearToDefault = None,
+    calib_track_quality_filter: int | None | _ClearToDefault = None,
+    calib_new_track_thresh: float | None | _ClearToDefault = None,
 ) -> None:
     """Update a camera's per-camera detection/tracking knobs. Each arg is
     three-state (mirrors update_intersection):
@@ -812,6 +836,9 @@ def update_camera_calibration(
         ("calib_tracker_lost_buffer", calib_tracker_lost_buffer, int),
         ("calib_tracker_match_threshold", calib_tracker_match_threshold, float),
         ("calib_tracker_activation_threshold", calib_tracker_activation_threshold, float),
+        ("calib_bbox_buffer_scale", calib_bbox_buffer_scale, float),
+        ("calib_track_quality_filter", calib_track_quality_filter, int),
+        ("calib_new_track_thresh", calib_new_track_thresh, float),
     ):
         if val is None:
             continue  # don't touch

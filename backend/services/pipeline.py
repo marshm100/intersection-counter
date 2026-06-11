@@ -42,6 +42,7 @@ from backend.services.origin_detector import (
     score_origin_by_polyline, tripwire_from_point,
 )
 from backend.services.preprocessor import AdaptivePreprocessor
+from backend.services.track_filter import track_quality
 from backend.services.tracker import VehicleTracker
 from backend.services.trajectory_classifier import (
     classify_trajectory, derive_movement, score_destination_by_polyline,
@@ -55,6 +56,25 @@ logger = logging.getLogger(__name__)
 _FATAL_ERRORS = (MemoryError, OSError, SystemExit)
 
 MAX_CONSECUTIVE_ERRORS = 50
+
+
+def _buffer_detection_bbox(d: dict, scale: float) -> dict:
+    """Scale a detection's bbox by `scale` around its center (buffered-IoU,
+    Phase 1.3). Inflating BOTH detections and (transitively) the tracks built
+    from them widens the IoU association basin so fast vehicles whose
+    consecutive boxes don't overlap at 10 fps still match — the C-BIoU idea
+    (arXiv 2211.14317) without patching tracker internals. Centers are
+    unchanged, so trajectories (built from centers) are unaffected; stored
+    bbox_width/height/area are inflated by `scale` for these runs."""
+    x1, y1, x2, y2 = d["bbox"]
+    cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+    hw, hh = (x2 - x1) * scale / 2.0, (y2 - y1) * scale / 2.0
+    out = dict(d)
+    out["bbox"] = [cx - hw, cy - hh, cx + hw, cy + hh]
+    out["bbox_width"] = hw * 2.0
+    out["bbox_height"] = hh * 2.0
+    out["bbox_area"] = hw * hh * 4.0
+    return out
 
 
 def _class_agnostic_nms(detections: list[dict], iou_thresh: float) -> list[dict]:
@@ -192,6 +212,13 @@ class ProcessingPipeline:
         # Snap-magnet defence: turn matches rejected because a straight (through)
         # track's origin was being rewritten to a non-nearest leg.
         self.n_origin_rewrite_gated: int = 0
+        # Low-confidence births rejected by the track-quality gate (Phase 1.1;
+        # only counts when calibration_params["track_quality_filter"] is set).
+        self.n_quality_filtered: int = 0
+        # Inline track stitching (Phase 1.5, calibration_params["track_stitch"]):
+        # new tracker IDs remapped onto a coasting prior track (ID-switch repair).
+        self._stitch_alias: dict[int, int] = {}
+        self.n_stitched: int = 0
 
         # Optional detection-cache write-through (Attribution v2, Step 1). When
         # set (a DetectionCacheWriter), every live detection frame is persisted
@@ -261,8 +288,14 @@ class ProcessingPipeline:
             lost_buffer = self._calibration_params.get("tracker_lost_buffer")
             if lost_buffer is not None:
                 kw["lost_track_buffer"] = int(lost_buffer)
-            if self._tracker_kwargs:
-                kw["backend_kwargs"] = self._tracker_kwargs
+            backend_kwargs = dict(self._tracker_kwargs) if self._tracker_kwargs else {}
+            # BoT-SORT's separate birth gate (Phase 1.1). Only botsort's ctor
+            # accepts it; other backends use activation as their birth gate.
+            ntt = self._calibration_params.get("new_track_thresh")
+            if ntt is not None and self._tracker_backend == "botsort":
+                backend_kwargs.setdefault("new_track_thresh", float(ntt))
+            if backend_kwargs:
+                kw["backend_kwargs"] = backend_kwargs
             self._tracker = VehicleTracker(**kw)
         return self._tracker
 
@@ -439,7 +472,20 @@ class ProcessingPipeline:
             nms_iou = PRE_TRACK_NMS_IOU
         if nms_iou is not None and len(detections) > 1:
             detections = _class_agnostic_nms(detections, nms_iou)
+        # Buffered-IoU (Phase 1.3): inflate boxes AFTER NMS (NMS must see real
+        # geometry) and AFTER the cache write upstream (cache stays raw).
+        buf_scale = self._calibration_params.get("bbox_buffer_scale")
+        if buf_scale and float(buf_scale) != 1.0 and detections:
+            detections = [_buffer_detection_bbox(d, float(buf_scale)) for d in detections]
         tracked = self.tracker.update(detections, frame_number)
+        # Inline ID-switch repair (Phase 1.5): remap a NEW tracker ID onto a
+        # track that has been coasting (unseen 2..gap frames) when the old
+        # track's extrapolated motion predicts the new ID's position. The
+        # trackers re-associate within their own lost buffers; this catches the
+        # drop-and-respawn case where they hand out a fresh ID instead — which
+        # the pipeline would otherwise count twice (one fragment each).
+        if self._calibration_params.get("track_stitch"):
+            tracked = self._stitch_remap(tracked, frame_number)
         self._latest_tracks = tracked
 
         if self._audit_mode:
@@ -468,6 +514,59 @@ class ProcessingPipeline:
                 continue
             if frame_number - last > TRACK_FINALIZE_GAP_FRAMES:
                 self._finalize_vehicle(track_id, frame_number)
+
+    # Stitching gates (Phase 1.5). A candidate prior track must have been
+    # unseen for at least 2 frames (1-frame absence is normal flicker the
+    # grace window already rides out) and at most the finalize gap (after
+    # which it is already finalized). The position gate scales with how far
+    # the prior track was moving — fast movers earn a wider basin.
+    _STITCH_MIN_GAP = 2
+    _STITCH_BASE_RADIUS_PX = 60.0
+    _STITCH_SPEED_SLACK = 0.35   # + this fraction of (speed * gap)
+
+    def _stitch_remap(self, tracked: list[dict], frame_number: int) -> list[dict]:
+        from backend.config import TRACK_FINALIZE_GAP_FRAMES
+        # 1) Apply existing aliases so a remapped ID stays remapped for life.
+        for t in tracked:
+            alias = self._stitch_alias.get(t["track_id"])
+            if alias is not None:
+                t["track_id"] = alias
+        present = {t["track_id"] for t in tracked}
+        # 2) For each genuinely NEW ID, look for a coasting prior track whose
+        #    extrapolated position lands on it.
+        for t in tracked:
+            tid = t["track_id"]
+            if tid in self.active_vehicles or not t["is_vehicle"]:
+                continue
+            cx, cy = t["center"]
+            best_id, best_dist = None, None
+            for vid, v in self.active_vehicles.items():
+                if vid in present:
+                    continue  # prior track still alive this frame
+                last = v.get("last_seen_frame")
+                traj = v["trajectory"]
+                if last is None or len(traj) < 3:
+                    continue
+                gap = frame_number - last
+                if not (self._STITCH_MIN_GAP <= gap <= TRACK_FINALIZE_GAP_FRAMES):
+                    continue
+                # velocity from the last few points (px/frame, assumes ~1 pt/frame)
+                k = min(5, len(traj) - 1)
+                vx = (traj[-1][0] - traj[-1 - k][0]) / k
+                vy = (traj[-1][1] - traj[-1 - k][1]) / k
+                px = traj[-1][0] + vx * gap
+                py = traj[-1][1] + vy * gap
+                speed = (vx * vx + vy * vy) ** 0.5
+                gate = self._STITCH_BASE_RADIUS_PX + self._STITCH_SPEED_SLACK * speed * gap
+                dist = ((cx - px) ** 2 + (cy - py) ** 2) ** 0.5
+                if dist <= gate and (best_dist is None or dist < best_dist):
+                    best_id, best_dist = vid, dist
+            if best_id is not None:
+                self._stitch_alias[t["track_id"]] = best_id
+                t["track_id"] = best_id
+                present.add(best_id)
+                self.n_stitched += 1
+        return tracked
 
     @staticmethod
     def _bbox_iou(a: list, b: list) -> float:
@@ -770,6 +869,16 @@ class ProcessingPipeline:
         trajectory = vehicle["trajectory"]
         if not trajectory:
             return
+
+        # Track-quality gate (Phase 1.1): with a loosened birth threshold the
+        # tracker births from the low-confidence band; clutter among those
+        # births is rejected HERE, with the whole track in hand, instead of at
+        # birth. High-mean-conf tracks always pass (see track_filter docstring).
+        if self._calibration_params.get("track_quality_filter"):
+            ok, _reason = track_quality(trajectory, vehicle.get("confidences") or [])
+            if not ok:
+                self.n_quality_filtered += 1
+                return
 
         classification = classify_trajectory(
             trajectory, vehicle["reference_heading"],
