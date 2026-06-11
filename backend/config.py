@@ -189,7 +189,13 @@ USE_JOINT_PARTIAL_FRECHET_SCORER = True
 # on the real Sunnyvale trajectories best-match Fréchet ran ~82 px median, while
 # the (true-mean) dtw_mean runs ~29 px median — close to the scale the proven
 # Stage A mean-perpendicular destination scorer (20 px one-way radius) used.
-JOINT_SCORER_COST_METRIC = "dtw_mean"
+# Default flipped to "mdh" (Phase 2.3, 2026-06-11): fragmentation-robust
+# min-directed-Hausdorff + tail-angle + exit-proximity. Corridor A/B under
+# identical banks/recipes: cam1 19.4->18.4, cam2 AM 15.8->13.4 and HELD-OUT PM
+# 21.6->18.9, cam4 22.5->14.7 (gross 26.0->18.8), cam5 flat; only cam3
+# regressed (+1.1 net, gross flat) and is pinned to dtw_mean via its
+# per-camera calib_cost_metric override. Env override for per-run sweeps.
+JOINT_SCORER_COST_METRIC = _os.environ.get("JOINT_SCORER_COST_METRIC", "mdh")
 # Calibrated on the surviving 144-event sample (median ~29 px, ~60% match at 35);
 # RE-TUNE against B0_baseline once the full trajectory set is regenerated.
 JOINT_SCORER_MAX_COST_PX = 35.0        # reject matches whose mean coupled distance exceeds this

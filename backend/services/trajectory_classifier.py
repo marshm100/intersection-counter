@@ -542,9 +542,49 @@ def _subsequence_dtw(traj: list, poly_dense: list) -> tuple[int, int, float]:
     return (int(prev_s[end]), end, total / int(prev_k[end]))
 
 
+def _mdh_cost(P: list, Q: list) -> float:
+    """Fragmentation-robust matching cost (Phase 2.3): MIN of the two directed
+    mean-of-minimum distances + tail-direction term + exit-proximity term.
+
+    The published basis (arXiv 2111.09171: min directed Hausdorff + angle +
+    end-proximity, purpose-built for broken vision trajectories, 99.8% vs
+    56.9% for symmetric Hausdorff on dense oblique views): a FRAGMENT of a
+    movement lies close to its full reference polyline in ONE direction (every
+    fragment point is near the polyline) even though the reverse direction is
+    large (most of the polyline is far from the fragment) — so taking the MIN
+    tolerates partial coverage without a free-start DP. The tail-direction and
+    exit-proximity terms restore the discrimination the relaxation gives up
+    (they separate a through fragment from a collinear turn's shared prefix).
+    Units: px (degrees weighted in at 0.5 px/deg).
+    """
+    np_local = _np()
+    if len(P) < 2 or len(Q) < 2:
+        return float("inf")
+    Pa = np_local.asarray(P, dtype=np_local.float64)
+    Qa = np_local.asarray(Q, dtype=np_local.float64)
+    diff = Pa[:, None, :] - Qa[None, :, :]
+    dmat = np_local.hypot(diff[..., 0], diff[..., 1])
+    base = min(float(dmat.min(axis=1).mean()), float(dmat.min(axis=0).mean()))
+
+    def _tail_bearing(A):
+        k = min(3, len(A) - 1)
+        v = A[-1] - A[-1 - k]
+        if abs(v[0]) < 1e-9 and abs(v[1]) < 1e-9:
+            return None
+        import math as _m
+        return _m.degrees(_m.atan2(v[0], -v[1])) % 360
+    tb_p, tb_q = _tail_bearing(Pa), _tail_bearing(Qa)
+    ang = 0.0
+    if tb_p is not None and tb_q is not None:
+        ang = abs((tb_p - tb_q + 180) % 360 - 180)
+    end_prox = float(np_local.hypot(*(Pa[-1] - Qa[-1])))
+    return base + 0.5 * ang + 0.25 * end_prox
+
+
 _COST_METRICS = {
     "dtw_mean": _dtw_mean,
     "frechet": _discrete_frechet,
+    "mdh": _mdh_cost,
 }
 
 
@@ -570,6 +610,10 @@ def _best_partial_frechet(
     # Fast single-pass subsequence DP for the (default) mean metric.
     if cost_metric == "dtw_mean":
         return _subsequence_dtw(traj, poly_dense)
+    # MDH is partial-overlap-tolerant by construction (min of directed
+    # distances) — no start sweep needed; one full-curve evaluation.
+    if cost_metric == "mdh":
+        return (0, m - 1, _mdh_cost(traj, poly_dense))
     # Sup-norm Fréchet has no cheap free-start DP form; sweep start indices.
     cost_fn = _COST_METRICS[cost_metric]
     best_cost = float("inf")

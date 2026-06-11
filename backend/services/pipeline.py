@@ -930,7 +930,10 @@ class ProcessingPipeline:
                 tail_window=JOINT_SCORER_TAIL_WINDOW,
                 tail_weight=JOINT_SCORER_TAIL_WEIGHT,
                 coverage_weight=JOINT_SCORER_COVERAGE_WEIGHT,
-                cost_metric=JOINT_SCORER_COST_METRIC,
+                # Per-camera override (Phase 2.3): cam3's live recipe was tuned
+                # under dtw_mean and is pinned there; the config default is mdh.
+                cost_metric=(self._calibration_params.get("cost_metric")
+                             or JOINT_SCORER_COST_METRIC),
                 turn_tail_prior_floor=JOINT_SCORER_TURN_TAIL_PRIOR_FLOOR,
                 turn_min_coverage=JOINT_SCORER_TURN_MIN_COVERAGE,
             )

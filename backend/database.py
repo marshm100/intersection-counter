@@ -349,6 +349,9 @@ def get_connection(project_id: str) -> sqlite3.Connection:
         conn.execute("ALTER TABLE cameras ADD COLUMN calib_track_quality_filter INTEGER")
     if "calib_new_track_thresh" not in cam_cols:
         conn.execute("ALTER TABLE cameras ADD COLUMN calib_new_track_thresh REAL")
+    # Phase 2.3: per-camera joint-scorer cost metric (NULL = config default).
+    if "calib_cost_metric" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_cost_metric TEXT")
 
     # Indexes after migrations so legacy DBs that gained columns above
     # can be indexed on them now that they exist.
@@ -743,6 +746,7 @@ _CAMERA_CALIB_KEYS = (
     "bbox_buffer_scale",
     "track_quality_filter",
     "new_track_thresh",
+    "cost_metric",
 )
 
 
@@ -773,7 +777,7 @@ def get_camera_calibration_params(project_id: str, camera_id: int) -> dict:
             "SELECT calib_pre_track_nms_iou, calib_tracker_lost_buffer, "
             "calib_tracker_match_threshold, calib_tracker_activation_threshold, "
             "calib_bbox_buffer_scale, calib_track_quality_filter, "
-            "calib_new_track_thresh "
+            "calib_new_track_thresh, calib_cost_metric "
             "FROM cameras WHERE camera_id = ?",
             (camera_id,),
         ).fetchone()
@@ -786,6 +790,7 @@ def get_camera_calibration_params(project_id: str, camera_id: int) -> dict:
     params["bbox_buffer_scale"] = row["calib_bbox_buffer_scale"]
     params["track_quality_filter"] = row["calib_track_quality_filter"]
     params["new_track_thresh"] = row["calib_new_track_thresh"]
+    params["cost_metric"] = row["calib_cost_metric"]
     return params
 
 
@@ -796,7 +801,7 @@ def resolve_camera_knob_defaults(knobs: dict) -> dict:
     precedence chain. NMS resolves to the global PRE_TRACK_NMS_IOU (may be None).
     """
     from backend.config import (
-        PRE_TRACK_NMS_IOU, TRACKER_LOST_BUFFER,
+        JOINT_SCORER_COST_METRIC, PRE_TRACK_NMS_IOU, TRACKER_LOST_BUFFER,
         TRACKER_MATCH_THRESHOLD, TRACKER_ACTIVATION_THRESHOLD,
     )
     defaults = {
@@ -808,6 +813,7 @@ def resolve_camera_knob_defaults(knobs: dict) -> dict:
         "bbox_buffer_scale": 1.0,
         "track_quality_filter": 0,
         "new_track_thresh": 0.3,   # BoT-SORT wrapper default (tracker.py)
+        "cost_metric": JOINT_SCORER_COST_METRIC,
     }
     return {k: (knobs[k] if knobs.get(k) is not None else defaults[k]) for k in defaults}
 
@@ -823,6 +829,7 @@ def update_camera_calibration(
     calib_bbox_buffer_scale: float | None | _ClearToDefault = None,
     calib_track_quality_filter: int | None | _ClearToDefault = None,
     calib_new_track_thresh: float | None | _ClearToDefault = None,
+    calib_cost_metric: str | None | _ClearToDefault = None,
 ) -> None:
     """Update a camera's per-camera detection/tracking knobs. Each arg is
     three-state (mirrors update_intersection):
@@ -839,6 +846,7 @@ def update_camera_calibration(
         ("calib_bbox_buffer_scale", calib_bbox_buffer_scale, float),
         ("calib_track_quality_filter", calib_track_quality_filter, int),
         ("calib_new_track_thresh", calib_new_track_thresh, float),
+        ("calib_cost_metric", calib_cost_metric, str),
     ):
         if val is None:
             continue  # don't touch
