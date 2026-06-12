@@ -393,6 +393,7 @@ async function _renderIntersectionDetail(host) {
         { id: 'settings', label: 'Intersection settings' },
         { id: 'cameras',  label: 'Cameras' },
         { id: 'trims',    label: 'Clip trim' },
+        { id: 'qa',       label: 'QA' },
     ];
 
     let html = '';
@@ -428,7 +429,7 @@ async function v3SwitchDetailSubTab(tabId) {
 }
 
 function _subTabHeader(tabId) {
-    return ({ settings: 'intersection', cameras: 'cameras', trims: 'clip' })[tabId] || tabId;
+    return ({ settings: 'intersection', cameras: 'cameras', trims: 'clip', qa: 'qa' })[tabId] || tabId;
 }
 
 async function _renderDetailSubTab() {
@@ -440,7 +441,99 @@ async function _renderDetailSubTab() {
         await _renderCamerasSubTab(host);
     } else if (_v3DetailSubTab === 'trims') {
         await _renderTrimsSubTab(host);
+    } else if (_v3DetailSubTab === 'qa') {
+        await _renderQaSubTab(host);
     }
+}
+
+// --- Sub-tab: Conservation QA (Phase 3) --------------------------------
+//
+// Zero-ground-truth sanity checks: corridor flow-conservation across the
+// project's intersections (the same vehicles counted twice minutes apart —
+// valid at any window length, the primary new-site check) and
+// reverse-movement balance for THIS intersection (informational at short
+// windows: peak-hour directional imbalance is real traffic, not error).
+
+const _QA_BADGE = {
+    ok:   ['#16a34a', '#dcfce7', 'OK'],
+    warn: ['#b45309', '#fef3c7', 'WARN'],
+    fail: ['#b91c1c', '#fee2e2', 'FAIL'],
+    info: ['#475569', '#f1f5f9', 'INFO'],
+};
+
+function _qaBadge(verdict) {
+    const [fg, bg, label] = _QA_BADGE[verdict] || _QA_BADGE.info;
+    return `<span style="display:inline-block;padding:1px 8px;border-radius:9px;
+        font-size:11px;font-weight:700;color:${fg};background:${bg};">${label}</span>`;
+}
+
+async function _renderQaSubTab(host) {
+    host.innerHTML = '<p class="empty-message">Running conservation checks…</p>';
+    const iid = _v3OpenIntersectionId;
+    let rb = null, cc = null, err = null;
+    try {
+        rb = await API.get(`/api/projects/${_v3Project.project_id}/intersections/${iid}/qa/conservation`);
+        cc = await API.get(`/api/projects/${_v3Project.project_id}/qa/corridor`);
+    } catch (e) { err = e.message || String(e); }
+    if (err) {
+        host.innerHTML = `<p class="empty-message">QA checks failed: ${escapeHtml(err)}</p>`;
+        return;
+    }
+
+    let html = `<div style="max-width:760px;">`;
+
+    // -- corridor consistency (primary) --
+    html += `<h4 style="margin:6px 0 4px;">Corridor flow conservation</h4>
+        <p style="font-size:12px;color:#6b7280;margin:0 0 8px;">
+            Vehicles leaving one intersection toward the next should arrive there.
+            Gaps implicate counting at one end (or heavy mid-block access on that
+            link). Valid at any window length. Bold rows involve this intersection.</p>`;
+    const links = (cc.links || []);
+    if (!links.length) {
+        html += `<p style="font-size:12px;color:#9ca3af;">${escapeHtml(cc.note || 'No links to check.')}</p>`;
+    } else {
+        html += `<table style="width:100%;font-size:12px;border-collapse:collapse;">
+            <tr style="text-align:left;color:#6b7280;">
+                <th style="padding:3px 6px;">Link</th><th>Sent</th><th>Received</th><th>Gap</th><th></th></tr>`;
+        for (const l of links) {
+            const mine = l.link.startsWith(`${iid}->`) || l.link.indexOf(`->${iid} `) >= 0;
+            html += `<tr style="border-top:1px solid #f3f4f6;${mine ? 'font-weight:600;' : ''}">
+                <td style="padding:3px 6px;">${escapeHtml(l.link)}</td>
+                <td>${l.sent}</td><td>${l.received}</td>
+                <td>${(l.gap * 100).toFixed(0)}%</td><td>${_qaBadge(l.verdict)}</td></tr>`;
+        }
+        html += `</table>`;
+    }
+
+    // -- reverse balance (secondary / investigative) --
+    html += `<h4 style="margin:18px 0 4px;">Reverse-movement balance</h4>
+        <p style="font-size:12px;color:#6b7280;margin:0 0 8px;">
+            Over a full day each movement roughly equals its geometric reverse.
+            ${rb.applicable ? '' : `<b>${escapeHtml(rb.note || '')}</b> `}
+            An imbalance is a prompt to review those cells, not proof of error
+            (one-way demand patterns are real).</p>`;
+    if (!(rb.pairs || []).length) {
+        html += `<p style="font-size:12px;color:#9ca3af;">No movement pairs above the volume floor.</p>`;
+    } else {
+        html += `<table style="width:100%;font-size:12px;border-collapse:collapse;">
+            <tr style="text-align:left;color:#6b7280;">
+                <th style="padding:3px 6px;">Movement</th><th>Count</th>
+                <th>Reverse</th><th>Count</th><th>Imbalance</th><th></th></tr>`;
+        for (const p of rb.pairs) {
+            html += `<tr style="border-top:1px solid #f3f4f6;">
+                <td style="padding:3px 6px;">${escapeHtml(p.movement)}</td>
+                <td>${p.cells[0].count}</td>
+                <td>${escapeHtml(p.reverse)}</td>
+                <td>${p.cells[1].count}</td>
+                <td>${(p.imbalance * 100).toFixed(0)}%</td>
+                <td>${_qaBadge(p.verdict)}</td></tr>`;
+        }
+        html += `</table>`;
+    }
+    html += `<p style="font-size:11px;color:#9ca3af;margin-top:10px;">
+        Investigate flagged cells in the Review screen (filter by the implicated
+        approach + movement).</p></div>`;
+    host.innerHTML = html;
 }
 
 // --- Sub-tab: Intersection settings -----------------------------------
