@@ -115,7 +115,65 @@ def export_intersection_day_xlsx(
     if not agg["per_camera_breakdown"]:
         ws2["A1"] = "(no cameras yet)"
 
-    # --- Sheet 3: Dedup Audit -----------------------------------------
+    # --- Sheet 3: Per-interval TMC (Phase 4 full-study deliverable) ----
+    # Standard study format: one row per wall-clock interval, columns
+    # grouped per approach cardinal (NB/SB/EB/WB x Thru/Left/Right/U).
+    # Only intervals with traffic appear, so a 07-09/11-13/16-18 peak
+    # study shows its three segments; a 24h study shows the full day.
+    wsi = wb.create_sheet(f"{int(agg.get('interval_minutes', 15))}-min Intervals")
+    intervals = agg.get("intervals", [])
+    cardinals_present = []
+    for itv in intervals:
+        for c in itv["counts"]:
+            if c not in cardinals_present:
+                cardinals_present.append(c)
+    card_order = [c for c in ("N", "S", "E", "W") if c in cardinals_present] + \
+                 [c for c in cardinals_present if c not in ("N", "S", "E", "W")]
+    mv_cols = ["through", "left", "right", "u_turn"]
+    mv_short = {"through": "Thru", "left": "Left", "right": "Right", "u_turn": "U"}
+
+    # Two header rows: approach group, then movement.
+    wsi.cell(row=1, column=1, value="Interval")
+    col = 2
+    for c in card_order:
+        gc = wsi.cell(row=1, column=col, value=f"{c}B approach")
+        _bold(gc)
+        for k, m in enumerate(mv_cols):
+            _bold(wsi.cell(row=2, column=col + k, value=mv_short[m]))
+        col += len(mv_cols)
+    _bold(wsi.cell(row=1, column=col, value="Total"))
+    _bold(wsi.cell(row=2, column=1, value="start"))
+
+    grand = {c: {m: 0 for m in mv_cols} for c in card_order}
+    grand_total = 0
+    r_idx = 3
+    for itv in intervals:
+        wsi.cell(row=r_idx, column=1, value=str(itv["label"]))
+        col = 2
+        for c in card_order:
+            cb = itv["counts"].get(c, {})
+            for k, m in enumerate(mv_cols):
+                n = int(cb.get(m, 0))
+                wsi.cell(row=r_idx, column=col + k, value=n)
+                grand[c][m] += n
+            col += len(mv_cols)
+        wsi.cell(row=r_idx, column=col, value=int(itv["total"]))
+        grand_total += int(itv["total"])
+        r_idx += 1
+
+    wsi.cell(row=r_idx, column=1, value="Total")
+    col = 2
+    for c in card_order:
+        for k, m in enumerate(mv_cols):
+            wsi.cell(row=r_idx, column=col + k, value=int(grand[c][m]))
+        col += len(mv_cols)
+    wsi.cell(row=r_idx, column=col, value=grand_total)
+    for ci in range(1, col + 1):
+        _bold(wsi.cell(row=r_idx, column=ci))
+    if not intervals:
+        wsi["A3"] = "(no events yet)"
+
+    # --- Sheet 4: Dedup Audit -----------------------------------------
     ws3 = wb.create_sheet("Dedup Audit")
     audit_rows = [
         ("Raw event total", int(agg["dedup_summary"]["raw_total"])),
