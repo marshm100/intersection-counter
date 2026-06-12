@@ -284,17 +284,36 @@ def main() -> int:
     # phantom "right"; every data-derived reference at that anchor is
     # contaminated BY the phantom flow, so no purely-statistical gate can break
     # the tie). Channel cells are later re-fitted from their claimed tracks.
-    chan_decls = []
+    # Channel declarations come from the --channels JSON file (research format)
+    # or, by default, from the camera's `channels` table (drawn in the
+    # calibration UI, Phase 2.1).
+    raw_chans: list[dict] = []
     if args.channels:
         for chd in json.loads(Path(args.channels).read_text()).get("channels", []):
-            ctrl = [chd["entry"], chd.get("apex") or chd["entry"], chd["exit"]]
-            chan_decls.append({
-                "od": (chd["origin_leg"], chd["destination_leg"]),
-                "movement": chd["movement"],
-                "poly": _densify(ctrl, args.poly_pts),
-                "halfw": max(float(chd.get("width_in", 40)),
-                             float(chd.get("width_out", 40))) / 2.0 + 20.0,
-            })
+            raw_chans.append({"od": (chd["origin_leg"], chd["destination_leg"]),
+                              "movement": chd["movement"], "entry": chd["entry"],
+                              "apex": chd.get("apex"), "exit": chd["exit"],
+                              "width_in": chd.get("width_in", 40),
+                              "width_out": chd.get("width_out", 40)})
+    else:
+        from backend.database import list_channels_for_camera
+        for chd in list_channels_for_camera(PROJECT, cam):
+            raw_chans.append({"od": (chd["origin_leg_id"], chd["destination_leg_id"]),
+                              "movement": chd["movement"], "entry": chd["entry"],
+                              "apex": chd["apex"], "exit": chd["exit"],
+                              "width_in": chd["width_in"], "width_out": chd["width_out"]})
+        if raw_chans:
+            print(f"loaded {len(raw_chans)} operator channels from the channels table")
+    chan_decls = []
+    for chd in raw_chans:
+        ctrl = [chd["entry"], chd.get("apex") or chd["entry"], chd["exit"]]
+        chan_decls.append({
+            "od": chd["od"],
+            "movement": chd["movement"],
+            "poly": _densify(ctrl, args.poly_pts),
+            "halfw": max(float(chd.get("width_in", 40)),
+                         float(chd.get("width_out", 40))) / 2.0 + 20.0,
+        })
 
     def _channel_claim(pts):
         """Best channel whose corridor contains the track AND whose direction
@@ -482,11 +501,10 @@ def main() -> int:
         p.pop("_signed", None)
 
     # --- operator channels: declared movement set + fallback geometry -------
-    if args.channels:
-        chans = json.loads(Path(args.channels).read_text()).get("channels", [])
+    if raw_chans:
         covered = {(p["origin_leg_id"], p["destination_leg_id"]) for p in paths}
-        for chd in chans:
-            od = (chd["origin_leg"], chd["destination_leg"])
+        for chd in raw_chans:
+            od = chd["od"]
             if od in covered:
                 continue
             ctrl = [chd["entry"], chd.get("apex") or chd["entry"], chd["exit"]]

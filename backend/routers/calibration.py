@@ -9,9 +9,9 @@ from backend.config import PROJECTS_DIR
 from backend.database import (
     clear_paths_for_camera, delete_path, get_calibration_suggestion,
     get_camera, get_connection, get_project_info,
-    list_paths_for_camera, list_videos, list_videos_for_camera,
-    mark_suggestion_applied, mark_suggestion_rejected,
-    upsert_path,
+    list_channels_for_camera, list_paths_for_camera, list_videos,
+    list_videos_for_camera, mark_suggestion_applied, mark_suggestion_rejected,
+    replace_channels_for_camera, upsert_path,
 )
 from backend.services import auto_calibrator_v2
 
@@ -45,6 +45,24 @@ class PathInput(BaseModel):
     movement_label: str
     supporting_count: int = 0
     source: str = "manual"           # manual|auto
+
+
+class ChannelInput(BaseModel):
+    """One operator-drawn channel (Phase 2.1): a tapered corridor through
+    entry -> apex -> exit declaring a movement exists and where it runs."""
+    origin_leg_id: int
+    destination_leg_id: int
+    movement: str                    # through|left|right|u_turn
+    entry: List[float]               # [x, y]
+    apex: List[float]
+    exit: List[float]
+    width_in: float = 40.0
+    width_out: float = 40.0
+
+
+class ChannelsReplaceRequest(BaseModel):
+    """Full replace of a camera's channel set (the editor saves all at once)."""
+    channels: List[ChannelInput]
 
 
 class PathsReplaceRequest(BaseModel):
@@ -412,6 +430,79 @@ def clear_camera_paths(project_id: str, camera_id: int):
     _require_camera_404(project_id, camera_id)
     n = clear_paths_for_camera(project_id, camera_id)
     return {"deleted": True, "count": n}
+
+
+# ---------------------------------------------------------------------------
+# Operator-drawn channels (Phase 2.1). Non-destructive: the channels table is
+# the only thing touched — never legs, paths, or events.
+# ---------------------------------------------------------------------------
+
+
+def _validate_channel(project_id: str, camera_id: int, body: ChannelInput,
+                      frame_size=(640, 480)) -> None:
+    if body.movement not in VALID_MOVEMENTS:
+        raise HTTPException(status_code=422,
+            detail=f"movement must be one of {sorted(VALID_MOVEMENTS)}")
+    fw, fh = frame_size
+    for name, pt in (("entry", body.entry), ("apex", body.apex), ("exit", body.exit)):
+        if len(pt) != 2:
+            raise HTTPException(status_code=422, detail=f"{name} must be [x, y]")
+        x, y = pt
+        if not (-50 <= x <= fw + 50 and -50 <= y <= fh + 50):
+            raise HTTPException(status_code=422,
+                detail=f"{name}=({x},{y}) outside expected range")
+    for name, w in (("width_in", body.width_in), ("width_out", body.width_out)):
+        if not (4 <= w <= 400):
+            raise HTTPException(status_code=422,
+                detail=f"{name} must be in [4, 400] px")
+    conn = get_connection(project_id)
+    try:
+        rows = conn.execute(
+            "SELECT leg_id FROM legs WHERE camera_id = ?", (camera_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+    valid_lids = {r[0] for r in rows}
+    for which, lid in (("origin_leg_id", body.origin_leg_id),
+                       ("destination_leg_id", body.destination_leg_id)):
+        if lid not in valid_lids:
+            raise HTTPException(status_code=422,
+                detail=f"{which}={lid} is not a leg of camera {camera_id}")
+
+
+@router.get("/projects/{project_id}/cameras/{camera_id}/channels")
+def get_camera_channels(project_id: str, camera_id: int):
+    """List all operator-drawn channels for this camera."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    return {"channels": list_channels_for_camera(project_id, camera_id)}
+
+
+@router.put("/projects/{project_id}/cameras/{camera_id}/channels")
+def replace_camera_channels(project_id: str, camera_id: int,
+                            body: ChannelsReplaceRequest):
+    """Full replace of this camera's channel set (the editor saves the whole
+    drawing in one shot). Validates every channel before touching the table."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    fs = _frame_size_for_camera(project_id, camera_id)
+    for ch in body.channels:
+        _validate_channel(project_id, camera_id, ch, frame_size=fs)
+    saved = replace_channels_for_camera(
+        project_id, camera_id,
+        [{"origin_leg_id": c.origin_leg_id, "destination_leg_id": c.destination_leg_id,
+          "movement": c.movement, "entry": c.entry, "apex": c.apex, "exit": c.exit,
+          "width_in": c.width_in, "width_out": c.width_out} for c in body.channels])
+    return {"channels": saved}
+
+
+@router.delete("/projects/{project_id}/cameras/{camera_id}/channels")
+def clear_camera_channels(project_id: str, camera_id: int):
+    """Delete ALL channels for this camera."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    saved = replace_channels_for_camera(project_id, camera_id, [])
+    return {"deleted": True, "channels": saved}
 
 
 # ---------------------------------------------------------------------------

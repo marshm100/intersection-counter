@@ -36,7 +36,8 @@ def test_create_database():
     assert 'v3_run_state' in tables
     assert 'intersection_paths' in tables    # Phase 1: polyline calibration
     assert 'calibration_suggestions' in tables  # Phase 3: auto-cal output
-    assert len(tables) == 12
+    assert 'channels' in tables              # Phase 2.1: operator-drawn channels
+    assert len(tables) == 13
 
 def test_wal_mode():
     conn = get_connection(TEST_PROJECT)

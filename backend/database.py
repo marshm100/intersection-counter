@@ -120,6 +120,30 @@ CREATE TABLE IF NOT EXISTS intersection_paths (
     UNIQUE(camera_id, origin_leg_id, destination_leg_id)
 );
 
+-- Operator-drawn movement channels (Phase 2.1 — implementation_plan_architecture
+-- 2026-06-11). A channel is a tapered corridor (entry -> apex -> exit quadratic,
+-- per-mouth widths) declaring that a movement EXISTS and where it runs. The
+-- GT-free bank builder (scripts/build_bank_gtfree.py) uses channels two ways:
+-- corridor-claiming tracks before anchor binning (the only reliable fix for
+-- anchor-on-through-path geometries, e.g. cam1/cam5), and as hand-drawn
+-- fallback polylines for movements the bootstrap window never collected.
+CREATE TABLE IF NOT EXISTS channels (
+    channel_id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id            INTEGER NOT NULL,
+    origin_leg_id        INTEGER NOT NULL,
+    destination_leg_id   INTEGER NOT NULL,
+    movement             TEXT    NOT NULL,        -- through|left|right|u_turn
+    entry_pt             TEXT    NOT NULL,        -- JSON [x,y]
+    apex_pt              TEXT    NOT NULL,        -- JSON [x,y] (curve passes through it)
+    exit_pt              TEXT    NOT NULL,        -- JSON [x,y]
+    width_in             REAL    NOT NULL DEFAULT 40,
+    width_out            REAL    NOT NULL DEFAULT 40,
+    created_at           TEXT    NOT NULL,
+    FOREIGN KEY (camera_id)          REFERENCES cameras(camera_id),
+    FOREIGN KEY (origin_leg_id)      REFERENCES legs(leg_id),
+    FOREIGN KEY (destination_leg_id) REFERENCES legs(leg_id)
+);
+
 CREATE TABLE IF NOT EXISTS vehicle_events (
     event_id              INTEGER PRIMARY KEY AUTOINCREMENT,
     video_id              INTEGER DEFAULT NULL,
@@ -1286,6 +1310,64 @@ def clear_paths_for_camera(project_id: str, camera_id: int) -> int:
         return cur.rowcount
     finally:
         conn.close()
+
+
+# -- Operator-drawn channels (Phase 2.1) --------------------------------------
+
+def _row_to_channel(row: sqlite3.Row) -> dict:
+    return {
+        "channel_id": row["channel_id"],
+        "camera_id": row["camera_id"],
+        "origin_leg_id": row["origin_leg_id"],
+        "destination_leg_id": row["destination_leg_id"],
+        "movement": row["movement"],
+        "entry": json.loads(row["entry_pt"]),
+        "apex": json.loads(row["apex_pt"]),
+        "exit": json.loads(row["exit_pt"]),
+        "width_in": row["width_in"],
+        "width_out": row["width_out"],
+        "created_at": row["created_at"],
+    }
+
+
+def list_channels_for_camera(project_id: str, camera_id: int) -> list[dict]:
+    """All operator-drawn channels for a camera."""
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM channels WHERE camera_id = ? "
+            "ORDER BY origin_leg_id, destination_leg_id, channel_id",
+            (camera_id,),
+        ).fetchall()
+        return [_row_to_channel(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def replace_channels_for_camera(project_id: str, camera_id: int,
+                                channels: list[dict]) -> list[dict]:
+    """Full replace of a camera's channels (the editor saves the whole set).
+    Touches ONLY the channels table — never events or paths."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_connection(project_id)
+    try:
+        with conn:
+            conn.execute("DELETE FROM channels WHERE camera_id = ?", (camera_id,))
+            for ch in channels:
+                conn.execute(
+                    """INSERT INTO channels
+                       (camera_id, origin_leg_id, destination_leg_id, movement,
+                        entry_pt, apex_pt, exit_pt, width_in, width_out, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (camera_id, ch["origin_leg_id"], ch["destination_leg_id"],
+                     ch["movement"], json.dumps(ch["entry"]), json.dumps(ch["apex"]),
+                     json.dumps(ch["exit"]), float(ch.get("width_in", 40)),
+                     float(ch.get("width_out", 40)), now),
+                )
+    finally:
+        conn.close()
+    return list_channels_for_camera(project_id, camera_id)
 
 
 # -- v3: auto-calibration suggestions ----------------------------------------

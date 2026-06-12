@@ -46,6 +46,15 @@
                                    //   movement_label, polyline: [[x,y],...] }
     let _pathFormVisible = false;  // sidebar "new path" form shown?
 
+    // ---- Phase 2.1 operator-channel state ------------------------------
+    let _channels = [];            // server shape: {channel_id?, origin_leg_id,
+                                   //   destination_leg_id, movement, entry, apex,
+                                   //   exit, width_in, width_out}
+    let _drawingChannel = null;    // { pts: [[x,y],...], width_in, width_out }
+    let _selectedChannel = -1;     // index into _channels (edit mode)
+    let _channelsDirty = false;    // unsaved local edits
+    let _dragChannel = null;       // { ch, role: entry|apex|exit|win|wout }
+
     // ---- Phase 3 suggestion state -------------------------------------
     let _suggestion = null;            // GET /calibration/suggestion result
     let _suggestionPreviewOn = false;  // overlay suggested paths on canvas?
@@ -75,6 +84,9 @@
             const calib = await API.get(`/api/projects/${pid}/cameras/${cid}/calibration`);
             _legs = (calib.legs || []).map((l, i) => ({
                 idx: i,
+                // leg_id was dropped here previously, which broke the paths
+                // form's leg selects (value="undefined") — keep it.
+                leg_id: l.leg_id,
                 label: l.label,
                 cardinal_direction: l.cardinal_direction,
                 sort_order: l.sort_order,
@@ -105,6 +117,17 @@
         } catch (e) { /* leave empty */ }
         _drawingPath = null;
         _pathFormVisible = false;
+
+        // Fetch operator-drawn channels (Phase 2.1).
+        _channels = [];
+        try {
+            const r = await API.get(`/api/projects/${pid}/cameras/${cid}/channels`);
+            _channels = r.channels || [];
+        } catch (e) { /* leave empty */ }
+        _drawingChannel = null;
+        _selectedChannel = -1;
+        _channelsDirty = false;
+        _dragChannel = null;
 
         // Fetch auto-cal suggestion (Phase 3).
         _suggestion = null;
@@ -149,6 +172,7 @@
                     <p id="v3-calib-status" style="margin-top:8px;font-size:13px;color:#6b7280;"></p>
                     <div id="v3-calib-form" style="display:none;margin-top:12px;"></div>
                     <div id="v3-calib-paths" style="margin-top:20px;"></div>
+                    <div id="v3-calib-channels" style="margin-top:20px;"></div>
                     <div id="v3-calib-params" style="margin-top:20px;"></div>
                     <div style="margin-top:16px;">
                         <button id="v3-calib-save-btn" class="btn-proc btn-start"
@@ -172,6 +196,7 @@
             _updateStatus();
             _renderParamsEditor();
             _renderPathsSection();
+            _renderChannelsSection();
             _renderSuggestionBanner();
         };
         _img.onerror = () => {
@@ -226,6 +251,27 @@
     }
 
     function _onCanvasClick(e) {
+        // Channel-drawing mode (Phase 2.1) wins over everything when active:
+        // entry -> apex -> exit, 3 clicks; first/last snap to the nearest leg.
+        if (_drawingChannel) {
+            if (_dragChannel) return;            // a drag just ended
+            let p = _canvasCoordsArr(e);
+            if (_drawingChannel.pts.length === 0) {
+                const n = _nearestLegTo(p);
+                if (n && n.d <= 22) p = n.leg.origin_zone[0].slice();
+            }
+            _drawingChannel.pts.push(p);
+            if (_drawingChannel.pts.length === 3) {
+                const n = _nearestLegTo(_drawingChannel.pts[2]);
+                if (n && n.d <= 22) _drawingChannel.pts[2] = n.leg.origin_zone[0].slice();
+                _finishChannelDraw();
+            } else {
+                _redraw();
+                _renderChannelsSection();
+            }
+            return;
+        }
+
         // Path-drawing mode wins over leg placement when active.
         if (_drawingPath) {
             const { x, y } = _canvasCoords(e);
@@ -258,6 +304,15 @@
     }
 
     function _onCanvasMousedown(e) {
+        // Selected-channel handle drag wins (Phase 2.1).
+        if (_selectedChannel >= 0 && !_drawingChannel) {
+            const hit = _hitChannelHandle(_canvasCoordsArr(e));
+            if (hit) {
+                _dragChannel = hit;
+                e.preventDefault();
+                return;
+            }
+        }
         const { x, y } = _canvasCoords(e);
         for (const leg of _legs) {
             const [nx, ny] = leg.origin_zone[0];
@@ -282,6 +337,13 @@
     }
 
     function _onCanvasMousemove(e) {
+        if (_dragChannel) {
+            _moveChannelHandle(_dragChannel, _canvasCoordsArr(e));
+            _channelsDirty = true;
+            _redraw();
+            _renderChannelsSection();
+            return;
+        }
         const { x, y } = _canvasCoords(e);
         if (_dragLeg) {
             const cx = Math.max(0, Math.min(_canvas.width, x));
@@ -308,6 +370,10 @@
     }
 
     function _onCanvasMouseup() {
+        if (_dragChannel) {
+            _dragChannel = null;
+            return;
+        }
         if (!_dragLeg) return;
         const { idx, isCurrentLeg } = _dragLeg;
         const wasDrag = _dragMoved;
@@ -478,9 +544,11 @@
 
         // Saved polyline paths drawn first (under everything else) so the
         // leg dots and calibration overlays stay readable on top.
+        _drawChannels();              // operator corridors at the very bottom
         _drawSavedPaths();
         _drawSuggestedPaths();        // dashed overlay when preview is on
         if (_drawingPath) _drawInProgressPath();
+        if (_drawingChannel) _drawChannelDraft();
 
         // Draw calibration-param overlays UNDER the leg nodes/arrows so the
         // dots stay legible on top. Fans are most-transparent, then tripwires,
@@ -829,6 +897,27 @@
     };
 
     function _onKeydown(e) {
+        if (_drawingChannel) {
+            if (e.key === "Escape") {
+                window.v3CalibrationCancelChannel();
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                _finishChannelDraw();      // 2 points + Enter = straight channel
+            } else if (e.key === "Backspace") {
+                e.preventDefault();
+                _drawingChannel.pts.pop();
+                _redraw();
+                _renderChannelsSection();
+            }
+            return;
+        }
+        if (_selectedChannel >= 0 && e.key === "Escape" &&
+                e.target.tagName !== "SELECT" && e.target.tagName !== "INPUT") {
+            _selectedChannel = -1;
+            _redraw();
+            _renderChannelsSection();
+            return;
+        }
         if (!_drawingPath) return;
         if (e.key === "Escape") {
             window.v3CalibrationCancelPath();
@@ -1080,6 +1169,413 @@
         }
         _renderPathsSection();
         _redraw();
+    };
+
+    // ---- Phase 2.1 operator-channel UI ---------------------------------
+    //
+    // Port of experiments/channel_tool.html onto the calibration canvas.
+    // A channel is a quadratic corridor through entry -> apex -> exit with
+    // per-mouth widths. Geometry: control point C = 2*apex - (entry+exit)/2
+    // makes the curve pass THROUGH the apex at t=0.5. Channels feed the
+    // GT-free bank builder (corridor-claiming + hand-drawn fallback).
+
+    function _canvasCoordsArr(e) {
+        const { x, y } = _canvasCoords(e);
+        return [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
+    }
+
+    function _nearestLegTo(p) {
+        let best = null, bd = Infinity;
+        for (const l of _legs) {
+            const d = Math.hypot(p[0] - l.origin_zone[0][0], p[1] - l.origin_zone[0][1]);
+            if (d < bd) { bd = d; best = l; }
+        }
+        return best ? { leg: best, d: bd } : null;
+    }
+
+    // Movement from the ORIGIN/DEST cardinal pair — same world-knowledge rule
+    // the GT-free bank builder uses (image-space heading deltas mislabel
+    // collinear exits at skewed 4-ways). Heading-delta only as fallback when
+    // a cardinal is missing.
+    const _CH_LEFT  = { NE: 1, ES: 1, SW: 1, WN: 1 };
+    const _CH_RIGHT = { NW: 1, WS: 1, SE: 1, EN: 1 };
+    function _chDeriveMovement(oLeg, dLeg) {
+        if (!oLeg || !dLeg) return "through";
+        if (oLeg.leg_id === dLeg.leg_id) return "u_turn";
+        const a = (oLeg.cardinal_direction || "").toUpperCase();
+        const b = (dLeg.cardinal_direction || "").toUpperCase();
+        if (a && b) {
+            if (a === b) return "u_turn";
+            if (_CH_LEFT[a + b]) return "left";
+            if (_CH_RIGHT[a + b]) return "right";
+            return "through";
+        }
+        const entry = oLeg.reference_heading || 0;
+        const exit = ((dLeg.reference_heading || 0) + 180) % 360;
+        const delta = ((exit - entry + 540) % 360) - 180;
+        if (Math.abs(delta) <= 35) return "through";
+        return delta > 0 ? "right" : "left";
+    }
+
+    function _chCtrl(ch) {
+        return [2 * ch.apex[0] - (ch.entry[0] + ch.exit[0]) / 2,
+                2 * ch.apex[1] - (ch.entry[1] + ch.exit[1]) / 2];
+    }
+    function _chQuadAt(e0, c, x1, t) {
+        const u = 1 - t;
+        return [u * u * e0[0] + 2 * u * t * c[0] + t * t * x1[0],
+                u * u * e0[1] + 2 * u * t * c[1] + t * t * x1[1]];
+    }
+    function _chQuadTan(e0, c, x1, t) {
+        const u = 1 - t;
+        return [2 * u * (c[0] - e0[0]) + 2 * t * (x1[0] - c[0]),
+                2 * u * (c[1] - e0[1]) + 2 * t * (x1[1] - c[1])];
+    }
+    function _chUnit(v) {
+        const L = Math.hypot(v[0], v[1]) || 1;
+        return [v[0] / L, v[1] / L];
+    }
+    function _chPerp(v) { return [-v[1], v[0]]; }
+
+    function _chCorridorPts(ch, n) {
+        n = n || 26;
+        const c = _chCtrl(ch), L = [], R = [];
+        for (let i = 0; i <= n; i++) {
+            const t = i / n;
+            const p = _chQuadAt(ch.entry, c, ch.exit, t);
+            const nv = _chPerp(_chUnit(_chQuadTan(ch.entry, c, ch.exit, t)));
+            const hw = (ch.width_in + (ch.width_out - ch.width_in) * t) / 2;
+            L.push([p[0] + nv[0] * hw, p[1] + nv[1] * hw]);
+            R.push([p[0] - nv[0] * hw, p[1] - nv[1] * hw]);
+        }
+        return L.concat(R.reverse());
+    }
+
+    function _chTripEnds(center, tan, w) {
+        const nv = _chPerp(_chUnit(tan));
+        return [[center[0] - nv[0] * w / 2, center[1] - nv[1] * w / 2],
+                [center[0] + nv[0] * w / 2, center[1] + nv[1] * w / 2]];
+    }
+
+    const _CH_PALETTE = ["#0ea5e9", "#a855f7", "#10b981", "#f97316",
+                         "#e11d48", "#8b5cf6", "#14b8a6", "#f43f5e"];
+    function _chColor(i) { return _CH_PALETTE[i % _CH_PALETTE.length]; }
+
+    function _drawChannels() {
+        for (let i = 0; i < _channels.length; i++) {
+            const ch = _channels[i];
+            const sel = i === _selectedChannel;
+            const color = _chColor(i);
+            const c = _chCtrl(ch);
+            // corridor fill
+            const poly = _chCorridorPts(ch);
+            _ctx.save();
+            _ctx.globalAlpha = sel ? 0.30 : 0.16;
+            _ctx.fillStyle = color;
+            _ctx.beginPath();
+            _ctx.moveTo(poly[0][0], poly[0][1]);
+            for (let k = 1; k < poly.length; k++) _ctx.lineTo(poly[k][0], poly[k][1]);
+            _ctx.closePath();
+            _ctx.fill();
+            // centerline (sampled quadratic)
+            _ctx.globalAlpha = 0.95;
+            _ctx.strokeStyle = color;
+            _ctx.lineWidth = 2;
+            _ctx.beginPath();
+            _ctx.moveTo(ch.entry[0], ch.entry[1]);
+            for (let k = 1; k <= 20; k++) {
+                const p = _chQuadAt(ch.entry, c, ch.exit, k / 20);
+                _ctx.lineTo(p[0], p[1]);
+            }
+            _ctx.stroke();
+            // mouth tripwires (entry solid, exit dashed)
+            const eIn = _chTripEnds(ch.entry, _chQuadTan(ch.entry, c, ch.exit, 0), ch.width_in);
+            const eOut = _chTripEnds(ch.exit, _chQuadTan(ch.entry, c, ch.exit, 1), ch.width_out);
+            _ctx.lineWidth = 3;
+            _ctx.beginPath(); _ctx.moveTo(eIn[0][0], eIn[0][1]); _ctx.lineTo(eIn[1][0], eIn[1][1]); _ctx.stroke();
+            _ctx.setLineDash([4, 4]);
+            _ctx.beginPath(); _ctx.moveTo(eOut[0][0], eOut[0][1]); _ctx.lineTo(eOut[1][0], eOut[1][1]); _ctx.stroke();
+            _ctx.setLineDash([]);
+            // label at the apex
+            _ctx.font = "bold 11px system-ui";
+            _ctx.lineWidth = 3;
+            _ctx.strokeStyle = "#000";
+            _ctx.fillStyle = color;
+            const lbl = `${_chLegCard(ch.origin_leg_id)}→${_chLegCard(ch.destination_leg_id)} ${ch.movement}`;
+            _ctx.strokeText(lbl, ch.apex[0] + 8, ch.apex[1] - 8);
+            _ctx.fillText(lbl, ch.apex[0] + 8, ch.apex[1] - 8);
+            // edit handles
+            if (sel) {
+                _chHandleDot(ch.entry, "#22c55e", 6);
+                _chHandleDot(ch.exit, "#f97316", 6);
+                _chHandleDot(ch.apex, "#eab308", 6, true);
+                _chHandleDot(eIn[1], "#ffffff", 5);
+                _chHandleDot(eOut[1], "#ffffff", 5);
+            }
+            _ctx.restore();
+        }
+    }
+
+    function _chHandleDot(p, fill, r, square) {
+        _ctx.save();
+        _ctx.globalAlpha = 1;
+        _ctx.fillStyle = fill;
+        _ctx.strokeStyle = "#000";
+        _ctx.lineWidth = 1.5;
+        if (square) {
+            _ctx.fillRect(p[0] - r, p[1] - r, 2 * r, 2 * r);
+            _ctx.strokeRect(p[0] - r, p[1] - r, 2 * r, 2 * r);
+        } else {
+            _ctx.beginPath();
+            _ctx.arc(p[0], p[1], r, 0, 2 * Math.PI);
+            _ctx.fill();
+            _ctx.stroke();
+        }
+        _ctx.restore();
+    }
+
+    function _chLegCard(legId) {
+        const l = _legs.find(x => x.leg_id === legId);
+        return l ? (l.cardinal_direction || `L${legId}`) : `L${legId}`;
+    }
+
+    function _drawChannelDraft() {
+        const cols = ["#22c55e", "#eab308", "#f97316"];
+        const pts = _drawingChannel.pts;
+        for (let i = 0; i < pts.length; i++) _chHandleDot(pts[i], cols[i] || "#fff", 5);
+        if (pts.length === 2) {
+            _ctx.save();
+            _ctx.strokeStyle = "#ffffff";
+            _ctx.setLineDash([6, 5]);
+            _ctx.lineWidth = 2;
+            _ctx.beginPath();
+            _ctx.moveTo(pts[0][0], pts[0][1]);
+            _ctx.lineTo(pts[1][0], pts[1][1]);
+            _ctx.stroke();
+            _ctx.restore();
+        }
+    }
+
+    function _hitChannelHandle(p) {
+        const ch = _channels[_selectedChannel];
+        if (!ch) return null;
+        const c = _chCtrl(ch);
+        const eIn = _chTripEnds(ch.entry, _chQuadTan(ch.entry, c, ch.exit, 0), ch.width_in);
+        const eOut = _chTripEnds(ch.exit, _chQuadTan(ch.entry, c, ch.exit, 1), ch.width_out);
+        const targets = [
+            ["win", eIn[1]], ["wout", eOut[1]],
+            ["entry", ch.entry], ["exit", ch.exit], ["apex", ch.apex],
+        ];
+        for (const [role, pt] of targets) {
+            if (Math.hypot(p[0] - pt[0], p[1] - pt[1]) <= 10) {
+                return { ch, role };
+            }
+        }
+        return null;
+    }
+
+    function _moveChannelHandle(drag, p) {
+        const ch = drag.ch;
+        const c = _chCtrl(ch);
+        if (drag.role === "entry") ch.entry = p;
+        else if (drag.role === "exit") ch.exit = p;
+        else if (drag.role === "apex") ch.apex = p;
+        else if (drag.role === "win") {
+            const nv = _chPerp(_chUnit(_chQuadTan(ch.entry, c, ch.exit, 0)));
+            const d = [p[0] - ch.entry[0], p[1] - ch.entry[1]];
+            ch.width_in = Math.max(6, 2 * Math.abs(d[0] * nv[0] + d[1] * nv[1]));
+        } else if (drag.role === "wout") {
+            const nv = _chPerp(_chUnit(_chQuadTan(ch.entry, c, ch.exit, 1)));
+            const d = [p[0] - ch.exit[0], p[1] - ch.exit[1]];
+            ch.width_out = Math.max(6, 2 * Math.abs(d[0] * nv[0] + d[1] * nv[1]));
+        }
+        if (drag.role === "entry" || drag.role === "exit") {
+            const o = _nearestLegTo(ch.entry), d = _nearestLegTo(ch.exit);
+            if (o && d) {
+                ch.origin_leg_id = o.leg.leg_id;
+                ch.destination_leg_id = d.leg.leg_id;
+                ch.movement = _chDeriveMovement(o.leg, d.leg);
+            }
+        }
+    }
+
+    function _finishChannelDraw() {
+        const pts = _drawingChannel ? _drawingChannel.pts : null;
+        if (!pts || pts.length < 2) return;
+        let entry, apex, exit;
+        if (pts.length >= 3) { [entry, apex, exit] = pts; }
+        else {
+            entry = pts[0]; exit = pts[1];
+            apex = [(entry[0] + exit[0]) / 2, (entry[1] + exit[1]) / 2];
+        }
+        const o = _nearestLegTo(entry), d = _nearestLegTo(exit);
+        if (!o || !d) { _drawingChannel = null; return; }
+        _channels.push({
+            origin_leg_id: o.leg.leg_id,
+            destination_leg_id: d.leg.leg_id,
+            movement: _chDeriveMovement(o.leg, d.leg),
+            entry: entry.slice(), apex: apex.slice(), exit: exit.slice(),
+            width_in: _drawingChannel.width_in,
+            width_out: _drawingChannel.width_out,
+        });
+        _drawingChannel = null;
+        _selectedChannel = _channels.length - 1;
+        _channelsDirty = true;
+        _redraw();
+        _renderChannelsSection();
+    }
+
+    function _renderChannelsSection() {
+        const host = document.getElementById("v3-calib-channels");
+        if (!host) return;
+        const legs = _legs.slice().sort((a, b) => a.sort_order - b.sort_order);
+        let html = `<div style="border-top:1px solid #e5e7eb;padding-top:14px;">
+            <h4 style="margin:0 0 4px;font-size:14px;">Movement channels
+                ${_channelsDirty ? '<span style="color:#f59e0b;font-size:11px;">(unsaved)</span>' : ''}</h4>
+            <p style="margin:0 0 10px;font-size:12px;color:#6b7280;">
+                Operator-drawn corridors declaring each movement and where it runs.
+                Used to bootstrap new sites without ground truth (and to pin flows
+                at cameras where leg anchors sit on a through path). Draw the
+                THROUGH corridors too, not just turns.
+            </p>`;
+
+        if (_drawingChannel) {
+            const next = ["entry", "apex (the bend)", "exit"][_drawingChannel.pts.length] || "exit";
+            html += `<div style="padding:8px;background:#ecfeff;border:1px solid #0ea5e9;border-radius:4px;font-size:12px;margin-bottom:8px;">
+                <b>Drawing channel:</b> next click = <b>${next}</b>.
+                Endpoints snap to the nearest leg. 2 clicks + Enter = straight channel.
+                Esc cancels, Backspace undoes a point.
+                <div style="margin-top:6px;">
+                    <button onclick="v3CalibrationCancelChannel()"
+                        style="font-size:11px;padding:2px 8px;background:white;color:#6b7280;border:1px solid #d1d5db;border-radius:3px;cursor:pointer;">
+                        Cancel
+                    </button>
+                </div>
+            </div>`;
+        }
+
+        if (_channels.length === 0 && !_drawingChannel) {
+            html += `<p style="font-size:12px;color:#9ca3af;margin-bottom:8px;">No channels yet.</p>`;
+        }
+        for (let i = 0; i < _channels.length; i++) {
+            const ch = _channels[i];
+            const sel = i === _selectedChannel;
+            html += `<div onclick="v3CalibrationSelectChannel(${i})"
+                style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 6px;margin-bottom:3px;
+                       border:1px solid ${sel ? '#0ea5e9' : '#e5e7eb'};border-radius:4px;cursor:pointer;
+                       background:${sel ? '#f0f9ff' : 'white'};">
+                <span style="display:inline-block;width:10px;height:10px;background:${_chColor(i)};border-radius:2px;flex-shrink:0;"></span>
+                <span style="flex:1;">${escapeHtml(_chLegCard(ch.origin_leg_id))}&rarr;${escapeHtml(_chLegCard(ch.destination_leg_id))}
+                    <b>${escapeHtml(ch.movement)}</b>
+                    <span style="color:#9ca3af;">in ${Math.round(ch.width_in)} / out ${Math.round(ch.width_out)} px</span></span>
+                <button onclick="event.stopPropagation(); v3CalibrationDeleteChannel(${i})"
+                    style="font-size:10px;padding:1px 5px;color:#ef4444;background:none;border:1px solid #ef4444;border-radius:3px;cursor:pointer;">
+                    Del
+                </button>
+            </div>`;
+        }
+
+        // Selected-channel editor: legs + movement dropdowns.
+        const selCh = _channels[_selectedChannel];
+        if (selCh && !_drawingChannel) {
+            const legOpts = (cur) => legs.map(l =>
+                `<option value="${l.leg_id}" ${l.leg_id === cur ? 'selected' : ''}>${escapeHtml(l.label)} (${escapeHtml(l.cardinal_direction)})</option>`).join("");
+            html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;">
+                <div style="font-weight:600;margin-bottom:4px;">Selected channel</div>
+                <p style="margin:0 0 6px;color:#6b7280;">Drag the green entry / orange exit / yellow apex
+                    on the canvas; white dots set mouth widths. Esc deselects.</p>
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 6px;align-items:center;">
+                    <label>Origin:</label>
+                    <select onchange="v3CalibrationChannelField(${_selectedChannel}, 'origin_leg_id', parseInt(this.value,10))" style="font-size:12px;">${legOpts(selCh.origin_leg_id)}</select>
+                    <label>Destination:</label>
+                    <select onchange="v3CalibrationChannelField(${_selectedChannel}, 'destination_leg_id', parseInt(this.value,10))" style="font-size:12px;">${legOpts(selCh.destination_leg_id)}</select>
+                    <label>Movement:</label>
+                    <select onchange="v3CalibrationChannelField(${_selectedChannel}, 'movement', this.value)" style="font-size:12px;">
+                        ${["through", "left", "right", "u_turn"].map(m =>
+                            `<option value="${m}" ${m === selCh.movement ? 'selected' : ''}>${m}</option>`).join("")}
+                    </select>
+                </div>
+            </div>`;
+        }
+
+        if (!_drawingChannel) {
+            html += `<div style="margin-top:8px;">
+                <button onclick="v3CalibrationNewChannel()" ${_legs.length < 2 ? 'disabled' : ''}
+                    style="font-size:12px;padding:4px 10px;margin-right:6px;background:white;color:#0ea5e9;border:1px solid #0ea5e9;border-radius:3px;cursor:pointer;">
+                    + New channel
+                </button>
+                <button onclick="v3CalibrationSaveChannels()" ${_channelsDirty ? '' : 'disabled'}
+                    style="font-size:12px;padding:4px 10px;background:${_channelsDirty ? '#0ea5e9' : '#e5e7eb'};color:white;border:none;border-radius:3px;cursor:${_channelsDirty ? 'pointer' : 'default'};">
+                    Save channels
+                </button>
+            </div>`;
+        }
+        html += `</div>`;
+        host.innerHTML = html;
+    }
+
+    window.v3CalibrationNewChannel = function () {
+        if (_legs.length < 2) return;
+        _drawingChannel = { pts: [], width_in: 40, width_out: 40 };
+        _selectedChannel = -1;
+        _redraw();
+        _renderChannelsSection();
+    };
+
+    window.v3CalibrationCancelChannel = function () {
+        _drawingChannel = null;
+        _redraw();
+        _renderChannelsSection();
+    };
+
+    window.v3CalibrationSelectChannel = function (i) {
+        _selectedChannel = (_selectedChannel === i) ? -1 : i;
+        _redraw();
+        _renderChannelsSection();
+    };
+
+    window.v3CalibrationDeleteChannel = function (i) {
+        _channels.splice(i, 1);
+        if (_selectedChannel === i) _selectedChannel = -1;
+        else if (_selectedChannel > i) _selectedChannel--;
+        _channelsDirty = true;
+        _redraw();
+        _renderChannelsSection();
+    };
+
+    window.v3CalibrationChannelField = function (i, field, value) {
+        const ch = _channels[i];
+        if (!ch) return;
+        ch[field] = value;
+        if (field !== "movement") {
+            const o = _legs.find(l => l.leg_id === ch.origin_leg_id);
+            const d = _legs.find(l => l.leg_id === ch.destination_leg_id);
+            ch.movement = _chDeriveMovement(o, d);
+        }
+        _channelsDirty = true;
+        _redraw();
+        _renderChannelsSection();
+    };
+
+    window.v3CalibrationSaveChannels = async function () {
+        try {
+            const r = await API.put(
+                `/api/projects/${_pid}/cameras/${_cid}/channels`,
+                { channels: _channels.map(ch => ({
+                    origin_leg_id: ch.origin_leg_id,
+                    destination_leg_id: ch.destination_leg_id,
+                    movement: ch.movement,
+                    entry: ch.entry, apex: ch.apex, exit: ch.exit,
+                    width_in: ch.width_in, width_out: ch.width_out,
+                })) },
+            );
+            _channels = r.channels || [];
+            _channelsDirty = false;
+        } catch (e) {
+            alert("Save channels failed: " + (e.message || String(e)));
+        }
+        _redraw();
+        _renderChannelsSection();
     };
 
     // ---- Phase 3 suggestion banner + apply flow -----------------------
