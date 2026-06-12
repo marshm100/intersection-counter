@@ -467,13 +467,32 @@ function _qaBadge(verdict) {
         font-size:11px;font-weight:700;color:${fg};background:${bg};">${label}</span>`;
 }
 
+let _qaSpotWindow = null;     // proposed spot window {camera_id, start_seconds, duration_seconds}
+
+const _QA_OVERALL = {
+    ship:   ['#166534', '#dcfce7', 'READY TO EXPORT', 'All checks green.'],
+    review: ['#92400e', '#fef3c7', 'NEEDS REVIEW', 'Resolve the items below, then re-check.'],
+    fail:   ['#991b1b', '#fee2e2', 'CHECKS FAILING', 'A hard failure below needs investigation before export.'],
+};
+
+function _qaFmtHms(totalSec) {
+    const s = Math.round(totalSec);
+    return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
 async function _renderQaSubTab(host) {
     host.innerHTML = '<p class="empty-message">Running conservation checks…</p>';
     const iid = _v3OpenIntersectionId;
-    let rb = null, cc = null, err = null;
+    let rb = null, cc = null, gate = null, cams = [], spots = [], err = null;
     try {
         rb = await API.get(`/api/projects/${_v3Project.project_id}/intersections/${iid}/qa/conservation`);
         cc = await API.get(`/api/projects/${_v3Project.project_id}/qa/corridor`);
+        gate = await API.get(`/api/projects/${_v3Project.project_id}/intersections/${iid}/qa/acceptance`);
+        cams = await API.get(`/api/projects/${_v3Project.project_id}/intersections/${iid}/cameras`);
+        if (cams.length) {
+            const r = await API.get(`/api/projects/${_v3Project.project_id}/cameras/${cams[0].camera_id}/qa/spot-counts`);
+            spots = r.spot_counts || [];
+        }
     } catch (e) { err = e.message || String(e); }
     if (err) {
         host.innerHTML = `<p class="empty-message">QA checks failed: ${escapeHtml(err)}</p>`;
@@ -481,6 +500,15 @@ async function _renderQaSubTab(host) {
     }
 
     let html = `<div style="max-width:760px;">`;
+
+    // -- acceptance gate banner (Phase 4.2) --
+    const [gfg, gbg, glabel, gsub] = _QA_OVERALL[gate.overall] || _QA_OVERALL.review;
+    html += `<div style="padding:10px 14px;border-radius:6px;background:${gbg};margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:700;color:${gfg};">${glabel}</div>
+        <div style="font-size:12px;color:${gfg};">${gsub}
+            ${gate.items.map(i => `${escapeHtml(i.item.replace(/_/g, ' '))}: ${i.verdict.toUpperCase()}`).join(' · ')}
+        </div>
+    </div>`;
 
     // -- corridor consistency (primary) --
     html += `<h4 style="margin:6px 0 4px;">Corridor flow conservation</h4>
@@ -530,11 +558,120 @@ async function _renderQaSubTab(host) {
         }
         html += `</table>`;
     }
+    // -- spot count (Phase 4.1) --
+    const cam = cams[0];
+    html += `<h4 style="margin:18px 0 4px;">Manual spot count</h4>
+        <p style="font-size:12px;color:#6b7280;margin:0 0 8px;">
+            Hand-count a window of the raw video and compare against the system —
+            the zero-ground-truth accuracy estimate. Certifying the &plusmn;10% CI
+            needs roughly <b>850 total vehicles</b> in the window (20&ndash;40 min
+            at a busy site); shorter counts report as "review" with guidance.</p>`;
+    if (!cam) {
+        html += `<p style="font-size:12px;color:#9ca3af;">No cameras on this intersection.</p>`;
+    } else {
+        for (const s of spots.slice(0, 3)) {
+            const rep = s.report;
+            html += `<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 6px;
+                        margin-bottom:3px;border:1px solid #e5e7eb;border-radius:4px;">
+                <span style="flex:1;">${_qaFmtHms(s.start_seconds)} +${Math.round(s.duration_seconds/60)}min
+                    — manual ${rep.total.manual} vs system ${rep.total.system}
+                    <span style="color:#6b7280;">(${escapeHtml(rep.note)})</span></span>
+                ${_qaBadge(rep.verdict === 'pass' ? 'ok' : rep.verdict === 'fail' ? 'fail' : 'warn')}
+            </div>`;
+        }
+        if (_qaSpotWindow && _qaSpotWindow.camera_id === cam.camera_id) {
+            const w = _qaSpotWindow;
+            const cards = [...new Set((_v3IntersectionDetail.legs_by_camera &&
+                _v3IntersectionDetail.legs_by_camera[cam.camera_id] || []).map(l => l.cardinal_direction))];
+            const useCards = cards.length ? cards : ['N', 'S', 'E', 'W'];
+            html += `<div style="margin-top:8px;padding:10px;background:#f0f9ff;border:1px solid #0ea5e9;border-radius:4px;font-size:12px;">
+                <div style="font-weight:600;margin-bottom:4px;">
+                    Count window: ${_qaFmtHms(w.start_seconds)} &ndash; ${_qaFmtHms(w.start_seconds + w.duration_seconds)}
+                    (video time)</div>
+                <p style="margin:0 0 8px;color:#0c4a6e;">Watch this window in the source video and
+                    count vehicles per approach &times; movement. Leave cells you did not observe at 0
+                    — only non-zero cells are compared.</p>
+                <table style="font-size:12px;border-collapse:collapse;">
+                    <tr><th style="padding:2px 6px;"></th>
+                        <th>through</th><th>left</th><th>right</th><th>u_turn</th></tr>
+                    ${useCards.map(c => `<tr>
+                        <td style="padding:2px 6px;font-weight:600;">${escapeHtml(c)}B</td>
+                        ${['through','left','right','u_turn'].map(m =>
+                            `<td><input type="number" min="0" value="0" style="width:64px;font-size:12px;"
+                                 id="v3-spot-${escapeHtml(c)}-${m}"></td>`).join('')}
+                    </tr>`).join('')}
+                </table>
+                <div style="margin-top:8px;">
+                    <button onclick="v3QaSaveSpotCount(${cam.camera_id})"
+                        style="font-size:12px;padding:4px 10px;margin-right:6px;background:#0ea5e9;color:white;border:none;border-radius:3px;cursor:pointer;">
+                        Save spot count
+                    </button>
+                    <button onclick="v3QaCancelSpot()"
+                        style="font-size:12px;padding:4px 10px;background:white;color:#6b7280;border:1px solid #d1d5db;border-radius:3px;cursor:pointer;">
+                        Cancel
+                    </button>
+                </div>
+            </div>`;
+        } else {
+            html += `<div style="margin-top:6px;">
+                <button onclick="v3QaProposeSpot(${cam.camera_id}, 30)"
+                    style="font-size:12px;padding:4px 10px;background:white;color:#0ea5e9;border:1px solid #0ea5e9;border-radius:3px;cursor:pointer;">
+                    Propose a 30-min spot window
+                </button>
+            </div>`;
+        }
+    }
+
     html += `<p style="font-size:11px;color:#9ca3af;margin-top:10px;">
         Investigate flagged cells in the Review screen (filter by the implicated
         approach + movement).</p></div>`;
     host.innerHTML = html;
 }
+
+window.v3QaProposeSpot = async function (cameraId, minutes) {
+    try {
+        _qaSpotWindow = await API.get(
+            `/api/projects/${_v3Project.project_id}/cameras/${cameraId}/qa/spot-window?minutes=${minutes}`);
+    } catch (e) {
+        alert('Could not propose a window: ' + (e.message || String(e)));
+        return;
+    }
+    await _renderDetailSubTab();
+};
+
+window.v3QaCancelSpot = async function () {
+    _qaSpotWindow = null;
+    await _renderDetailSubTab();
+};
+
+window.v3QaSaveSpotCount = async function (cameraId) {
+    if (!_qaSpotWindow) return;
+    const counts = {};
+    for (const c of ['N', 'S', 'E', 'W']) {
+        for (const m of ['through', 'left', 'right', 'u_turn']) {
+            const el = document.getElementById(`v3-spot-${c}-${m}`);
+            if (!el) continue;
+            const v = parseInt(el.value, 10) || 0;
+            if (v > 0) counts[`${c} ${m}`] = v;
+        }
+    }
+    if (!Object.keys(counts).length) {
+        alert('Enter at least one non-zero count.');
+        return;
+    }
+    try {
+        await API.post(
+            `/api/projects/${_v3Project.project_id}/cameras/${cameraId}/qa/spot-counts`,
+            { start_seconds: _qaSpotWindow.start_seconds,
+              duration_seconds: _qaSpotWindow.duration_seconds,
+              manual_counts: counts });
+    } catch (e) {
+        alert('Save failed: ' + (e.message || String(e)));
+        return;
+    }
+    _qaSpotWindow = null;
+    await _renderDetailSubTab();
+};
 
 // --- Sub-tab: Intersection settings -----------------------------------
 

@@ -144,6 +144,20 @@ CREATE TABLE IF NOT EXISTS channels (
     FOREIGN KEY (destination_leg_id) REFERENCES legs(leg_id)
 );
 
+-- Manual spot counts (Phase 4): an engineer hand-counts a short random window
+-- from the raw video; the comparison against system counts (with CIs) is the
+-- zero-ground-truth accuracy estimate feeding the acceptance gate.
+CREATE TABLE IF NOT EXISTS spot_counts (
+    spot_id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id            INTEGER NOT NULL,
+    start_seconds        REAL    NOT NULL,
+    duration_seconds     REAL    NOT NULL,
+    manual_counts        TEXT    NOT NULL,    -- JSON {"N through": 123, ...}
+    notes                TEXT    NOT NULL DEFAULT '',
+    created_at           TEXT    NOT NULL,
+    FOREIGN KEY (camera_id) REFERENCES cameras(camera_id)
+);
+
 CREATE TABLE IF NOT EXISTS vehicle_events (
     event_id              INTEGER PRIMARY KEY AUTOINCREMENT,
     video_id              INTEGER DEFAULT NULL,

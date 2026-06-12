@@ -15,10 +15,15 @@ GET /projects/{pid}/qa/corridor?order=3,2,5&axis=NS
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from backend.config import PROJECTS_DIR
-from backend.database import get_connection, get_intersection
+from backend.database import get_camera, get_connection, get_intersection
 from backend.services.conservation_qa import corridor_consistency, reverse_balance
+from backend.services.spot_check import (
+    acceptance, compare_spot_count, list_spot_counts, propose_window,
+    save_spot_count,
+)
 
 router = APIRouter()
 
@@ -72,3 +77,69 @@ def get_corridor_qa(project_id: str, order: str | None = None, axis: str = "NS")
         raise HTTPException(status_code=422,
             detail=f"unknown intersection ids in order: {bad}")
     return corridor_consistency(project_id, ids, axis=axis.upper())
+
+
+# ---------------------------------------------------------------------------
+# Spot counts + acceptance gate (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+class SpotCountBody(BaseModel):
+    start_seconds: float
+    duration_seconds: float
+    manual_counts: dict[str, int]    # {"N through": 123, "E left": 4, ...}
+    notes: str = ""
+
+
+def _require_camera(project_id: str, camera_id: int) -> None:
+    if get_camera(project_id, camera_id) is None:
+        raise HTTPException(status_code=404,
+            detail=f"camera {camera_id} not found")
+
+
+@router.get("/projects/{project_id}/cameras/{camera_id}/qa/spot-window")
+def get_spot_window(project_id: str, camera_id: int, minutes: float = 10.0):
+    """Propose a random spot-count window inside the camera's processed range."""
+    _require_project(project_id)
+    _require_camera(project_id, camera_id)
+    if not (1 <= minutes <= 120):
+        raise HTTPException(status_code=422, detail="minutes must be in [1, 120]")
+    return propose_window(project_id, camera_id, minutes)
+
+
+@router.get("/projects/{project_id}/cameras/{camera_id}/qa/spot-counts")
+def get_spot_counts(project_id: str, camera_id: int):
+    """All recorded spot counts for this camera, newest first, each with its
+    live comparison report (system counts re-queried, so a re-review of events
+    updates the verdicts)."""
+    _require_project(project_id)
+    _require_camera(project_id, camera_id)
+    spots = list_spot_counts(project_id, camera_id)
+    for s in spots:
+        s["report"] = compare_spot_count(
+            project_id, camera_id, s["start_seconds"], s["duration_seconds"],
+            s["manual_counts"])
+    return {"spot_counts": spots}
+
+
+@router.post("/projects/{project_id}/cameras/{camera_id}/qa/spot-counts")
+def post_spot_count(project_id: str, camera_id: int, body: SpotCountBody):
+    """Record a manual spot count; returns the manual-vs-system report."""
+    _require_project(project_id)
+    _require_camera(project_id, camera_id)
+    if body.duration_seconds <= 0:
+        raise HTTPException(status_code=422, detail="duration must be positive")
+    if any(v < 0 for v in body.manual_counts.values()):
+        raise HTTPException(status_code=422, detail="counts must be >= 0")
+    return save_spot_count(project_id, camera_id, body.start_seconds,
+                           body.duration_seconds, body.manual_counts, body.notes)
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/qa/acceptance")
+def get_acceptance(project_id: str, intersection_id: int):
+    """The Phase-4 gate: conservation + spot-count status -> ship/review/fail."""
+    _require_project(project_id)
+    if get_intersection(project_id, intersection_id) is None:
+        raise HTTPException(status_code=404,
+            detail=f"intersection {intersection_id} not found")
+    return acceptance(project_id, intersection_id)
