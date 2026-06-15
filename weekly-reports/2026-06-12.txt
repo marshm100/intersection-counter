@@ -1,0 +1,81 @@
+Weekly Report — Intersection Counter
+Week of June 6 – June 12, 2026
+
+HEADLINE: Net counting error at the Bluffview camera fell from 14.6% to 2.5%
+against the Miovision reference — our worst camera became our best — and it held
+at 7% on a separate afternoon sample we hadn't tuned on. Separately, we built and
+proved a way to calibrate a new intersection using none of Miovision's data.
+
+SUMMARY
+The focus was accuracy and self-reliance. We commissioned a deep technical review
+of whether our approach matches the best published methods (it does), then used
+the findings to fix specific counting failures and to remove our last dependence
+on the commercial tool we're replacing. By Friday the live five-camera corridor
+on N Belt Line Rd was reading 7.2% / 8.8% / 2.5% / 8.4% / 7.7% net error per
+camera versus Miovision, and we had shipped the screens and self-checks needed to
+run a brand-new site end to end. (Accuracy is measured as net error per turning
+movement at 30-minute granularity against Miovision's professional counts.)
+
+WHAT GOT DONE, BY DAY
+
+Monday — Camera tuning + finishing the multi-camera engine.
+Cut the E Town East Blvd camera's error from 16.4% to 8.8% by giving each camera
+its own detection/tracking settings (duplicate-box suppression at 0.85, a stricter
+0.90 match threshold). Finished the multi-camera backend: a queue that caps how
+many cameras process at once so the laptop doesn't choke, a full automated test
+covering the whole chain (upload → process → de-duplicate across cameras →
+Excel), and an auto-upgrade that migrates older projects to the new format. Also
+fixed the review screen's "add a missed vehicle" tool and its trajectory overlay.
+Submitted the week's work for code review.
+
+Wednesday — Calibration research + a scaled trial run.
+Revisited the hand-drawn lane-path approach to setup and ran a multi-hour trial
+processing pass to see how the full pipeline behaves at study scale.
+
+Thursday — Deep research, then the accuracy rebuild.
+A multi-source review confirmed our method (matching each vehicle's path shape to
+reference paths) is the same technique that won the field's main academic counting
+benchmark, and that sub-5% fully-automated accuracy exceeds what anyone has
+published — so the realistic target is strong automation plus a short human check.
+Acting on that: we diagnosed that fast vehicles were being lost not by the
+detector but at "track birth" (their detections never clear the confidence bar to
+start a track) compounded by low frame-rate footage; fixed it with buffered-overlap
+matching and a looser track start backed by an after-the-fact quality filter
+(Bluffview: 14.6% → 2.5%). We then built a bank-of-reference-paths generator that
+learns each movement from the site's OWN traffic instead of from Miovision data —
+it matched or beat the Miovision-built version on 3 of 5 cameras and won outright
+on the held-out afternoon test (4.9% vs 7.1%).
+
+Friday — Calibration screen, self-checks, and the full study.
+Shipped the lane-drawing screen inside calibration (an engineer sets up a site in
+under an hour). Added automatic sanity checks — flow conservation between adjacent
+intersections and reverse-movement balance — that, on our test corridor, flagged
+exactly the camera and direction we already knew were weak. Added a spot-count tool
+that compares a hand-counted window to the system with proper confidence intervals
+(about 850 vehicles certify a +/-10% margin) feeding a ship / review / fail gate,
+plus a written new-site procedure. Finally, added the per-interval (15-minute) TMC
+sheet to the Excel export and kicked off the full 6-hour and 24-hour studies.
+
+TIME SPENT (approximate)
+  Accuracy: deep research, tracker fixes, reference-path generator ... ~7.5 hrs
+  Multi-camera engine completion (queue, tests, auto-upgrade) ........ ~3.0 hrs
+  Calibration: lane-drawing research + the new drawing screen ........ ~2.0 hrs
+  Self-checks (conservation + spot-count gate) & full-study kickoff .. ~1.5 hrs
+  Weekly report, code review & planning .............................. ~1.0 hrs
+  Total .............................................................. ~15.0 hrs
+
+  (Four working days — June 8, 10, 11, 12. Hands-on time only; excludes the
+   multi-day unattended processing runs the computer does on its own.)
+
+WHERE THE PROJECT STANDS
+The accuracy work this week followed a five-step plan (diagnose → fix tracking →
+replace the Miovision dependency → add self-checks → define the acceptance gate),
+and all five steps shipped. The corridor's worst camera is now its best, and four
+of five cameras sit under 9% error. Two cameras (Northwest Dr and Barnes Bridge)
+still trail because a leg sits directly on a through path; the fix is an operator
+drawing their lane corridors in the new screen — no code change needed. The full
+6h/24h study is processing now.
+
+(Covers June 6–12; no work logged June 6, 7, or 9. The full study kicked off
+ Friday is still running and finishes in the June 13–19 week, so its final
+ spreadsheet and numbers will appear in next week's report.)
