@@ -1,0 +1,117 @@
+{
+  "camera": 4,
+  "window": "07:00:00+30min",
+  "n_tracks_usable": 1227,
+  "agreement_rate": 0.776,
+  "cells": [
+    {
+      "cell": "L35->L33 through",
+      "n": 723,
+      "share": 0.5697,
+      "straightness": 0.996,
+      "bearing_residuals": [
+        3.3,
+        8.5
+      ],
+      "status": "admitted"
+    },
+    {
+      "cell": "L33->L35 through",
+      "n": 420,
+      "share": 0.331,
+      "straightness": 0.999,
+      "bearing_residuals": [
+        1.2,
+        0.9
+      ],
+      "status": "admitted"
+    },
+    {
+      "cell": "L34->L35 right",
+      "n": 69,
+      "share": 0.0544,
+      "straightness": 1.0,
+      "bearing_residuals": [
+        0.3,
+        0.1
+      ],
+      "status": "admitted",
+      "warn": "straight_turn"
+    },
+    {
+      "cell": "L33->L34 right",
+      "n": 38,
+      "share": 0.0299,
+      "straightness": 0.999,
+      "bearing_residuals": [
+        0.0,
+        27.6
+      ],
+      "status": "admitted",
+      "warn": "straight_turn"
+    },
+    {
+      "cell": "L35->L34 left",
+      "n": 12,
+      "share": 0.0095,
+      "straightness": 0.993,
+      "bearing_residuals": [
+        1.2,
+        127.5
+      ],
+      "status": "bearing_rejected"
+    },
+    {
+      "cell": "L34->L33 left",
+      "n": 7,
+      "share": 0.0055,
+      "straightness": 0.982,
+      "bearing_residuals": [
+        24.1,
+        7.3
+      ],
+      "member_spread_px": 81.3,
+      "status": "minor_incoherent_rejected"
+    },
+    {
+      "cell": "L33->L34 right",
+      "n": 38,
+      "status": "dedup_dropped",
+      "kept": "L33->L35"
+    }
+  ],
+  "ambiguous_pairs": [],
+  "leg_sanity": [
+    {
+      "leg_id": 34,
+      "calibrated_heading": 119.4,
+      "observed_entry_bearing": 266.4,
+      "diff_deg": 147.0,
+      "verdict": "SUSPECT_LABEL_OR_HEADING"
+    },
+    {
+      "leg_id": 33,
+      "calibrated_heading": 265.1,
+      "observed_entry_bearing": 275.7,
+      "diff_deg": 10.6,
+      "verdict": "ok"
+    },
+    {
+      "leg_id": 35,
+      "calibrated_heading": 66.9,
+      "observed_entry_bearing": 85.6,
+      "diff_deg": 18.7,
+      "verdict": "ok"
+    }
+  ],
+  "anchor_cells_raw": {
+    "35->33": 723,
+    "33->35": 420,
+    "34->35": 69,
+    "35->35": 10,
+    "35->34": 2,
+    "34->33": 1,
+    "33->34": 1,
+    "33->33": 1
+  }
+}
