@@ -43,6 +43,9 @@ def main() -> int:
     ap.add_argument("--minutes", type=float, default=30.0)
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--weights", default="osnet_x0_25_msmt17.pt")
+    ap.add_argument("--variant", default=None,
+                    help="detection-cache variant to embed (default DEFAULT_VARIANT); "
+                         "set to a study variant e.g. study_0700 for full-study ReID")
     args = ap.parse_args()
 
     conn = sqlite3.connect("data/projects/97a7849a/project.db")
@@ -51,7 +54,7 @@ def main() -> int:
     conn.close()
     vpath, fsize, total_frames, fps = v[0], v[1], v[2], float(v[3])
     ch, _ = compute_video_content_hash(vpath, file_size_bytes=fsize, total_frames=total_frames)
-    pq = parquet_path("97a7849a", args.camera, ch, DEFAULT_VARIANT)
+    pq = parquet_path("97a7849a", args.camera, ch, args.variant or DEFAULT_VARIANT)
     out = sidecar_path(pq)
 
     t0 = datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{args.start_hms}")
