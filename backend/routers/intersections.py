@@ -688,6 +688,77 @@ def _plan_for_intersection(project_id: str, intersection: dict):
     )
 
 
+# Movement naming (build_bank's _cardinal_movement) and the TMC Excel join only
+# understand the four primary cardinals; the calibration UI also offers diagonals
+# (NE/NW/SE/SW), which silently misclassify downstream.
+_PRIMARY_CARDINALS = {"N", "E", "S", "W"}
+_DIAGONAL_CARDINALS = {"NE", "NW", "SE", "SW"}
+
+
+def _preprocess_warnings(
+    project_id: str, intersection_id: int, cameras_used: list[int],
+) -> list[str]:
+    """Non-blocking pre-process checks surfaced in the Confirm dialog (#9).
+
+    The dress rehearsal (docs/dress_rehearsal_findings_2026-06-23.md) started a
+    run with bad leg cardinals AND no path bank; the pipeline burned CPU and
+    produced ~0 attributed events. These checks catch that BEFORE the run.
+
+    Intentionally convention-free and data-grounded: reference_heading is
+    image-space (not comparable to the real-world cardinal), so we don't check
+    heading-vs-cardinal here — the bank builder's QA leg_sanity does that with
+    observed traffic. Each warning maps to a concrete downstream breakage, so a
+    healthy project shows none. Warnings never block; the operator confirms.
+    """
+    labels = {c["camera_id"]: (c.get("label") or f"camera {c['camera_id']}")
+              for c in list_cameras(project_id, intersection_id)}
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = __import__("sqlite3").Row
+        legs_by_cam = {
+            cid: [dict(r) for r in conn.execute(
+                "SELECT leg_id, label, cardinal_direction FROM legs "
+                "WHERE camera_id = ? ORDER BY sort_order", (cid,)).fetchall()]
+            for cid in cameras_used
+        }
+    finally:
+        conn.close()
+
+    warnings: list[str] = []
+    for cid in cameras_used:
+        cam = labels.get(cid, f"camera {cid}")
+        legs = legs_by_cam.get(cid, [])
+        if not legs:
+            warnings.append(f"{cam}: no legs calibrated — its segments will be "
+                            f"skipped and produce 0 vehicles.")
+            continue
+        seen: dict[str, str] = {}
+        for leg in legs:
+            cd = (leg["cardinal_direction"] or "").strip().upper()
+            name = leg["label"] or f"leg {leg['leg_id']}"
+            if not cd:
+                warnings.append(f"{cam}: leg '{name}' has no cardinal direction set.")
+            elif cd in _DIAGONAL_CARDINALS:
+                warnings.append(f"{cam}: leg '{name}' uses a diagonal cardinal "
+                                f"'{cd}' — movement naming and the TMC Excel join "
+                                f"expect N/E/S/W.")
+            elif cd not in _PRIMARY_CARDINALS:
+                warnings.append(f"{cam}: leg '{name}' has an unrecognized cardinal "
+                                f"'{cd}' — expected N/E/S/W.")
+            elif cd in seen:
+                warnings.append(f"{cam}: legs '{seen[cd]}' and '{name}' share "
+                                f"cardinal '{cd}' — each approach needs a distinct one.")
+            else:
+                seen[cd] = name
+        # The headline check: with no path bank the pipeline falls back to legacy
+        # heuristics and leaves vehicles largely unattributed (the rehearsal's ~0).
+        if not list_paths_for_camera(project_id, cid):
+            warnings.append(f"{cam}: no path bank — vehicles will be largely "
+                            f"unattributed (~0 movement counts). Build one first "
+                            f"(new-site runbook section 2).")
+    return warnings
+
+
 @router.post("/projects/{project_id}/intersections/{intersection_id}/processing/preflight")
 def processing_preflight(project_id: str, intersection_id: int):
     """Dry-run the orchestrator's planner. Returns the segment plan
@@ -702,6 +773,7 @@ def processing_preflight(project_id: str, intersection_id: int):
     return {
         "errors": plan.errors,
         "ok": len(plan.errors) == 0,
+        "warnings": _preprocess_warnings(project_id, intersection_id, plan.cameras_used),
         "segment_count": len(plan.segments),
         "cameras_used": plan.cameras_used,
         "trims_used": plan.trims_used,

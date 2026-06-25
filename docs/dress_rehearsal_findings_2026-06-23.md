@@ -78,12 +78,24 @@ The heart of the new-site procedure (runbook §2) cannot target a fresh project:
   `videos.recording_start_datetime`; drop the `groundtruth` import; document/produce
   the cache step. Then correct `new_site_runbook.md §2`.
 
-### #9 — No pre-process validation (lets you run garbage) — OPEN GAP
-"Confirm & process" only checks that trims exist. It happily started a run with
-**invalid leg cardinals** AND **no path bank** → the pipeline burned CPU producing
-~0 attributed events. Add a pre-process guard/warning: validate cardinals form a sane
-set (opposing pairs, headings within tolerance of the cardinal) and warn when no
-bank/suggestion exists for a camera. Surface in the Confirm dialog.
+### #9 — No pre-process validation (lets you run garbage) — FIXED ✅ (2026-06-25)
+**Fix:** the `processing/preflight` endpoint (which the v3 Confirm dialog already calls)
+now returns a `warnings: list[str]`, computed per camera in the plan by
+`_preprocess_warnings` (`backend/routers/intersections.py`): no legs calibrated; empty,
+diagonal (NE/NW/SE/SW), unrecognized, or duplicate cardinals; and — the headline — **no
+path bank** (`list_paths_for_camera` empty → vehicles fall back to legacy heuristics and
+are largely unattributed, the rehearsal's ~0-counts cause). Both frontend confirm paths
+(`v3ConfirmProcess` + `v3StartProcessing` in `setup.js`) append the warnings to the native
+confirm dialog under "⚠ Warnings (you can still proceed)". Non-blocking by design — the
+operator confirms (legacy-mode / T-intersection runs stay valid).
+**Deliberately convention-free:** `reference_heading` is image-space (a tilted camera's NB
+leg can read any compass degree — corridor cam1: N=262°, S=83°), so we do NOT compare
+heading to cardinal here; that data-grounded check is the bank builder's QA `leg_sanity`.
+Each warning maps to a concrete downstream breakage, so a healthy project (incl. the 3-leg
+T-intersection cam3) shows zero. 4 unit tests in `test_v3_processing_api.py`; full backend
+suite green (578 pass; unrelated OpenVINO-GPU + OneDrive-lock failures only).
+
+Original gap (kept for reference):
 
 ### #2 — Operator calibration was invalid — NEEDS OPERATOR FIX
 Legs were labelled **W, E, S, SE** — no **North**, and a nonsensical diagonal **SE**;
@@ -121,7 +133,8 @@ Server is running via plain `py start_server.py` (auto-iGPU). Open work, in orde
    `build_bank_gtfree`, read `gtfree_bank_cam2_qa.json`, `apply_bank`.
 4. Process the window → QA tab (single intersection = spot count carries the gate,
    aim ≥850 vehicles) → targeted review → export TMC Excel.
-5. **#9** — add the pre-process validation guard. Then correct `new_site_runbook.md`.
+5. ~~**#9** — add the pre-process validation guard.~~ **DONE 2026-06-25** (preflight
+   warnings; see #9 above). Remaining: correct `new_site_runbook.md` once the run is done.
 
 ## Code state
 Uncommitted on branch `claude/accuracy-impl-2026-05-27`:

@@ -994,11 +994,16 @@ async function v3ConfirmProcess() {
         alert('Cannot process — please fix these first:\n\n' + preflight.errors.join('\n'));
         return;
     }
+    const warnBlock = (preflight.warnings && preflight.warnings.length)
+        ? '\n⚠ Warnings (you can still proceed):\n' +
+          preflight.warnings.map(w => '  • ' + w).join('\n') + '\n'
+        : '';
     const msg = `Ready to process this intersection.\n\n` +
                 `Segments: ${preflight.segment_count}\n` +
                 `Cameras used: ${preflight.cameras_used.length}\n` +
-                `Trims: ${preflight.trims_used.length}\n\n` +
-                `Start processing now?`;
+                `Trims: ${preflight.trims_used.length}\n` +
+                warnBlock +
+                `\nStart processing now?`;
     if (!window.confirm(msg)) return;
     try {
         await API.post(`/api/projects/${pid}/intersections/${iid}/processing/start`, {});
@@ -1281,11 +1286,16 @@ async function v3StartProcessing(iid) {
         alert('Cannot process — please fix these first:\n\n' + preflight.errors.join('\n'));
         return;
     }
+    const warnBlock = (preflight.warnings && preflight.warnings.length)
+        ? '\n⚠ Warnings (you can still proceed):\n' +
+          preflight.warnings.map(w => '  • ' + w).join('\n') + '\n'
+        : '';
     const msg = `Ready to process this intersection.\n\n` +
                 `Segments: ${preflight.segment_count}\n` +
                 `Cameras used: ${preflight.cameras_used.length}\n` +
-                `Trims: ${preflight.trims_used.length}\n\n` +
-                `Start processing now?`;
+                `Trims: ${preflight.trims_used.length}\n` +
+                warnBlock +
+                `\nStart processing now?`;
     if (!window.confirm(msg)) return;
     try {
         await API.post(`/api/projects/${pid}/intersections/${iid}/processing/start`, {});

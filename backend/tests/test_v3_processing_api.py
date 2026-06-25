@@ -79,6 +79,88 @@ class TestPreflight:
         assert "no video coverage" in body["errors"][0].lower()
 
 
+def _add_leg(pid, camera_id, label, cardinal, order, heading=0.0):
+    from backend.database import get_connection
+    conn = get_connection(pid)
+    try:
+        cur = conn.execute(
+            "INSERT INTO legs (camera_id, label, cardinal_direction, sort_order, "
+            "origin_zone, reference_heading) VALUES (?,?,?,?,?,?)",
+            (camera_id, label, cardinal, order, "[[10,10]]", heading))
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def _add_path(pid, camera_id, ol=1, dl=2):
+    from backend.database import get_connection
+    conn = get_connection(pid)
+    try:
+        conn.execute(
+            "INSERT INTO intersection_paths (camera_id, origin_leg_id, "
+            "destination_leg_id, polyline, movement_label, supporting_count, "
+            "source, created_at) VALUES (?,?,?,?,?,?,?,?)",
+            (camera_id, ol, dl, "[[0,0],[1,1]]", "through", 5, "test",
+             "2026-01-01T00:00:00"))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+class TestPreflightWarnings:
+    """#9 pre-process guard: the Confirm dialog must surface bad cardinals /
+    missing bank BEFORE a run burns CPU on ~0 attributed events."""
+
+    def _cam_ids(self, pid, iid):
+        from backend.database import list_cameras
+        return [c["camera_id"] for c in list_cameras(pid, iid)]
+
+    def test_warns_when_camera_has_no_legs(self, configured_intersection):
+        pid, iid = configured_intersection  # 2 cameras, neither calibrated
+        body = client.post(
+            f"/api/projects/{pid}/intersections/{iid}/processing/preflight").json()
+        assert body["ok"] is True  # warnings never block
+        assert len(body["warnings"]) == 2
+        assert all("no legs" in w for w in body["warnings"])
+
+    def test_warns_diagonal_cardinal_and_missing_bank(self, configured_intersection):
+        pid, iid = configured_intersection
+        cam = self._cam_ids(pid, iid)[0]
+        # Legitimate primaries plus one diagonal; no path bank for this camera.
+        _add_leg(pid, cam, "North", "N", 0)
+        _add_leg(pid, cam, "East", "E", 1)
+        _add_leg(pid, cam, "Ramp", "SE", 2)
+        body = client.post(
+            f"/api/projects/{pid}/intersections/{iid}/processing/preflight").json()
+        warns = body["warnings"]
+        assert any("diagonal cardinal" in w and "'SE'" in w for w in warns)
+        assert any("no path bank" in w for w in warns)
+
+    def test_warns_duplicate_cardinal(self, configured_intersection):
+        pid, iid = configured_intersection
+        cam = self._cam_ids(pid, iid)[0]
+        _add_leg(pid, cam, "North", "N", 0)
+        _add_leg(pid, cam, "AlsoNorth", "N", 1)
+        body = client.post(
+            f"/api/projects/{pid}/intersections/{iid}/processing/preflight").json()
+        assert any("share" in w and "'N'" in w for w in body["warnings"])
+
+    def test_clean_camera_emits_no_warnings(self, configured_intersection):
+        pid, iid = configured_intersection
+        cams = self._cam_ids(pid, iid)
+        # Fully calibrate BOTH cameras (distinct primaries) + give each a bank,
+        # so a healthy project shows zero warnings.
+        for cam in cams:
+            _add_leg(pid, cam, "North", "N", 0)
+            _add_leg(pid, cam, "South", "S", 1)
+            _add_path(pid, cam)
+        body = client.post(
+            f"/api/projects/{pid}/intersections/{iid}/processing/preflight").json()
+        assert body["ok"] is True
+        assert body["warnings"] == []
+
+
 class TestStartGuard:
     def test_start_refuses_on_coverage_error(self, configured_intersection):
         pid, iid = configured_intersection
