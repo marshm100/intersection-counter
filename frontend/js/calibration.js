@@ -59,6 +59,7 @@
     let _suggestion = null;            // GET /calibration/suggestion result
     let _suggestionPreviewOn = false;  // overlay suggested paths on canvas?
     let _suggestionJobStatus = null;   // null | running | error | etc
+    let _autoCalCancelling = false;    // true between Cancel click and terminal status
 
     async function render(host, pid, cid, opts) {
         opts = opts || {};
@@ -1593,6 +1594,12 @@
             return;
         }
         if (running) {
+            if (_autoCalCancelling) {
+                host.innerHTML = `<div style="padding:8px;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;font-size:12px;color:#92400e;">
+                    Cancelling auto-calibration…
+                </div>`;
+                return;
+            }
             const pct = (_suggestionJobStatus.progress_pct || 0).toFixed(1);
             host.innerHTML = `<div style="padding:8px;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;font-size:12px;">
                 Auto-calibration running... ${pct}% (${escapeHtml(_suggestionJobStatus.phase || "")})
@@ -1683,6 +1690,12 @@
     };
 
     window.v3CalibrationCancelAutoCal = async function () {
+        // Optimistic feedback: flip the banner to "Cancelling…" immediately so
+        // the click is visibly acknowledged. The poll loop clears the flag and
+        // the banner once the backend reports a terminal status (the worker now
+        // honors the cancel mid-pass).
+        _autoCalCancelling = true;
+        _renderSuggestionBanner();
         try {
             await API.post(`/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion/cancel`, {});
         } catch (e) {}
@@ -1702,6 +1715,7 @@
                 } else {
                     // Complete / error / cancelled — refresh suggestion.
                     _suggestionJobStatus = null;
+                    _autoCalCancelling = false;
                     try {
                         const sug = await API.get(
                             `/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion`,
@@ -1713,6 +1727,7 @@
                 }
             } catch (e) {
                 _suggestionJobStatus = null;
+                _autoCalCancelling = false;
                 _renderSuggestionBanner();
             }
         }, 2000);

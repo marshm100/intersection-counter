@@ -53,12 +53,29 @@ class VehicleDetector:
         self.confidence = (
             confidence if confidence is not None else YOLO_CONFIDENCE_THRESHOLD
         )
-        self._device = detect_device(os.environ.get("DEVICE"))
+        requested = os.environ.get("DEVICE")
+        self._device = detect_device(requested)
         if self._device == "openvino":
             # Iris-Xe GPU via OpenVINO: load the exported _openvino_model (export
-            # once, imgsz baked in) and run on the Intel GPU. Falls back to the
-            # PyTorch .pt on CPU if export/load fails — never blocks processing.
-            self.model = self._load_openvino(mp)
+            # once, imgsz baked in) and run on the Intel GPU.
+            explicit = (requested or "").lower().strip() == "openvino"
+            try:
+                self.model = self._load_openvino(mp)
+            except RuntimeError:
+                # EXPLICIT DEVICE=openvino fails loudly (you asked for the GPU and
+                # must be told it's unusable, not silently degraded). An AUTO
+                # selection (no DEVICE set) degrades gracefully to PyTorch CPU so a
+                # machine that never built the export still processes.
+                if explicit:
+                    raise
+                logger.warning(
+                    "OpenVINO iGPU auto-selected but its export is unavailable; "
+                    "falling back to PyTorch CPU (~3.7x slower). Pre-export for the "
+                    "iGPU:  py scripts/export_yolo_openvino.py --model %s --imgsz %d",
+                    mp, self.imgsz,
+                )
+                self._device = "cpu"
+                self.model = YOLO(mp)
         else:
             self.model = YOLO(mp)
 
