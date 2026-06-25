@@ -6,6 +6,11 @@ project.db. Camera-parameterized generalization of apply_cam2_bank.py.
 Usage:
   py scripts/apply_bank.py --camera 3                       # measure (writes a side DB)
   py scripts/apply_bank.py --camera 3 --apply               # + write to project.db (backup first)
+  py scripts/apply_bank.py --project 0acb12c0 --camera 2 \
+      --bank evaluations/gtfree_bank_cam2.json              # any new site
+
+The window start (--start-hms/--minutes) is anchored to the video's own
+recording_start_datetime from the DB, so any project/date works.
 """
 from __future__ import annotations
 import argparse, json, shutil, sqlite3, sys
@@ -21,15 +26,14 @@ from backend.services.detection_cache import (
     DEFAULT_VARIANT, compute_video_content_hash, parquet_path)
 from reprocess_camera import _load_camera_context
 from hybrid_prototype import retrack
-from groundtruth import VIDEO_START
 from scratch import scratch_dir
-
-PROJECT = "97a7849a"
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--camera", type=int, required=True)
+    ap.add_argument("--project", default="97a7849a",
+                    help="project id (default = Sunnyvale corridor)")
     ap.add_argument("--bank", default=None, help="default evaluations/recal_cam<N>.json")
     ap.add_argument("--start-hms", default="07:00:00")
     ap.add_argument("--minutes", type=float, default=5.0)
@@ -58,14 +62,20 @@ def main() -> int:
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
     cam = args.camera
+    project = args.project
     bank = args.bank or f"evaluations/recal_cam{cam}.json"
-    out_db = Path(args.out_db or scratch_dir(PROJECT) / f"cam{cam}_bank.db")
+    out_db = Path(args.out_db or scratch_dir(project) / f"cam{cam}_bank.db")
     out_db.parent.mkdir(parents=True, exist_ok=True)
 
-    proj_db = f"data/projects/{PROJECT}/project.db"
+    proj_db = f"data/projects/{project}/project.db"
     conn = sqlite3.connect(proj_db); ctx = _load_camera_context(conn, cam); conn.close()
     video = ctx["video"]; fps = float(video["fps"])
-    calib = get_camera_calibration_params(PROJECT, cam)
+    if not video.get("recording_start_datetime"):
+        print(f"!! video for camera {cam} has no recording_start_datetime; set it in the "
+              f"calibration UI (or re-add the video) before applying a bank", file=sys.stderr)
+        return 2
+    video_start = datetime.fromisoformat(video["recording_start_datetime"])
+    calib = get_camera_calibration_params(project, cam)
     # Per-run knob overrides for sweeps — injected into the calib dict so they
     # flow through the normal per-camera precedence (calib override > mode arg)
     # WITHOUT mutating project.db. None/absent = use the persisted per-camera value.
@@ -83,12 +93,15 @@ def main() -> int:
         calib["track_stitch"] = 1
     mode_cfg = get_processing_mode_config(args.mode)
     sug = json.loads(Path(bank).read_text())
-    t0 = datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{args.start_hms}")
-    s = int((t0 - VIDEO_START).total_seconds() * fps); e = s + int(args.minutes * 60 * fps)
+    if sug.get("project") and sug["project"] != project:
+        print(f"!! WARNING: bank was built for project {sug['project']} but --project is "
+              f"{project}; proceeding, but verify this is intentional", file=sys.stderr)
+    t0 = datetime.fromisoformat(f"{video_start.date().isoformat()}T{args.start_hms}")
+    s = int((t0 - video_start).total_seconds() * fps); e = s + int(args.minutes * 60 * fps)
     s = max(0, min(s, video["total_frames"])); e = max(s, min(e, video["total_frames"]))
     chash, _ = compute_video_content_hash(video["path"], file_size_bytes=video.get("file_size_bytes"),
                                           total_frames=video["total_frames"])
-    pq = parquet_path(PROJECT, cam, chash, args.variant or DEFAULT_VARIANT)
+    pq = parquet_path(project, cam, chash, args.variant or DEFAULT_VARIANT)
     tk = json.loads(args.tracker_kwargs) if args.tracker_kwargs else None
     if args.new_track_thresh is not None:
         tk = {**(tk or {}), "new_track_thresh": args.new_track_thresh}
@@ -97,8 +110,8 @@ def main() -> int:
     retrack(out_db, args.backend, video, ctx, calib, mode_cfg, sug, s, e, pq, cam, tracker_kwargs=tk)
 
     if args.apply:
-        ts = VIDEO_START.strftime("%Y%m%d")
-        backup = Path(f"data/projects/{PROJECT}/backups/{ts}_pre_cam{cam}_bank.db")
+        ts = video_start.strftime("%Y%m%d")
+        backup = Path(f"data/projects/{project}/backups/{ts}_pre_cam{cam}_bank.db")
         backup.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(proj_db, backup)
         c = sqlite3.connect(proj_db)

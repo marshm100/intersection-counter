@@ -47,7 +47,23 @@ flow snags before it's run for a client. It snagged a lot — which is the point
 - **Caveat:** even at 3.5×, this 8 GB i5/Iris Xe laptop is slow — 30-min cache ~3.2 h,
   full day = multiple days. The iGPU is the only software lever; hardware is the ceiling.
 
-### #10 — `build_bank_gtfree.py` is corridor-hardcoded, NOT new-site-ready — OPEN BLOCKER
+### #10 — `build_bank_gtfree.py` is corridor-hardcoded, NOT new-site-ready — FIXED ✅ (2026-06-25)
+**Fix:** both `build_bank_gtfree.py` and `apply_bank.py` now take `--project` (default
+`97a7849a` to preserve corridor behavior) and derive the video start from the DB's
+`videos.recording_start_datetime` instead of importing the corridor `groundtruth.VIDEO_START`.
+The `groundtruth` import is gone from both. Added robustness guards (the rehearsal proved the
+flow snags here): null `recording_start_datetime` → clear message + exit 2; missing detection
+cache → clear "process this window first" message + exit 2 (point 3 below — no code removes the
+iGPU time ceiling, but the failure is now actionable not cryptic); `apply_bank` warns when the
+bank's embedded `project` differs from `--project`.
+**Verified:** corridor cam3 bank rebuild is byte-identical to baseline (invariant: all 5 corridor
+cams have `recording_start_datetime == 2026-05-12T00:00:02 == old VIDEO_START`); apply_bank measure
+on cam3 retracks + writes 192 events end-to-end; `--project 0acb12c0 --camera 2` targets the
+rehearsal DB (rec_start 2026-04-30) and hits the no-cache guard correctly. `build_bank.py` (the
+GT/Miovision builder) is intentionally left corridor-bound — it is not part of the new-site flow.
+Runbook §2 updated.
+
+Original diagnosis (kept for reference):
 The heart of the new-site procedure (runbook §2) cannot target a fresh project:
 1. `PROJECT = "97a7849a"` hardcoded (line 56) for the DB path (122) + `parquet_path`
    (159); **no `--project` arg**. The documented `--camera 2 --minutes 30` would
@@ -97,8 +113,8 @@ project list has stray Delete buttons that fire confirms easily — none were ac
 
 ## Where we stopped / resume plan (tomorrow)
 Server is running via plain `py start_server.py` (auto-iGPU). Open work, in order:
-1. **#10** — generalize `build_bank_gtfree.py` (+ check `apply_bank.py`) to `--project`
-   + DB-derived video start. (Claude / code.)
+1. ~~**#10** — generalize `build_bank_gtfree.py` (+ check `apply_bank.py`) to `--project`
+   + DB-derived video start.~~ **DONE 2026-06-25** (see #10 above).
 2. **#2** — operator relabels cam 405051 legs to proper **N/E/S/W** + fix headings.
    Verify with leg-sanity. (Operator + Claude.)
 3. Build a ~30-min detection cache on the iGPU (~3.2 h), run the generalized

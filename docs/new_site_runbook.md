@@ -32,16 +32,22 @@ phase3_conservation_qa_2026-06-12.md (QA checks), backend/services/spot_check.py
 1. Process a 30–60 min window (Confirm & process), ideally with visible traffic on every movement
    you care about. This populates the detection cache + events.
 2. Build the GT-free bank:
-   `py scripts/build_bank_gtfree.py --camera <N> --minutes 30`
-   (channels load from the DB automatically).
+   `py scripts/build_bank_gtfree.py --project <id> --camera <N> --minutes 30`
+   - `--project` is the id in the project's URL. It **defaults to the Sunnyvale corridor**
+     (`97a7849a`) — for any other site you MUST pass it, or you'll build against corridor data.
+   - The window start (`--start-hms`/`--minutes`) is anchored to the video's own
+     `recording_start_datetime` from the DB, so any date works.
+   - Channels load from the DB automatically.
+   - The builder refuses to run (clear message, exit 2) if the detection cache for the window
+     doesn't exist yet — finish step 1 first.
 3. **Read the QA report** (`evaluations/gtfree_bank_cam<N>_qa.json` + console):
    - `leg_sanity` SUSPECT → fix that leg's heading/cardinal in the UI, rebuild.
    - huge straight "turn" cell / `dedup_dropped` → anchor-on-through-path; check the through
      channels cover those corridors, rebuild.
    - `channel_fallback` rows are fine — those movements use your hand-drawn geometry until real
      trajectories accumulate.
-4. Apply: `py scripts/apply_bank.py --camera <N> --bank evaluations/gtfree_bank_cam<N>.json --apply`
-   (backs up project.db first).
+4. Apply: `py scripts/apply_bank.py --project <id> --camera <N> --bank evaluations/gtfree_bank_cam<N>.json --apply`
+   (backs up project.db first; `--project` defaults to the corridor, same as the builder).
 
 ## 3. Process the full day
 

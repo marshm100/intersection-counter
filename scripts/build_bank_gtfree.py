@@ -28,9 +28,15 @@ Tracking uses the camera's PERSISTED calib_* knobs (Phase 1) so bank quality
 benefits from per-camera tuning the same way live processing does.
 
 Usage:
-  py scripts/build_bank_gtfree.py --camera 3 --minutes 30
+  py scripts/build_bank_gtfree.py --camera 3 --minutes 30          # corridor (default project)
+  py scripts/build_bank_gtfree.py --project 0acb12c0 --camera 2    # any new site
   py scripts/build_bank_gtfree.py --camera 5 --minutes 30 \
       --channels experiments/channel_replay/channels_cam5.json
+
+The window start (--start-hms/--minutes) is anchored to the video's own
+recording_start_datetime from the DB, so any project/date works. A detection
+cache (*.parquet) for the window must already exist — run a processing pass
+first; the pipeline writes the cache as it detects.
 
 Writes evaluations/gtfree_bank_cam<N>.json (+ _qa.json). Validate with:
   py scripts/apply_bank.py --camera N --bank evaluations/gtfree_bank_camN.json ...
@@ -51,9 +57,6 @@ from backend.services.tracker import create_tracker_backend
 from backend.services.trajectory_classifier import derive_movement
 from auto_calibrate import _fit_mean_polyline
 from build_bank import _avg_bearing, _bearing_diff, heading_origin_dest
-from groundtruth import VIDEO_START
-
-PROJECT = "97a7849a"
 
 
 def _plen(p):
@@ -92,6 +95,8 @@ def _mean_pairwise_dist(a, b) -> float:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--camera", type=int, required=True)
+    ap.add_argument("--project", default="97a7849a",
+                    help="project id (default = Sunnyvale corridor)")
     ap.add_argument("--out", default=None, help="default evaluations/gtfree_bank_cam<N>.json")
     ap.add_argument("--start-hms", default="07:00:00")
     ap.add_argument("--minutes", type=float, default=30.0)
@@ -115,16 +120,25 @@ def main() -> int:
                          "provides fallback polylines for cells the data didn't cover")
     args = ap.parse_args()
     cam = args.camera
+    project = args.project
     out_path = Path(args.out or f"evaluations/gtfree_bank_cam{cam}.json")
     qa_path = out_path.with_name(out_path.stem + "_qa.json")
 
     # --- camera context (NO ground truth anywhere below this line) ----------
-    c = sqlite3.connect(f"data/projects/{PROJECT}/project.db")
-    v = c.execute("SELECT path,file_size_bytes,total_frames,fps FROM videos "
-                  "WHERE camera_id=? ORDER BY sort_order LIMIT 1", (cam,)).fetchone()
+    c = sqlite3.connect(f"data/projects/{project}/project.db")
+    v = c.execute("SELECT path,file_size_bytes,total_frames,fps,recording_start_datetime "
+                  "FROM videos WHERE camera_id=? ORDER BY sort_order LIMIT 1", (cam,)).fetchone()
     leg_rows = c.execute("SELECT leg_id,origin_zone,reference_heading,cardinal_direction "
                          "FROM legs WHERE camera_id=?", (cam,)).fetchall()
     c.close()
+    if v is None:
+        print(f"!! no video row for camera {cam} in project {project}", file=sys.stderr)
+        return 2
+    if not v[4]:
+        print(f"!! video for camera {cam} has no recording_start_datetime; set it in the "
+              f"calibration UI (or re-add the video) before building the bank", file=sys.stderr)
+        return 2
+    video_start = datetime.fromisoformat(v[4])
     anchors = {lid: json.loads(oz)[0] for lid, oz, _, _ in leg_rows if oz}
     refh = {lid: rh for lid, _, rh, _ in leg_rows if rh is not None}
     cardinal = {lid: (cd or "").upper() for lid, _, _, cd in leg_rows}
@@ -156,13 +170,18 @@ def main() -> int:
         return "through"   # opposite cardinals
     fps = float(v[3])
     ch, _ = compute_video_content_hash(v[0], file_size_bytes=v[1], total_frames=v[2])
-    pq = parquet_path(PROJECT, cam, ch, args.variant or DEFAULT_VARIANT)
-    t0 = datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{args.start_hms}")
-    f_lo = int((t0 - VIDEO_START).total_seconds() * fps)
+    pq = parquet_path(project, cam, ch, args.variant or DEFAULT_VARIANT)
+    if not pq.exists():
+        print(f"!! no detection cache at {pq}\n   process this window once first; the "
+              f"pipeline writes the cache as it detects (~3h for 30min on the iGPU at "
+              f"~1.6fps).", file=sys.stderr)
+        return 2
+    t0 = datetime.fromisoformat(f"{video_start.date().isoformat()}T{args.start_hms}")
+    f_lo = int((t0 - video_start).total_seconds() * fps)
     f_hi = f_lo + int(args.minutes * 60 * fps)
 
     # --- track collection with the camera's persisted Phase-1 knobs ---------
-    calib = get_camera_calibration_params(PROJECT, cam)
+    calib = get_camera_calibration_params(project, cam)
     tk = {}
     if calib.get("new_track_thresh") is not None:
         tk["new_track_thresh"] = float(calib["new_track_thresh"])
@@ -297,7 +316,7 @@ def main() -> int:
                               "width_out": chd.get("width_out", 40)})
     else:
         from backend.database import list_channels_for_camera
-        for chd in list_channels_for_camera(PROJECT, cam):
+        for chd in list_channels_for_camera(project, cam):
             raw_chans.append({"od": (chd["origin_leg_id"], chd["destination_leg_id"]),
                               "movement": chd["movement"], "entry": chd["entry"],
                               "apex": chd["apex"], "exit": chd["exit"],
@@ -544,7 +563,7 @@ def main() -> int:
           "cells": qa_cells, "ambiguous_pairs": ambiguous, "leg_sanity": leg_sanity,
           "anchor_cells_raw": {f"{k[0]}->{k[1]}": len(g) for k, g in
                                sorted(groups.items(), key=lambda kv: -len(kv[1]))[:12]}}
-    out = {"project": PROJECT, "camera_id": cam, "updated_legs": [], "paths": paths,
+    out = {"project": project, "camera_id": cam, "updated_legs": [], "paths": paths,
            "source": "gtfree", "qa": str(qa_path)}
     out_path.write_text(json.dumps(out, indent=2))
     qa_path.write_text(json.dumps(qa, indent=2))
