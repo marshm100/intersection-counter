@@ -17,6 +17,7 @@ from pathlib import Path
 import openpyxl
 from openpyxl.styles import Font
 
+from backend.services.cardinals import bound_approach
 from backend.services.v3_aggregator import MOVEMENTS, aggregate_intersection_day
 
 
@@ -116,8 +117,9 @@ def export_intersection_day_xlsx(
         ws2["A1"] = "(no cameras yet)"
 
     # --- Sheet 3: Per-interval TMC (Phase 4 full-study deliverable) ----
-    # Standard study format: one row per wall-clock interval, columns
-    # grouped per approach cardinal (NB/SB/EB/WB x Thru/Left/Right/U).
+    # Standard study format: one row per wall-clock interval, columns grouped
+    # per APPROACH (the bound direction of travel = opposite of the leg's
+    # cardinal POSITION, via bound_approach) x Thru/Left/Right/U.
     # Only intervals with traffic appear, so a 07-09/11-13/16-18 peak
     # study shows its three segments; a 24h study shows the full day.
     wsi = wb.create_sheet(f"{int(agg.get('interval_minutes', 15))}-min Intervals")
@@ -136,7 +138,7 @@ def export_intersection_day_xlsx(
     wsi.cell(row=1, column=1, value="Interval")
     col = 2
     for c in card_order:
-        gc = wsi.cell(row=1, column=col, value=f"{c}B approach")
+        gc = wsi.cell(row=1, column=col, value=f"{bound_approach(c)}B approach")
         _bold(gc)
         for k, m in enumerate(mv_cols):
             _bold(wsi.cell(row=2, column=col + k, value=mv_short[m]))

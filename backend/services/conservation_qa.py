@@ -18,10 +18,12 @@ corroborated by VDOT/WisDOT/TxDOT balancing guidance):
    few minutes apart, so it is valid at ANY window length — it is the
    primary new-site check.
 
-Cardinal conventions (same as the GT-free bank builder): a leg's cardinal is
-its approach direction-of-travel. Exiting toward the NORTH neighbor means
-leaving via the road the southbound traffic arrives on => destination leg
-cardinal 'S'. Entering from the south => origin leg cardinal 'N'.
+Cardinal conventions (project-wide, see backend.services.cardinals): a leg's
+cardinal is its POSITION at the intersection. A vehicle entering from the south
+has origin leg cardinal 'S' (the south arm); one exiting toward the north has
+destination leg cardinal 'N' (the north arm). The approach NAME is the bound
+direction = opposite(position) (bound_approach); left/right/through is
+convention-invariant.
 
 Verdicts: ok / warn / fail / info (info = check not applicable at this
 window length or volume). Tolerances are RELATIVE with an absolute floor so
@@ -33,6 +35,7 @@ import sqlite3
 from collections import defaultdict
 
 from backend.database import get_connection
+from backend.services.cardinals import bound_approach
 
 # Movement from a cardinal pair (duplicated from the bank builder's table —
 # module-level so the QA layer has no scripts/ dependency).
@@ -63,8 +66,6 @@ MIN_BALANCE_WINDOW_SEC = 6 * 3600
 CORRIDOR_WARN = 0.15
 CORRIDOR_FAIL = 0.30
 MIN_LINK_VOLUME = 30
-
-_OPPOSITE = {"N": "S", "S": "N", "E": "W", "W": "E"}
 
 
 def _cardinal_volumes(project_id: str, intersection_id: int) -> tuple[dict, float]:
@@ -127,8 +128,8 @@ def reverse_balance(project_id: str, intersection_id: int) -> dict:
         else:
             verdict = "ok"
         pairs.append({
-            "movement": f"{a}B {_movement(a, b)}",
-            "reverse": f"{b}B {_movement(b, a)}",
+            "movement": f"{bound_approach(a)}B {_movement(a, b)}",
+            "reverse": f"{bound_approach(b)}B {_movement(b, a)}",
             "cells": [{"origin_cardinal": a, "dest_cardinal": b, "count": n},
                       {"origin_cardinal": b, "dest_cardinal": a, "count": rev}],
             "imbalance": round(imb, 3),
@@ -147,18 +148,18 @@ def reverse_balance(project_id: str, intersection_id: int) -> dict:
 
 
 def _directional_io(project_id: str, intersection_id: int) -> dict:
-    """Per-cardinal IN/OUT totals for one intersection.
+    """Per-position IN/OUT totals for one intersection.
 
-    OUT toward the north = exit via the road southbound traffic arrives on
-    (dest cardinal 'S'); IN from the south = origin cardinal 'N'; etc. Keyed
-    by the COMPASS DIRECTION of the neighbor: out['N'] = vehicles leaving
-    northward; in_['S'] = vehicles arriving from the south."""
+    Cardinal is the leg POSITION, so it already IS the compass side: origin
+    cardinal 'S' = a vehicle arriving FROM the south arm; dest cardinal 'N' =
+    one leaving via the north arm. Keyed by that side: out['N'] = vehicles
+    leaving northward; in_['S'] = vehicles arriving from the south."""
     vols, window = _cardinal_volumes(project_id, intersection_id)
     out = defaultdict(int)
     in_ = defaultdict(int)
     for (a, b), n in vols.items():
-        in_[_OPPOSITE.get(a, a)] += n   # origin cardinal N = came FROM the south
-        out[_OPPOSITE.get(b, b)] += n   # dest cardinal S = headed TO the north
+        in_[a] += n    # origin cardinal = position = the side it came from
+        out[b] += n    # dest cardinal = position = the side it left toward
     return {"in": dict(in_), "out": dict(out), "window_seconds": window}
 
 

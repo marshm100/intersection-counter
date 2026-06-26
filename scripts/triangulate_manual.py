@@ -10,15 +10,13 @@ minutes at the start is actually filled in (cam2: 07:00-07:35; the rest are
 blank time labels). So the honest comparison restricts Miovision and OURS to the
 exact minutes the human counted, and treats MANUAL as the reference.
 
-Keyed on travel direction (NB/SB/EB/WB) x movement. The cardinal LETTER is NOT a
-reliable key (the manual labels the north leg 'N' = SB traffic; our DB stores the
-NB approach under cardinal 'N'), so:
+Keyed on travel direction (NB/SB/EB/WB) x movement.
   - MANUAL: direction from the approach NAME prefix ('SB Nbeltline Rd' -> SB).
   - MIOVISION: from its approach Name prefix.
-  - OURS: from each leg's cardinal_direction via N->NB/S->SB/E->EB/W->WB. For
-    cam1 (generic 'Leg N' labels, historically 180-swapped cardinals) this also
-    tests whether our directions are right: a clean swap vs MANUAL would show as
-    NB<->SB / EB<->WB mismatches.
+  - OURS: each leg's cardinal_direction is its POSITION, so the bound approach is
+    the OPPOSITE (south-arm leg cardinal 'S' -> NB) via _CARD_TO_DIR. For cam1
+    (generic 'Leg N' labels) this also tests whether our directions are right: a
+    clean swap vs MANUAL would show as NB<->SB / EB<->WB mismatches.
 
 Usage:
   py scripts/triangulate_manual.py                 # every camera with a manual file
@@ -48,7 +46,11 @@ MANUAL_BY_CAM = {
 DIRECTIONS = ["NB", "SB", "EB", "WB"]
 MOVEMENTS = ["thru", "left", "right", "uturn"]
 _MV_FROM_LETTER = {"R": "right", "T": "thru", "L": "left", "U": "uturn"}
-_CARD_TO_DIR = {"N": "NB", "S": "SB", "E": "EB", "W": "WB"}
+# Cardinal is the leg POSITION; the bound approach (what Miovision + the manual
+# sheets report) is the OPPOSITE — a south-arm leg carries NB traffic. Mirrors
+# backend/services/cardinals.bound_approach.
+_CARD_TO_DIR = {"N": "SB", "S": "NB", "E": "WB", "W": "EB",
+                "NE": "SWB", "SW": "NEB", "NW": "SEB", "SE": "NWB"}
 PerMin = dict[time, dict[tuple, int]]
 
 

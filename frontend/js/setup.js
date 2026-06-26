@@ -595,7 +595,7 @@ async function _renderQaSubTab(host) {
                     <tr><th style="padding:2px 6px;"></th>
                         <th>through</th><th>left</th><th>right</th><th>u_turn</th></tr>
                     ${useCards.map(c => `<tr>
-                        <td style="padding:2px 6px;font-weight:600;">${escapeHtml(c)}B</td>
+                        <td style="padding:2px 6px;font-weight:600;">${_v3Bound(c)}B</td>
                         ${['through','left','right','u_turn'].map(m =>
                             `<td><input type="number" min="0" value="0" style="width:64px;font-size:12px;"
                                  id="v3-spot-${escapeHtml(c)}-${m}"></td>`).join('')}
@@ -644,15 +644,24 @@ window.v3QaCancelSpot = async function () {
     await _renderDetailSubTab();
 };
 
+// Approach (bound) = opposite of the leg's cardinal POSITION
+// (see backend/services/cardinals.py). A SE-corner leg is a NW-bound approach.
+const V3_BOUND_OF = { N: 'S', S: 'N', E: 'W', W: 'E', NE: 'SW', SW: 'NE', NW: 'SE', SE: 'NW' };
+const _v3Bound = c => V3_BOUND_OF[c] || c;
+
 window.v3QaSaveSpotCount = async function (cameraId) {
     if (!_qaSpotWindow) return;
     const counts = {};
-    for (const c of ['N', 'S', 'E', 'W']) {
+    const legs = (_v3IntersectionDetail.legs_by_camera
+        && _v3IntersectionDetail.legs_by_camera[cameraId]) || [];
+    const cards = [...new Set(legs.map(l => l.cardinal_direction))];
+    const useCards = cards.length ? cards : ['N', 'S', 'E', 'W'];
+    for (const c of useCards) {
         for (const m of ['through', 'left', 'right', 'u_turn']) {
             const el = document.getElementById(`v3-spot-${c}-${m}`);
             if (!el) continue;
             const v = parseInt(el.value, 10) || 0;
-            if (v > 0) counts[`${c} ${m}`] = v;
+            if (v > 0) counts[`${_v3Bound(c)} ${m}`] = v;  // key by bound approach
         }
     }
     if (!Object.keys(counts).length) {

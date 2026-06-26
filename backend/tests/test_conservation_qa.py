@@ -29,13 +29,19 @@ def _mk_intersection(pid, name, sort_order):
             "INSERT INTO cameras (intersection_id, label, sort_order, created_at) "
             "VALUES (?, ?, 0, '2026-06-12')", (iid, name))
         cid = cur.lastrowid
+        # `legs` is keyed by each leg's travel-INTENT (N/S/E/W) so the event
+        # cells and assertions below read naturally as NB/SB/EB/WB. Per the
+        # project convention a leg's stored cardinal is its POSITION — the
+        # OPPOSITE of the travel direction — so an NB approach (from the south
+        # arm) stores cardinal 'S'. bound_approach() turns it back into "NB".
+        _OPP = {"N": "S", "S": "N", "E": "W", "W": "E"}
         legs = {}
         for card, (x, y) in {"N": (320, 460), "S": (320, 20),
                              "E": (20, 240), "W": (620, 240)}.items():
             cur = conn.execute(
                 "INSERT INTO legs (camera_id, label, cardinal_direction, sort_order, "
                 "origin_zone, reference_heading) VALUES (?, ?, ?, 0, ?, 0)",
-                (cid, f"{card} leg", card, json.dumps([[x, y]])))
+                (cid, f"{card} leg", _OPP[card], json.dumps([[x, y]])))
             legs[card] = cur.lastrowid
     conn.close()
     return iid, cid, legs

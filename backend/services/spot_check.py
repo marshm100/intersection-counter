@@ -30,6 +30,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 from backend.database import get_connection
+from backend.services.cardinals import bound_approach
 from backend.services.conservation_qa import (
     _cardinal_volumes, _movement, corridor_consistency, reverse_balance,
 )
@@ -90,8 +91,10 @@ def propose_window(project_id: str, camera_id: int, minutes: float = 10.0,
 
 def _system_counts(project_id: str, camera_id: int,
                    start: float, duration: float) -> dict[str, int]:
-    """System counts in the window, keyed 'ORIGIN_CARDINAL movement'
-    (e.g. 'N through' = the NB through)."""
+    """System counts in the window, keyed 'APPROACH movement' where APPROACH is
+    the bound direction (opposite of the origin leg's cardinal POSITION) — e.g.
+    a south-arm leg (cardinal 'S') counts as 'N through' (the NB through). The
+    operator's spot-count grid is labeled the same way (setup.js)."""
     conn = get_connection(project_id)
     try:
         card = {lid: (cd or "").upper() for lid, cd in conn.execute(
@@ -108,7 +111,7 @@ def _system_counts(project_id: str, camera_id: int,
     for ol, dl in rows:
         a, b = card.get(ol), card.get(dl)
         if a and b:
-            out[f"{a} {_movement(a, b)}"] += 1
+            out[f"{bound_approach(a)} {_movement(a, b)}"] += 1
     return dict(out)
 
 

@@ -42,16 +42,19 @@ def interval_project():
             "'2026-05-12T00:00:02', '2026-06-12')",
             (cid,))
         vid = cur.lastrowid
+        # cardinal_direction is the leg POSITION; the approach (bound) is the
+        # opposite — so the 'N'-position leg is the SB approach in the export.
         legs = {}
-        for card, label in (("N", "NB Main"), ("S", "SB Main")):
+        for card, label in (("N", "North leg"), ("S", "South leg")):
             cur = conn.execute(
                 "INSERT INTO legs (camera_id, label, cardinal_direction, sort_order, "
                 "origin_zone, reference_heading) VALUES (?, ?, ?, 0, ?, 0)",
                 (cid, label, card, json.dumps([[100, 100]])))
             legs[card] = cur.lastrowid
-        # Events: 3 NB-through in the 07:00 bin, 2 SB-left in the 07:00 bin,
-        # 4 NB-through in the 07:30 bin (07:15 bin left EMPTY = gap).
-        # timestamp_video is footage-seconds from 00:00:02.
+        # Events keyed by origin->dest POSITION: 3 from the N-position leg
+        # through (renders as SB-through) + 2 from the S-position leg left
+        # (NB-left) in the 07:00 bin; 4 more N-position through in the 07:30 bin
+        # (07:15 bin left EMPTY = gap). timestamp_video is sec from 00:00:02.
         def add(ts, o, d, mv, i):
             conn.execute(
                 "INSERT INTO vehicle_events (camera_id, video_id, vehicle_track_id, "
@@ -95,13 +98,14 @@ class TestIntervalAggregation:
             try:
                 assert "15-min Intervals" in wb.sheetnames
                 ws = wb["15-min Intervals"]
-                # Header: approach group on row 1, movements on row 2.
-                assert ws.cell(row=1, column=2).value == "NB approach"
+                # Header: approach group on row 1, movements on row 2. The
+                # 'N'-position leg renders as the SB approach (bound = opposite).
+                assert ws.cell(row=1, column=2).value == "SB approach"
                 assert ws.cell(row=2, column=2).value == "Thru"
                 # Row 3 = 07:00 bin: NB thru 3 ... SB left 2; total 5.
                 assert ws.cell(row=3, column=1).value == "07:00"
                 assert ws.cell(row=3, column=2).value == 3
-                assert ws.cell(row=3, column=7).value == 2   # SB group, Left col
+                assert ws.cell(row=3, column=7).value == 2   # 'S'-pos (NB approach) Left
                 assert ws.cell(row=3, column=10).value == 5  # row total
                 # Row 4 = 07:30 bin; row 5 = bold grand totals.
                 assert ws.cell(row=4, column=1).value == "07:30"
