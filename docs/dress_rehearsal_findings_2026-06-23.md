@@ -116,6 +116,36 @@ proper N/E/S/W in the calibration UI before the bank step.**
   reference the matcher consumes.** Drawing channels without running the builder does
   **nothing at runtime** — which is exactly why the rehearsal run produced ~0 counts.
 
+## 2026-06-26 — Ran end-to-end + the cardinal-convention resolution
+Drove the full flow on a **10-min slice** of cam 405051: process → detection
+cache → `build_bank_gtfree` (9 paths, QA clean) → `apply_bank` → **TMC Excel**.
+
+- **#2 (cardinals) resolved by decision, not relabel.** The operator's
+  **W/E/S/SE is correct** — the cardinal is the leg's POSITION; the *approach* is
+  the bound direction = the opposite (SE corner → **NW-bound = "NWB approach"**).
+  Confirmed against the TMC standard (ITSIQA/Miovision: approach = direction of
+  travel). Implemented **project-wide** (`backend/services/cardinals.py` +
+  every approach-name renderer; corridor cardinals flipped to position, net-zero
+  — verified byte-identical triangulation/QA/Excel). Diagonal cardinals are now
+  first-class (the #9 warning no longer fires on them). Commits `1ce29ae`
+  (diagonals), `b719579` (convention).
+
+- **NEW finding A — live "Confirm & process" wrote no detection cache.** The
+  pipeline supports a `DetectionCacheWriter` but `_run_v3_pipeline` never set
+  one, so the app run produced events but nothing `build_bank_gtfree` could read.
+  Worked around with `reprocess_camera --cache-only`; **fixed** in `3afbbd3`
+  (writer wired into the live pipeline; cache variant = `{mode}_{imgsz}_skip{skip}`
+  — build the bank in the same mode or pass `--variant`). *Not yet confirmed on a
+  real app run — needs a server restart on the new code.*
+
+- **NEW finding B — `apply_bank`'s retrack was corridor-hardcoded.**
+  `hybrid_prototype.retrack` copied `97a7849a/project.db` and ran with corridor
+  legs, stamping rehearsal events with corridor leg 29. **Fixed** in `217f12e`
+  (retrack takes `--project`). Re-applied → 0 dangling legs.
+
+Server-restart friction worth noting: background-task servers get killed on
+session cycle; launch detached (`Start-Process`) or run in your own terminal.
+
 ## Gotcha re-confirmed: Playwright + native dialogs
 Driving the app in the Playwright-opened browser freezes it: native
 `confirm()`/`alert()`/`prompt()` are intercepted and queue silently (looked like a
