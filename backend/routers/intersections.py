@@ -821,6 +821,52 @@ def _run_v3_pipeline(
     mode_name = get_project_info(project_id, "processing_mode") or DEFAULT_PROCESSING_MODE
     mode_cfg = get_processing_mode_config(mode_name)
 
+    # Persist per-frame detections to a parquet cache as we run, so the bank
+    # bootstrap (scripts/build_bank_gtfree.py) can reuse them without a second
+    # detection pass. Without this the live "Confirm & process" wrote events but
+    # NO cache, and the new-site bank step had nothing to read (dress-rehearsal
+    # finding 2026-06-26). One writer per (camera, video); the variant encodes
+    # the mode so different modes don't clobber each other. Build the bank in
+    # the same mode (or pass build_bank_gtfree --variant) to match.
+    from backend.services.detection_cache import (
+        DetectionCacheWriter, compute_video_content_hash, parquet_path)
+    cache_variant = f"{mode_name}_{mode_cfg['yolo_imgsz']}_skip{mode_cfg['detection_skip']}"
+    _cache_writers: dict = {}
+
+    def _cache_writer_for(seg):
+        conn_ = get_connection(project_id)
+        try:
+            row = conn_.execute(
+                "SELECT path, file_size_bytes, total_frames FROM videos WHERE video_id = ?",
+                (seg.video_id,)).fetchone()
+        finally:
+            conn_.close()
+        if row is None:
+            return None
+        chash, method = compute_video_content_hash(
+            row[0], file_size_bytes=row[1], total_frames=row[2])
+        wkey = (seg.camera_id, chash)
+        w = _cache_writers.get(wkey)
+        if w is None:
+            w = DetectionCacheWriter(
+                pq_path=parquet_path(project_id, seg.camera_id, chash, cache_variant),
+                metadata={"camera_id": seg.camera_id, "content_hash": chash,
+                          "method": method, "model": mode_cfg["yolo_model"],
+                          "imgsz": mode_cfg["yolo_imgsz"],
+                          "confidence": mode_cfg["yolo_confidence"],
+                          "detection_skip": mode_cfg["detection_skip"]})
+            _cache_writers[wkey] = w
+            try:   # persist the hash for fast cache lookups (best-effort)
+                conn_ = get_connection(project_id)
+                with conn_:
+                    conn_.execute("UPDATE videos SET content_hash = ?, "
+                                  "content_hash_method = ? WHERE video_id = ?",
+                                  (chash, method, seg.video_id))
+                conn_.close()
+            except Exception:
+                pass
+        return w
+
     try:
         with _v3_jobs_lock:
             _v3_jobs[key]["status"] = "running"
@@ -889,6 +935,9 @@ def _run_v3_pipeline(
             # its constructor arg.
             pipeline._v3_trim_id = seg.trim_id
             pipeline._v3_camera_id = seg.camera_id
+            cw = _cache_writer_for(seg)
+            if cw is not None:
+                pipeline._detection_cache_writer = cw
 
             # Live preview: push every callback's frame data into the
             # intersection-scoped preview queue so the MJPEG endpoint can
@@ -996,6 +1045,13 @@ def _run_v3_pipeline(
             project_id, intersection_id, "error", error_message=str(exc),
         )
     finally:
+        # Flush + close the detection-cache writers (writes each parquet +
+        # metadata sidecar) — on completion, error, OR cancel.
+        for w in _cache_writers.values():
+            try:
+                w.close()
+            except Exception:
+                pass
         # Tear down the live preview worker — keep the last frame stashed
         # briefly so the client's MJPEG stream sees a final frame before
         # the server stops yielding.
