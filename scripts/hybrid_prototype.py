@@ -39,8 +39,8 @@ TURNS = {"left", "right", "uturn", "u_turn"}
 
 
 def retrack(tdb, backend, video, ctx, calib, mode_cfg, sug, s, e, pq, camera,
-            tracker_kwargs=None):
-    shutil.copy2(Path("data/projects/97a7849a/project.db"), tdb)
+            tracker_kwargs=None, project="97a7849a"):
+    shutil.copy2(Path(f"data/projects/{project}/project.db"), tdb)
     c = sqlite3.connect(str(tdb))
     with c:
         for ul in sug.get("updated_legs", []):
@@ -62,14 +62,14 @@ def retrack(tdb, backend, video, ctx, calib, mode_cfg, sug, s, e, pq, camera,
     c = sqlite3.connect(str(tdb)); rctx = _load_camera_context(c, camera); c.close()
     paths = list_paths_for_camera_tmp(tdb, camera)
     pipe = ProcessingPipeline(
-        project_id="97a7849a", db_path=str(tdb), video_path=video["path"], legs=rctx["legs"],
+        project_id=project, db_path=str(tdb), video_path=video["path"], legs=rctx["legs"],
         fps=float(video["fps"]), video_start_time=video["recording_start_datetime"], video_id=video["video_id"],
         yolo_model=mode_cfg["yolo_model"], yolo_imgsz=mode_cfg["yolo_imgsz"], yolo_confidence=mode_cfg["yolo_confidence"],
         detection_skip=mode_cfg["detection_skip"], tracker_match_threshold=mode_cfg.get("tracker_match_threshold"),
         tracker_activation_threshold=0.25, calibration_params=calib, paths=paths, tracker_backend=backend,
         tracker_kwargs=tracker_kwargs)
     pipe._v3_camera_id = camera
-    pipe._v3_trim_id = (list_trims("97a7849a", ctx["intersection_id"]) or [{"trim_id": None}])[0]["trim_id"]
+    pipe._v3_trim_id = (list_trims(project, ctx["intersection_id"]) or [{"trim_id": None}])[0]["trim_id"]
     pipe.process_cached(DetectionCacheReader(pq), s, e, detection_skip=mode_cfg["detection_skip"])
 
 

@@ -107,7 +107,7 @@ def main() -> int:
         tk = {**(tk or {}), "new_track_thresh": args.new_track_thresh}
     print(f"retrack {args.backend} cam{cam} (variant={args.variant or DEFAULT_VARIANT}) "
           f"with bank ({len(sug.get('paths',[]))} paths) -> {out_db}")
-    retrack(out_db, args.backend, video, ctx, calib, mode_cfg, sug, s, e, pq, cam, tracker_kwargs=tk)
+    retrack(out_db, args.backend, video, ctx, calib, mode_cfg, sug, s, e, pq, cam, tracker_kwargs=tk, project=project)
 
     if args.apply:
         ts = video_start.strftime("%Y%m%d")
