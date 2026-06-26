@@ -15,10 +15,13 @@ phase3_conservation_qa_2026-06-12.md (QA checks), backend/services/spot_check.py
 
 1. Create the project, upload videos (Videos tab) — intersections build from labels.
 2. Open each intersection → Cameras → **Calibrate**:
-   - Place the leg origin nodes on each approach arm; set each leg's **cardinal direction**
-     correctly (N = the northbound approach). Cardinals drive movement naming, the Excel join,
-     the QA checks, AND the bank builder — a swapped cardinal poisons everything downstream
-     (the cam1 incident). The bank builder's QA report cross-checks headings automatically.
+   - Place the leg origin nodes on each approach arm; set each leg's **cardinal direction** to the
+     arm's **POSITION** (the corner it sits on). The dropdown's "— …bound" annotation is that
+     approach's direction of *travel* — the opposite — and **that bound direction is what the TMC
+     output reports** (a SE-corner leg is the **NW-bound "NWB" approach**). Diagonal positions
+     (NE/SE/…) are fine for skewed sites. Left/right/through classification is convention-invariant,
+     but the Excel/QA approach LABELS read the bound direction off the cardinal, so a wrong position
+     mislabels the approach (the cam1 incident). The bank builder's QA cross-checks headings.
    - Adjust reference headings so the arrow points the direction that approach's traffic travels.
 3. **Draw movement channels** ("Movement channels" section): one corridor per movement —
    entry → apex → exit, three clicks, endpoints snap to legs; set mouth widths to cover the lanes.
@@ -30,7 +33,10 @@ phase3_conservation_qa_2026-06-12.md (QA checks), backend/services/spot_check.py
 ## 2. Bootstrap the path bank from the site's own traffic (~1 h machine time)
 
 1. Process a 30–60 min window (Confirm & process), ideally with visible traffic on every movement
-   you care about. This populates the detection cache + events.
+   you care about. This populates the detection cache (parquet) + events directly from the app.
+   **Use Balanced mode** so the cache variant (`balanced_960_skip1`) matches what the bank builder
+   reads by default; in another mode, pass `build_bank_gtfree --variant <mode>_<imgsz>_skip<skip>`
+   (e.g. `accurate_1280_skip1`).
 2. Build the GT-free bank:
    `py scripts/build_bank_gtfree.py --project <id> --camera <N> --minutes 30`
    - `--project` is the id in the project's URL. It **defaults to the Sunnyvale corridor**
