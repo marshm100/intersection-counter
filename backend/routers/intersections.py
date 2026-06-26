@@ -688,11 +688,12 @@ def _plan_for_intersection(project_id: str, intersection: dict):
     )
 
 
-# Movement naming (build_bank's _cardinal_movement) and the TMC Excel join only
-# understand the four primary cardinals; the calibration UI also offers diagonals
-# (NE/NW/SE/SW), which silently misclassify downstream.
-_PRIMARY_CARDINALS = {"N", "E", "S", "W"}
-_DIAGONAL_CARDINALS = {"NE", "NW", "SE", "SW"}
+# All eight compass directions are valid leg cardinals — skewed/rural
+# intersections legitimately have diagonal approaches (e.g. a SE leg whose
+# traffic is northwest-bound). Movement naming derives from the leg geometry
+# (build_bank's _cardinal_movement routes diagonals to the heading-based
+# fallback), and the Excel renders whatever the calibration provides.
+_VALID_CARDINALS = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
 
 
 def _preprocess_warnings(
@@ -738,13 +739,9 @@ def _preprocess_warnings(
             name = leg["label"] or f"leg {leg['leg_id']}"
             if not cd:
                 warnings.append(f"{cam}: leg '{name}' has no cardinal direction set.")
-            elif cd in _DIAGONAL_CARDINALS:
-                warnings.append(f"{cam}: leg '{name}' uses a diagonal cardinal "
-                                f"'{cd}' — movement naming and the TMC Excel join "
-                                f"expect N/E/S/W.")
-            elif cd not in _PRIMARY_CARDINALS:
+            elif cd not in _VALID_CARDINALS:
                 warnings.append(f"{cam}: leg '{name}' has an unrecognized cardinal "
-                                f"'{cd}' — expected N/E/S/W.")
+                                f"'{cd}' — expected one of N/NE/E/SE/S/SW/W/NW.")
             elif cd in seen:
                 warnings.append(f"{cam}: legs '{seen[cd]}' and '{name}' share "
                                 f"cardinal '{cd}' — each approach needs a distinct one.")

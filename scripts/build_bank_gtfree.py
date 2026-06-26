@@ -156,6 +156,7 @@ def main() -> int:
     # are world knowledge, no ground truth involved.
     _LEFT = {("N", "E"), ("E", "S"), ("S", "W"), ("W", "N")}
     _RIGHT = {("N", "W"), ("W", "S"), ("S", "E"), ("E", "N")}
+    _PRIMARY = {"N", "E", "S", "W"}
 
     def _cardinal_movement(ol: int, dl: int) -> str | None:
         a, b = cardinal.get(ol), cardinal.get(dl)
@@ -167,7 +168,12 @@ def main() -> int:
             return "left"
         if (a, b) in _RIGHT:
             return "right"
-        return "through"   # opposite cardinals
+        # Opposite PRIMARY cardinals = a through. A diagonal (skewed) leg's real
+        # geometry isn't captured by the 4-way table — its calibrated heading can
+        # be far from the idealized cardinal angle (the rehearsal's SE leg reads
+        # 40.8 deg, not 135) — so defer to the heading-based derive_movement
+        # fallback rather than forcing "through".
+        return "through" if a in _PRIMARY and b in _PRIMARY else None
     fps = float(v[3])
     ch, _ = compute_video_content_hash(v[0], file_size_bytes=v[1], total_frames=v[2])
     pq = parquet_path(project, cam, ch, args.variant or DEFAULT_VARIANT)

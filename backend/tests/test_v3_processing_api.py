@@ -124,18 +124,27 @@ class TestPreflightWarnings:
         assert len(body["warnings"]) == 2
         assert all("no legs" in w for w in body["warnings"])
 
-    def test_warns_diagonal_cardinal_and_missing_bank(self, configured_intersection):
+    def test_diagonal_cardinal_is_valid_but_missing_bank_still_warns(self, configured_intersection):
         pid, iid = configured_intersection
         cam = self._cam_ids(pid, iid)[0]
-        # Legitimate primaries plus one diagonal; no path bank for this camera.
+        # A diagonal cardinal (SE) is legitimate for a skewed intersection — it
+        # must NOT warn. Only the missing bank should.
         _add_leg(pid, cam, "North", "N", 0)
         _add_leg(pid, cam, "East", "E", 1)
         _add_leg(pid, cam, "Ramp", "SE", 2)
         body = client.post(
             f"/api/projects/{pid}/intersections/{iid}/processing/preflight").json()
         warns = body["warnings"]
-        assert any("diagonal cardinal" in w and "'SE'" in w for w in warns)
+        assert not any("cardinal" in w and "'SE'" in w for w in warns)
         assert any("no path bank" in w for w in warns)
+
+    def test_warns_unrecognized_cardinal(self, configured_intersection):
+        pid, iid = configured_intersection
+        cam = self._cam_ids(pid, iid)[0]
+        _add_leg(pid, cam, "Junk", "XY", 0)
+        body = client.post(
+            f"/api/projects/{pid}/intersections/{iid}/processing/preflight").json()
+        assert any("unrecognized cardinal" in w and "'XY'" in w for w in body["warnings"])
 
     def test_warns_duplicate_cardinal(self, configured_intersection):
         pid, iid = configured_intersection
