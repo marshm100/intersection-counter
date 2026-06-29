@@ -1,191 +1,101 @@
 {
   "camera": 2,
-  "window": "07:00:00+30min",
-  "n_tracks_usable": 1860,
-  "agreement_rate": 0.409,
+  "window": "07:00:00+5min",
+  "n_tracks_usable": 50,
+  "agreement_rate": 0.08,
   "cells": [
     {
-      "cell": "L29->L27 through",
-      "n": 657,
-      "share": 0.3991,
-      "straightness": 0.997,
+      "cell": "L1->L2 through",
+      "n": 32,
+      "share": 0.64,
+      "straightness": 0.992,
       "bearing_residuals": [
-        1.1,
-        1.5
+        7.7,
+        3.2
       ],
       "status": "admitted"
     },
     {
-      "cell": "L27->L29 through",
-      "n": 240,
-      "share": 0.1458,
+      "cell": "L2->L1 through",
+      "n": 9,
+      "share": 0.18,
       "straightness": 0.995,
       "bearing_residuals": [
-        0.1,
-        5.8
+        3.5,
+        39.1
       ],
       "status": "admitted"
     },
     {
-      "cell": "L28->L29 right",
-      "n": 186,
-      "share": 0.113,
-      "straightness": 1.0,
-      "bearing_residuals": [
-        3.2,
-        5.5
-      ],
-      "status": "admitted",
-      "warn": "straight_turn"
-    },
-    {
-      "cell": "L29->L28 left",
-      "n": 175,
-      "share": 0.1063,
-      "straightness": 0.999,
-      "bearing_residuals": [
-        2.7,
-        14.7
-      ],
-      "status": "admitted",
-      "warn": "straight_turn"
-    },
-    {
-      "cell": "L28->L27 left",
-      "n": 112,
-      "share": 0.068,
-      "straightness": 0.384,
-      "bearing_residuals": [
-        4.5,
-        2.9
-      ],
-      "status": "admitted"
-    },
-    {
-      "cell": "L26->L27 right",
-      "n": 80,
-      "share": 0.0486,
-      "straightness": 0.99,
-      "bearing_residuals": [
-        5.2,
-        15.6
-      ],
-      "status": "admitted",
-      "warn": "straight_turn"
-    },
-    {
-      "cell": "L27->L28 right",
-      "n": 79,
-      "share": 0.048,
-      "straightness": 0.334,
-      "bearing_residuals": [
-        0.5,
-        12.0
-      ],
-      "status": "admitted"
-    },
-    {
-      "cell": "L26->L28 through",
-      "n": 70,
-      "share": 0.0425,
-      "straightness": 0.998,
-      "bearing_residuals": [
-        5.2,
-        5.4
-      ],
-      "status": "admitted"
-    },
-    {
-      "cell": "L26->L29 left",
-      "n": 15,
-      "share": 0.0091,
-      "straightness": 0.841,
-      "bearing_residuals": [
-        59.2,
-        3.9
-      ],
-      "status": "bearing_rejected"
-    },
-    {
-      "cell": "L29->L26 right",
-      "n": 13,
-      "share": 0.0079,
-      "straightness": 0.921,
-      "bearing_residuals": [
-        1.8,
-        14.9
-      ],
-      "member_spread_px": 190.3,
-      "status": "minor_incoherent_rejected"
-    },
-    {
-      "cell": "L28->L26 through",
-      "n": 11,
-      "share": 0.0067,
-      "straightness": 0.982,
-      "bearing_residuals": [
-        3.6,
-        18.6
-      ],
-      "member_spread_px": 81.0,
-      "status": "minor_incoherent_rejected"
-    },
-    {
-      "cell": "L27->L26 left",
-      "n": 8,
-      "share": 0.0049,
+      "cell": "L3->L2 right",
+      "n": 7,
+      "share": 0.14,
       "straightness": 0.993,
       "bearing_residuals": [
-        0.5,
-        32.0
+        10.9,
+        0.9
       ],
-      "member_spread_px": 149.0,
-      "status": "minor_incoherent_rejected"
+      "status": "admitted",
+      "warn": "straight_turn"
+    },
+    {
+      "cell": "L3->L4",
+      "n": 1,
+      "share": 0.02,
+      "status": "below_support"
+    },
+    {
+      "cell": "L2->L3",
+      "n": 1,
+      "share": 0.02,
+      "status": "below_support"
+    },
+    {
+      "cell": "L1->L3 u_turn",
+      "n": 0,
+      "status": "channel_fallback"
+    },
+    {
+      "cell": "L1->L4 right",
+      "n": 0,
+      "status": "channel_fallback"
+    },
+    {
+      "cell": "L2->L3 left",
+      "n": 0,
+      "status": "channel_fallback"
+    },
+    {
+      "cell": "L2->L4 u_turn",
+      "n": 0,
+      "status": "channel_fallback"
+    },
+    {
+      "cell": "L3->L1 left",
+      "n": 0,
+      "status": "channel_fallback"
+    },
+    {
+      "cell": "L3->L4 through",
+      "n": 0,
+      "status": "channel_fallback"
     }
   ],
   "ambiguous_pairs": [],
   "leg_sanity": [
     {
-      "leg_id": 28,
-      "calibrated_heading": 240.6,
-      "observed_entry_bearing": 273.8,
-      "diff_deg": 33.2,
-      "verdict": "ok"
-    },
-    {
-      "leg_id": 29,
-      "calibrated_heading": 114.4,
-      "observed_entry_bearing": 95.4,
-      "diff_deg": 19.0,
-      "verdict": "ok"
-    },
-    {
-      "leg_id": 27,
-      "calibrated_heading": 288.2,
-      "observed_entry_bearing": 291.2,
-      "diff_deg": 3.0,
-      "verdict": "ok"
-    },
-    {
-      "leg_id": 26,
-      "calibrated_heading": 53.8,
-      "observed_entry_bearing": 67.0,
-      "diff_deg": 13.2,
+      "leg_id": 1,
+      "calibrated_heading": 144.5,
+      "observed_entry_bearing": 118.8,
+      "diff_deg": 25.7,
       "verdict": "ok"
     }
   ],
   "anchor_cells_raw": {
-    "29->27": 657,
-    "27->29": 240,
-    "28->29": 186,
-    "29->28": 175,
-    "28->27": 112,
-    "27->27": 101,
-    "26->27": 80,
-    "27->28": 79,
-    "26->28": 70,
-    "28->28": 57,
-    "29->29": 47,
-    "26->29": 15
+    "1->2": 32,
+    "2->1": 9,
+    "3->2": 7,
+    "3->4": 1,
+    "2->3": 1
   }
 }
