@@ -213,6 +213,18 @@ class TestFlagsApi:
         assert client.get(
             "/api/projects/nope/intersections/1/flags").status_code == 404
 
+    def test_get_one_flag_enriches_event(self, site):
+        pid, iid, cid, lid, eids = site
+        fid = insert_flag(pid, intersection_id=iid, kind="uncertain_event",
+                          subtype="low_traj_conf", camera_id=cid, event_id=eids[0])
+        f = client.get(f"/api/projects/{pid}/flags/{fid}").json()
+        assert f["event"]["leg_label"] == "S leg"
+        assert f["clip"]["center_seconds"] == 100.0
+
+    def test_get_one_flag_404(self, site):
+        pid = site[0]
+        assert client.get(f"/api/projects/{pid}/flags/999999").status_code == 404
+
 
 # --- Feeder 1: uncertain events ---------------------------------------------
 
@@ -484,6 +496,21 @@ class TestSuspectedGapsFeeder:
                 specs += [(cid, vid, legs["N"], legs["S"], b * 900 + i) for i in range(100)]  # SB steady-high
             _bulk_events(pid, specs)
             assert feed_suspected_gaps(pid, iid) == []
+        finally:
+            client.delete(f"/api/projects/{pid}")
+
+    def test_get_one_flag_enriches_gap_clip(self):
+        pid = client.post("/api/projects", json={"name": "ge"}).json()["project_id"]
+        try:
+            iid, cid, vid, legs = _mk_corridor_site(pid, "G", 0)
+            fid = insert_flag(pid, intersection_id=iid, kind="suspected_gap",
+                              subtype="interval_corridor", camera_id=cid,
+                              interval_start_seconds=300, interval_end_seconds=1200,
+                              approach="N", impact=40)
+            f = client.get(f"/api/projects/{pid}/flags/{fid}").json()
+            assert f["clip"]["video_id"] == vid
+            assert f["clip"]["center_seconds"] == 300
+            assert f["event"] is None
         finally:
             client.delete(f"/api/projects/{pid}")
 

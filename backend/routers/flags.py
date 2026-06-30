@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from backend.config import PROJECTS_DIR
 from backend.database import (
     flag_summary, get_connection, get_flag, get_intersection, list_flags,
-    update_flag_status,
+    list_videos_for_camera, update_flag_status,
 )
 from backend.services.flag_feeders import rebuild_flags
 
@@ -87,6 +87,18 @@ def _enrich(project_id: str, flag: dict) -> dict:
                     "end_seconds": float(ts) + _CLIP_PAD_SECONDS,
                     "center_seconds": float(ts),
                 }
+    elif flag.get("interval_start_seconds") is not None and flag.get("camera_id"):
+        # Gap flag: no anchor event, so point the clip at the camera's video for
+        # the flagged interval (the operator scrubs and adds missed vehicles).
+        start = float(flag["interval_start_seconds"])
+        end = float(flag.get("interval_end_seconds") or start)
+        vids = list_videos_for_camera(project_id, flag["camera_id"])
+        chosen = next((v for v in vids
+                       if start < float(v.get("duration_seconds") or 1e12)), None)
+        chosen = chosen or (vids[0] if vids else None)
+        if chosen is not None:
+            out["clip"] = {"video_id": chosen["video_id"], "start_seconds": start,
+                           "end_seconds": end, "center_seconds": start}
     return out
 
 
@@ -128,6 +140,17 @@ def get_flag_summary(project_id: str, intersection_id: int):
     _require_project(project_id)
     _require_intersection(project_id, intersection_id)
     return flag_summary(project_id, intersection_id)
+
+
+@router.get("/projects/{project_id}/flags/{flag_id}")
+def get_one_flag(project_id: str, flag_id: int):
+    """One flag, enriched (event clip / interval clip) — the worklist fetches the
+    open LIST for ordering+skip and this per displayed item."""
+    _require_project(project_id)
+    flag = get_flag(project_id, flag_id)
+    if flag is None:
+        raise HTTPException(status_code=404, detail=f"flag {flag_id} not found")
+    return _enrich(project_id, flag)
 
 
 @router.patch("/projects/{project_id}/flags/{flag_id}")

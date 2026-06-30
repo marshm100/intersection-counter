@@ -503,8 +503,14 @@ async function _renderQaSubTab(host) {
 
     // -- acceptance gate banner (Phase 4.2) --
     const [gfg, gbg, glabel, gsub] = _QA_OVERALL[gate.overall] || _QA_OVERALL.review;
+    const rfItem = (gate.items || []).find(i => i.item === 'review_flags');
+    const openFlags = rfItem ? (rfItem.detail.open || 0) : 0;
     html += `<div style="padding:10px 14px;border-radius:6px;background:${gbg};margin-bottom:14px;">
-        <div style="font-size:14px;font-weight:700;color:${gfg};">${glabel}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:14px;font-weight:700;color:${gfg};">${glabel}</div>
+            <button onclick="openWorklist(${iid})" style="font-size:12px;">
+                Review flags${openFlags ? ` (${openFlags})` : ''} &rarr;</button>
+        </div>
         <div style="font-size:12px;color:${gfg};">${gsub}
             ${gate.items.map(i => `${escapeHtml(i.item.replace(/_/g, ' '))}: ${i.verdict.toUpperCase()}`).join(' · ')}
         </div>
