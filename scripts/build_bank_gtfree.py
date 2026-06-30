@@ -118,6 +118,14 @@ def main() -> int:
     ap.add_argument("--channels", default=None,
                     help="operator-drawn channels JSON; declares the movement set and "
                          "provides fallback polylines for cells the data didn't cover")
+    ap.add_argument("--channel-buffer-px", type=float, default=20.0,
+                    help="slack added to a channel's half-width when claiming tracks to "
+                         "its corridor (halfw = width/2 + buffer). Default 20 (back-compat). "
+                         "LOWER it (e.g. 4) for a COLLINEAR turn whose corridor overlaps a "
+                         "parallel through: the +20 floor over-claims the through and corrupts "
+                         "the refit (cam2 SB-left at halfw 20 grabs 116 EB-thru vs 98 real; at "
+                         "halfw 12 the claim is pure -> clean refit). Per-channel width still "
+                         "scopes individual channels; this floors how tight any can be.")
     args = ap.parse_args()
     cam = args.camera
     project = args.project
@@ -337,7 +345,7 @@ def main() -> int:
             "movement": chd["movement"],
             "poly": _densify(ctrl, args.poly_pts),
             "halfw": max(float(chd.get("width_in", 40)),
-                         float(chd.get("width_out", 40))) / 2.0 + 20.0,
+                         float(chd.get("width_out", 40))) / 2.0 + args.channel_buffer_px,
         })
 
     def _channel_claim(pts):
