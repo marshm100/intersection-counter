@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import triangulate_manual as T
+import interval_metric as IM   # the canonical AVG |err| + PASS/FAIL summary
 
 
 def _minute_total(permin, t):
@@ -36,8 +37,8 @@ def report(cam: int):
     print(f"{'interval':<9}{'min':>4}{'MANUAL':>8}{'MIOVIS':>8}{'OURS':>8}"
           f"{'Mio err':>9}{'Ours err':>9}")
     gM = gMi = gO = 0
-    mi_errs: list[float] = []
-    o_errs: list[float] = []
+    o_pairs: list[tuple] = []      # (label, ours, manual) for full bins
+    mi_pairs: list[tuple] = []     # (label, miovision, manual) for full bins
     for b in sorted(bins):
         mins = bins[b]
         m = sum(_minute_total(manual, t) for t in mins)
@@ -48,20 +49,23 @@ def report(cam: int):
         oe = f"{100*(o-m)/m:+.1f}%" if m else "-"
         flag = "" if len(mins) >= 15 else f"  (partial {len(mins)}m)"
         print(f"{b.strftime('%H:%M'):<9}{len(mins):>4}{m:>8}{mi:>8}{o:>8}{me:>9}{oe:>9}{flag}")
-        if len(mins) >= 10 and m:   # full bins only (1-min boundary bins are artifacts)
-            mi_errs.append(100 * (mi - m) / m)
-            o_errs.append(100 * (o - m) / m)
+        if len(mins) >= IM.MIN_BIN_MINUTES and m:   # full bins only (1-min boundary bins are artifacts)
+            o_pairs.append((b.strftime('%H:%M'), o, m))
+            mi_pairs.append((b.strftime('%H:%M'), mi, m))
     me = f"{100*(gMi-gM)/gM:+.1f}%" if gM else "-"
     oe = f"{100*(gO-gM)/gM:+.1f}%" if gM else "-"
     print(f"{'TOTAL':<9}{'':>4}{gM:>8}{gMi:>8}{gO:>8}{me:>9}{oe:>9}")
-    if mi_errs:
-        n = len(mi_errs)
-        avg_mi = sum(mi_errs) / n; avg_o = sum(o_errs) / n
-        mae_mi = sum(abs(e) for e in mi_errs) / n; mae_o = sum(abs(e) for e in o_errs) / n
-        print(f"{'AVG err':<9}{'':>4}{'':>8}{'':>8}{'':>8}{avg_mi:>+8.1f}%{avg_o:>+8.1f}%"
-              f"   mean signed (cancels), n={n} full bins")
-        print(f"{'AVG |err|':<9}{'':>4}{'':>8}{'':>8}{'':>8}{mae_mi:>8.1f}%{mae_o:>8.1f}%"
-              f"   mean ABSOLUTE per-interval error")
+    # Canonical acceptance metric (interval_metric.summarize_bins): mean ABSOLUTE
+    # per-interval error vs the manual hand count, with the <=5% PASS/FAIL verdict
+    # and the Miovision benchmark to match.
+    o_sum, mi_sum = IM.summarize_bins(o_pairs), IM.summarize_bins(mi_pairs)
+    if o_sum["verdict"] != "n/a":
+        print(f"{'AVG |err|':<9}{'':>4}{'':>8}{'':>8}{'':>8}"
+              f"{mi_sum['avg_abs_err_pct']:>8.1f}%{o_sum['avg_abs_err_pct']:>8.1f}%"
+              f"   vs manual; target <= {IM.TARGET_PCT:.0f}%/interval")
+        print(f"{'VERDICT':<9}{'':>4}{'':>8}{'':>8}{'':>8}"
+              f"{'['+mi_sum['verdict']+']':>9}{'['+o_sum['verdict']+']':>9}"
+              f"   OURS {o_sum['n_over_target']}/{o_sum['n_bins']} bins over target")
 
 
 def main():

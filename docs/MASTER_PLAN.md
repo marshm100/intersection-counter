@@ -47,7 +47,33 @@ site where Miovision never ran?"* If no, it's research, not product.
   retrack de-hardcoded from the corridor; #9 preflight warnings; #10 `--project`
   generalization.
 - **Audit tooling:** `scripts/triangulate_manual.py` (vs manual), `scripts/audit_fm51.py`
-  (vs Miovision XML, reusable for any site).
+  (vs Miovision XML, reusable for any site), `scripts/interval_metric.py` (the metric below).
+
+---
+
+## 1b. The acceptance metric — AVG |err| ≤ 5% per 15-min interval
+
+Net counts hide per-interval error (a run nets ~0% while individual bins blow past
+5%). So the bar is **mean-ABSOLUTE per-15-min-interval error, ≤ 5%**, vs ground truth
+— `scripts/interval_metric.py` (`summarize_bins` / `per_interval`, unit-tested).
+
+- **This is a DEVELOPMENT-VALIDATION metric** — it needs ground truth (manual or
+  Miovision) which we will NOT have at a real site. The **blind deployment proxy is
+  the §3-B acceptance gate** (spot-count error + flag queue); we validate that the
+  gate tracks this metric, then trust it blind. Litmus per §0.
+- **Timing floor:** bin-edge timing means even a perfect counter shows a few %/interval
+  (Miovision itself sits ~2.8% vs manual on cam1) — which is why the bar is ≤5%, not ≤1%.
+- **Report two cuts:** the TOTAL (the headline) AND **per-approach** — errors cancel at
+  the total level, so per-approach is where the real work shows.
+
+**Baseline (2026-06-30), vs Miovision per interval:** total squeaks PASS on cam1 4.9% /
+cam2 2.6% / cam4 3.6% / cam5 2.5%, but **per-approach FAILS on nearly every camera**
+(EB/NB/SB > 5% — cancellation flatters the total). The one true-GT check, **cam1 vs the
+hand count = 7.1% FAIL** (Miovision benchmark 2.8% PASS) — the honest number says we are
+NOT yet at the bar. cam3 (24h) reads 39.7% but is a night low-volume + coverage-edge
+artifact (the tool flags the no-coverage bins); a peak-window cam3 cut is the fair compare.
+→ The lever is **per-approach attribution**, which is exactly what the §3-B flag queue
+(per-approach gap feeder) and §3-D tuning target.
 
 ---
 

@@ -13,6 +13,9 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import interval_metric as IM   # canonical AVG |err| acceptance metric
+
 PROJECT = "0acb12c0"
 CAM = 2
 REC_START = datetime(2026, 4, 30, 0, 0, 3)
@@ -91,6 +94,13 @@ def main():
             worst = (err, iv)
         print(f"{iv.strftime('%H:%M'):<8}{mi:>6}{ou:>6}{ou-mi:>+7}{err:>+7.1f}%")
     print(f"  WORST interval: {worst[1].strftime('%H:%M')}  {worst[0]:+.1f}%")
+    # Canonical acceptance metric: AVG |err| per 15-min interval vs Miovision.
+    s = IM.summarize_bins([(iv.strftime("%H:%M"), o_iv.get(iv, 0), m_iv.get(iv, 0))
+                           for iv in sorted(set(m_iv) | set(o_iv))])
+    if s["verdict"] != "n/a":
+        print(f"  AVG |err| per interval: {s['avg_abs_err_pct']:.1f}%  [{s['verdict']}]"
+              f"  (target <= {IM.TARGET_PCT:.0f}%)  max {s['max_abs_err_pct']:.1f}% @ "
+              f"{s['worst_interval']}  bins>target {s['n_over_target']}/{s['n_bins']}")
 
     print("\n=== per vehicle class (Lights/Mediums/Articulated) ===")
     for k in ("Lights", "Mediums", "Articulated"):
