@@ -41,36 +41,35 @@ Adding a clean SB-left path to cam2: **EB 46.9→32.4 (−14.5pp), SB 18.2→12.
 tail-prior gate handles it). A 3-point operator-DRAWN channel reproduces it
 exactly (EB 33.1/SB 12.2). Blind-safe — SB-left is a real legal movement.
 
-## OPEN PROBLEM — channel productionization (attempted, reverted)
-The blind way to supply the clean path is an operator channel. But:
-- Making `build_bank_gtfree` use a declared channel's **drawn** polyline
-  **regresses cam5** (total 2.9→13.4%): cam5's refits are good, its drawn
-  channels rough → drawn matches fewer tracks.
-- A **coherence gate** (drawn only if claimed-group `member_spread>40px`) ALSO
-  regresses cam5 (13.0%): cam5's groups are ALSO incoherent (48–102px), so the
-  spread metric does NOT separate cam2's CORRUPTED refit (its channel claimed
-  **3596** tracks = 97% wrong) from cam5's noisy-but-usable refit.
-- **Leading hypothesis (untested):** the operator draws a **tight,
-  curve-following** channel → the claim is PURE → the *existing* builder refits
-  cleanly, NO builder change. The test channel that over-claimed was a broad
-  frame-spanning diagonal. Needs a properly-drawn channel OR a claim-PURITY
-  signal, validated per-camera (cam2 must gain, cam5 must not regress).
+## Channel productionization — RESOLVED (`4f05578`)
+The blind way to supply the clean path is an operator channel. Two dead ends
+(both validation-caught): forcing a channel's **drawn** polyline regressed cam5
+(2.9→13.4% — good refits replaced by rough drawings); a **coherence gate** also
+regressed cam5 (13.0% — spreads overlap, can't separate cam2's CORRUPTED refit
+from cam5's noisy-but-usable one).
+
+**Root cause was just the `+20` halfw floor** (`halfw = width/2 + 20`). A
+claim-purity sweep on cam2 SB-left: at halfw 20 the channel grabs 116 EB-thru vs
+98 real SB-left (corrupt refit); at **halfw 12** it claims 241 SB-left-shaped
+tracks, refit spread 19px, matching the drawn SB-left within 9px (clean). Fix:
+**`--channel-buffer-px` (default 20, back-compat)** — a collinear turn uses a
+tight buffer (e.g. 4) so the *existing* refit works; cam5 unchanged by
+construction. Validated: cam2 rebuild with the tight channel emits a clean
+SB-left path → the proven EB 46.9→33 / SB 18.2→12 gain.
+`experiments/channel_replay/channels_cam2.json` is the validated SB-left channel.
 
 ## What's next (ordered)
-1. **Channel productionization** — test the tight-channel hypothesis (draw a
-   narrow curve-following cam2 SB-left channel, rebuild, confirm a pure claim +
-   clean refit + no cam5 regression). If channels can't be made pure, design a
-   claim-purity filter. This is the blind-deployable path to the proven gain.
-2. **Ship the proven cam2 gain to the live corridor** — add the clean SB-left
+1. **Ship the proven cam2 gain to the live corridor** — add the clean SB-left
    path to the live bank + retrack (expensive), so the deliverable's per-approach
    actually improves now. (Legacy GT bank — acceptable for the dev corridor.)
-3. **mdh→dtw_mean all-cam sweep** (deferred, "measure don't change"): cam2 EB's
+   Also run the cam2 NB-right movement the QA flag surfaced.
+2. **mdh→dtw_mean all-cam sweep** (deferred, "measure don't change"): cam2 EB's
    residual (32%) is the collinear EB-thru/EB-right that `mdh` can't separate
    (it hard-wires coverage=1.0). dtw_mean fixes EB-thru exactly but overshoots
    EB-right; mdh was adopted on NET (cam4 22.5→14.7). Run per-approach + net
    under both metrics across all 5 cams, decide the default with the user. Use
    `replay_fullchain.py --bank` (cheap) — no retracks.
-4. **cam2 SB-right** (tiny 105px path, −42%) and **cam5/cam1** per-approach cells.
+3. **cam2 SB-right** (tiny 105px path, −42%) and **cam5/cam1** per-approach cells.
 
 ## Gotchas
 - `scripts/od_accuracy.py` uses the PRE-flip leg convention (`_CARD2PREFIX`
