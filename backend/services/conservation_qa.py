@@ -68,12 +68,22 @@ CORRIDOR_FAIL = 0.30
 MIN_LINK_VOLUME = 30
 
 
-def _cardinal_volumes(project_id: str, intersection_id: int) -> tuple[dict, float]:
+def _cardinal_volumes(project_id: str, intersection_id: int,
+                      _cache: dict | None = None) -> tuple[dict, float]:
     """Aggregate counted events for an intersection into (origin_cardinal,
     dest_cardinal) -> count, plus the processed window length in seconds.
 
     Uses every camera on the intersection; legs map leg_id -> cardinal.
-    Events missing a destination are skipped (they cannot conserve)."""
+    Events missing a destination are skipped (they cannot conserve).
+
+    `_cache`: optional {(project_id, intersection_id): result} memo for a single
+    top-level computation. Each scan of vehicle_events is several seconds on a
+    OneDrive-backed DB, and the acceptance/export gates need the SAME
+    intersection's volumes many times over (corridor_consistency + reverse_balance
+    + a per-intersection rollup); without the memo export_gate does ~30 scans.
+    Default None preserves the original recompute-every-call behavior."""
+    if _cache is not None and (project_id, intersection_id) in _cache:
+        return _cache[(project_id, intersection_id)]
     conn = get_connection(project_id)
     try:
         cams = [r[0] for r in conn.execute(
@@ -85,29 +95,40 @@ def _cardinal_volumes(project_id: str, intersection_id: int) -> tuple[dict, floa
         card = {lid: (cd or "").upper() for lid, cd in conn.execute(
             f"SELECT leg_id, cardinal_direction FROM legs WHERE camera_id IN ({ph})",
             cams).fetchall()}
-        rows = conn.execute(
-            f"SELECT origin_leg_id, destination_leg_id, timestamp_video "
+        # Aggregate in SQL (GROUP BY ~15 cells) rather than materializing every
+        # event row in Python: on this OneDrive-backed DB fetching 17k rows took
+        # ~29s vs ~1s for the grouped query (28x). Window = MIN/MAX timestamp over
+        # the same rows, taken per group then reduced.
+        grp = conn.execute(
+            f"SELECT origin_leg_id, destination_leg_id, COUNT(*), "
+            f"MIN(timestamp_video), MAX(timestamp_video) "
             f"FROM vehicle_events WHERE rejected = 0 AND camera_id IN ({ph}) "
-            f"AND destination_leg_id IS NOT NULL", cams).fetchall()
+            f"AND destination_leg_id IS NOT NULL "
+            f"GROUP BY origin_leg_id, destination_leg_id", cams).fetchall()
     finally:
         conn.close()
     vols: dict = defaultdict(int)
     tmin = tmax = None
-    for ol, dl, ts in rows:
+    for ol, dl, cnt, gmin, gmax in grp:
         a, b = card.get(ol), card.get(dl)
         if not a or not b:
             continue
-        vols[(a, b)] += 1
-        if ts is not None:
-            tmin = ts if tmin is None else min(tmin, ts)
-            tmax = ts if tmax is None else max(tmax, ts)
+        vols[(a, b)] += cnt
+        if gmin is not None:
+            tmin = gmin if tmin is None else min(tmin, gmin)
+        if gmax is not None:
+            tmax = gmax if tmax is None else max(tmax, gmax)
     window = (tmax - tmin) if (tmin is not None and tmax is not None) else 0.0
-    return dict(vols), float(window)
+    result = (dict(vols), float(window))
+    if _cache is not None:
+        _cache[(project_id, intersection_id)] = result
+    return result
 
 
-def reverse_balance(project_id: str, intersection_id: int) -> dict:
+def reverse_balance(project_id: str, intersection_id: int,
+                    _cache: dict | None = None) -> dict:
     """3.1 — per-intersection reverse-movement balance report."""
-    vols, window = _cardinal_volumes(project_id, intersection_id)
+    vols, window = _cardinal_volumes(project_id, intersection_id, _cache)
     short_window = window < MIN_BALANCE_WINDOW_SEC
     pairs, seen = [], set()
     for (a, b), n in sorted(vols.items(), key=lambda kv: -kv[1]):
@@ -147,14 +168,15 @@ def reverse_balance(project_id: str, intersection_id: int) -> dict:
     }
 
 
-def _directional_io(project_id: str, intersection_id: int) -> dict:
+def _directional_io(project_id: str, intersection_id: int,
+                    _cache: dict | None = None) -> dict:
     """Per-position IN/OUT totals for one intersection.
 
     Cardinal is the leg POSITION, so it already IS the compass side: origin
     cardinal 'S' = a vehicle arriving FROM the south arm; dest cardinal 'N' =
     one leaving via the north arm. Keyed by that side: out['N'] = vehicles
     leaving northward; in_['S'] = vehicles arriving from the south."""
-    vols, window = _cardinal_volumes(project_id, intersection_id)
+    vols, window = _cardinal_volumes(project_id, intersection_id, _cache)
     out = defaultdict(int)
     in_ = defaultdict(int)
     for (a, b), n in vols.items():
@@ -164,7 +186,7 @@ def _directional_io(project_id: str, intersection_id: int) -> dict:
 
 
 def corridor_consistency(project_id: str, ordered_intersections: list[int],
-                         axis: str = "NS") -> dict:
+                         axis: str = "NS", _cache: dict | None = None) -> dict:
     """3.2 — between-intersection flow conservation along a corridor.
 
     ordered_intersections: intersection_ids in geographic order, FIRST =
@@ -173,7 +195,7 @@ def corridor_consistency(project_id: str, ordered_intersections: list[int],
     Mid-block access (driveways/side streets) shows up as a consistent signed
     residual — a few % is normal, large gaps implicate counting."""
     up, down = ("N", "S") if axis.upper() == "NS" else ("E", "W")
-    io = {iid: _directional_io(project_id, iid) for iid in ordered_intersections}
+    io = {iid: _directional_io(project_id, iid, _cache) for iid in ordered_intersections}
     links = []
     for a, b in zip(ordered_intersections, ordered_intersections[1:]):
         for (label, send, recv) in (

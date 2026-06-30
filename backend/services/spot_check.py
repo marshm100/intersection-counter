@@ -29,7 +29,7 @@ import random
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from backend.database import flag_summary, get_connection
+from backend.database import flag_summary, get_connection, list_paths_for_camera
 from backend.services.cardinals import bound_approach
 from backend.services.conservation_qa import (
     _cardinal_volumes, _movement, corridor_consistency, reverse_balance,
@@ -194,8 +194,13 @@ def compare_spot_count(project_id: str, camera_id: int, start: float,
     }
 
 
-def acceptance(project_id: str, intersection_id: int) -> dict:
-    """4.2 — the gate: what stands between this intersection-day and export."""
+def acceptance(project_id: str, intersection_id: int,
+               _cache: dict | None = None) -> dict:
+    """4.2 — the gate: what stands between this intersection-day and export.
+
+    `_cache`: optional per-call _cardinal_volumes memo (see conservation_qa).
+    export_gate passes a shared cache so the corridor + reverse-balance volumes
+    are computed once across all intersections instead of ~30 DB scans."""
     conn = get_connection(project_id)
     try:
         ids = [r[0] for r in conn.execute(
@@ -217,7 +222,7 @@ def acceptance(project_id: str, intersection_id: int) -> dict:
 
     # corridor links touching this intersection (only when a corridor exists)
     if len(ids) >= 2:
-        cc = corridor_consistency(project_id, ids)
+        cc = corridor_consistency(project_id, ids, _cache=_cache)
         mine = [l for l in cc["links"]
                 if l["link"].startswith(f"{intersection_id}->")
                 or f"->{intersection_id} " in l["link"]]
@@ -227,7 +232,7 @@ def acceptance(project_id: str, intersection_id: int) -> dict:
         items.append({"item": "corridor_consistency", "verdict": worst,
                       "detail": mine})
 
-    rb = reverse_balance(project_id, intersection_id)
+    rb = reverse_balance(project_id, intersection_id, _cache=_cache)
     rb_verdict = ("info" if not rb["applicable"]
                   else "fail" if any(p["verdict"] == "fail" for p in rb["pairs"])
                   else "warn" if any(p["verdict"] == "warn" for p in rb["pairs"])
@@ -297,3 +302,84 @@ def acceptance(project_id: str, intersection_id: int) -> dict:
                else "review" if ("warn" in verdicts or "review" in verdicts)
                else "ship")
     return {"intersection_id": intersection_id, "overall": overall, "items": items}
+
+
+# Worst-wins ordering for rolling per-intersection verdicts up to the project.
+_GATE_RANK = {"ship": 0, "review": 1, "fail": 2}
+
+
+def export_gate(project_id: str) -> dict:
+    """Project-level export readiness — the precondition for the whole-project TMC
+    export (MASTER_PLAN §3-A).
+
+    Aggregates the per-intersection `acceptance()` gate plus two HARD preconditions
+    a deliverable cannot skip — a path bank must exist (else counts are
+    unattributed) and classification must be populated (the L/M/A output) — into a
+    single ship/review/fail verdict, worst-wins across intersections.
+
+    `blocking` is True when export should be WITHHELD absent an explicit operator
+    override: a hard QA `fail`, a missing bank, or empty classification. A `review`
+    verdict is NOT blocking — it permits a DRAFT export (e.g. spot count still
+    pending) per the §3-B draft-then-finalize model. Intersections with no cameras
+    are listed but excluded from the verdict (nothing to export there yet).
+    """
+    conn = get_connection(project_id)
+    try:
+        rows = conn.execute(
+            "SELECT intersection_id, name FROM intersections "
+            "ORDER BY sort_order, intersection_id").fetchall()
+        cams_by_int, classified = {}, {}
+        for iid, _name in rows:
+            cams = [r[0] for r in conn.execute(
+                "SELECT camera_id FROM cameras WHERE intersection_id = ?",
+                (iid,)).fetchall()]
+            cams_by_int[iid] = cams
+            if cams:
+                ph = ",".join("?" * len(cams))
+                classified[iid] = conn.execute(
+                    f"SELECT COUNT(*) FROM vehicle_events WHERE fhwa_class IS NOT NULL "
+                    f"AND rejected = 0 AND camera_id IN ({ph})", cams).fetchone()[0] > 0
+            else:
+                classified[iid] = False
+    finally:
+        conn.close()
+
+    intersections, blocking_reasons, warnings = [], [], []
+    worst = "ship"
+    vol_cache: dict = {}   # shared _cardinal_volumes memo across all intersections
+    for iid, name in rows:
+        cams = cams_by_int[iid]
+        acc = acceptance(project_id, iid, _cache=vol_cache)
+        local = acc["overall"]
+        bank = any(list_paths_for_camera(project_id, c) for c in cams)
+        cls = classified[iid]
+        notes, blocked = [], False
+        if not cams:
+            notes.append("no cameras — nothing to export yet")
+        else:
+            if not bank:
+                blocked = True
+                notes.append("no path bank — build/apply a bank first")
+                blocking_reasons.append(f"{name}: no path bank")
+            if not cls:
+                blocked = True
+                notes.append("classification not populated")
+                blocking_reasons.append(f"{name}: classification not populated")
+            if local == "fail":
+                blocked = True
+                blocking_reasons.append(f"{name}: QA gate FAIL")
+            elif local == "review":
+                warnings.append(f"{name}: QA review — draft only")
+            eff = "fail" if blocked else local
+            if _GATE_RANK[eff] > _GATE_RANK[worst]:
+                worst = eff
+        intersections.append({
+            "intersection_id": iid, "name": name, "overall": local,
+            "bank_exists": bank, "classified": cls, "blocked": blocked,
+            "notes": notes, "items": acc["items"],
+        })
+
+    return {"project_id": project_id, "overall": worst,
+            "blocking": worst == "fail",
+            "blocking_reasons": blocking_reasons, "warnings": warnings,
+            "intersections": intersections}

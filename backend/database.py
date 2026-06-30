@@ -294,6 +294,12 @@ INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_events_video  ON vehicle_events(video_id);
 CREATE INDEX IF NOT EXISTS idx_events_camera ON vehicle_events(camera_id);
 CREATE INDEX IF NOT EXISTS idx_events_trim   ON vehicle_events(trim_id);
+-- Covering index for the conservation/acceptance aggregations
+-- (_cardinal_volumes GROUP BY origin/dest over a camera set). The DB lives on a
+-- OneDrive-synced path where scattered table-row reads are pathologically slow
+-- (~26s/intersection cold); this index makes the grouped query index-only
+-- (USING COVERING INDEX), cutting the export/QA gate from ~100s to seconds.
+CREATE INDEX IF NOT EXISTS idx_events_cardinal ON vehicle_events(camera_id, rejected, destination_leg_id, origin_leg_id, timestamp_video);
 CREATE INDEX IF NOT EXISTS idx_paths_camera  ON intersection_paths(camera_id);
 CREATE INDEX IF NOT EXISTS idx_flags_isect_status ON review_flags(intersection_id, status);
 CREATE INDEX IF NOT EXISTS idx_flags_event        ON review_flags(event_id);

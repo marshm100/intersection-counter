@@ -10,8 +10,18 @@ logger = logging.getLogger(__name__)
 
 from backend.database import get_connection, get_all_project_info
 from backend.services.excel_export import generate_tmc_excel
+from backend.services.spot_check import export_gate
 
 router = APIRouter()
+
+
+@router.get("/projects/{project_id}/export/gate")
+def export_gate_endpoint(project_id: str):
+    """Project-level export readiness (MASTER_PLAN §3-A): the QA acceptance gate
+    aggregated across intersections plus the bank/classification preconditions.
+    The export page renders this; `blocking=true` means the download is withheld
+    unless the operator passes ?override=true."""
+    return export_gate(project_id)
 
 
 @router.get("/projects/{project_id}/export/preview")
@@ -61,8 +71,21 @@ def export_preview(project_id: str):
 
 
 @router.get("/projects/{project_id}/export/download")
-def export_download(project_id: str):
-    """Generate and stream the TMC Excel file as a download attachment."""
+def export_download(project_id: str, override: bool = False):
+    """Generate and stream the TMC Excel file as a download attachment.
+
+    Gated (MASTER_PLAN §3-A): if the export gate is blocking (a hard QA fail, a
+    missing bank, or empty classification) the download is withheld with HTTP 409
+    unless `override=true` — a `review` verdict (e.g. spot count pending) is NOT
+    blocking and streams a draft."""
+    gate = export_gate(project_id)
+    if gate["blocking"] and not override:
+        raise HTTPException(status_code=409, detail={
+            "message": "Export withheld — the QA gate is not satisfied.",
+            "overall": gate["overall"],
+            "blocking_reasons": gate["blocking_reasons"],
+        })
+
     info = get_all_project_info(project_id)
     project_name = info.get("project_name", project_id)
     date_str = datetime.now().strftime("%Y%m%d")
