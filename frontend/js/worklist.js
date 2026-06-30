@@ -17,8 +17,15 @@ let _wlLegs = [];            // origin legs for the gap add-missed form
 let _wlAddMode = false;
 let _wlSeconds = 0;          // current scrub position (video seconds)
 let _wlBusy = false;
+let _wlFlipTimer = null, _wlFlipFrames = [], _wlFlipIdx = 0;   // looping clip state
 
 const _WL_MOVE = { '1': 'through', '2': 'left', '3': 'right', '4': 'u_turn' };
+// Looping clip: stills sampled across the event clip window, cycled in JS (no
+// video-segment endpoint exists; the browser caches each /frame URL so re-loops
+// are free). Event-anchored flags only — gap flags span a long interval and keep
+// the manual scrub UI.
+const _WL_CLIP_FRAMES = 10;
+const _WL_FLIP_MS = 150;     // ~6.7 fps playback
 
 function openWorklist(iid) {
     AppState.currentIntersectionId = iid;
@@ -77,6 +84,7 @@ async function _wlShow() {
 // --- rendering --------------------------------------------------------------
 
 function _wlRender() {
+    _wlStopFlip();   // innerHTML below replaces #wl-frame; kill any running loop first
     const sec = document.getElementById('page-worklist');
     sec.innerHTML = `
         <div class="processing-header">
@@ -123,9 +131,14 @@ function _wlMainHtml() {
             <div class="helper-text">item ${_wlPos + 1} of ${_wlList.length} open</div>
         </div>
         <div style="font-size:13px;color:#374151;margin:4px 0 8px;">${escapeHtml(f.reason || '')}</div>`;
+    const loopBadge = f.kind === 'uncertain_event' && f.clip
+        ? `<div style="position:absolute;left:6px;top:6px;padding:2px 8px;border-radius:10px;
+             background:rgba(0,0,0,0.55);color:#e5e7eb;font-size:11px;">&#8635; looping clip</div>`
+        : '';
     const frame = `<div style="position:relative;background:#111;border-radius:6px;overflow:hidden;">
             <img id="wl-frame" style="display:block;width:100%;" />
             <canvas id="wl-canvas" style="position:absolute;left:0;top:0;width:100%;height:100%;"></canvas>
+            ${loopBadge}
         </div>`;
     return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;">
         ${head}${frame}
@@ -231,7 +244,43 @@ function _wlMountFrame() {
     };
     img.src = `/api/projects/${_wlPid}/videos/${_wlFlag.clip.video_id}/frame?seconds=${_wlSeconds}`;
     if (_wlFlag.kind === 'suspected_gap') canvas.onclick = _wlCanvasClick;
-    else canvas.onclick = null;
+    else { canvas.onclick = null; _wlStartFlip(); }   // event clips loop; gaps scrub
+}
+
+// --- looping clip (frame-flipbook) ------------------------------------------
+
+function _wlStopFlip() {
+    if (_wlFlipTimer) { clearInterval(_wlFlipTimer); _wlFlipTimer = null; }
+    _wlFlipFrames = []; _wlFlipIdx = 0;
+}
+
+function _wlStartFlip() {
+    const f = _wlFlag;
+    if (!f || f.kind !== 'uncertain_event' || !f.clip) return;
+    const a = Number(f.clip.start_seconds), b = Number(f.clip.end_seconds);
+    if (!(b > a)) return;   // degenerate window — keep the single still
+    const vid = f.clip.video_id;
+    _wlFlipFrames = [];
+    let ready = 0;
+    for (let i = 0; i < _WL_CLIP_FRAMES; i++) {
+        const s = a + (b - a) * i / (_WL_CLIP_FRAMES - 1);
+        const im = new Image();   // preload + hold a ref so the URL stays cached
+        im.src = `/api/projects/${_wlPid}/videos/${vid}/frame?seconds=${s.toFixed(2)}`;
+        im.onload = () => { if (++ready === 2 && !_wlFlipTimer) _wlRunFlip(); };
+        _wlFlipFrames.push(im);
+    }
+}
+
+function _wlRunFlip() {
+    _wlFlipTimer = setInterval(() => {
+        const img = document.getElementById('wl-frame');
+        if (!img || !_wlFlipFrames.length) return;   // re-render dropped the frame
+        for (let n = 0; n < _wlFlipFrames.length; n++) {   // advance to next LOADED frame
+            _wlFlipIdx = (_wlFlipIdx + 1) % _wlFlipFrames.length;
+            if (_wlFlipFrames[_wlFlipIdx].complete) break;
+        }
+        img.src = _wlFlipFrames[_wlFlipIdx].src;   // cached -> instant swap; onload redraws overlay
+    }, _WL_FLIP_MS);
 }
 
 function _wlDrawOverlay() {
@@ -398,6 +447,7 @@ function _wlBindKeys() {
 }
 
 function _wlTeardown() {
+    _wlStopFlip();
     document.removeEventListener('keydown', _wlKeydown);
 }
 
