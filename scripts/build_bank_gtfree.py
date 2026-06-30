@@ -542,6 +542,32 @@ def main() -> int:
             print(f"{f'L{od[0]}->L{od[1]} {chd['movement']}':<26}{'0':>5}{'--':>7}"
                   f"{'--':>9}{'--':>12}  CHANNEL_FALLBACK (hand-drawn)")
 
+    # --- Missing legal-movement flag (don't silently drop a real movement) ---
+    # A movement the data-grouping cannot separate leaves NO path and is
+    # invisible to a blind operator. The canonical case: a curving turn whose
+    # endpoint bins to the WRONG leg anchor AND whose exit bearing is ambiguous
+    # against the collinear through (cam2 SB-left ends nearest the NB anchor and
+    # exits at ~270deg, 24deg from NB vs 36deg from its true WB exit — neither
+    # the anchor nor the bearing _rebin can pull it out; only mid-path curvature
+    # distinguishes it). So flag every CARDINAL-LEGAL movement with no admitted
+    # path: the operator draws a channel for the ones that exist, and the few
+    # genuinely-absent movements (a T-intersection's missing leg) are expected
+    # flags they dismiss — the same surfacing that catches a phantom leg.
+    covered = {(p["origin_leg_id"], p["destination_leg_id"]) for p in paths}
+    leg_ids = [lid for lid, *_ in leg_rows]
+    missing_movements = []
+    for ol in leg_ids:
+        for dl in leg_ids:
+            if ol == dl or (ol, dl) in covered:
+                continue
+            mv = _cardinal_movement(ol, dl)
+            if mv in ("left", "right", "through"):
+                missing_movements.append((ol, dl, mv))
+                qa_cells.append({"cell": f"L{ol}->L{dl} {mv}",
+                                 "status": "legal_movement_uncovered",
+                                 "hint": "draw a channel in the calibration UI if this "
+                                         "movement exists at the site"})
+
     # --- QA report (2.4) -----------------------------------------------------
     ambiguous = []
     for i in range(len(paths)):
@@ -567,6 +593,8 @@ def main() -> int:
     qa = {"camera": cam, "window": f"{args.start_hms}+{args.minutes:.0f}min",
           "n_tracks_usable": len(kept), "agreement_rate": round(n_agree/max(1,len(kept)), 3),
           "cells": qa_cells, "ambiguous_pairs": ambiguous, "leg_sanity": leg_sanity,
+          "missing_movements": [{"cell": f"L{ol}->L{dl}", "movement": mv}
+                                for ol, dl, mv in missing_movements],
           "anchor_cells_raw": {f"{k[0]}->{k[1]}": len(g) for k, g in
                                sorted(groups.items(), key=lambda kv: -len(kv[1]))[:12]}}
     out = {"project": project, "camera_id": cam, "updated_legs": [], "paths": paths,
@@ -580,6 +608,11 @@ def main() -> int:
     if ambiguous:
         print(f"!! AMBIGUITY: {len(ambiguous)} polyline pairs closer than "
               f"{args.ambiguity_px}px mean — see QA report")
+    if missing_movements:
+        print(f"!! MISSING MOVEMENTS: {len(missing_movements)} cardinal-legal "
+              f"movement(s) have NO path — DRAW A CHANNEL for the ones that exist:")
+        for ol, dl, mv in missing_movements:
+            print(f"     L{ol}->L{dl} {mv}")
     print(f"\nwrote {out_path} ({len(paths)} paths) + {qa_path}")
     return 0
 
