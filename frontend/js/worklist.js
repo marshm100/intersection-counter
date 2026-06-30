@@ -12,7 +12,7 @@
 let _wlPid = null, _wlIid = null;
 let _wlList = [], _wlPos = 0;
 let _wlFlag = null;          // current enriched flag
-let _wlSummary = null, _wlGate = null;
+let _wlSummary = null, _wlGate = null, _wlTotal = 0;
 let _wlLegs = [];            // origin legs for the gap add-missed form
 let _wlAddMode = false;
 let _wlSeconds = 0;          // current scrub position (video seconds)
@@ -49,6 +49,10 @@ async function _wlRefreshList() {
     try {
         _wlGate = await API.get(`/api/projects/${_wlPid}/intersections/${_wlIid}/qa/acceptance`);
     } catch (e) { _wlGate = null; }
+    try {
+        const sum = await API.get(`/api/projects/${_wlPid}/intersections/${_wlIid}/summary`);
+        _wlTotal = (sum.totals && sum.totals.vehicles) || 0;
+    } catch (e) { /* keep last total */ }
     if (_wlPos >= _wlList.length) _wlPos = Math.max(0, _wlList.length - 1);
 }
 
@@ -79,11 +83,27 @@ function _wlRender() {
             <a href="#" class="back-link" onclick="_wlBackToQa();return false;">&larr; Back to QA</a>
             <h2 style="margin:4px 0;">Review worklist</h2>
         </div>
+        ${_wlBannerHtml()}
         <div style="display:flex;gap:18px;align-items:flex-start;">
             <div style="flex:1;min-width:0;">${_wlMainHtml()}</div>
             <aside style="width:280px;flex:none;">${_wlSideHtml()}</aside>
         </div>`;
     if (_wlFlag && _wlFlag.clip) _wlMountFrame();
+}
+
+function _wlBannerHtml() {
+    if (!_wlGate) return '';
+    if (_wlGate.overall === 'ship') {
+        return `<div style="margin:8px 0;padding:10px 14px;border-radius:6px;background:#dcfce7;
+            color:#166534;font-weight:700;">✓ Ready to export — within the ±5% bar.
+            <span style="font-weight:400;">Remaining flags are optional polish.</span></div>`;
+    }
+    return '';
+}
+
+function _wlGroupSize() {
+    if (!_wlFlag || !_wlFlag.batch_key) return 0;
+    return _wlList.filter(f => f.batch_key === _wlFlag.batch_key).length;
 }
 
 function _wlMainHtml() {
@@ -137,7 +157,15 @@ function _wlUncertainHtml(f) {
             <button onclick="_wlReject()"><b>Del</b> Reject phantom</button>
             <button class="btn-secondary" onclick="_wlDismiss()"><b>D</b> Dismiss</button>
             <button class="btn-secondary" onclick="_wlSkip()"><b>&rarr;</b> Skip</button>
-        </div>`;
+        </div>
+        ${_wlGroupSize() > 1 ? `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb;">
+            <button onclick="_wlBatch('resolved')"><b>B</b> Resolve all ${_wlGroupSize()} like this</button>
+            <span class="helper-text"> or all as:</span>
+            <button class="btn-secondary" onclick="_wlBatchMove('through')">T</button>
+            <button class="btn-secondary" onclick="_wlBatchMove('left')">L</button>
+            <button class="btn-secondary" onclick="_wlBatchMove('right')">R</button>
+            <button class="btn-secondary" onclick="_wlBatchMove('u_turn')">U</button>
+        </div>` : ''}`;
 }
 
 function _wlGapHtml(f) {
@@ -179,7 +207,9 @@ function _wlSideHtml() {
         </div>`;
     }
     return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;font-size:13px;">
-        <div style="font-weight:700;margin-bottom:6px;">Remaining work</div>
+        <div style="font-weight:700;margin-bottom:6px;">Live count</div>
+        <div>Running total: <b>${(_wlTotal || 0).toLocaleString()}</b> veh</div>
+        <div style="font-weight:700;margin:8px 0 6px;">Remaining work</div>
         <div>Open flags: <b>${s.open || 0}</b></div>
         <div>Est. missed (gaps): <b>${Math.round(gapImpact)}</b></div>
         <div>Uncertain to confirm: <b>${uncertain}</b></div>
@@ -263,6 +293,18 @@ async function _wlSkip() {
     await _wlShow();
 }
 
+async function _wlBatch(status, movement) {
+    await _wlGuard(async () => {
+        await API.post(`/api/projects/${_wlPid}/intersections/${_wlIid}/flags/batch`, {
+            batch_key: _wlFlag.batch_key, status: status || 'resolved',
+            movement: movement || null,
+        });
+        await _wlAfterTerminal();
+    });
+}
+
+function _wlBatchMove(m) { _wlBatch('resolved', m); }
+
 // --- gap add-missed ---------------------------------------------------------
 
 function _wlScrub(v) {
@@ -340,6 +382,7 @@ function _wlKeydown(e) {
     if (k === 'Enter') gap ? _wlResolveGap() : _wlAccept();
     else if (k === 'd' || k === 'D') _wlDismiss();
     else if (k === 'ArrowRight' || k === ' ') _wlSkip();
+    else if ((k === 'b' || k === 'B') && _wlFlag.batch_key && _wlGroupSize() > 1) _wlBatch('resolved');
     else if (gap && (k === 'a' || k === 'A')) _wlToggleAdd();
     else if (!gap && _WL_MOVE_KEY(k)) _wlSetMovement(_WL_MOVE_KEY(k));
     else if (!gap && (k === 'Delete' || k === 'Backspace')) _wlReject();

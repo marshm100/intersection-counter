@@ -590,3 +590,49 @@ class TestAcceptanceGate:
                     json={"start_seconds": 0, "duration_seconds": 300,
                           "manual_counts": {"N through": 20}})   # wildly low -> fail
         assert acceptance(pid, iid)["overall"] == "fail"
+
+
+# --- C2: batch resolve ------------------------------------------------------
+
+class TestBatchResolve:
+    def test_batch_resolves_group_only(self, usite):
+        pid, iid, cid, legs = usite
+        e1, e2 = _add_ev(pid, cid, legs["S"]), _add_ev(pid, cid, legs["S"])
+        for e in (e1, e2):
+            insert_flag(pid, intersection_id=iid, kind="uncertain_event",
+                        subtype="ambiguous_dest", event_id=e, batch_key="dest|N|E-N")
+        other = insert_flag(pid, intersection_id=iid, kind="uncertain_event",
+                            subtype="low_det_conf", batch_key="dest|W|N-S")
+        r = client.post(f"/api/projects/{pid}/intersections/{iid}/flags/batch",
+                        json={"batch_key": "dest|N|E-N", "status": "resolved"})
+        assert r.status_code == 200 and r.json()["affected"] == 2
+        assert r.json()["summary"]["open"] == 1               # only the other batch left
+        assert get_flag(pid, other)["status"] == "open"
+
+    def test_batch_applies_movement_to_events(self, usite):
+        pid, iid, cid, legs = usite
+        e1 = _add_ev(pid, cid, legs["S"], movement="through")
+        insert_flag(pid, intersection_id=iid, kind="uncertain_event",
+                    subtype="ambiguous_dest", event_id=e1, batch_key="dest|N|E-N")
+        client.post(f"/api/projects/{pid}/intersections/{iid}/flags/batch",
+                    json={"batch_key": "dest|N|E-N", "status": "resolved", "movement": "left"})
+        conn = get_connection(pid)
+        row = conn.execute("SELECT movement, manually_edited FROM vehicle_events "
+                           "WHERE event_id = ?", (e1,)).fetchone()
+        conn.close()
+        assert row[0] == "left" and row[1] == 1
+
+    def test_batch_bad_status_422(self, usite):
+        pid, iid = usite[0], usite[1]
+        assert client.post(f"/api/projects/{pid}/intersections/{iid}/flags/batch",
+            json={"batch_key": "x", "status": "bogus"}).status_code == 422
+
+    def test_batch_bad_movement_422(self, usite):
+        pid, iid = usite[0], usite[1]
+        assert client.post(f"/api/projects/{pid}/intersections/{iid}/flags/batch",
+            json={"batch_key": "x", "status": "resolved", "movement": "diag"}).status_code == 422
+
+    def test_batch_unknown_intersection_404(self, usite):
+        pid = usite[0]
+        assert client.post(f"/api/projects/{pid}/intersections/999999/flags/batch",
+            json={"batch_key": "x", "status": "resolved"}).status_code == 404

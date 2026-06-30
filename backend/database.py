@@ -1806,3 +1806,36 @@ def flag_summary(project_id: str, intersection_id: int) -> dict:
         "open_impact_by_kind": {k: round(float(imp), 1) for k, _n, imp in kind_rows},
         "open_impact": round(float(open_impact), 1),
     }
+
+
+def batch_resolve_flags(project_id: str, intersection_id: int, batch_key: str,
+                        status: str, movement: str | None = None) -> int:
+    """Apply a status to ALL open flags sharing a batch_key in an intersection,
+    optionally setting `movement` on their anchored events first (mirrors the
+    single-edit path in routers/review.py: movement + manually_edited=1). Powers
+    the worklist's one-key batch resolve. Returns the number of flags affected."""
+    resolved_at = (datetime.now(timezone.utc).isoformat()
+                   if status in _FLAG_TERMINAL_STATUSES else None)
+    conn = get_connection(project_id)
+    try:
+        with conn:
+            rows = conn.execute(
+                "SELECT flag_id, event_id FROM review_flags "
+                "WHERE intersection_id = ? AND batch_key = ? AND status = 'open'",
+                (intersection_id, batch_key)).fetchall()
+            if not rows:
+                return 0
+            flag_ids = [r[0] for r in rows]
+            event_ids = [r[1] for r in rows if r[1] is not None]
+            if movement and event_ids:
+                ph = ",".join("?" * len(event_ids))
+                conn.execute(
+                    f"UPDATE vehicle_events SET movement = ?, manually_edited = 1 "
+                    f"WHERE event_id IN ({ph})", [movement, *event_ids])
+            ph = ",".join("?" * len(flag_ids))
+            conn.execute(
+                f"UPDATE review_flags SET status = ?, resolved_at = ? "
+                f"WHERE flag_id IN ({ph})", [status, resolved_at, *flag_ids])
+        return len(flag_ids)
+    finally:
+        conn.close()

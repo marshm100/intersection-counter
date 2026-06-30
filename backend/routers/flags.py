@@ -19,8 +19,8 @@ from pydantic import BaseModel
 
 from backend.config import PROJECTS_DIR
 from backend.database import (
-    flag_summary, get_connection, get_flag, get_intersection, list_flags,
-    list_videos_for_camera, update_flag_status,
+    batch_resolve_flags, flag_summary, get_connection, get_flag,
+    get_intersection, list_flags, list_videos_for_camera, update_flag_status,
 )
 from backend.services.flag_feeders import rebuild_flags
 
@@ -31,6 +31,7 @@ router = APIRouter()
 _CLIP_PAD_SECONDS = 2.0
 
 _ALLOWED_STATUSES = ("open", "accepted", "dismissed", "resolved")
+_VALID_MOVEMENTS = ("through", "left", "right", "u_turn")
 
 
 def _require_project(project_id: str) -> None:
@@ -47,6 +48,12 @@ def _require_intersection(project_id: str, intersection_id: int) -> None:
 
 class FlagStatusBody(BaseModel):
     status: str    # open | accepted | dismissed | resolved
+
+
+class FlagBatchBody(BaseModel):
+    batch_key: str
+    status: str                       # usually 'resolved'
+    movement: str | None = None       # optionally force a movement on the group's events
 
 
 def _enrich(project_id: str, flag: dict) -> dict:
@@ -151,6 +158,23 @@ def get_one_flag(project_id: str, flag_id: int):
     if flag is None:
         raise HTTPException(status_code=404, detail=f"flag {flag_id} not found")
     return _enrich(project_id, flag)
+
+
+@router.post("/projects/{project_id}/intersections/{intersection_id}/flags/batch")
+def post_batch(project_id: str, intersection_id: int, body: FlagBatchBody):
+    """One-key batch resolve: apply a status (and optionally a movement) to every
+    open flag sharing a batch_key — e.g. 'resolve all 14 NB exit-ambiguous tracks'."""
+    _require_project(project_id)
+    _require_intersection(project_id, intersection_id)
+    if body.status not in _ALLOWED_STATUSES:
+        raise HTTPException(status_code=422,
+            detail=f"status must be one of {_ALLOWED_STATUSES}")
+    if body.movement is not None and body.movement not in _VALID_MOVEMENTS:
+        raise HTTPException(status_code=422,
+            detail=f"movement must be one of {_VALID_MOVEMENTS}")
+    n = batch_resolve_flags(project_id, intersection_id, body.batch_key,
+                            body.status, body.movement)
+    return {"affected": n, "summary": flag_summary(project_id, intersection_id)}
 
 
 @router.patch("/projects/{project_id}/flags/{flag_id}")
