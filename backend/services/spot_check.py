@@ -29,7 +29,7 @@ import random
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from backend.database import get_connection
+from backend.database import flag_summary, get_connection
 from backend.services.cardinals import bound_approach
 from backend.services.conservation_qa import (
     _cardinal_volumes, _movement, corridor_consistency, reverse_balance,
@@ -204,6 +204,12 @@ def acceptance(project_id: str, intersection_id: int) -> dict:
         cams = [r[0] for r in conn.execute(
             "SELECT camera_id FROM cameras WHERE intersection_id = ?",
             (intersection_id,)).fetchall()]
+        total_events = 0
+        if cams:
+            ph = ",".join("?" * len(cams))
+            total_events = conn.execute(
+                f"SELECT COUNT(*) FROM vehicle_events "
+                f"WHERE rejected = 0 AND camera_id IN ({ph})", cams).fetchone()[0]
     finally:
         conn.close()
 
@@ -251,6 +257,40 @@ def acceptance(project_id: str, intersection_id: int) -> dict:
                         else "review" if "review" in vs else "pass")
     items.append({"item": "spot_count", "verdict": spot_verdict,
                   "detail": spot_detail})
+
+    # Review-flag queue (Phase B). The two feeders measure different things, so
+    # the gate does NOT sum their impacts: suspected_gap impact is an ESTIMATE of
+    # missed vehicles (a real count error) and drives the verdict against the
+    # +/-5% bar; uncertain_event flags are a per-vehicle REVIEW BACKLOG (phantoms
+    # are already measured by the spot count; movement ambiguity is approach-
+    # neutral) and are surfaced, never summed in. Flags are work-to-do, so this
+    # item is only info/ok/review — never a hard fail.
+    fs = flag_summary(project_id, intersection_id)
+    total_flags = fs["open"] + fs["accepted"] + fs["dismissed"] + fs["resolved"]
+    gap_impact = fs["open_impact_by_kind"].get("suspected_gap", 0.0)
+    uncertain_open = fs["by_kind"].get("uncertain_event", 0)
+    gap_frac = (gap_impact / total_events) if total_events else 0.0
+    if total_events == 0 or total_flags == 0:
+        flags_verdict = "info"
+        flags_note = ("no events processed" if total_events == 0
+                      else "flags not built yet — run a rebuild to populate the queue")
+    elif gap_frac >= TARGET_REL_ERR:
+        flags_verdict = "review"
+        flags_note = (f"est. {round(gap_impact)} missed ({gap_frac*100:.1f}% of "
+                      f"{total_events}) across flagged intervals — review/add-missed; "
+                      f"{uncertain_open} uncertain events to confirm (optional polish)")
+    else:
+        flags_verdict = "ok"
+        flags_note = (f"est. missed {gap_frac*100:.1f}% of {total_events} (within "
+                      f"+/-{TARGET_REL_ERR*100:.0f}%); {uncertain_open} uncertain events "
+                      f"to confirm (optional polish)")
+    items.append({"item": "review_flags", "verdict": flags_verdict, "detail": {
+        "open": fs["open"],
+        "estimated_missed": round(gap_impact, 1),
+        "estimated_missed_pct": round(gap_frac * 100, 1),
+        "uncertain_to_confirm": uncertain_open,
+        "note": flags_note,
+    }})
 
     verdicts = [i["verdict"] for i in items]
     overall = ("fail" if "fail" in verdicts

@@ -38,7 +38,8 @@ def test_create_database():
     assert 'calibration_suggestions' in tables  # Phase 3: auto-cal output
     assert 'channels' in tables              # Phase 2.1: operator-drawn channels
     assert 'spot_counts' in tables           # Phase 4: manual spot-count validation
-    assert len(tables) == 14
+    assert 'review_flags' in tables          # Phase B: two-feeder review flag queue
+    assert len(tables) == 15
 
 def test_wal_mode():
     conn = get_connection(TEST_PROJECT)

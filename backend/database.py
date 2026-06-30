@@ -250,6 +250,41 @@ CREATE TABLE IF NOT EXISTS calibration_suggestions (
     job_metadata    TEXT,                                -- sample window, n_trajectories, etc
     FOREIGN KEY (camera_id) REFERENCES cameras(camera_id)
 );
+
+-- Phase B review flag queue (MASTER_PLAN §3-B). Two feeders write here:
+--   kind='uncertain_event' — event-anchored, low confidence / ambiguous class —
+--                            "what the system is unsure about".
+--   kind='suspected_gap'   — an interval+approach the run looks to UNDER-count,
+--                            from the blind coverage/conservation diagnostic —
+--                            "what it MISSED" (an undetected vehicle emits no
+--                            event, so a confidence queue alone can never see it).
+-- `impact` (estimated affected vehicles) drives worklist ordering. Rebuild is
+-- idempotent: it clears status='open' rows and re-derives, keeping worked history.
+-- `event_id` is deliberately NOT a foreign key: apply_bank.py deletes/rebuilds
+-- vehicle_events on every re-bank, and an enforced child->parent FK would crash
+-- that delete or cascade away resolved-flag history. Enrichment LEFT-JOINs and
+-- tolerates a vanished event (it is skipped and auto-cleared on next rebuild).
+CREATE TABLE IF NOT EXISTS review_flags (
+    flag_id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    intersection_id        INTEGER NOT NULL,
+    camera_id              INTEGER,
+    kind                   TEXT NOT NULL,                 -- uncertain_event | suspected_gap
+    subtype                TEXT NOT NULL,                 -- low_traj_conf | ambiguous_dest | coverage_sag | ...
+    event_id               INTEGER,                       -- nullable; NO FK (see note above)
+    interval_start_seconds REAL,                          -- nullable; gap window (video time)
+    interval_end_seconds   REAL,
+    approach               TEXT,                          -- bound-approach label, e.g. 'NB'
+    movement               TEXT,                          -- through|left|right|u_turn
+    impact                 REAL NOT NULL DEFAULT 1,
+    reason                 TEXT NOT NULL DEFAULT '',       -- human "why flagged"
+    evidence_json          TEXT,                           -- JSON: baseline/observed/posterior
+    batch_key              TEXT,                           -- groups identically-resolvable flags
+    status                 TEXT NOT NULL DEFAULT 'open',   -- open|accepted|dismissed|resolved
+    created_at             TEXT NOT NULL,
+    resolved_at            TEXT,
+    FOREIGN KEY (intersection_id) REFERENCES intersections(intersection_id),
+    FOREIGN KEY (camera_id)       REFERENCES cameras(camera_id)
+);
 """
 
 # Indexes are kept out of SCHEMA because they reference columns added by the
@@ -260,6 +295,8 @@ CREATE INDEX IF NOT EXISTS idx_events_video  ON vehicle_events(video_id);
 CREATE INDEX IF NOT EXISTS idx_events_camera ON vehicle_events(camera_id);
 CREATE INDEX IF NOT EXISTS idx_events_trim   ON vehicle_events(trim_id);
 CREATE INDEX IF NOT EXISTS idx_paths_camera  ON intersection_paths(camera_id);
+CREATE INDEX IF NOT EXISTS idx_flags_isect_status ON review_flags(intersection_id, status);
+CREATE INDEX IF NOT EXISTS idx_flags_event        ON review_flags(event_id);
 """
 
 
@@ -905,7 +942,8 @@ def update_camera_calibration(
 
 
 def remove_intersection(project_id: str, intersection_id: int) -> None:
-    """Cascade-delete: trims, cameras, legs (via camera FK), and unlink videos."""
+    """Cascade-delete: trims, cameras, legs (via camera FK), review flags, and
+    unlink videos."""
     conn = get_connection(project_id)
     try:
         with conn:
@@ -916,6 +954,7 @@ def remove_intersection(project_id: str, intersection_id: int) -> None:
             for cid in cam_ids:
                 conn.execute("DELETE FROM legs WHERE camera_id = ?", (cid,))
                 conn.execute("UPDATE videos SET camera_id = NULL WHERE camera_id = ?", (cid,))
+            conn.execute("DELETE FROM review_flags WHERE intersection_id = ?", (intersection_id,))
             conn.execute("DELETE FROM cameras WHERE intersection_id = ?", (intersection_id,))
             conn.execute("DELETE FROM trims WHERE intersection_id = ?", (intersection_id,))
             conn.execute("DELETE FROM intersections WHERE intersection_id = ?", (intersection_id,))
@@ -1012,12 +1051,13 @@ def update_camera(
 
 
 def remove_camera(project_id: str, camera_id: int) -> None:
-    """Cascade-delete: legs, unlink videos."""
+    """Cascade-delete: legs, review flags, unlink videos."""
     conn = get_connection(project_id)
     try:
         with conn:
             conn.execute("DELETE FROM legs WHERE camera_id = ?", (camera_id,))
             conn.execute("UPDATE videos SET camera_id = NULL WHERE camera_id = ?", (camera_id,))
+            conn.execute("DELETE FROM review_flags WHERE camera_id = ?", (camera_id,))
             conn.execute("DELETE FROM cameras WHERE camera_id = ?", (camera_id,))
     finally:
         conn.close()
@@ -1589,3 +1629,180 @@ def ensure_default_intersection_for_legacy(project_id: str) -> int | None:
 
     set_project_info(project_id, "v3_initialized", "1")
     return iid
+
+
+# -- Phase B: review flag queue ----------------------------------------------
+#
+# The two-feeder blind-QA queue (MASTER_PLAN §3-B). insert_flag() takes the same
+# kwargs the feeders build, so a feeder can return a list of dicts and the
+# orchestrator just does insert_flag(**f). evidence_json is eager-parsed back to
+# a dict on read (the same convention as intersection_paths.polyline).
+
+_FLAG_FIELDS = (
+    "flag_id", "intersection_id", "camera_id", "kind", "subtype", "event_id",
+    "interval_start_seconds", "interval_end_seconds", "approach", "movement",
+    "impact", "reason", "evidence_json", "batch_key", "status",
+    "created_at", "resolved_at",
+)
+
+_FLAG_TERMINAL_STATUSES = ("accepted", "dismissed", "resolved")
+_FLAG_STATUSES = ("open",) + _FLAG_TERMINAL_STATUSES
+
+
+def _row_to_flag(row: sqlite3.Row) -> dict:
+    out = {k: row[k] for k in _FLAG_FIELDS}
+    raw = out.pop("evidence_json")
+    if isinstance(raw, str):
+        try:
+            out["evidence"] = json.loads(raw)
+        except (TypeError, ValueError):
+            out["evidence"] = {}
+    else:
+        out["evidence"] = raw or {}
+    return out
+
+
+def insert_flag(
+    project_id: str,
+    *,
+    intersection_id: int,
+    kind: str,
+    subtype: str,
+    camera_id: int | None = None,
+    event_id: int | None = None,
+    interval_start_seconds: float | None = None,
+    interval_end_seconds: float | None = None,
+    approach: str | None = None,
+    movement: str | None = None,
+    impact: float = 1.0,
+    reason: str = "",
+    evidence: dict | None = None,
+    batch_key: str | None = None,
+    status: str = "open",
+) -> int:
+    """Insert one review flag. Returns flag_id."""
+    now = datetime.now(timezone.utc).isoformat()
+    ev = json.dumps(evidence) if evidence is not None else None
+    conn = get_connection(project_id)
+    try:
+        cur = conn.execute(
+            """INSERT INTO review_flags
+               (intersection_id, camera_id, kind, subtype, event_id,
+                interval_start_seconds, interval_end_seconds, approach, movement,
+                impact, reason, evidence_json, batch_key, status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (intersection_id, camera_id, kind, subtype, event_id,
+             interval_start_seconds, interval_end_seconds, approach, movement,
+             float(impact), reason, ev, batch_key, status, now),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def list_flags(
+    project_id: str,
+    intersection_id: int,
+    *,
+    status: str | None = "open",
+    kind: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> list[dict]:
+    """Flags for an intersection, impact-DESC then oldest-first. status=None or
+    'all' returns every status; otherwise filter to that one status."""
+    where = ["intersection_id = ?"]
+    params: list = [intersection_id]
+    if status not in (None, "all"):
+        where.append("status = ?"); params.append(status)
+    if kind is not None:
+        where.append("kind = ?"); params.append(kind)
+    sql = (f"SELECT * FROM review_flags WHERE {' AND '.join(where)} "
+           "ORDER BY impact DESC, created_at ASC, flag_id ASC")
+    if limit is not None:
+        sql += " LIMIT ? OFFSET ?"; params += [int(limit), int(offset)]
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(sql, params).fetchall()
+        return [_row_to_flag(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_flag(project_id: str, flag_id: int) -> dict | None:
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM review_flags WHERE flag_id = ?", (flag_id,),
+        ).fetchone()
+        return _row_to_flag(row) if row else None
+    finally:
+        conn.close()
+
+
+def update_flag_status(project_id: str, flag_id: int, status: str) -> None:
+    """Set a flag's status; stamps resolved_at when terminal, clears it on reopen."""
+    resolved_at = (datetime.now(timezone.utc).isoformat()
+                   if status in _FLAG_TERMINAL_STATUSES else None)
+    conn = get_connection(project_id)
+    try:
+        conn.execute(
+            "UPDATE review_flags SET status = ?, resolved_at = ? WHERE flag_id = ?",
+            (status, resolved_at, flag_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def clear_open_flags(project_id: str, intersection_id: int) -> int:
+    """Delete this intersection's OPEN flags (the idempotent-rebuild primitive).
+    Worked flags (accepted/dismissed/resolved) are kept as history. Returns the
+    number deleted."""
+    conn = get_connection(project_id)
+    try:
+        cur = conn.execute(
+            "DELETE FROM review_flags WHERE intersection_id = ? AND status = 'open'",
+            (intersection_id,),
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def flag_summary(project_id: str, intersection_id: int) -> dict:
+    """Counts by status and (open-only) by kind, plus the open-flag impact total
+    — the remaining-work signal for the acceptance gate / stopping rule."""
+    conn = get_connection(project_id)
+    try:
+        status_rows = conn.execute(
+            "SELECT status, COUNT(*) FROM review_flags WHERE intersection_id = ? "
+            "GROUP BY status", (intersection_id,)).fetchall()
+        kind_rows = conn.execute(
+            "SELECT kind, COUNT(*), COALESCE(SUM(impact), 0) FROM review_flags "
+            "WHERE intersection_id = ? AND status = 'open' GROUP BY kind",
+            (intersection_id,)).fetchall()
+        open_impact = conn.execute(
+            "SELECT COALESCE(SUM(impact), 0) FROM review_flags "
+            "WHERE intersection_id = ? AND status = 'open'",
+            (intersection_id,)).fetchone()[0]
+    finally:
+        conn.close()
+    by_status = {s: n for s, n in status_rows}
+    return {
+        "intersection_id": intersection_id,
+        "open": by_status.get("open", 0),
+        "accepted": by_status.get("accepted", 0),
+        "dismissed": by_status.get("dismissed", 0),
+        "resolved": by_status.get("resolved", 0),
+        "by_kind": {k: n for k, n, _imp in kind_rows},
+        # Per-kind OPEN impact — the gate needs suspected_gap impact (estimated
+        # missed vehicles) separately from uncertain_event count, since their
+        # units differ and must NOT be summed. See spot_check.acceptance().
+        "open_impact_by_kind": {k: round(float(imp), 1) for k, _n, imp in kind_rows},
+        "open_impact": round(float(open_impact), 1),
+    }
