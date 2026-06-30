@@ -49,7 +49,7 @@ def _paths_from_json(blob: dict | list) -> list[dict]:
 
 
 def replay(project: str, cam: int, bank: list[dict] | None = None,
-           extra_paths: list[dict] | None = None):
+           extra_paths: list[dict] | None = None, cost_metric: str | None = None):
     db = f"data/projects/{project}/project.db"
     conn = sqlite3.connect(db); ctx = _load_camera_context(conn, cam); conn.close()
     video = ctx["video"]
@@ -59,6 +59,11 @@ def replay(project: str, cam: int, bank: list[dict] | None = None,
     if extra_paths:
         paths = paths + list(extra_paths)
     calib = get_camera_calibration_params(project, cam)
+    # Force the joint-scorer cost metric for EVERY camera, overriding any
+    # per-camera DB pin (e.g. cam3's calib_cost_metric=dtw_mean). Lets the
+    # mdh-vs-dtw_mean sweep isolate the metric; omit to use the live resolution.
+    if cost_metric:
+        calib = {**calib, "cost_metric": cost_metric}
 
     pipe = ProcessingPipeline(
         project_id=project, db_path=db, video_path=video["path"], legs=ctx["legs"],
@@ -127,14 +132,20 @@ def main() -> int:
     ap.add_argument("--bank", default=None, help="bank JSON to use INSTEAD of the DB bank")
     ap.add_argument("--extra-paths", default=None,
                     help="JSON (bank or bare list) of paths to MERGE into the bank")
+    ap.add_argument("--cost-metric", default=None,
+                    choices=("mdh", "dtw_mean", "frechet"),
+                    help="force the joint-scorer cost metric for this camera "
+                         "(overrides any DB per-camera pin); omit for live resolution")
     ap.add_argument("--label", default=None)
     args = ap.parse_args()
     bank = _paths_from_json(json.loads(Path(args.bank).read_text())) if args.bank else None
     extra = _paths_from_json(json.loads(Path(args.extra_paths).read_text())) if args.extra_paths else None
-    pm, nw, ntot = replay(args.project, args.camera, bank=bank, extra_paths=extra)
+    pm, nw, ntot = replay(args.project, args.camera, bank=bank, extra_paths=extra,
+                          cost_metric=args.cost_metric)
     print(f"replay wrote {nw}/{ntot} events")
-    label = args.label or (Path(args.bank).stem if args.bank
-                           else ("merged" if extra else "live-bank"))
+    label = args.label or "+".join(filter(None, [
+        (Path(args.bank).stem if args.bank else ("merged" if extra else "live-bank")),
+        args.cost_metric]))
     report(args.camera, pm, label)
     return 0
 
