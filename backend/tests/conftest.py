@@ -29,6 +29,8 @@ def isolate_projects_dir(tmp_path_factory):
     import backend.routers.intersections  # v3 intersection-card router
     import backend.routers.qa            # Phase 3/4 conservation + spot-count QA
     import backend.routers.flags         # Phase B review flag queue
+    import backend.routers.bank          # Phase 2a GT-free bank build
+    import backend.services.bank_builder  # writes data/projects/<pid>/banks/
 
     backend.database.PROJECTS_DIR = tmp
     backend.routers.projects.PROJECTS_DIR = tmp
@@ -39,6 +41,8 @@ def isolate_projects_dir(tmp_path_factory):
     backend.routers.intersections.PROJECTS_DIR = tmp
     backend.routers.qa.PROJECTS_DIR = tmp
     backend.routers.flags.PROJECTS_DIR = tmp
+    backend.routers.bank.PROJECTS_DIR = tmp
+    backend.services.bank_builder.PROJECTS_DIR = tmp
 
     yield tmp
 
@@ -53,3 +57,5 @@ def isolate_projects_dir(tmp_path_factory):
     backend.routers.intersections.PROJECTS_DIR = original
     backend.routers.qa.PROJECTS_DIR = original
     backend.routers.flags.PROJECTS_DIR = original
+    backend.routers.bank.PROJECTS_DIR = original
+    backend.services.bank_builder.PROJECTS_DIR = original

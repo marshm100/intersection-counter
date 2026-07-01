@@ -92,6 +92,11 @@ def _mean_pairwise_dist(a, b) -> float:
     return sum(math.hypot(p[0]-q[0], p[1]-q[1]) for p, q in zip(a, b)) / len(a)
 
 
+class BankBuildError(Exception):
+    """Raised for operator-actionable build failures (no video / no detection
+    cache) so the app job + the CLI can surface a clear message."""
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--camera", type=int, required=True)
@@ -127,6 +132,36 @@ def main() -> int:
                          "halfw 12 the claim is pure -> clean refit). Per-channel width still "
                          "scopes individual channels; this floors how tight any can be.")
     args = ap.parse_args()
+    try:
+        build_gtfree_bank(
+            camera=args.camera, project=args.project, out=args.out,
+            start_hms=args.start_hms, minutes=args.minutes, variant=args.variant,
+            min_support=args.min_support, min_share=args.min_share, min_path=args.min_path,
+            poly_pts=args.poly_pts, bearing_tol=args.bearing_tol, ambiguity_px=args.ambiguity_px,
+            minor_spread_px=args.minor_spread_px, channels=args.channels,
+            channel_buffer_px=args.channel_buffer_px)
+    except BankBuildError as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    return 0
+
+
+def build_gtfree_bank(*, camera: int, project: str = "97a7849a", out=None,
+                      start_hms: str = "07:00:00", minutes: float = 30.0, variant=None,
+                      min_support: int = 5, min_share: float = 0.01, min_path: float = 80.0,
+                      poly_pts: int = 15, bearing_tol: float = 55.0, ambiguity_px: float = 30.0,
+                      minor_spread_px: float = 40.0, channels=None,
+                      channel_buffer_px: float = 20.0) -> dict:
+    """Build a GT-free path bank from the site's own traffic (Phase 2 productized
+    entry point; the CLI main() is a thin wrapper). Returns
+    {out_path, qa_path, paths, qa, missing_movements}. Raises BankBuildError when
+    the video or its detection cache for the window is missing (operator-actionable)."""
+    from types import SimpleNamespace
+    args = SimpleNamespace(
+        camera=camera, project=project, out=out, start_hms=start_hms, minutes=minutes,
+        variant=variant, min_support=min_support, min_share=min_share, min_path=min_path,
+        poly_pts=poly_pts, bearing_tol=bearing_tol, ambiguity_px=ambiguity_px,
+        minor_spread_px=minor_spread_px, channels=channels, channel_buffer_px=channel_buffer_px)
     cam = args.camera
     project = args.project
     out_path = Path(args.out or f"evaluations/gtfree_bank_cam{cam}.json")
@@ -140,12 +175,11 @@ def main() -> int:
                          "FROM legs WHERE camera_id=?", (cam,)).fetchall()
     c.close()
     if v is None:
-        print(f"!! no video row for camera {cam} in project {project}", file=sys.stderr)
-        return 2
+        raise BankBuildError(f"!! no video row for camera {cam} in project {project}")
     if not v[4]:
-        print(f"!! video for camera {cam} has no recording_start_datetime; set it in the "
-              f"calibration UI (or re-add the video) before building the bank", file=sys.stderr)
-        return 2
+        raise BankBuildError(
+            f"!! video for camera {cam} has no recording_start_datetime; set it in the "
+            f"calibration UI (or re-add the video) before building the bank")
     video_start = datetime.fromisoformat(v[4])
     anchors = {lid: json.loads(oz)[0] for lid, oz, _, _ in leg_rows if oz}
     refh = {lid: rh for lid, _, rh, _ in leg_rows if rh is not None}
@@ -186,10 +220,10 @@ def main() -> int:
     ch, _ = compute_video_content_hash(v[0], file_size_bytes=v[1], total_frames=v[2])
     pq = parquet_path(project, cam, ch, args.variant or DEFAULT_VARIANT)
     if not pq.exists():
-        print(f"!! no detection cache at {pq}\n   process this window once first; the "
-              f"pipeline writes the cache as it detects (~3h for 30min on the iGPU at "
-              f"~1.6fps).", file=sys.stderr)
-        return 2
+        raise BankBuildError(
+            f"!! no detection cache at {pq}\n   process this window once first; the "
+            f"pipeline writes the cache as it detects (~3h for 30min on the iGPU at "
+            f"~1.6fps).")
     t0 = datetime.fromisoformat(f"{video_start.date().isoformat()}T{args.start_hms}")
     f_lo = int((t0 - video_start).total_seconds() * fps)
     f_hi = f_lo + int(args.minutes * 60 * fps)
@@ -622,7 +656,8 @@ def main() -> int:
         for ol, dl, mv in missing_movements:
             print(f"     L{ol}->L{dl} {mv}")
     print(f"\nwrote {out_path} ({len(paths)} paths) + {qa_path}")
-    return 0
+    return {"out_path": str(out_path), "qa_path": str(qa_path), "paths": paths,
+            "qa": qa, "missing_movements": missing_movements}
 
 
 if __name__ == "__main__":
