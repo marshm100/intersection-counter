@@ -96,9 +96,57 @@ def start_build(project_id: str, camera_id: int, *, start_hms: str = "07:00:00",
     with _bank_jobs_lock:
         existing = _bank_jobs.get(key)
         if existing and existing.get("status") == "running":
-            return {"status": "running", "already": True}
-        _bank_jobs[key] = {"status": "running", "camera_id": camera_id,
+            return {"status": "running", "kind": existing.get("kind"), "already": True}
+        _bank_jobs[key] = {"status": "running", "kind": "build", "camera_id": camera_id,
                            "window": f"{start_hms}+{float(minutes):.0f}min", "error": None}
     threading.Thread(target=_run_build, args=(project_id, camera_id, params),
                      daemon=True).start()
-    return {"status": "running", "window": f"{start_hms}+{float(minutes):.0f}min"}
+    return {"status": "running", "kind": "build",
+            "window": f"{start_hms}+{float(minutes):.0f}min"}
+
+
+def _run_apply(project_id: str, camera_id: int, params: dict) -> None:
+    key = (project_id, camera_id)
+    try:
+        if str(_SCRIPTS_DIR) not in sys.path:
+            sys.path.insert(0, str(_SCRIPTS_DIR))
+        from apply_bank import apply_bank_to_db, BankApplyError
+        bank_path = params.pop("bank_path")
+        try:
+            r = apply_bank_to_db(camera=camera_id, project=project_id, bank_path=bank_path,
+                                 apply=True, **params)
+        except BankApplyError as e:
+            with _bank_jobs_lock:
+                _bank_jobs[key].update({"status": "error", "error": str(e), "actionable": True})
+            return
+        with _bank_jobs_lock:
+            _bank_jobs[key].update({
+                "status": "complete",
+                "events_before": r.get("events_before"),
+                "events_after": r.get("events_after"),
+                "backup_path": r.get("backup_path"),
+                "n_paths": r.get("n_paths"),
+            })
+    except Exception as e:
+        with _bank_jobs_lock:
+            _bank_jobs[key].update({"status": "error", "error": str(e),
+                                    "traceback": traceback.format_exc()})
+
+
+def start_apply(project_id: str, camera_id: int, *, bank_path: str,
+                start_hms: str = "07:00:00", minutes: float = 30.0) -> dict:
+    """Kick off a background bank APPLY (retrack the window + swap the camera's
+    events + install the bank paths; project.db is backed up first). One job per
+    camera at a time (build/apply share the registry). DESTRUCTIVE — the caller
+    must have confirmed and checked the bank exists + no processing is active."""
+    key = (project_id, camera_id)
+    with _bank_jobs_lock:
+        existing = _bank_jobs.get(key)
+        if existing and existing.get("status") == "running":
+            return {"status": "running", "kind": existing.get("kind"), "already": True}
+        _bank_jobs[key] = {"status": "running", "kind": "apply", "camera_id": camera_id,
+                           "window": f"{start_hms}+{float(minutes):.0f}min", "error": None}
+    params = {"bank_path": bank_path, "start_hms": start_hms, "minutes": float(minutes)}
+    threading.Thread(target=_run_apply, args=(project_id, camera_id, params),
+                     daemon=True).start()
+    return {"status": "running", "kind": "apply"}

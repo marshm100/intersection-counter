@@ -29,6 +29,11 @@ from hybrid_prototype import retrack
 from scratch import scratch_dir
 
 
+class BankApplyError(Exception):
+    """Raised for operator-actionable apply failures (e.g. missing
+    recording_start_datetime) so the app job + CLI can surface a clear message."""
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--camera", type=int, required=True)
@@ -61,6 +66,39 @@ def main() -> int:
                     help="enable inline ID-switch stitching (coasting-track remap, 1.5)")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
+    try:
+        apply_bank_to_db(
+            camera=args.camera, project=args.project, bank_path=args.bank,
+            start_hms=args.start_hms, minutes=args.minutes, out_db=args.out_db, mode=args.mode,
+            backend=args.backend, variant=args.variant, tracker_kwargs=args.tracker_kwargs,
+            match_thresh=args.match_thresh, nms_iou=args.nms_iou, activation=args.activation,
+            new_track_thresh=args.new_track_thresh, bbox_buffer=args.bbox_buffer,
+            tq_filter=args.tq_filter, stitch=args.stitch, apply=args.apply)
+    except BankApplyError as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    return 0
+
+
+def apply_bank_to_db(*, camera: int, project: str = "97a7849a", bank_path=None,
+                     start_hms: str = "07:00:00", minutes: float = 5.0, out_db=None,
+                     mode: str = "balanced", backend: str = "botsort", variant=None,
+                     tracker_kwargs=None, match_thresh=None, nms_iou=None, activation=None,
+                     new_track_thresh=None, bbox_buffer=None, tq_filter: bool = False,
+                     stitch: bool = False, apply: bool = False) -> dict:
+    """Retrack a window with the given bank and (if apply=True) swap the camera's
+    events + install the bank paths into project.db (Phase 2b productized entry
+    point; the CLI main() is a thin wrapper). apply=False retracks to a side DB
+    only (non-destructive). Returns {events_before, events_after, backup_path,
+    n_paths, side_db, applied}. Raises BankApplyError on operator-actionable
+    failures."""
+    from types import SimpleNamespace
+    args = SimpleNamespace(
+        camera=camera, project=project, bank=bank_path, start_hms=start_hms, minutes=minutes,
+        out_db=out_db, mode=mode, backend=backend, variant=variant, tracker_kwargs=tracker_kwargs,
+        match_thresh=match_thresh, nms_iou=nms_iou, activation=activation,
+        new_track_thresh=new_track_thresh, bbox_buffer=bbox_buffer, tq_filter=tq_filter,
+        stitch=stitch, apply=apply)
     cam = args.camera
     project = args.project
     bank = args.bank or f"evaluations/recal_cam{cam}.json"
@@ -71,9 +109,9 @@ def main() -> int:
     conn = sqlite3.connect(proj_db); ctx = _load_camera_context(conn, cam); conn.close()
     video = ctx["video"]; fps = float(video["fps"])
     if not video.get("recording_start_datetime"):
-        print(f"!! video for camera {cam} has no recording_start_datetime; set it in the "
-              f"calibration UI (or re-add the video) before applying a bank", file=sys.stderr)
-        return 2
+        raise BankApplyError(
+            f"!! video for camera {cam} has no recording_start_datetime; set it in the "
+            f"calibration UI (or re-add the video) before applying a bank")
     video_start = datetime.fromisoformat(video["recording_start_datetime"])
     calib = get_camera_calibration_params(project, cam)
     # Per-run knob overrides for sweeps — injected into the calib dict so they
@@ -109,6 +147,8 @@ def main() -> int:
           f"with bank ({len(sug.get('paths',[]))} paths) -> {out_db}")
     retrack(out_db, args.backend, video, ctx, calib, mode_cfg, sug, s, e, pq, cam, tracker_kwargs=tk, project=project)
 
+    before = after = None
+    backup = None
     if args.apply:
         ts = video_start.strftime("%Y%m%d")
         backup = Path(f"data/projects/{project}/backups/{ts}_pre_cam{cam}_bank.db")
@@ -133,7 +173,10 @@ def main() -> int:
         print(f"[apply] cam{cam} events {before} -> {after}; bank paths applied. Backup {backup}")
     else:
         print(f"(not applied — {out_db}). Measure with: py scripts/od_accuracy.py --camera {cam} --db {out_db}")
-    return 0
+    return {"events_before": before, "events_after": after,
+            "backup_path": str(backup) if backup else None,
+            "n_paths": len(sug.get("paths", [])), "side_db": str(out_db),
+            "applied": bool(args.apply)}
 
 
 if __name__ == "__main__":

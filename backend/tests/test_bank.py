@@ -144,6 +144,66 @@ class TestBuildJob:
             _wait(pid, cid)
 
 
+@pytest.fixture()
+def fake_apply():
+    """Swap in a fake apply_bank so start_apply's worker runs deterministically."""
+    saved = sys.modules.get("apply_bank")
+    mod = types.ModuleType("apply_bank")
+
+    class BankApplyError(Exception):
+        pass
+
+    mod.BankApplyError = BankApplyError
+    sys.modules["apply_bank"] = mod
+    yield mod
+    if saved is not None:
+        sys.modules["apply_bank"] = saved
+    else:
+        sys.modules.pop("apply_bank", None)
+
+
+class TestApplyJob:
+    def test_apply_completes_with_counts(self, bank_project, fake_apply):
+        pid, _iid, cid = bank_project
+        fake_apply.apply_bank_to_db = lambda **kw: {
+            "events_before": 17624, "events_after": 512, "n_paths": 8,
+            "backup_path": "/backups/pre.db", "side_db": "/side.db", "applied": True}
+        bank_builder.start_apply(pid, cid, bank_path="dummy.json", minutes=5)
+        st = _wait(pid, cid)
+        assert st["status"] == "complete" and st["kind"] == "apply"
+        assert st["events_before"] == 17624 and st["events_after"] == 512
+        assert st["n_paths"] == 8 and st["backup_path"] == "/backups/pre.db"
+
+    def test_apply_actionable_error(self, bank_project, fake_apply):
+        pid, _iid, cid = bank_project
+
+        def _boom(**kw):
+            raise fake_apply.BankApplyError("!! no recording_start_datetime")
+
+        fake_apply.apply_bank_to_db = _boom
+        bank_builder.start_apply(pid, cid, bank_path="dummy.json")
+        st = _wait(pid, cid)
+        assert st["status"] == "error" and st["actionable"] is True
+
+
+class TestApplyRouter:
+    def test_apply_without_bank_409(self, bank_project):
+        pid, _iid, cid = bank_project     # no bank file built
+        r = client.post(f"/api/projects/{pid}/cameras/{cid}/bank/apply")
+        assert r.status_code == 409
+        assert "build one first" in r.json()["detail"]
+
+    def test_apply_blocked_while_processing(self, bank_project):
+        from backend.database import set_v3_run_state
+        pid, iid, cid = bank_project
+        # a bank exists, but the intersection is being processed -> refuse
+        (bank_builder.banks_dir(pid) / f"cam{cid}.json").write_text('{"paths": []}')
+        set_v3_run_state(pid, iid, "running")
+        r = client.post(f"/api/projects/{pid}/cameras/{cid}/bank/apply")
+        assert r.status_code == 409
+        assert r.json()["detail"]["processing_status"] == "running"
+
+
 def test_qa_summary_pure():
     result = {"paths": [1, 2], "qa": {"cells": [
         {"status": "admitted"}, {"status": "minor_incoherent_rejected"}],
