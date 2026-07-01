@@ -24,6 +24,75 @@ def _approach_name(cardinal: Optional[str]) -> str:
     return _BOUND_FULL.get(b, b or "Unknown")
 
 
+# Canonical ordering for the Summary sheet columns.
+_APPROACH_ORDER = ["Northbound", "Southbound", "Eastbound", "Westbound",
+                   "Northeastbound", "Northwestbound", "Southeastbound", "Southwestbound"]
+_MV_ORDER = ["L", "T", "R", "U"]
+
+
+def _peak_analysis(tmv: dict, start_hour: int, end_hour: int) -> Optional[dict]:
+    """Peak 1-hour window within [start_hour, end_hour) + per-(approach, movement)
+    class volumes and Peak Hour Factors. `tmv` is keyed
+    (interval_iso, approach, movement, class) -> volume. Returns None when the
+    study window covers no data in the period.
+
+    PHF (standard) = hour volume / (4 * max 15-min volume in the hour); computed
+    per column and for the intersection total. The peak hour is the 1-hour window
+    (rolling 15-min) with the greatest total volume within the specified period."""
+    from datetime import time as _time
+    from collections import defaultdict as _dd
+    bt: dict = _dd(int)                       # bin_dt -> total volume
+    bc: dict = _dd(lambda: _dd(int))          # bin_dt -> {(approach, mv): vol}
+    bcl: dict = _dd(lambda: _dd(int))         # bin_dt -> {(approach, mv, cls): vol}
+    for (iso, approach, mv, cls), v in tmv.items():
+        try:
+            dt = datetime.fromisoformat(iso)
+        except (ValueError, TypeError):
+            continue
+        if not (start_hour <= dt.hour < end_hour):
+            continue
+        bt[dt] += v
+        bc[dt][(approach, mv)] += v
+        bcl[dt][(approach, mv, cls)] += v
+    if not bt:
+        return None
+    day = min(bt).date()
+    last_start = datetime.combine(day, _time(min(end_hour, 23), 0)) - timedelta(hours=1)
+    starts = [datetime.combine(day, _time(h, m))
+              for h in range(start_hour, end_hour) for m in (0, 15, 30, 45)]
+    starts = [s for s in starts if s <= last_start]
+    if not starts:
+        return None
+
+    def _win(s):
+        return [s + timedelta(minutes=15 * k) for k in range(4)]
+
+    def _phf(total, subs):
+        m = max(subs) if subs else 0
+        return round(total / (4 * m), 2) if m else 0.0
+
+    best = max(starts, key=lambda s: sum(bt.get(w, 0) for w in _win(s)))
+    win = _win(best)
+    col_keys = sorted(
+        {k for w in win for k in bc.get(w, {})},
+        key=lambda k: (_APPROACH_ORDER.index(k[0]) if k[0] in _APPROACH_ORDER else 99,
+                       _MV_ORDER.index(k[1]) if k[1] in _MV_ORDER else 99))
+    cols = {}
+    for ck in col_keys:
+        subs = [bc.get(w, {}).get(ck, 0) for w in win]
+        entry = {"Total": sum(subs), "PHF": _phf(sum(subs), subs)}
+        for cls in CLASS_GROUP_ORDER:
+            entry[cls] = sum(bcl.get(w, {}).get((ck[0], ck[1], cls), 0) for w in win)
+        cols[ck] = entry
+    grand_subs = [bt.get(w, 0) for w in win]
+    grand = {"Total": sum(grand_subs), "PHF": _phf(sum(grand_subs), grand_subs)}
+    for cls in CLASS_GROUP_ORDER:
+        grand[cls] = sum(cols[ck][cls] for ck in cols)
+    return {"start": best, "end": best + timedelta(hours=1),
+            "period": (start_hour, end_hour), "col_keys": col_keys,
+            "cols": cols, "grand": grand}
+
+
 def _interval_15(ts_video: float, video_start_time: str) -> str:
     """15-min interval label (Miovision 'YYYY-MM-DD HH:MM:SS') for a video-time
     offset, anchored to the recording start when known."""
@@ -223,6 +292,62 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
             int(evt[9]),
             int(evt[10]),
         ])
+
+    # ---- Summary (Miovision-format peak-hour analysis) + Contents ----
+    date_str = video_start_time[:10] if video_start_time else datetime.now().strftime("%Y-%m-%d")
+    peaks = [("Peak 1 (AM)", _peak_analysis(tmv, 7, 9)),
+             ("Peak 2 (PM)", _peak_analysis(tmv, 16, 18))]
+
+    ws_sum = wb.create_sheet("Summary")
+    ws_sum.append(["Study Name", project_name])
+    ws_sum.append(["Date", date_str])
+    ws_sum.append([])
+    ws_sum.append(["Report Summary - peak-hour turning-movement volumes by class"])
+    ws_sum.cell(row=ws_sum.max_row, column=1).font = Font(bold=True)
+    ws_sum.append([])
+    any_peak = False
+    for label, pk in peaks:
+        if pk is None:
+            continue
+        any_peak = True
+        ws_sum.append([f"{label}: one-hour peak {pk['start'].strftime('%H:%M')}-"
+                       f"{pk['end'].strftime('%H:%M')} (within "
+                       f"{pk['period'][0]:02d}:00-{pk['period'][1]:02d}:00)"])
+        ws_sum.cell(row=ws_sum.max_row, column=1).font = Font(bold=True)
+        header = ["Approach", "Mvt"] + list(CLASS_GROUP_ORDER) + ["Total", "PHF"]
+        ws_sum.append(header)
+        for c in range(1, len(header) + 1):
+            ws_sum.cell(row=ws_sum.max_row, column=c).font = Font(bold=True)
+        for ck in pk["col_keys"]:
+            e = pk["cols"][ck]
+            ws_sum.append([ck[0], ck[1]] + [int(e[cls]) for cls in CLASS_GROUP_ORDER]
+                          + [int(e["Total"]), e["PHF"]])
+        g = pk["grand"]
+        ws_sum.append(["Total", ""] + [int(g[cls]) for cls in CLASS_GROUP_ORDER]
+                      + [int(g["Total"]), g["PHF"]])
+        ws_sum.cell(row=ws_sum.max_row, column=1).font = Font(bold=True)
+        ws_sum.append([])
+    if not any_peak:
+        ws_sum.append(["(No AM/PM peak period is covered by the processed window.)"])
+
+    ws_contents = wb.create_sheet("Contents")
+    ws_contents.append(["Study Name", project_name])
+    ws_contents.append(["Date", date_str])
+    ws_contents.append([])
+    ws_contents.append(["Contents"])
+    ws_contents.cell(row=ws_contents.max_row, column=1).font = Font(bold=True)
+    for name, desc in [
+        ("Summary", "Peak-hour turning-movement volumes by class + Peak Hour Factor"),
+        ("TMV Data", "Per-15-min volumes: Interval / Approach / Movement / Class / Volume"),
+        ("TMC Summary", "Turning-movement totals by leg + Light/Medium/Articulated totals"),
+        ("Time Series", "Total vehicles per interval"),
+        ("Raw Events", "Every counted vehicle event (QA)"),
+    ]:
+        ws_contents.append([name, desc])
+
+    # Order sheets Miovision-style: Contents, Summary, then the rest.
+    _order = ["Contents", "Summary", "TMC Summary", "Time Series", "TMV Data", "Raw Events"]
+    wb._sheets.sort(key=lambda s: _order.index(s.title) if s.title in _order else 99)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(str(output_path))

@@ -9,9 +9,26 @@ from fastapi.testclient import TestClient
 
 from backend.app import app
 from backend.database import get_connection, set_project_info
-from backend.services.excel_export import generate_tmc_excel
+from backend.services.excel_export import generate_tmc_excel, _peak_analysis
 
 client = TestClient(app)
+
+
+def test_peak_analysis_finds_hour_and_phf():
+    """Peak 1-hour window = the highest-volume rolling hour; PHF = hour/(4*max15)."""
+    tmv = {}
+    # 07:00-07:45 heavy+flat (400 total, 100 each -> PHF 1.0); 08:00-08:45 light.
+    for i, m in enumerate((0, 15, 30, 45)):
+        tmv[(f"2026-01-01 07:{m:02d}:00", "Northbound", "T", "Lights")] = 100
+        tmv[(f"2026-01-01 08:{m:02d}:00", "Northbound", "T", "Lights")] = 10
+    pk = _peak_analysis(tmv, 7, 9)
+    assert pk is not None
+    assert pk["start"].strftime("%H:%M") == "07:00"
+    assert pk["grand"]["Total"] == 400
+    assert pk["grand"]["PHF"] == 1.0
+    assert pk["cols"][("Northbound", "T")]["Lights"] == 400
+    # nothing in the PM period -> None
+    assert _peak_analysis(tmv, 16, 18) is None
 
 
 def _create_project(name: str = "export-test") -> str:
@@ -88,7 +105,8 @@ def test_excel_sheet_names():
             generate_tmc_excel(pid, out)
             wb = openpyxl.load_workbook(str(out))
             try:
-                assert wb.sheetnames == ["TMC Summary", "Time Series", "TMV Data", "Raw Events"]
+                assert wb.sheetnames == ["Contents", "Summary", "TMC Summary",
+                                         "Time Series", "TMV Data", "Raw Events"]
             finally:
                 wb.close()
     finally:
