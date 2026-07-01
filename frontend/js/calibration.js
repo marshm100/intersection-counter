@@ -55,6 +55,12 @@
     let _channelsDirty = false;    // unsaved local edits
     let _dragChannel = null;       // { ch, role: entry|apex|exit|win|wout }
 
+    // ---- Phase 2c GT-free bank build/apply panel ----------------------
+    let _bankStatus = null;        // last GET /bank/status ({status, kind, ...})
+    let _bankPollTimer = null;     // poll while a build/apply job runs
+    let _bankBusy = false;         // guard double-submits
+    let _bankWindow = { hms: "07:00:00", min: 30 };  // build window, reused for apply
+
     // ---- Phase 3 suggestion state -------------------------------------
     let _suggestion = null;            // GET /calibration/suggestion result
     let _suggestionPreviewOn = false;  // overlay suggested paths on canvas?
@@ -130,6 +136,12 @@
         _channelsDirty = false;
         _dragChannel = null;
 
+        // Reset the bank panel for this camera (a stale poll from a prior view
+        // is stopped so it never writes into the new camera's panel).
+        _stopBankPoll();
+        _bankStatus = null;
+        _bankBusy = false;
+
         // Fetch auto-cal suggestion (Phase 3).
         _suggestion = null;
         _suggestionPreviewOn = false;
@@ -174,6 +186,7 @@
                     <div id="v3-calib-form" style="display:none;margin-top:12px;"></div>
                     <div id="v3-calib-paths" style="margin-top:20px;"></div>
                     <div id="v3-calib-channels" style="margin-top:20px;"></div>
+                    <div id="v3-calib-bank" style="margin-top:20px;"></div>
                     <div id="v3-calib-params" style="margin-top:20px;"></div>
                     <div style="margin-top:16px;">
                         <button id="v3-calib-save-btn" class="btn-proc btn-start"
@@ -198,6 +211,8 @@
             _renderParamsEditor();
             _renderPathsSection();
             _renderChannelsSection();
+            _renderBankSection();
+            _refreshBankStatus();   // pick up an already-running build/apply job
             _renderSuggestionBanner();
         };
         _img.onerror = () => {
@@ -876,6 +891,7 @@
     window.v3CalibrationBack = function () {
         clearTimeout(_scrubTimer);
         _scrubTimer = null;
+        _stopBankPoll();
         _currentLeg = null;
         _editingIdx = -1;
         _drawingPath = null;
@@ -1769,6 +1785,128 @@
             _suggestion = (sug && sug.status) ? sug : null;
         } catch (e) {}
         _renderSuggestionBanner();
+    };
+
+    // ---- Phase 2c GT-free bank build/apply panel -----------------------
+    // Guided flow: Build (from the site's own traffic) -> review the QA card ->
+    // Apply (retrack + install paths; project.db backed up). Never auto-chained —
+    // the QA card is the human checkpoint (redraw a channel / fix a heading, then
+    // rebuild) the runbook prescribes. Build+apply are the /bank endpoints.
+
+    function _bankUrl(suffix) {
+        return `/api/projects/${_pid}/cameras/${_cid}/bank${suffix}`;
+    }
+
+    function _stopBankPoll() {
+        if (_bankPollTimer) { clearTimeout(_bankPollTimer); _bankPollTimer = null; }
+    }
+
+    async function _refreshBankStatus() {
+        try { _bankStatus = await API.get(_bankUrl("/status")); }
+        catch (e) { _bankStatus = { status: "idle" }; }
+        _renderBankSection();
+        _stopBankPoll();
+        if (_bankStatus && _bankStatus.status === "running") {
+            _bankPollTimer = setTimeout(_refreshBankStatus, 2000);
+        }
+    }
+
+    function _bankBuildForm(label) {
+        return `<div style="display:flex;flex-wrap:wrap;align-items:end;gap:6px;margin-top:8px;">
+            <label style="font-size:12px;">Window start<br>
+                <input id="v3-bank-hms" value="${escapeHtml(_bankWindow.hms)}" style="width:80px;"></label>
+            <label style="font-size:12px;">Minutes<br>
+                <input id="v3-bank-min" type="number" min="1" value="${_bankWindow.min}" style="width:60px;"></label>
+            <button onclick="v3BankBuild()" class="btn-proc btn-start" style="font-size:12px;padding:4px 12px;">
+                ${label || "Build bank"}</button>
+        </div>
+        <p style="font-size:11px;color:#9ca3af;margin:6px 0 0;">
+            Process a sample window first (Processing tab); the build tracks it to learn the movements.</p>`;
+    }
+
+    function _bankQaCard(s) {
+        const q = s.summary || {};
+        const li = (arr, fmt) => (arr || []).map(fmt).join("");
+        const block = (title, arr, fmt, color) =>
+            (arr && arr.length)
+                ? `<div style="margin-top:6px;font-size:12px;"><b style="color:${color};">${title}</b>
+                     <ul style="margin:2px 0 0;padding-left:16px;">${li(arr, fmt)}</ul></div>`
+                : "";
+        return `<div style="border:1px solid #e5e7eb;border-radius:6px;padding:10px;margin-top:8px;background:#f8fafc;">
+            <div style="font-size:13px;"><b>Bank built.</b> ${q.n_paths} paths
+                (${q.n_admitted} admitted, ${q.n_rejected} rejected) from ${q.n_tracks_usable} tracks.</div>
+            ${block("Missing movements — draw a channel", q.missing_movements,
+                m => `<li>${escapeHtml(m.cell)} ${escapeHtml(m.movement)}</li>`, "#b45309")}
+            ${block("Check leg heading / cardinal, then rebuild", q.leg_sanity_warnings,
+                w => `<li>leg ${w.leg_id}: ${escapeHtml(w.verdict)}</li>`, "#b91c1c")}
+            ${block("Straight 'turn' — verify visually", q.straight_turn_warnings,
+                w => `<li>${escapeHtml(w.cell)}</li>`, "#6b7280")}
+            <div style="margin-top:10px;display:flex;gap:6px;">
+                <button onclick="v3BankBuild()" class="btn-secondary" style="font-size:12px;padding:4px 10px;">Rebuild</button>
+                <button onclick="v3BankApply()" class="btn-proc btn-start" style="font-size:12px;padding:4px 12px;">Apply bank</button>
+            </div>
+            <p style="font-size:11px;color:#9ca3af;margin:6px 0 0;">
+                Apply retracks this window with the bank and installs its paths (this camera's counts are
+                replaced; project.db is backed up first). Fix any flags above and Rebuild before applying.</p>
+        </div>`;
+    }
+
+    function _renderBankSection() {
+        const host = document.getElementById("v3-calib-bank");
+        if (!host) return;
+        const s = _bankStatus || { status: "idle" };
+        let body;
+        if (s.status === "running") {
+            body = `<p style="font-size:12px;color:#2563eb;margin-top:8px;">
+                ${s.kind === "apply" ? "Applying bank… (retrack + install paths)" : "Building bank… (tracking the sample window)"}
+                <span style="color:#9ca3af;">${escapeHtml(s.window || "")}</span></p>`;
+        } else if (s.status === "error") {
+            body = `<div style="margin-top:8px;padding:8px;border-radius:4px;background:#fee2e2;color:#b91c1c;font-size:12px;">
+                ${escapeHtml(s.error || "failed")}</div>${_bankBuildForm("Retry build")}`;
+        } else if (s.status === "complete" && s.kind === "build") {
+            body = _bankQaCard(s);
+        } else if (s.status === "complete" && s.kind === "apply") {
+            body = `<div style="margin-top:8px;padding:8px;border-radius:4px;background:#dcfce7;color:#166534;font-size:12px;">
+                ✓ Bank applied — events ${s.events_before}&rarr;${s.events_after}; ${s.n_paths} paths installed.
+                Backup saved. Now process the full window (Processing tab).</div>${_bankBuildForm("Rebuild")}`;
+        } else {
+            body = _bankBuildForm();
+        }
+        host.innerHTML = `<div style="border-top:1px solid #e5e7eb;padding-top:14px;">
+            <h4 style="margin:0 0 4px;font-size:14px;">Path bank</h4>
+            <p style="margin:0 0 4px;font-size:12px;color:#6b7280;">
+                Build a GT-free bank from this camera's own traffic, review the QA, then apply.</p>
+            ${body}</div>`;
+    }
+
+    window.v3BankBuild = async function () {
+        if (_bankBusy) return;
+        _bankBusy = true;
+        try {
+            const hmsEl = document.getElementById("v3-bank-hms");
+            const minEl = document.getElementById("v3-bank-min");
+            if (hmsEl) _bankWindow.hms = hmsEl.value || "07:00:00";
+            if (minEl) _bankWindow.min = parseFloat(minEl.value) || 30;
+            await API.post(_bankUrl("/build"),
+                { start_hms: _bankWindow.hms, minutes: _bankWindow.min });
+            await _refreshBankStatus();
+        } catch (e) {
+            alert("Build failed: " + (e.message || e));
+        } finally { _bankBusy = false; }
+    };
+
+    window.v3BankApply = async function () {
+        if (_bankBusy) return;
+        if (!confirm("Apply the bank? This replaces THIS camera's counts with the bank-retracked "
+                     + "window (project.db is backed up first).")) return;
+        _bankBusy = true;
+        try {
+            await API.post(_bankUrl("/apply"),
+                { start_hms: _bankWindow.hms, minutes: _bankWindow.min });
+            await _refreshBankStatus();
+        } catch (e) {
+            alert("Apply failed: " + (e.message || e));
+        } finally { _bankBusy = false; }
     };
 
     window.v3RenderCalibration = render;
