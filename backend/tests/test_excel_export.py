@@ -10,8 +10,36 @@ from fastapi.testclient import TestClient
 from backend.app import app
 from backend.database import get_connection, set_project_info
 from backend.services.excel_export import generate_tmc_excel, _peak_analysis
+from backend.services.pdf_report import generate_report_pdf
 
 client = TestClient(app)
+
+
+def test_pdf_report_generates():
+    pid = _create_project("pdf-unit")
+    _seed_data(pid)
+    try:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            out = Path(tmpdir) / "report.pdf"
+            generate_report_pdf(pid, out)
+            assert out.exists()
+            with open(out, "rb") as f:
+                assert f.read(5) == b"%PDF-"          # a real PDF
+            assert out.stat().st_size > 1000
+    finally:
+        _delete_project(pid)
+
+
+def test_export_report_pdf_endpoint():
+    pid = _create_project("pdf-api")
+    _seed_data(pid)
+    try:
+        r = client.get(f"/api/projects/{pid}/export/report.pdf")
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "application/pdf"
+        assert r.content[:5] == b"%PDF-"
+    finally:
+        _delete_project(pid)
 
 
 def test_peak_analysis_finds_hour_and_phf():

@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 from backend.database import get_connection, get_all_project_info
 from backend.services.classifier import CLASS_GROUP_ORDER, fhwa_to_class_group
 from backend.services.excel_export import generate_tmc_excel
+from backend.services.pdf_report import generate_report_pdf
 from backend.services.spot_check import export_gate
 
 router = APIRouter()
@@ -114,5 +115,35 @@ def export_download(project_id: str, override: bool = False):
         path=str(output_path),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/projects/{project_id}/export/report.pdf")
+def export_report_pdf(project_id: str, override: bool = False):
+    """Generate and stream the Miovision-style PDF report (letterhead + peak-hour
+    summary + 15-min TMC table). Gated identically to the Excel download."""
+    gate = export_gate(project_id)
+    if gate["blocking"] and not override:
+        raise HTTPException(status_code=409, detail={
+            "message": "Export withheld — the QA gate is not satisfied.",
+            "overall": gate["overall"],
+            "blocking_reasons": gate["blocking_reasons"],
+        })
+
+    info = get_all_project_info(project_id)
+    project_name = info.get("project_name", project_id)
+    date_str = datetime.now().strftime("%Y%m%d")
+    safe_name = "".join(c if c.isalnum() or c in " ._-" else "_" for c in project_name).strip()
+    filename = f"TMC_Report_{safe_name}_{date_str}.pdf"
+    output_path = Path(tempfile.gettempdir()) / filename
+    try:
+        generate_report_pdf(project_id, output_path)
+    except Exception as exc:
+        logger.error("PDF report failed for project %s: %s", project_id, exc)
+        raise HTTPException(status_code=500, detail="PDF report failed. See server logs.") from exc
+
+    return FileResponse(
+        path=str(output_path), media_type="application/pdf", filename=filename,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

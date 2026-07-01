@@ -107,6 +107,77 @@ def _interval_15(ts_video: float, video_start_time: str) -> str:
     return floored.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _load_export_data(project_id: str) -> dict:
+    """Query + aggregate the export data once. Shared by the Excel and PDF
+    exporters (DRY) so a request makes a single 90k-event pass. Returns the TMC
+    matrix, 15-min time series, Miovision TMV aggregation, class totals, and the
+    AM/PM peak-hour analyses."""
+    info = get_all_project_info(project_id)
+    project_name = info.get("project_name", project_id)
+    video_start_time = info.get("video_start_time", "")
+    interval_minutes = max(1, int(info.get("interval_minutes", DEFAULT_INTERVAL_MINUTES)))
+
+    conn = get_connection(project_id)
+    try:
+        legs = conn.execute(
+            "SELECT leg_id, label, cardinal_direction, sort_order FROM legs ORDER BY sort_order"
+        ).fetchall()
+        events = conn.execute(
+            "SELECT event_id, vehicle_track_id, origin_leg_id, movement, vehicle_class, "
+            "fhwa_class, detection_confidence, trajectory_confidence, "
+            "timestamp_video, frame_number, manually_edited "
+            "FROM vehicle_events ORDER BY timestamp_video"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    leg_order = [row[0] for row in legs]
+    leg_labels = {row[0]: row[1] for row in legs}
+    tmc: dict = {}
+    for row in legs:
+        tmc[row[0]] = {"label": row[1], "through": 0, "left": 0, "right": 0, "u_turn": 0, "total": 0}
+    for evt in events:
+        leg_id, movement = evt[2], evt[3]
+        if leg_id not in tmc:
+            tmc[leg_id] = {"label": f"Leg {leg_id}", "through": 0, "left": 0, "right": 0, "u_turn": 0, "total": 0}
+        if movement in ("through", "left", "right", "u_turn"):
+            tmc[leg_id][movement] += 1
+        tmc[leg_id]["total"] += 1
+
+    vehicle_times = [evt[8] for evt in events]
+    time_series = []
+    if vehicle_times:
+        interval_sec = interval_minutes * 60
+        t, max_t = min(vehicle_times), max(vehicle_times)
+        while t <= max_t:
+            end_t = t + interval_sec
+            time_series.append({"label": _format_time(t, video_start_time),
+                                "vehicles": int(sum(1 for ts in vehicle_times if t <= ts < end_t))})
+            t = end_t
+
+    # Miovision-format class-aware long data: (interval, approach, movement, class) -> volume.
+    leg_card = {row[0]: row[2] for row in legs}
+    tmv: dict = defaultdict(int)
+    class_totals = {g: 0 for g in CLASS_GROUP_ORDER}
+    for evt in events:
+        mv = _MV_LETTER.get(evt[3])
+        if mv is None:
+            continue
+        tmv[(_interval_15(evt[8], video_start_time),
+             _approach_name(leg_card.get(evt[2])), mv, fhwa_to_class_group(evt[5]))] += 1
+        class_totals[fhwa_to_class_group(evt[5])] += 1
+
+    date_str = video_start_time[:10] if video_start_time else datetime.now().strftime("%Y-%m-%d")
+    peaks = [("Peak 1 (AM)", _peak_analysis(tmv, 7, 9)),
+             ("Peak 2 (PM)", _peak_analysis(tmv, 16, 18))]
+
+    return {"project_name": project_name, "video_start_time": video_start_time,
+            "interval_minutes": interval_minutes, "legs": legs, "events": events,
+            "leg_order": leg_order, "leg_labels": leg_labels, "tmc": tmc,
+            "time_series": time_series, "tmv": tmv, "class_totals": class_totals,
+            "date_str": date_str, "peaks": peaks}
+
+
 def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
     """
     Queries vehicle_events, builds TMC matrix, writes xlsx.
@@ -118,74 +189,18 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
 
     All cell values are hard-coded integers (int()), no formulas.
     """
-    info = get_all_project_info(project_id)
-    project_name: str = info.get("project_name", project_id)
-    video_start_time: str = info.get("video_start_time", "")
-    interval_minutes: int = max(1, int(info.get("interval_minutes", DEFAULT_INTERVAL_MINUTES)))
-
-    conn = get_connection(project_id)
-    try:
-        legs = conn.execute(
-            "SELECT leg_id, label, cardinal_direction, sort_order FROM legs ORDER BY sort_order"
-        ).fetchall()
-
-        events = conn.execute(
-            "SELECT event_id, vehicle_track_id, origin_leg_id, movement, vehicle_class, "
-            "fhwa_class, detection_confidence, trajectory_confidence, "
-            "timestamp_video, frame_number, manually_edited "
-            "FROM vehicle_events ORDER BY timestamp_video"
-        ).fetchall()
-    finally:
-        conn.close()
-
-    # --- Build TMC matrix ---
-    leg_order = [row[0] for row in legs]
-    leg_labels = {row[0]: row[1] for row in legs}
-
-    tmc: dict = {}
-    for row in legs:
-        tmc[row[0]] = {"label": row[1], "through": 0, "left": 0, "right": 0, "u_turn": 0, "total": 0}
-
-    for evt in events:
-        leg_id = evt[2]
-        movement = evt[3]
-        if leg_id not in tmc:
-            tmc[leg_id] = {"label": f"Leg {leg_id}", "through": 0, "left": 0, "right": 0, "u_turn": 0, "total": 0}
-        if movement in ("through", "left", "right", "u_turn"):
-            tmc[leg_id][movement] += 1
-        tmc[leg_id]["total"] += 1
-
-    # --- Build time series ---
-    vehicle_times = [evt[8] for evt in events]
-
-    time_series = []
-    if vehicle_times:
-        min_t = min(vehicle_times)
-        interval_sec = interval_minutes * 60
-        max_t = max(vehicle_times)
-        t = min_t
-        while t <= max_t:
-            end_t = t + interval_sec
-            veh_count = int(sum(1 for ts in vehicle_times if t <= ts < end_t))
-            label = _format_time(t, video_start_time)
-            time_series.append({"label": label, "vehicles": veh_count})
-            t = end_t
-
-    # --- Build Miovision-format class-aware data (TMV Data sheet) ---
-    # Long format: (interval, approach, movement, class) -> volume, aggregated
-    # from the events already in memory (no extra query). Approach = bound
-    # direction name; class = Miovision Light/Medium/Articulated bucket.
-    leg_card = {row[0]: row[2] for row in legs}    # leg_id -> cardinal (position)
-    tmv: dict = defaultdict(int)
-    class_totals = {g: 0 for g in CLASS_GROUP_ORDER}
-    for evt in events:
-        mv = _MV_LETTER.get(evt[3])
-        if mv is None:                              # skip non-standard movements
-            continue
-        approach = _approach_name(leg_card.get(evt[2]))
-        cls = fhwa_to_class_group(evt[5])
-        tmv[(_interval_15(evt[8], video_start_time), approach, mv, cls)] += 1
-        class_totals[cls] += 1
+    d = _load_export_data(project_id)
+    project_name = d["project_name"]
+    video_start_time = d["video_start_time"]
+    legs = d["legs"]
+    events = d["events"]
+    leg_order = d["leg_order"]
+    tmc = d["tmc"]
+    time_series = d["time_series"]
+    tmv = d["tmv"]
+    class_totals = d["class_totals"]
+    date_str = d["date_str"]
+    peaks = d["peaks"]
 
     # --- Build workbook ---
     wb = openpyxl.Workbook()
@@ -294,10 +309,7 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
         ])
 
     # ---- Summary (Miovision-format peak-hour analysis) + Contents ----
-    date_str = video_start_time[:10] if video_start_time else datetime.now().strftime("%Y-%m-%d")
-    peaks = [("Peak 1 (AM)", _peak_analysis(tmv, 7, 9)),
-             ("Peak 2 (PM)", _peak_analysis(tmv, 16, 18))]
-
+    # date_str + peaks come from _load_export_data (shared with the PDF report).
     ws_sum = wb.create_sheet("Summary")
     ws_sum.append(["Study Name", project_name])
     ws_sum.append(["Date", date_str])

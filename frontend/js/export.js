@@ -139,9 +139,11 @@ async function _loadExportGate(pid) {
             <p class="helper-text" style="margin-top:6px;">Export is withheld until the blocking items above are resolved (or overridden).</p>`;
     } else if (g.overall === 'review') {
         dl.innerHTML = `<button class="btn-proc btn-start" onclick="downloadExcel('${pid}', false)">Download draft (.xlsx)</button>
+            <button class="btn-secondary" style="margin-left:8px;" onclick="downloadPdf('${pid}', false)">Download PDF report</button>
             <p class="helper-text" style="margin-top:6px;">Draft — QA not yet certified (e.g. spot count pending). Clear the QA tab to certify.</p>`;
     } else {
-        dl.innerHTML = `<button class="btn-proc btn-start" onclick="downloadExcel('${pid}', false)">Download Excel (.xlsx)</button>`;
+        dl.innerHTML = `<button class="btn-proc btn-start" onclick="downloadExcel('${pid}', false)">Download Excel (.xlsx)</button>
+            <button class="btn-secondary" style="margin-left:8px;" onclick="downloadPdf('${pid}', false)">Download PDF report</button>`;
     }
 }
 
@@ -152,8 +154,16 @@ function _exportOverride(pid) {
 }
 
 async function downloadExcel(pid, override) {
+    return _download(`/api/projects/${pid}/export/download`, override, `project_${pid}_tmc.xlsx`);
+}
+
+async function downloadPdf(pid, override) {
+    return _download(`/api/projects/${pid}/export/report.pdf`, override, `project_${pid}_tmc_report.pdf`);
+}
+
+async function _download(baseUrl, override, filename) {
     try {
-        const url = `/api/projects/${pid}/export/download${override ? '?override=true' : ''}`;
+        const url = baseUrl + (override ? '?override=true' : '');
         const r = await fetch(url);
         if (r.status === 409) {
             const j = await r.json().catch(() => ({}));
@@ -167,7 +177,7 @@ async function downloadExcel(pid, override) {
         const objUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = objUrl;
-        a.download = `project_${pid}_tmc.xlsx`;
+        a.download = filename;
         a.click();
         setTimeout(() => URL.revokeObjectURL(objUrl), 100);
     } catch (e) {
