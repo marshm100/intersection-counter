@@ -41,6 +41,7 @@ from backend.services.origin_detector import (
     closest_zone, crossing_direction, did_cross_line,
     score_origin_by_polyline, tripwire_from_point,
 )
+from backend.services.posterior import margin_from_json
 from backend.services.preprocessor import AdaptivePreprocessor
 from backend.services.track_filter import track_quality
 from backend.services.tracker import VehicleTracker
@@ -1069,6 +1070,11 @@ class ProcessingPipeline:
             str(lid): round(p, 4)
             for lid, p in dest_result.get("posterior", {}).items()
         }) if dest_result.get("posterior") else None
+        # Precompute the near-tie margin so the review flag feeder can filter on
+        # it in SQL instead of parsing every event's posterior (MASTER_PLAN §3-B).
+        # From the serialised JSON so it is byte-identical to what the feeder
+        # recomputes (else a boundary event could slip the SQL pre-filter).
+        destination_margin = margin_from_json(posterior_json)
 
         self._write_vehicle_event(
             track_id=track_id,
@@ -1096,6 +1102,7 @@ class ProcessingPipeline:
             destination_leg_id=destination_leg_id,
             destination_confidence=dest_result.get("confidence"),
             destination_posterior_json=posterior_json,
+            destination_margin=destination_margin,
         )
 
         self.vehicle_count += 1
@@ -1142,10 +1149,11 @@ class ProcessingPipeline:
                     classifier_num_points,
                     destination_leg_id,
                     destination_confidence,
-                    destination_posterior_json)
+                    destination_posterior_json,
+                    destination_margin)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                            ?, ?, ?, ?, ?,
-                           ?, ?, ?)""",
+                           ?, ?, ?, ?)""",
                 (
                     self.video_id,
                     camera_id,
@@ -1170,6 +1178,7 @@ class ProcessingPipeline:
                     kwargs.get("destination_leg_id"),
                     kwargs.get("destination_confidence"),
                     kwargs.get("destination_posterior_json"),
+                    kwargs.get("destination_margin"),
                 ),
             )
             conn.commit()

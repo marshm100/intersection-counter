@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from backend.config import PROJECTS_DIR
+from backend.services.posterior import margin_from_json
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS project_info (
@@ -194,6 +195,10 @@ CREATE TABLE IF NOT EXISTS vehicle_events (
     destination_leg_id              INTEGER,
     destination_confidence          REAL,
     destination_posterior_json      TEXT,
+    -- Precomputed near-tie margin P(top)-P(2nd) of the posterior (1.0 = peaked),
+    -- so the review flag feeder can filter ambiguous-movement events in SQL
+    -- instead of parsing every posterior in Python. See services/posterior.py.
+    destination_margin              REAL,
     FOREIGN KEY (origin_leg_id) REFERENCES legs(leg_id),
     FOREIGN KEY (video_id) REFERENCES videos(video_id),
     FOREIGN KEY (camera_id) REFERENCES cameras(camera_id),
@@ -312,6 +317,13 @@ CREATE INDEX IF NOT EXISTS idx_events_cardinal_v ON vehicle_events(camera_id, re
 -- the earlier 2-col idx_events_origin_movement (dropped).
 DROP INDEX IF EXISTS idx_events_origin_movement;
 CREATE INDEX IF NOT EXISTS idx_events_tmv ON vehicle_events(origin_leg_id, movement, fhwa_class);
+-- feed_uncertain_events seeks only the events that could trip a standalone flag
+-- (low detection confidence OR small destination margin), within the active,
+-- non-edited set. The precomputed destination_margin lets that filter run on the
+-- index (no per-event posterior parse, no 30k-row Python materialize); the OR is
+-- evaluated index-only within each camera's (rejected=0, manually_edited=0)
+-- partition, and only the few candidates read their full rows.
+CREATE INDEX IF NOT EXISTS idx_events_uncertain ON vehicle_events(camera_id, rejected, manually_edited, detection_confidence, destination_margin);
 CREATE INDEX IF NOT EXISTS idx_paths_camera  ON intersection_paths(camera_id);
 CREATE INDEX IF NOT EXISTS idx_flags_isect_status ON review_flags(intersection_id, status);
 CREATE INDEX IF NOT EXISTS idx_flags_event        ON review_flags(event_id);
@@ -328,6 +340,22 @@ def get_project_dir(project_id: str) -> Path:
 def get_db_path(project_id: str) -> Path:
     """Return the path to a project's SQLite database."""
     return get_project_dir(project_id) / "project.db"
+
+
+def _backfill_destination_margin(conn: sqlite3.Connection) -> None:
+    """Populate destination_margin for events that lack it. On the initial
+    migration this is every legacy event (one-time; heavy on the OneDrive DB but
+    bounded); in steady state it is zero, because the pipeline sets the margin at
+    write time. Targets only NULL rows so a stray writer that forgot the column
+    triggers a cheap incremental fix, not a full re-scan."""
+    rows = conn.execute(
+        "SELECT event_id, destination_posterior_json FROM vehicle_events "
+        "WHERE destination_margin IS NULL").fetchall()
+    if not rows:
+        return
+    conn.executemany(
+        "UPDATE vehicle_events SET destination_margin = ? WHERE event_id = ?",
+        [(margin_from_json(pj), eid) for eid, pj in rows])
 
 
 def get_connection(project_id: str) -> sqlite3.Connection:
@@ -377,6 +405,17 @@ def get_connection(project_id: str) -> sqlite3.Connection:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_confidence REAL")
     if "destination_posterior_json" not in ev_cols:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_posterior_json TEXT")
+    if "destination_margin" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_margin REAL")
+    # One-time backfill, guarded by an O(1) sentinel — the NULL-margin probe is a
+    # full scan, so we must NOT run it on every connection. New events get their
+    # margin at write time; any stray NULL is still caught by the feeder's
+    # `destination_margin IS NULL` net, so a single backfill is sufficient.
+    if conn.execute("SELECT value FROM project_info WHERE key = "
+                    "'destination_margin_backfilled'").fetchone() is None:
+        _backfill_destination_margin(conn)
+        conn.execute("INSERT OR REPLACE INTO project_info (key, value) "
+                     "VALUES ('destination_margin_backfilled', '1')")
 
     # Detection cache (Attribution v2 / Step 1): a stable content hash per video
     # keys the per-(camera, hash) Parquet detection cache. Nullable; computed

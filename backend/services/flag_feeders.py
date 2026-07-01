@@ -99,14 +99,23 @@ def feed_uncertain_events(project_id: str, intersection_id: int) -> list[dict]:
                 for r in conn.execute(
                     f"SELECT leg_id, cardinal_direction, label FROM legs "
                     f"WHERE camera_id IN ({ph})", cams).fetchall()}
+        # Only events that could trip a STANDALONE trigger — low detection
+        # confidence OR a small destination margin — can produce a flag, so seek
+        # just those via idx_events_uncertain instead of materialising every
+        # event and parsing its posterior in Python (30k rows -> a few hundred on
+        # the OneDrive DB). destination_margin is precomputed at write time from
+        # the same JSON _posterior_top2 parses, so the pre-filter is exact; the
+        # IS NULL branch is a correctness net for any un-backfilled/legacy row.
         rows = conn.execute(
             f"SELECT event_id, camera_id, origin_leg_id, movement, detection_confidence, "
             f"trajectory_confidence, destination_confidence, destination_posterior_json, "
             f"vehicle_class, timestamp_video FROM vehicle_events "
             f"WHERE camera_id IN ({ph}) AND rejected = 0 AND manually_edited = 0 "
+            f"AND (detection_confidence < ? OR destination_margin < ? "
+            f"     OR destination_margin IS NULL) "
             f"AND event_id NOT IN (SELECT event_id FROM review_flags "
             f"  WHERE event_id IS NOT NULL AND status IN ('accepted','dismissed','resolved'))",
-            cams).fetchall()
+            (*cams, DET_CONF_FLOOR, DEST_MARGIN_FLOOR)).fetchall()
     finally:
         conn.close()
 
