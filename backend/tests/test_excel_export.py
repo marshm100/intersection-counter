@@ -88,7 +88,7 @@ def test_excel_sheet_names():
             generate_tmc_excel(pid, out)
             wb = openpyxl.load_workbook(str(out))
             try:
-                assert wb.sheetnames == ["TMC Summary", "Time Series", "Raw Events"]
+                assert wb.sheetnames == ["TMC Summary", "Time Series", "TMV Data", "Raw Events"]
             finally:
                 wb.close()
     finally:
@@ -173,6 +173,33 @@ def test_excel_tmc_counts_correct():
         _delete_project(pid)
 
 
+def test_excel_tmv_data_sheet_class_aware():
+    """The Miovision-format TMV Data sheet: Interval|Approach|Movement|Class|Volume,
+    with the truck (fhwa 9) bucketed Articulated and a bound-direction approach."""
+    pid = _create_project("excel-tmv")
+    _seed_data(pid)
+    try:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            out = Path(tmpdir) / "tmc.xlsx"
+            generate_tmc_excel(pid, out)
+            wb = openpyxl.load_workbook(str(out))
+            try:
+                ws = wb["TMV Data"]
+                rows = list(ws.iter_rows(values_only=True))
+                assert rows[0] == ("Interval", "Approach", "Movement", "Class", "Volume")
+                body = rows[1:]
+                classes = {r[3] for r in body}
+                assert "Lights" in classes and "Articulated Trucks" in classes
+                # the fhwa=9 truck was a North-leg (position N -> Southbound) right turn
+                artic = [r for r in body if r[3] == "Articulated Trucks"]
+                assert artic and artic[0][1] == "Southbound" and artic[0][2] == "R"
+                assert sum(r[4] for r in body) == 5     # all 5 events represented
+            finally:
+                wb.close()
+    finally:
+        _delete_project(pid)
+
+
 def test_excel_no_events_still_creates_file():
     pid = _create_project("excel-empty")
     try:
@@ -204,6 +231,8 @@ def test_export_preview_endpoint():
         assert "total_vehicles" in data
         assert data["total_vehicles"] == 5
         assert data["leg_count"] == 2
+        # L/M/A class summary (Miovision parity): 4 unclassified->Lights, 1 fhwa9->Articulated
+        assert data["class_summary"] == {"Lights": 4, "Mediums": 0, "Articulated Trucks": 1}
     finally:
         _delete_project(pid)
 

@@ -30,6 +30,15 @@ async function loadExportPage() {
     html += ` &middot; ${data.total_vehicles} vehicles`;
     html += '</div>';
 
+    // Vehicle-class breakdown (Light/Medium/Articulated) — Miovision parity.
+    if (data.class_summary) {
+        const cs = data.class_summary;
+        html += `<div style="margin-bottom:16px;font-size:13px;color:#374151;">
+            <b>Classes:</b> Lights ${(cs.Lights || 0).toLocaleString()}
+            &middot; Mediums ${(cs.Mediums || 0).toLocaleString()}
+            &middot; Articulated ${(cs['Articulated Trucks'] || 0).toLocaleString()}</div>`;
+    }
+
     // Export-readiness gate (filled async by _loadExportGate — runs the QA
     // acceptance gate across intersections, which can take a few seconds).
     html += '<div id="export-gate" style="margin-bottom:16px;">'

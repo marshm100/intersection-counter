@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 logger = logging.getLogger(__name__)
 
 from backend.database import get_connection, get_all_project_info
+from backend.services.classifier import CLASS_GROUP_ORDER, fhwa_to_class_group
 from backend.services.excel_export import generate_tmc_excel
 from backend.services.spot_check import export_gate
 
@@ -39,8 +40,8 @@ def export_preview(project_id: str):
         # grouped query returns a few dozen (origin_leg, movement) cells. Same
         # counting set as before (all events, no rejected filter).
         counts = conn.execute(
-            "SELECT origin_leg_id, movement, COUNT(*) FROM vehicle_events "
-            "GROUP BY origin_leg_id, movement"
+            "SELECT origin_leg_id, movement, fhwa_class, COUNT(*) FROM vehicle_events "
+            "GROUP BY origin_leg_id, movement, fhwa_class"
         ).fetchall()
     finally:
         conn.close()
@@ -49,7 +50,8 @@ def export_preview(project_id: str):
     for row in legs:
         tmc[row[0]] = {"leg_id": row[0], "label": row[1], "through": 0, "left": 0, "right": 0, "u_turn": 0, "other": 0, "total": 0}
 
-    for origin_leg_id, movement, n in counts:
+    class_summary = {g: 0 for g in CLASS_GROUP_ORDER}   # Light/Medium/Articulated (Miovision parity)
+    for origin_leg_id, movement, fhwa_class, n in counts:
         if origin_leg_id not in tmc:
             tmc[origin_leg_id] = {
                 "leg_id": origin_leg_id,
@@ -61,6 +63,7 @@ def export_preview(project_id: str):
         else:
             tmc[origin_leg_id]["other"] += n
         tmc[origin_leg_id]["total"] += n
+        class_summary[fhwa_to_class_group(fhwa_class)] += n
 
     matrix = sorted(tmc.values(), key=lambda x: next(
         (r[3] for r in legs if r[0] == x["leg_id"]), 999
@@ -72,6 +75,7 @@ def export_preview(project_id: str):
         "tmc_matrix": matrix,
         "total_vehicles": int(sum(v["total"] for v in tmc.values())),
         "leg_count": int(len(legs)),
+        "class_summary": {g: int(class_summary[g]) for g in CLASS_GROUP_ORDER},
     }
 
 

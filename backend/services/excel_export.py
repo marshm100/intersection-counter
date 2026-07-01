@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -8,6 +9,33 @@ from openpyxl.styles import Font
 
 from backend.database import get_connection, get_all_project_info
 from backend.config import DEFAULT_INTERVAL_MINUTES
+from backend.services.cardinals import bound_approach
+from backend.services.classifier import CLASS_GROUP_ORDER, fhwa_to_class_group
+
+# Miovision-format helpers: approach = full bound-direction name; movement letter.
+_BOUND_FULL = {"N": "Northbound", "S": "Southbound", "E": "Eastbound", "W": "Westbound",
+               "NE": "Northeastbound", "NW": "Northwestbound",
+               "SE": "Southeastbound", "SW": "Southwestbound"}
+_MV_LETTER = {"through": "T", "left": "L", "right": "R", "u_turn": "U"}
+
+
+def _approach_name(cardinal: Optional[str]) -> str:
+    b = bound_approach(cardinal)
+    return _BOUND_FULL.get(b, b or "Unknown")
+
+
+def _interval_15(ts_video: float, video_start_time: str) -> str:
+    """15-min interval label (Miovision 'YYYY-MM-DD HH:MM:SS') for a video-time
+    offset, anchored to the recording start when known."""
+    try:
+        base = datetime.fromisoformat(video_start_time) if video_start_time else None
+    except (ValueError, TypeError):
+        base = None
+    if base is None:
+        base = datetime(2000, 1, 1)
+    dt = base + timedelta(seconds=float(ts_video or 0))
+    floored = dt.replace(minute=(dt.minute // 15) * 15, second=0, microsecond=0)
+    return floored.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
@@ -74,6 +102,22 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
             time_series.append({"label": label, "vehicles": veh_count})
             t = end_t
 
+    # --- Build Miovision-format class-aware data (TMV Data sheet) ---
+    # Long format: (interval, approach, movement, class) -> volume, aggregated
+    # from the events already in memory (no extra query). Approach = bound
+    # direction name; class = Miovision Light/Medium/Articulated bucket.
+    leg_card = {row[0]: row[2] for row in legs}    # leg_id -> cardinal (position)
+    tmv: dict = defaultdict(int)
+    class_totals = {g: 0 for g in CLASS_GROUP_ORDER}
+    for evt in events:
+        mv = _MV_LETTER.get(evt[3])
+        if mv is None:                              # skip non-standard movements
+            continue
+        approach = _approach_name(leg_card.get(evt[2]))
+        cls = fhwa_to_class_group(evt[5])
+        tmv[(_interval_15(evt[8], video_start_time), approach, mv, cls)] += 1
+        class_totals[cls] += 1
+
     # --- Build workbook ---
     wb = openpyxl.Workbook()
 
@@ -130,6 +174,13 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
     for col in range(1, 7):
         ws1.cell(row=totals_idx, column=col).font = Font(bold=True)
 
+    # Vehicle-class (Light/Medium/Articulated) totals — Miovision parity.
+    ws1.append([])
+    ws1.append(["Vehicle Classes"])
+    ws1.cell(row=ws1.max_row, column=1).font = Font(bold=True)
+    for g in CLASS_GROUP_ORDER:
+        ws1.append([g, int(class_totals[g])])
+
     # ---- Sheet 2: Time Series ----
     ws2 = wb.create_sheet("Time Series")
     ws2.append(["Time", "Vehicles"])
@@ -138,7 +189,17 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
     for row in time_series:
         ws2.append([row["label"], int(row["vehicles"])])
 
-    # ---- Sheet 3: Raw Events ----
+    # ---- Sheet 3: TMV Data (Miovision long format) ----
+    ws_tmv = wb.create_sheet("TMV Data")
+    tmv_headers = ["Interval", "Approach", "Movement", "Class", "Volume"]
+    ws_tmv.append(tmv_headers)
+    for col in range(1, len(tmv_headers) + 1):
+        ws_tmv.cell(row=1, column=col).font = Font(bold=True)
+    for key in sorted(tmv):
+        interval, approach, mv, cls = key
+        ws_tmv.append([interval, approach, mv, cls, int(tmv[key])])
+
+    # ---- Sheet 4: Raw Events ----
     ws3 = wb.create_sheet("Raw Events")
     raw_headers = [
         "event_id", "vehicle_track_id", "origin_leg_id", "movement", "vehicle_class",

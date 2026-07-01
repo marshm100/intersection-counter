@@ -48,6 +48,27 @@ FHWA_CLASS_NAMES: dict[int, str] = {
 }
 
 
+# FHWA class → Miovision report class group. Miovision's deliverable buckets
+# vehicles as Lights / Mediums / Articulated Trucks:
+#   Lights            = FHWA 1–3  (motorcycles, cars, other 2-axle 4-tire)
+#   Mediums           = FHWA 4–7  (buses + single-unit trucks)
+#   Articulated Trucks = FHWA 8–13 (single- + multi-trailer trucks)
+# NOTE: the current classifier only emits FHWA 9 within the Articulated band (the
+# bbox multi-unit heuristic under-calls articulated) — that classification gap is
+# §3-D, tracked separately; this mapping is exact and works once §3-D lands.
+CLASS_GROUP_ORDER = ["Lights", "Mediums", "Articulated Trucks"]
+
+
+def fhwa_to_class_group(fhwa_class: int | None) -> str:
+    """Map an FHWA class (1–13) to Miovision's Light/Medium/Articulated bucket.
+    None (unclassified) falls into Lights (the dominant, lowest-impact bucket)."""
+    if fhwa_class is None or fhwa_class <= 3:
+        return "Lights"
+    if fhwa_class <= 7:
+        return "Mediums"
+    return "Articulated Trucks"
+
+
 def classify_vehicle(
     yolo_class_id: int,
     bbox_width: float,
