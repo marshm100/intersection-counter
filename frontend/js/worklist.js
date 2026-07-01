@@ -39,10 +39,25 @@ async function loadWorklistPage() {
     _wlIid = _wlIid || AppState.currentIntersectionId;
     if (!_wlPid || !_wlIid) { showPage('page-setup'); return; }
     const sec = document.getElementById('page-worklist');
-    sec.innerHTML = `<p class="empty-message">Finding flags…</p>`;
+    sec.innerHTML = `<p class="empty-message">Loading review queue…</p>`;
+    // Load the EXISTING flags immediately — do NOT rebuild on every open. Rebuild
+    // scans the whole run (uncertain-event feeder + coverage/conservation) and is
+    // slow on a large intersection, so it's an explicit action (_wlRebuild), not a
+    // blocking await that hangs the worklist open.
+    _wlBindKeys();
+    _wlPos = 0;
+    await _wlRefreshList();
+    await _wlShow();
+}
+
+async function _wlRebuild() {
+    const sec = document.getElementById('page-worklist');
+    if (sec) sec.innerHTML = `<p class="empty-message">Rebuilding the review queue…
+        (scans the run for uncertain events + coverage gaps; can take a minute on a
+        large intersection)</p>`;
     try {
         await API.post(`/api/projects/${_wlPid}/intersections/${_wlIid}/flags/rebuild`, {});
-    } catch (e) { /* stale-but-present queue is still workable */ }
+    } catch (e) { alert('Rebuild failed: ' + (e.message || e)); }
     _wlBindKeys();
     _wlPos = 0;
     await _wlRefreshList();
@@ -120,8 +135,8 @@ function _wlMainHtml() {
         return `<div style="padding:24px;border:1px solid #e5e7eb;border-radius:8px;text-align:center;">
             <div style="font-size:18px;font-weight:700;color:${ready ? '#16a34a' : '#b45309'};">
                 ${ready ? '✓ Queue clear — ready to export' : 'Queue clear'}</div>
-            <p class="helper-text">No open flags. ${ready ? '' : 'Check the QA gate below before exporting.'}</p>
-            <button class="btn-secondary" onclick="loadWorklistPage()">Re-scan</button>
+            <p class="helper-text">No open flags. ${ready ? '' : 'Rebuild the queue to (re)scan the run, or check the QA gate below.'}</p>
+            <button class="btn-secondary" onclick="_wlRebuild()">Rebuild queue</button>
         </div>`;
     }
     const f = _wlFlag;
@@ -227,7 +242,7 @@ function _wlSideHtml() {
         <div>Est. missed (gaps): <b>${Math.round(gapImpact)}</b></div>
         <div>Uncertain to confirm: <b>${uncertain}</b></div>
         ${gate}
-        <button class="btn-secondary" style="margin-top:10px;" onclick="loadWorklistPage()">Re-scan queue</button>
+        <button class="btn-secondary" style="margin-top:10px;" onclick="_wlRebuild()">Rebuild queue</button>
         <p class="helper-text" style="margin-top:10px;">Keys: Enter accept · 1–4 movement · Del reject ·
             A add-missed · D dismiss · → skip</p>
     </div>`;

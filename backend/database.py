@@ -1714,6 +1714,40 @@ def insert_flag(
         conn.close()
 
 
+def insert_flags(project_id: str, intersection_id: int, flags: list[dict]) -> int:
+    """Batch-insert review flags in ONE transaction. rebuild_flags inserts
+    hundreds at once; per-flag insert_flag() opens + commits + closes a connection
+    each time, and on the OneDrive-backed DB each commit is a slow fsync/sync
+    (533 flags took ~16 min). One connection + executemany + one commit collapses
+    that to a single sync. Each dict uses the insert_flag(...) keyword names (minus
+    project_id/intersection_id). Returns the number inserted."""
+    if not flags:
+        return 0
+    now = datetime.now(timezone.utc).isoformat()
+    rows = []
+    for f in flags:
+        ev = f.get("evidence")
+        rows.append((
+            intersection_id, f.get("camera_id"), f["kind"], f["subtype"], f.get("event_id"),
+            f.get("interval_start_seconds"), f.get("interval_end_seconds"),
+            f.get("approach"), f.get("movement"), float(f.get("impact", 1.0)),
+            f.get("reason", ""), json.dumps(ev) if ev is not None else None,
+            f.get("batch_key"), f.get("status", "open"), now))
+    conn = get_connection(project_id)
+    try:
+        conn.executemany(
+            """INSERT INTO review_flags
+               (intersection_id, camera_id, kind, subtype, event_id,
+                interval_start_seconds, interval_end_seconds, approach, movement,
+                impact, reason, evidence_json, batch_key, status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            rows)
+        conn.commit()
+        return len(rows)
+    finally:
+        conn.close()
+
+
 def list_flags(
     project_id: str,
     intersection_id: int,

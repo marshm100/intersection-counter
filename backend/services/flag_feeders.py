@@ -28,7 +28,7 @@ import json
 import sqlite3
 
 from backend.database import (
-    clear_open_flags, flag_summary, get_connection, insert_flag,
+    clear_open_flags, flag_summary, get_connection, insert_flags,
 )
 from backend.services import coverage_qa
 from backend.services.cardinals import bound_approach
@@ -206,7 +206,6 @@ def rebuild_flags(project_id: str, intersection_id: int) -> dict:
     flags: list[dict] = []
     flags += feed_uncertain_events(project_id, intersection_id)
     flags += feed_suspected_gaps(project_id, intersection_id)
-    for f in flags:
-        insert_flag(project_id, intersection_id=intersection_id, **f)
+    insert_flags(project_id, intersection_id, flags)   # one transaction, not N commits
     summary = flag_summary(project_id, intersection_id)
     return {"created": len(flags), **summary}
