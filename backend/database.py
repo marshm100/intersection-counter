@@ -300,6 +300,10 @@ CREATE INDEX IF NOT EXISTS idx_events_trim   ON vehicle_events(trim_id);
 -- (~26s/intersection cold); this index makes the grouped query index-only
 -- (USING COVERING INDEX), cutting the export/QA gate from ~100s to seconds.
 CREATE INDEX IF NOT EXISTS idx_events_cardinal ON vehicle_events(camera_id, rejected, destination_leg_id, origin_leg_id, timestamp_video);
+-- Covering index for the export/preview TMC aggregation
+-- (GROUP BY origin_leg_id, movement). Without it a full-table scan drags in every
+-- row's large trajectory_data blob (~50s cold on the OneDrive DB); index-only here.
+CREATE INDEX IF NOT EXISTS idx_events_origin_movement ON vehicle_events(origin_leg_id, movement);
 CREATE INDEX IF NOT EXISTS idx_paths_camera  ON intersection_paths(camera_id);
 CREATE INDEX IF NOT EXISTS idx_flags_isect_status ON review_flags(intersection_id, status);
 CREATE INDEX IF NOT EXISTS idx_flags_event        ON review_flags(event_id);
