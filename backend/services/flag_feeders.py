@@ -190,7 +190,7 @@ def feed_suspected_gaps(project_id: str, intersection_id: int) -> list[dict]:
     spot-count's job). Returns insert_flag(**f) dicts for THIS intersection.
     """
     flags: list[dict] = []
-    for f in coverage_qa.interval_corridor_gaps(project_id):
+    for f in coverage_qa.interval_corridor_gaps(project_id, target_id=intersection_id):
         if f.pop("_intersection_id", None) == intersection_id:
             flags.append(f)
     for f in coverage_qa.interval_anomalies(project_id, intersection_id):

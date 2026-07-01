@@ -54,10 +54,6 @@ def _wall(rec_iso: str, tsv: float) -> float | None:
         return None
 
 
-def _bin(x: float, bin_seconds: int) -> int:
-    return int(x // bin_seconds) * bin_seconds
-
-
 def _binned_io(conn: sqlite3.Connection, intersection_id: int,
                bin_seconds: int) -> dict | None:
     """Per-wall-clock-bin directional IN/OUT totals for an intersection.
@@ -65,7 +61,15 @@ def _binned_io(conn: sqlite3.Connection, intersection_id: int,
     Returns {"bins": {bin_start: {"in": {card:n}, "out": {card:n}}},
              "cam_id": <primary camera>, "rec_offset": <wall offset of that cam>}
     or None when no event carries a recording_start_datetime (S1 cannot align
-    two intersections in wall-clock without it — we degrade by skipping)."""
+    two intersections in wall-clock without it — we degrade by skipping).
+
+    Aggregated IN SQL: the project DB lives on a OneDrive-synced path where a
+    per-event Python materialize of ~30k rows/intersection is pathologically slow
+    (~28s/17k rows), which made a single flag rebuild fetch the whole corridor and
+    hang for minutes. A GROUP BY returns a few hundred (bin, origin, dest) rows
+    and stays index-only via idx_events_cardinal_v (which includes video_id). The
+    900s wall-clock bin is computed in SQL — julianday reproduces Python's
+    datetime binning exactly (validated: 0 bin mismatches on the corridor)."""
     cams = [r[0] for r in conn.execute(
         "SELECT camera_id FROM cameras WHERE intersection_id = ? ORDER BY sort_order, camera_id",
         (intersection_id,)).fetchall()]
@@ -75,31 +79,54 @@ def _binned_io(conn: sqlite3.Connection, intersection_id: int,
     card = {lid: (cd or "").upper() for lid, cd in conn.execute(
         f"SELECT leg_id, cardinal_direction FROM legs WHERE camera_id IN ({ph})",
         cams).fetchall()}
+    # wall bin = floor((recording_start - _REF + timestamp_video) / bin) * bin,
+    # computed in SQL; for positive wall times CAST(...AS INTEGER) == floor.
+    # strftime('%s') gives INTEGER Unix seconds, matching Python's exact
+    # (datetime - _REF).total_seconds() — julianday()*86400 carries ~1e-5s of
+    # float error that would flip boundary-exact events into the adjacent bin.
     rows = conn.execute(
-        f"SELECT e.origin_leg_id, e.destination_leg_id, e.timestamp_video, "
-        f"e.camera_id, v.recording_start_datetime "
+        f"SELECT e.origin_leg_id, e.destination_leg_id, "
+        f"CAST(((CAST(strftime('%s', v.recording_start_datetime) AS INTEGER) "
+        f"      - CAST(strftime('%s', '2000-01-01') AS INTEGER)) "
+        f"      + e.timestamp_video) / ? AS INTEGER) * ? AS wbin, "
+        f"COUNT(*) "
         f"FROM vehicle_events e JOIN videos v ON v.video_id = e.video_id "
         f"WHERE e.camera_id IN ({ph}) AND e.rejected = 0 "
-        f"AND e.destination_leg_id IS NOT NULL", cams).fetchall()
+        f"AND e.destination_leg_id IS NOT NULL "
+        f"AND e.timestamp_video IS NOT NULL "
+        f"AND v.recording_start_datetime IS NOT NULL "
+        f"GROUP BY e.origin_leg_id, e.destination_leg_id, wbin",
+        (bin_seconds, bin_seconds, *cams)).fetchall()
 
     bins: dict[int, dict] = {}
-    cam_offset: dict[int, float] = {}
-    for ol, dl, tsv, cam_id, rec in rows:
-        w = _wall(rec, tsv)
-        if w is None:
+    for ol, dl, wbin, n in rows:
+        if wbin is None:                          # unparseable recording_start
             continue
-        if cam_id not in cam_offset:
-            off = _wall(rec, 0.0)
-            if off is not None:
-                cam_offset[cam_id] = off
-        b = _bin(w, bin_seconds)
-        slot = bins.setdefault(b, {"in": defaultdict(int), "out": defaultdict(int)})
+        slot = bins.setdefault(int(wbin), {"in": defaultdict(int), "out": defaultdict(int)})
         a, d = card.get(ol), card.get(dl)
         if a:
-            slot["in"][a] += 1
+            slot["in"][a] += n
         if d:
-            slot["out"][d] += 1
-    if not bins or not cam_offset:
+            slot["out"][d] += n
+    if not bins:
+        return None
+    # Per-camera wall offset (of the earliest video), for cams that have events —
+    # used only to point the review clip at the flagged interval.
+    ev_cams = {r[0] for r in conn.execute(
+        f"SELECT DISTINCT camera_id FROM vehicle_events "
+        f"WHERE camera_id IN ({ph}) AND rejected = 0 "
+        f"AND destination_leg_id IS NOT NULL", cams).fetchall()}
+    min_rec = {cam: rec for cam, rec in conn.execute(
+        f"SELECT camera_id, MIN(recording_start_datetime) FROM videos "
+        f"WHERE camera_id IN ({ph}) AND recording_start_datetime IS NOT NULL "
+        f"GROUP BY camera_id", cams).fetchall()}
+    cam_offset: dict[int, float] = {}
+    for cam in cams:                              # sort_order -> deterministic primary
+        if cam in ev_cams and cam in min_rec:
+            off = _wall(min_rec[cam], 0.0)
+            if off is not None:
+                cam_offset[cam] = off
+    if not cam_offset:
         return None
     primary = cams[0] if cams[0] in cam_offset else next(iter(cam_offset))
     return {"iid": intersection_id, "bins": bins, "cam_id": primary,
@@ -110,7 +137,8 @@ CORRIDOR_BIN_DEFICIT_FLOOR = 15   # ignore per-bin deficits below this (alignmen
 
 
 def interval_corridor_gaps(project_id: str, ordered_ids: list[int] | None = None,
-                           axis: str = "NS", bin_seconds: int = BIN_SECONDS) -> list[dict]:
+                           axis: str = "NS", bin_seconds: int = BIN_SECONDS,
+                           target_id: int | None = None) -> list[dict]:
     """S1 — LOCALIZE confirmed corridor under-counts to their worst bins.
 
     Per-bin comparison alone cries wolf: at 15-min granularity, inter-camera
@@ -123,13 +151,21 @@ def interval_corridor_gaps(project_id: str, ordered_ids: list[int] | None = None
     link emits nothing — its per-bin wobble nets to zero over the window.
 
     Returns flag dicts tagged with `_intersection_id` (the under-counting end),
-    which feed_suspected_gaps strips after filtering to its intersection."""
+    which feed_suspected_gaps strips after filtering to its intersection.
+
+    `target_id` restricts the scan to that intersection and its two corridor
+    neighbours — the only pairs that can produce a flag FOR it — so a single-
+    intersection rebuild never binned-IO-fetches the whole corridor (the caller
+    filters to target_id anyway; the kept flags are identical)."""
     conn = get_connection(project_id)
     try:
         if ordered_ids is None:
             ordered_ids = [r[0] for r in conn.execute(
                 "SELECT intersection_id FROM intersections "
                 "ORDER BY sort_order, intersection_id").fetchall()]
+        if target_id is not None and target_id in ordered_ids:
+            i = ordered_ids.index(target_id)
+            ordered_ids = ordered_ids[max(0, i - 1):i + 2]
         data = {iid: _binned_io(conn, iid, bin_seconds) for iid in ordered_ids}
     finally:
         conn.close()
@@ -229,9 +265,14 @@ def interval_anomalies(project_id: str, intersection_id: int,
             card = {lid: (cd or "").upper() for lid, cd in conn.execute(
                 "SELECT leg_id, cardinal_direction FROM legs WHERE camera_id = ?",
                 (cam,)).fetchall()}
+            # Aggregated in SQL (per-event materialize is slow on the OneDrive DB);
+            # video-time bin = floor(timestamp_video / bin) * bin. Index-only via
+            # idx_events_cardinal_v.
             rows = conn.execute(
-                "SELECT origin_leg_id, timestamp_video FROM vehicle_events "
-                "WHERE camera_id = ? AND rejected = 0", (cam,)).fetchall()
+                "SELECT origin_leg_id, CAST(timestamp_video / ? AS INTEGER) * ? AS vbin, "
+                "COUNT(*) FROM vehicle_events "
+                "WHERE camera_id = ? AND rejected = 0 AND timestamp_video IS NOT NULL "
+                "GROUP BY origin_leg_id, vbin", (bin_seconds, bin_seconds, cam)).fetchall()
             per_cam[cam] = (card, rows)
     finally:
         conn.close()
@@ -241,15 +282,12 @@ def interval_anomalies(project_id: str, intersection_id: int,
         # active bins (camera was recording) and per-approach counts per bin
         counts: dict[str, dict[int, int]] = defaultdict(lambda: defaultdict(int))
         active: set[int] = set()
-        for ol, tsv in rows:
-            if tsv is None:
-                continue
+        for ol, b, n in rows:
             a = card.get(ol)
             if not a:
                 continue
-            b = _bin(float(tsv), bin_seconds)
-            counts[a][b] += 1
-            active.add(b)
+            counts[a][int(b)] += n
+            active.add(int(b))
         active_sorted = sorted(active)
         for ap, series in counts.items():
             if sum(series.values()) < ANOM_APPROACH_MIN:

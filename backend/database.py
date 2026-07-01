@@ -299,7 +299,12 @@ CREATE INDEX IF NOT EXISTS idx_events_trim   ON vehicle_events(trim_id);
 -- OneDrive-synced path where scattered table-row reads are pathologically slow
 -- (~26s/intersection cold); this index makes the grouped query index-only
 -- (USING COVERING INDEX), cutting the export/QA gate from ~100s to seconds.
-CREATE INDEX IF NOT EXISTS idx_events_cardinal ON vehicle_events(camera_id, rejected, destination_leg_id, origin_leg_id, timestamp_video);
+-- video_id is appended so coverage_qa._binned_io (the flag-rebuild corridor-gap
+-- scan, which JOINs videos for recording_start) is ALSO index-only — else its
+-- GROUP BY drags in every row's trajectory_data blob (the >2-min rebuild hang).
+-- New name (not IF-NOT-EXISTS on the old one) so the one-time widen is idempotent.
+DROP INDEX IF EXISTS idx_events_cardinal;
+CREATE INDEX IF NOT EXISTS idx_events_cardinal_v ON vehicle_events(camera_id, rejected, destination_leg_id, origin_leg_id, timestamp_video, video_id);
 -- Covering index for the export/preview TMC aggregation (GROUP BY origin_leg_id,
 -- movement[, fhwa_class]). Without it a full-table scan drags in every row's large
 -- trajectory_data blob (~50s cold on the OneDrive DB); index-only here. Includes

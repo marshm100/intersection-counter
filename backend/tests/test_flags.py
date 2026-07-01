@@ -15,6 +15,7 @@ from backend.database import (
     update_flag_status,
 )
 from backend.database import get_connection
+from backend.services import coverage_qa
 from backend.services.flag_feeders import (
     DEST_MARGIN_FLOOR, DET_CONF_FLOOR, feed_suspected_gaps,
     feed_uncertain_events,
@@ -496,6 +497,41 @@ class TestSuspectedGapsFeeder:
                 specs += [(cid, vid, legs["N"], legs["S"], b * 900 + i) for i in range(100)]  # SB steady-high
             _bulk_events(pid, specs)
             assert feed_suspected_gaps(pid, iid) == []
+        finally:
+            client.delete(f"/api/projects/{pid}")
+
+    def test_target_id_neighbor_window_matches_full(self):
+        # A single-intersection rebuild must scan only the target + its two corridor
+        # neighbours (the only pairs that can flag it), and produce IDENTICAL kept
+        # flags to the whole-corridor computation. Gaps on BOTH the South-Mid and
+        # Mid-North links: target=North must surface only the North-tagged flag and
+        # NOT the South-Mid (Mid-tagged) one, while full surfaces both.
+        pid = client.post("/api/projects", json={"name": "nw"}).json()["project_id"]
+        try:
+            s_iid, s_cid, s_vid, s_legs = _mk_corridor_site(pid, "South", 0)
+            m_iid, m_cid, m_vid, m_legs = _mk_corridor_site(pid, "Mid", 1)
+            n_iid, n_cid, n_vid, n_legs = _mk_corridor_site(pid, "North", 2)
+            # Each NB through (origin S -> dest N) counts at its camera as both an
+            # inflow-from-south and an outflow-north, so a well-counted Mid conserves.
+            # South emits 120 N; Mid counts only 60 (undercounts the S->M link);
+            # North counts only 30 (undercounts the M->N link). tsv step keeps all
+            # events in one wall bin so the links are co-active. (i*5 -> < 900s.)
+            _bulk_events(pid, [(s_cid, s_vid, s_legs["S"], s_legs["N"], i * 5) for i in range(120)])
+            _bulk_events(pid, [(m_cid, m_vid, m_legs["S"], m_legs["N"], i * 5) for i in range(60)])
+            _bulk_events(pid, [(n_cid, n_vid, n_legs["S"], n_legs["N"], i * 5) for i in range(30)])
+
+            full = coverage_qa.interval_corridor_gaps(pid)
+            tgt = coverage_qa.interval_corridor_gaps(pid, target_id=n_iid)
+            # full sees both under-counting ends; the neighbour window for North
+            # excludes the South-Mid pair entirely.
+            assert {f["_intersection_id"] for f in full} == {m_iid, n_iid}
+            assert {f["_intersection_id"] for f in tgt} == {n_iid}
+            # The kept flags for North are byte-identical either way.
+            keep = lambda fs: sorted(json.dumps(f, sort_keys=True, default=str)
+                                     for f in fs if f["_intersection_id"] == n_iid)
+            assert keep(tgt) == keep(full)
+            assert [f for f in feed_suspected_gaps(pid, n_iid)
+                    if f["subtype"] == "interval_corridor"][0]["impact"] == 30.0
         finally:
             client.delete(f"/api/projects/{pid}")
 
