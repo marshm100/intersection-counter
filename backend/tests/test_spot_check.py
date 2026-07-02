@@ -88,6 +88,54 @@ def spot_project():
     client.delete(f"/api/projects/{pid}")
 
 
+def _mk_two_block(pid):
+    """Two processed blocks (AM + PM trims) separated by a >20-min hole, so the
+    run has TWO coverage segments. 900 veh/block so a full-block count certifies
+    the +/-10% CI and can PASS."""
+    conn = get_connection(pid)
+    with conn:
+        cur = conn.execute(
+            "INSERT INTO intersections (name, date, sort_order, leg_count, created_at) "
+            "VALUES ('TwoBlk', '2026-06-12', 0, 4, '2026-06-12')")
+        iid = cur.lastrowid
+        cur = conn.execute(
+            "INSERT INTO cameras (intersection_id, label, sort_order, created_at) "
+            "VALUES (?, 'cam', 0, '2026-06-12')", (iid,))
+        cid = cur.lastrowid
+        legs = {}
+        for card, (x, y) in {"N": (320, 460), "S": (320, 20),
+                             "E": (20, 240), "W": (620, 240)}.items():
+            cur = conn.execute(
+                "INSERT INTO legs (camera_id, label, cardinal_direction, sort_order, "
+                "origin_zone, reference_heading) VALUES (?, ?, ?, 0, ?, 0)",
+                (cid, card, card, json.dumps([[x, y]])))
+            legs[card] = cur.lastrowid
+        i = 0
+        for base in (600.0, 30000.0):     # AM block, then PM block (28500s gap)
+            for (a, b), n in {("N", "S"): 500, ("S", "N"): 400}.items():
+                for k in range(n):
+                    ts = base + 900.0 * (k / n)   # spread across the block's 900s
+                    conn.execute(
+                        "INSERT INTO vehicle_events (camera_id, vehicle_track_id, "
+                        "origin_leg_id, destination_leg_id, movement, trajectory_data, "
+                        "trajectory_confidence, vehicle_class, detection_confidence, "
+                        "timestamp_video, frame_number) "
+                        "VALUES (?, ?, ?, ?, 'through', '[]', 1.0, 'car', 0.9, ?, ?)",
+                        (cid, i, legs[a], legs[b], ts, int(ts * 10)))
+                    i += 1
+    conn.close()
+    return iid, cid
+
+
+@pytest.fixture()
+def spot_two_block():
+    r = client.post("/api/projects", json={"name": "spot-2blk"})
+    pid = r.json()["project_id"]
+    iid, cid = _mk_two_block(pid)
+    yield pid, iid, cid
+    client.delete(f"/api/projects/{pid}")
+
+
 # ---- endpoints ---------------------------------------------------------------
 
 class TestSpotWorkflow:
@@ -169,3 +217,48 @@ class TestSpotWorkflow:
                         json={"start_seconds": 600, "duration_seconds": 600,
                               "manual_counts": {"N through": -5}})
         assert r.status_code == 422
+
+
+# ---- stratified spot windows + segment-coverage gate (MASTER_PLAN §5) --------
+
+class TestStratifiedSpot:
+    def test_propose_windows_stratifies_across_blocks(self, spot_two_block):
+        pid, _, cid = spot_two_block
+        r = client.get(f"/api/projects/{pid}/cameras/{cid}/qa/spot-windows?minutes=5")
+        assert r.status_code == 200
+        w = r.json()
+        assert w["n_segments"] == 2 and len(w["windows"]) == 2
+        segs = w["processed_segments"]
+        for win in w["windows"]:                 # each window sits in its segment
+            seg = segs[win["segment_index"]]
+            assert seg[0] <= win["start_seconds"] < seg[1]
+        starts = sorted(win["start_seconds"] for win in w["windows"])
+        assert starts[1] - starts[0] > 20000     # AM and PM, genuinely apart
+
+    def test_gate_reviews_until_every_segment_covered(self, spot_two_block):
+        pid, iid, cid = spot_two_block
+        # Spot-count the AM block only.
+        client.post(f"/api/projects/{pid}/cameras/{cid}/qa/spot-counts",
+                    json={"start_seconds": 600, "duration_seconds": 900,
+                          "manual_counts": {"N through": 500, "S through": 400}})
+        gate = client.get(f"/api/projects/{pid}/intersections/{iid}/qa/acceptance").json()
+        spot = next(i for i in gate["items"] if i["item"] == "spot_count")
+        assert spot["verdict"] == "review"       # PM block still unsampled
+        d = spot["detail"][0]
+        assert d["segments"] == 2 and d["covered"] == 1
+        assert "also sample" in d["note"]
+        # Now cover the PM block too.
+        client.post(f"/api/projects/{pid}/cameras/{cid}/qa/spot-counts",
+                    json={"start_seconds": 30000, "duration_seconds": 900,
+                          "manual_counts": {"N through": 500, "S through": 400}})
+        gate2 = client.get(f"/api/projects/{pid}/intersections/{iid}/qa/acceptance").json()
+        spot2 = next(i for i in gate2["items"] if i["item"] == "spot_count")
+        assert spot2["detail"][0]["covered"] == 2
+        assert spot2["verdict"] == "pass"
+
+    def test_single_block_run_needs_one_window(self, spot_project):
+        # A single processed block (the standard fixture) => one segment, one
+        # window — the stratification must not over-demand on a simple run.
+        pid, _, cid = spot_project
+        w = client.get(f"/api/projects/{pid}/cameras/{cid}/qa/spot-windows").json()
+        assert w["n_segments"] == 1 and len(w["windows"]) == 1

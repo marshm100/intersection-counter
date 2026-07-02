@@ -22,7 +22,7 @@ from backend.database import get_camera, get_connection, get_intersection
 from backend.services.conservation_qa import corridor_consistency, reverse_balance
 from backend.services.spot_check import (
     acceptance, compare_spot_count, list_spot_counts, propose_window,
-    save_spot_count,
+    propose_windows, save_spot_count,
 )
 
 router = APIRouter()
@@ -99,12 +99,25 @@ def _require_camera(project_id: str, camera_id: int) -> None:
 
 @router.get("/projects/{project_id}/cameras/{camera_id}/qa/spot-window")
 def get_spot_window(project_id: str, camera_id: int, minutes: float = 10.0):
-    """Propose a random spot-count window inside the camera's processed range."""
+    """Propose a single random spot-count window (legacy — use spot-windows)."""
     _require_project(project_id)
     _require_camera(project_id, camera_id)
     if not (1 <= minutes <= 120):
         raise HTTPException(status_code=422, detail="minutes must be in [1, 120]")
     return propose_window(project_id, camera_id, minutes)
+
+
+@router.get("/projects/{project_id}/cameras/{camera_id}/qa/spot-windows")
+def get_spot_windows(project_id: str, camera_id: int, minutes: float = 10.0):
+    """Propose STRATIFIED spot-count windows — one per processed segment (trim /
+    time-of-day block) so the sample covers the run's hardest conditions, not just
+    an easy window (MASTER_PLAN §5). The acceptance gate requires a spot count in
+    each segment before it certifies 'pass'."""
+    _require_project(project_id)
+    _require_camera(project_id, camera_id)
+    if not (1 <= minutes <= 120):
+        raise HTTPException(status_code=422, detail="minutes must be in [1, 120]")
+    return propose_windows(project_id, camera_id, minutes)
 
 
 @router.get("/projects/{project_id}/cameras/{camera_id}/qa/spot-counts")

@@ -23,6 +23,12 @@ MAX_CONCURRENT_PIPELINES = 2
 # detectable at 1080p capture. Confidence is intentionally low — obvious
 # vehicles (e.g., a foreground pickup in glare) sometimes come back at
 # 0.10-0.14 from yolo26l, especially when partially backlit.
+# CAVEAT (FM51 recovery experiment, 2026-07-02): imgsz only helps when the
+# detail is IN the source pixels. On 640x480 footage, running 1280 inference
+# just upscales — distant vehicles below the source pixel floor are NOT
+# recovered (measured +6% uniform, not a distant-vehicle recovery). A
+# low-resolution source is a hard wall; the mitigation is spot-count coverage
+# of the affected window (spot_check §5 stratification), not a detector knob.
 #
 # Fast mode uses the small variant at 640 + every-3rd-frame detection
 # (tracker Kalman-interpolates between detections) — ~10-15× faster on

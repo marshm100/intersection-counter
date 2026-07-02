@@ -575,6 +575,17 @@ async function _renderQaSubTab(host) {
     if (!cam) {
         html += `<p style="font-size:12px;color:#9ca3af;">No cameras on this intersection.</p>`;
     } else {
+        // Stratified coverage (MASTER_PLAN §5): a multi-segment run (e.g. AM + PM
+        // trims) must be spot-checked in EACH segment — an all-easy-window sample
+        // can't certify a run whose hardest (low-sun) window was bad.
+        const scItem = (gate.items || []).find(i => i.item === 'spot_count');
+        const scDet = scItem && scItem.detail && scItem.detail[0];
+        if (scDet && scDet.segments > 1) {
+            const short = scDet.covered < scDet.segments;
+            html += `<p style="font-size:12px;margin:0 0 8px;color:${short ? '#b45309' : '#059669'};">
+                <b>Coverage: ${scDet.covered}/${scDet.segments} time segments spot-checked.</b>
+                ${short ? escapeHtml(scDet.note) : 'The run’s range of conditions is sampled.'}</p>`;
+        }
         for (const s of spots.slice(0, 3)) {
             const rep = s.report;
             html += `<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 6px;
@@ -593,7 +604,7 @@ async function _renderQaSubTab(host) {
             html += `<div style="margin-top:8px;padding:10px;background:#f0f9ff;border:1px solid #0ea5e9;border-radius:4px;font-size:12px;">
                 <div style="font-weight:600;margin-bottom:4px;">
                     Count window: ${_qaFmtHms(w.start_seconds)} &ndash; ${_qaFmtHms(w.start_seconds + w.duration_seconds)}
-                    (video time)</div>
+                    (video time)${w._nseg > 1 ? ` &middot; segment ${w._seg + 1} of ${w._nseg}` : ''}</div>
                 <p style="margin:0 0 8px;color:#0c4a6e;">Watch this window in the source video and
                     count vehicles per approach &times; movement. Leave cells you did not observe at 0
                     — only non-zero cells are compared.</p>
@@ -636,8 +647,32 @@ async function _renderQaSubTab(host) {
 
 window.v3QaProposeSpot = async function (cameraId, minutes) {
     try {
-        _qaSpotWindow = await API.get(
-            `/api/projects/${_v3Project.project_id}/cameras/${cameraId}/qa/spot-window?minutes=${minutes}`);
+        // Stratified: fetch one window per processed segment and steer the
+        // operator to the first segment not yet spot-checked (so a multi-trim run
+        // gets the hard PM window sampled, not another easy AM one — §5).
+        const pw = await API.get(
+            `/api/projects/${_v3Project.project_id}/cameras/${cameraId}/qa/spot-windows?minutes=${minutes}`);
+        const windows = pw.windows || [];
+        if (!windows.length) { alert(pw.error || 'No processed footage to sample yet.'); return; }
+        let spots = [];
+        try {
+            const r = await API.get(
+                `/api/projects/${_v3Project.project_id}/cameras/${cameraId}/qa/spot-counts`);
+            spots = r.spot_counts || [];
+        } catch (e) { /* no prior counts */ }
+        const covered = new Set();
+        (pw.processed_segments || []).forEach((seg, i) => {
+            if (spots.some(s => {
+                const m = s.start_seconds + s.duration_seconds / 2;
+                return m >= seg[0] && m < seg[1];
+            })) covered.add(i);
+        });
+        const pick = windows.find(w => !covered.has(w.segment_index)) || windows[0];
+        _qaSpotWindow = {
+            camera_id: cameraId, start_seconds: pick.start_seconds,
+            duration_seconds: pick.duration_seconds,
+            _seg: pick.segment_index, _nseg: pw.n_segments,
+        };
     } catch (e) {
         alert('Could not propose a window: ' + (e.message || String(e)));
         return;

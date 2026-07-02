@@ -50,6 +50,17 @@ CI_LIMIT_REL_ERR = 0.10
 # 20-40 minute spot count; 10 minutes is structurally too short to certify.
 NEEDED_TOTAL_FOR_CI = math.ceil(2 * (Z95 / math.log1p(CI_LIMIT_REL_ERR)) ** 2)
 
+# Spot-window STRATIFICATION (MASTER_PLAN §5 — "a single AM spot window passed
+# while the PM was bad"). A uniform-random window can miss the run's hardest
+# conditions entirely (the FM51 low-sun PM sag is a real, unfixable detection
+# loss that ONLY a spot count of that window catches — coverage_qa is blind to a
+# gradual sag). So the sample must COVER the run's range of conditions: we split
+# the processed footage into segments and require a spot count in each. Blind —
+# uses only the run's own coverage/time structure, never ground truth.
+SEG_GAP_SECONDS = 20 * 60       # a >20-min hole splits blocks (e.g. AM vs PM trims)
+SEG_TARGET_SECONDS = 3 * 3600   # subdivide a long continuous block into ~3h parts
+SEG_MAX_PER_BLOCK = 4           # ...capped, so a 24h run needs 4 spot checks, not 8
+
 
 def katz_ci(system: int, manual: int, z: float = Z95) -> tuple[float, float, float]:
     """(point, lo, hi) for the relative error (S-M)/M with a Katz log-ratio CI.
@@ -87,6 +98,106 @@ def propose_window(project_id: str, camera_id: int, minutes: float = 10.0,
     return {"camera_id": camera_id, "start_seconds": round(start, 1),
             "duration_seconds": round(dur, 1),
             "processed_range": [round(t0, 1), round(t1, 1)]}
+
+
+def _processed_segments(project_id: str, camera_id: int,
+                        bin_seconds: int = 300) -> list[tuple[float, float]]:
+    """Partition the camera's processed footage into coverage SEGMENTS for spot
+    stratification: contiguous event blocks (a >SEG_GAP_SECONDS hole splits them —
+    e.g. an AM trim vs a PM trim), each long block subdivided into <=
+    SEG_MAX_PER_BLOCK parts of ~SEG_TARGET_SECONDS. Returns [(start, end), ...] in
+    video-seconds. Aggregated in SQL (active 5-min bins, <=288 rows) so it stays
+    index-only on the OneDrive DB. Blind: uses only the run's own coverage."""
+    conn = get_connection(project_id)
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT CAST(timestamp_video / ? AS INTEGER) * ? AS b "
+            "FROM vehicle_events WHERE camera_id = ? AND rejected = 0 "
+            "AND timestamp_video IS NOT NULL ORDER BY b",
+            (bin_seconds, bin_seconds, camera_id)).fetchall()
+    finally:
+        conn.close()
+    bins = [int(r[0]) for r in rows]
+    if not bins:
+        return []
+    blocks: list[tuple[int, int]] = []
+    start = prev = bins[0]
+    for b in bins[1:]:
+        if b - prev > SEG_GAP_SECONDS:
+            blocks.append((start, prev + bin_seconds))
+            start = b
+        prev = b
+    blocks.append((start, prev + bin_seconds))
+
+    segs: list[tuple[float, float]] = []
+    for s, e in blocks:
+        dur = e - s
+        n = min(SEG_MAX_PER_BLOCK, max(1, round(dur / SEG_TARGET_SECONDS)))
+        if n <= 1:
+            segs.append((float(s), float(e)))
+        else:
+            step = dur / n
+            for k in range(n):
+                segs.append((float(s + k * step),
+                             float(e if k == n - 1 else s + (k + 1) * step)))
+    return segs
+
+
+def propose_windows(project_id: str, camera_id: int, minutes: float = 10.0,
+                    seed: int | None = None) -> dict:
+    """Stratified spot-count windows — ONE per processed segment (trim / time-of-
+    day block) — so the sample covers the run's range of conditions, the hardest
+    (low-sun) windows included, instead of a single uniform-random window that can
+    miss them (MASTER_PLAN §5). A single short run yields one window (== the old
+    behaviour)."""
+    segs = _processed_segments(project_id, camera_id)
+    if not segs:
+        return {"camera_id": camera_id, "error": "no processed events for this camera yet",
+                "windows": []}
+    dur = minutes * 60.0
+    rng = random.Random(seed)
+    windows = []
+    for i, (s, e) in enumerate(segs):
+        seg_dur = e - s
+        if seg_dur <= dur:
+            w_start, w_dur = s, max(60.0, seg_dur)
+        else:
+            w_start, w_dur = s + rng.uniform(0.0, seg_dur - dur), dur
+        windows.append({
+            "segment_index": i, "segment": [round(s, 1), round(e, 1)],
+            "start_seconds": round(w_start, 1), "duration_seconds": round(w_dur, 1),
+        })
+    return {"camera_id": camera_id, "n_segments": len(segs), "windows": windows,
+            "processed_segments": [[round(s, 1), round(e, 1)] for s, e in segs]}
+
+
+def _rec_offset_seconds(project_id: str, camera_id: int) -> int | None:
+    """Time-of-day (seconds since midnight) of the camera's recording start, so
+    spot segments can be labelled in wall-clock. None when unknown."""
+    conn = get_connection(project_id)
+    try:
+        row = conn.execute(
+            "SELECT MIN(recording_start_datetime) FROM videos WHERE camera_id = ?",
+            (camera_id,)).fetchone()
+    finally:
+        conn.close()
+    if not row or not row[0]:
+        return None
+    try:
+        dt = datetime.fromisoformat(row[0])
+    except ValueError:
+        return None
+    return dt.hour * 3600 + dt.minute * 60 + dt.second
+
+
+def _clock_label(offset: int | None, secs: float) -> str:
+    """HH:MM wall-clock for a video-second position (or '..into the run' when the
+    recording start time is unknown)."""
+    if offset is None:
+        s = int(secs)
+        return f"{s // 3600:02d}:{(s // 60) % 60:02d} into the run"
+    t = int(offset + secs)
+    return f"{(t // 3600) % 24:02d}:{(t // 60) % 60:02d}"
 
 
 def _system_counts(project_id: str, camera_id: int,
@@ -240,22 +351,55 @@ def acceptance(project_id: str, intersection_id: int,
     items.append({"item": "reverse_balance", "verdict": rb_verdict,
                   "detail": {"applicable": rb["applicable"], "note": rb["note"]}})
 
-    # most recent spot count per camera
+    # Spot-count coverage per camera. STRATIFIED (MASTER_PLAN §5): a camera only
+    # reaches "pass" when a spot count lands in EVERY processed segment — so an
+    # all-AM sample can no longer certify a run whose PM was bad. Uncovered
+    # segments keep it at "review" and NAME the window to sample next.
     spot_verdict = "review"
     spot_detail = []
     any_spot = False
     for cid in cams:
         spots = list_spot_counts(project_id, cid)
+        segs = _processed_segments(project_id, cid)
         if not spots:
-            spot_detail.append({"camera_id": cid, "verdict": "review",
-                                "note": "no spot count recorded"})
+            note = "no spot count recorded"
+            if len(segs) > 1:
+                note += f" — {len(segs)} coverage segments to sample (incl. the hardest)"
+            spot_detail.append({"camera_id": cid, "verdict": "review", "note": note,
+                                "segments": len(segs), "covered": 0})
             continue
         any_spot = True
-        s = spots[0]
-        rep = compare_spot_count(project_id, cid, s["start_seconds"],
-                                 s["duration_seconds"], s["manual_counts"])
-        spot_detail.append({"camera_id": cid, "verdict": rep["verdict"],
-                            "note": rep["note"]})
+        off = _rec_offset_seconds(project_id, cid)
+        covered: set[int] = set()
+        reps = []
+        for s in spots:
+            rep = compare_spot_count(project_id, cid, s["start_seconds"],
+                                     s["duration_seconds"], s["manual_counts"])
+            reps.append(rep)
+            mid = s["start_seconds"] + s["duration_seconds"] / 2.0
+            for i, (a, b) in enumerate(segs):
+                if a <= mid < b:
+                    covered.add(i)
+        vs = [r["verdict"] for r in reps]
+        uncovered = [segs[i] for i in range(len(segs)) if i not in covered]
+        if "fail" in vs:
+            cam_v = "fail"
+            note = next(r["note"] for r in reps if r["verdict"] == "fail")
+        elif uncovered:
+            wins = ", ".join(f"{_clock_label(off, a)}-{_clock_label(off, b)}"
+                             for a, b in uncovered)
+            cam_v = "review"
+            note = (f"{len(covered)}/{len(segs)} coverage segments spot-checked — also "
+                    f"sample {wins} so the run's hardest conditions (e.g. low-sun) are "
+                    f"validated, not just the easy windows")
+        elif "review" in vs:
+            cam_v = "review"
+            note = next(r["note"] for r in reps if r["verdict"] == "review")
+        else:
+            cam_v = "pass"
+            note = f"spot counts cover all {len(segs)} segment(s) and certify within target"
+        spot_detail.append({"camera_id": cid, "verdict": cam_v, "note": note,
+                            "segments": len(segs), "covered": len(covered)})
     if any_spot:
         vs = [d["verdict"] for d in spot_detail]
         spot_verdict = ("fail" if "fail" in vs
