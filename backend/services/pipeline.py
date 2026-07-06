@@ -960,9 +960,12 @@ class ProcessingPipeline:
                 entry_tiebreak_min_entry_sep_px=ENTRY_TIEBREAK_MIN_ENTRY_SEP_PX,
                 entry_tiebreak_decisive_px=ENTRY_TIEBREAK_DECISIVE_PX,
                 # Speed-tiebreak (entry retry): inert unless paths carry
-                # expected_speed. Per-camera enable via calib knob; mdh-only.
-                speed_tiebreak=self._calibration_params.get(
-                    "speed_tiebreak", SPEED_TIEBREAK_ENABLED),
+                # expected_speed. Per-camera calib_speed_tiebreak (0/1) overrides;
+                # NULL/unset falls back to the config default. mdh-only.
+                speed_tiebreak=(
+                    SPEED_TIEBREAK_ENABLED
+                    if self._calibration_params.get("speed_tiebreak") is None
+                    else bool(self._calibration_params.get("speed_tiebreak"))),
                 speed_tiebreak_decisive=SPEED_TIEBREAK_DECISIVE,
                 speed_tiebreak_min_sep=SPEED_TIEBREAK_MIN_SEP,
             )

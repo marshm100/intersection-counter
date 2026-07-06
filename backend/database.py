@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS intersection_paths (
     polyline             TEXT    NOT NULL,                  -- JSON [[x,y], ...]
     movement_label       TEXT    NOT NULL,                  -- through|left|right|u_turn
     supporting_count     INTEGER NOT NULL DEFAULT 0,
+    expected_speed       REAL,                              -- median px/step of supporting tracks (speed-tiebreak signature; NULL = unset)
     source               TEXT    NOT NULL DEFAULT 'manual', -- manual|auto
     last_observed_at     TEXT,
     created_at           TEXT    NOT NULL,
@@ -484,6 +485,15 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     # Phase 2.3: per-camera joint-scorer cost metric (NULL = config default).
     if "calib_cost_metric" not in cam_cols:
         conn.execute("ALTER TABLE cameras ADD COLUMN calib_cost_metric TEXT")
+    # 2026-07-02: per-camera speed-tiebreak opt-in (NULL = config default, 0 off, 1 on).
+    if "calib_speed_tiebreak" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_speed_tiebreak INTEGER")
+
+    # 2026-07-02: per-path pixel-speed signature (median step of supporting
+    # tracks) feeding the shared-exit collinear speed-tiebreak; NULL = unset.
+    ip_cols = [r[1] for r in conn.execute("PRAGMA table_info(intersection_paths)").fetchall()]
+    if "expected_speed" not in ip_cols:
+        conn.execute("ALTER TABLE intersection_paths ADD COLUMN expected_speed REAL")
 
     # Indexes after migrations so legacy DBs that gained columns above
     # can be indexed on them now that they exist.
@@ -909,7 +919,7 @@ def get_camera_calibration_params(project_id: str, camera_id: int) -> dict:
             "SELECT calib_pre_track_nms_iou, calib_tracker_lost_buffer, "
             "calib_tracker_match_threshold, calib_tracker_activation_threshold, "
             "calib_bbox_buffer_scale, calib_track_quality_filter, "
-            "calib_new_track_thresh, calib_cost_metric "
+            "calib_new_track_thresh, calib_cost_metric, calib_speed_tiebreak "
             "FROM cameras WHERE camera_id = ?",
             (camera_id,),
         ).fetchone()
@@ -923,6 +933,8 @@ def get_camera_calibration_params(project_id: str, camera_id: int) -> dict:
     params["track_quality_filter"] = row["calib_track_quality_filter"]
     params["new_track_thresh"] = row["calib_new_track_thresh"]
     params["cost_metric"] = row["calib_cost_metric"]
+    # None when unset -> pipeline resolves to the config default; 0/1 = explicit.
+    params["speed_tiebreak"] = row["calib_speed_tiebreak"]
     return params
 
 
@@ -962,6 +974,7 @@ def update_camera_calibration(
     calib_track_quality_filter: int | None | _ClearToDefault = None,
     calib_new_track_thresh: float | None | _ClearToDefault = None,
     calib_cost_metric: str | None | _ClearToDefault = None,
+    calib_speed_tiebreak: int | None | _ClearToDefault = None,
 ) -> None:
     """Update a camera's per-camera detection/tracking knobs. Each arg is
     three-state (mirrors update_intersection):
@@ -979,6 +992,7 @@ def update_camera_calibration(
         ("calib_track_quality_filter", calib_track_quality_filter, int),
         ("calib_new_track_thresh", calib_new_track_thresh, float),
         ("calib_cost_metric", calib_cost_metric, str),
+        ("calib_speed_tiebreak", calib_speed_tiebreak, int),
     ):
         if val is None:
             continue  # don't touch
@@ -1319,7 +1333,7 @@ def heal_v3_running_to_interrupted(project_id: str) -> list[int]:
 
 _PATH_FIELDS = (
     "path_id", "camera_id", "origin_leg_id", "destination_leg_id",
-    "polyline", "movement_label", "supporting_count", "source",
+    "polyline", "movement_label", "supporting_count", "expected_speed", "source",
     "last_observed_at", "created_at",
 )
 
