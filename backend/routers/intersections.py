@@ -867,6 +867,8 @@ def _run_v3_pipeline(
                 pass
         return w
 
+    _cams_processed: set = set()   # cameras to re-classify for articulated post-run
+    _run_ok = False
     try:
         with _v3_jobs_lock:
             _v3_jobs[key]["status"] = "running"
@@ -1033,10 +1035,12 @@ def _run_v3_pipeline(
                 conn.commit()
             finally:
                 conn.close()
+            _cams_processed.add(seg.camera_id)
 
         with _v3_jobs_lock:
             _v3_jobs[key]["status"] = "complete"
         set_v3_run_state(project_id, intersection_id, "complete")
+        _run_ok = True
     except Exception as exc:
         with _v3_jobs_lock:
             _v3_jobs[key]["status"] = "error"
@@ -1052,6 +1056,17 @@ def _run_v3_pipeline(
                 w.close()
             except Exception:
                 pass
+        # §3-D: re-bucket single-unit trucks to articulated by view-invariant size
+        # (blind, from each camera's now-flushed detection cache). Only on a
+        # completed run; best-effort so it never masks the real processing outcome.
+        if _run_ok:
+            from backend.services.articulated import reclassify_articulated
+            for _cam in _cams_processed:
+                try:
+                    logger.info("articulated cam %s: %s", _cam,
+                                reclassify_articulated(project_id, _cam, apply=True))
+                except Exception:
+                    logger.exception("articulated reclassify failed, cam %s", _cam)
         # Tear down the live preview worker — keep the last frame stashed
         # briefly so the client's MJPEG stream sees a final frame before
         # the server stops yielding.

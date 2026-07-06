@@ -305,6 +305,26 @@ SPEED_TIEBREAK_MIN_SEP = 1.5            # px/step: only fire when the two paths'
 # frames; this should be ≤ that so we don't outlive the tracker.
 TRACK_FINALIZE_GAP_FRAMES = 60   # 2s @ 30fps
 
+# --- Articulated (semi-truck) classification (§3-D, 2026-07-06) -------------
+# The COCO "truck" class is one bucket; distinguishing an articulated semi
+# (FHWA 8-13) from a single-unit box truck (FHWA 5) needs a size signal. bbox
+# ASPECT RATIO fails at approach-angle cameras (a truck viewed end-on is
+# near-square: FM51 truck aspect p50 1.34 ~ car 1.38), so the old aspect>2.0 gate
+# never fired -> 0 articulated vs Miovision's 102. The view-invariant signal is a
+# truck's LENGTH relative to the LOCAL CAR baseline (median car length at the same
+# image-distance band): a semi runs ~2x a box truck runs ~2x a car, at any
+# distance. A truck whose length exceeds ARTICULATED_LEN_RATIO x the local car
+# median is re-bucketed to articulated. K is BELOW the raw 3x length ratio because
+# a long vehicle foreshortens MORE than a short one at an approach angle, so its
+# bbox-length ratio compresses; validated offline on FM51 -> ~95 articulated ~=
+# 102 at K=2.0 (a geometric threshold, SANITY-checked vs the aggregate, NOT fit to
+# it -- the §0 overfit guard). The split is approximate: bbox size can't perfectly
+# separate a short semi from a long box truck. See memory
+# project_articulated_classification_2026_07_06.
+ARTICULATED_LEN_RATIO = 2.0      # truck length > this x local-car-median -> articulated
+ARTICULATED_BAND_PX = 40         # image-row band (px) for the local car-size baseline
+ARTICULATED_MIN_CARS_PER_BAND = 20  # a band needs this many cars for a trustworthy median
+
 # Ensure directories exist
 DATA_DIR.mkdir(exist_ok=True)
 PROJECTS_DIR.mkdir(exist_ok=True)

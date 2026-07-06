@@ -4,6 +4,9 @@ Maps YOLO COCO classes to simplified vehicle categories and FHWA classes.
 Uses bounding-box aspect ratio and area for truck sub-classification.
 """
 
+from collections import defaultdict
+from statistics import median
+
 # Simplified categories used in the app
 SIMPLIFIED_CLASSES = [
     "motorcycle", "car", "pickup_van_suv", "bus",
@@ -53,9 +56,11 @@ FHWA_CLASS_NAMES: dict[int, str] = {
 #   Lights            = FHWA 1–3  (motorcycles, cars, other 2-axle 4-tire)
 #   Mediums           = FHWA 4–7  (buses + single-unit trucks)
 #   Articulated Trucks = FHWA 8–13 (single- + multi-trailer trucks)
-# NOTE: the current classifier only emits FHWA 9 within the Articulated band (the
-# bbox multi-unit heuristic under-calls articulated) — that classification gap is
-# §3-D, tracked separately; this mapping is exact and works once §3-D lands.
+# NOTE: classify_vehicle's INLINE bbox-aspect heuristic under-calls articulated
+# (aspect>2.0 almost never fires at approach-angle cameras). §3-D (2026-07-06)
+# closes the gap with a post-processing SIZE pass —
+# services.articulated.reclassify_articulated re-buckets single-unit trucks to
+# FHWA 9 by length vs the local car baseline. This mapping is exact.
 CLASS_GROUP_ORDER = ["Lights", "Mediums", "Articulated Trucks"]
 
 
@@ -122,3 +127,39 @@ def get_all_simplified_classes() -> list[str]:
 def get_fhwa_class_name(fhwa_class: int) -> str:
     """Return human-readable FHWA class name."""
     return FHWA_CLASS_NAMES.get(fhwa_class, "Unknown")
+
+
+# --- Articulated (semi) size test (§3-D, 2026-07-06) -----------------------
+# View-invariant: a truck's LENGTH vs the local car-size baseline. See
+# config.ARTICULATED_* and memory project_articulated_classification_2026_07_06.
+
+def build_car_length_baseline(car_samples, band_px, min_cars):
+    """Per-image-distance-band median car LENGTH — the local size baseline.
+
+    car_samples = iterable of (length, center_y). Bins by center_y // band_px and
+    returns {band_index: median_length} for bands with >= min_cars samples (sparse
+    bands give an untrustworthy median, so they're dropped and looked past)."""
+    by_band = defaultdict(list)
+    for length, cy in car_samples:
+        by_band[int(cy // band_px)].append(length)
+    return {b: median(v) for b, v in by_band.items() if len(v) >= min_cars}
+
+
+def local_car_length(center_y, baseline, band_px):
+    """The car-size baseline nearest an image row, searching a few bands outward
+    when the exact band is empty. None if no band is close enough."""
+    b = int(center_y // band_px)
+    for d in (0, 1, -1, 2, -2, 3, -3):
+        if (b + d) in baseline:
+            return baseline[b + d]
+    return None
+
+
+def is_articulated(truck_length, center_y, baseline, *, ratio, band_px):
+    """True when a truck's length exceeds `ratio` x the local car-size baseline
+    (the articulated size test). None when no local baseline exists — undecidable,
+    so the caller leaves the truck single-unit rather than guess."""
+    base = local_car_length(center_y, baseline, band_px)
+    if base is None or base <= 0:
+        return None
+    return truck_length > ratio * base
