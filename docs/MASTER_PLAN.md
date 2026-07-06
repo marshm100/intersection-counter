@@ -164,18 +164,35 @@ deep-research passes (papers/GitHub + X community) converged: there is NO public
 the collinear-swap, AND the SOTA image-space hybrid (Jana et al. arXiv 2111.09171 — min-directed
 Hausdorff + angular + end-proximity) is ALREADY what our `mdh` cost implements. So more image-space
 shape features won't move it: the confused pairs share the exit and are near-identical in-image, and
-the only discriminator (the entry) is FOV-clipped. The two levers that CAN attack it, in priority:
-- **BEV / inverse-perspective-mapping** *(candidate — THE top bet)*. The swap is two paths that
-  overlap in the IMAGE (perspective collapse) but are distinct in WORLD space. Project trajectories
-  to a metric ground plane (auto-cal via vanishing-point / lane cues, `cv2.getPerspectiveTransform`)
-  and match there, where the entry HEADING is a clean ~90° separation instead of the fragile 84%
-  image-space birth proximity. **DE-RISK FIRST** (cheap, data-in-hand, no pipeline code): rough
-  homography for cam2 → project stored SB-thru vs EB-right tracks → measure whether they separate.
-  Separates ⇒ build the BEV matcher + real auto-calibration. Doesn't (divergence FOV-clipped) ⇒ BEV
-  can't save it; fall back to the anchor. CPU-light, blind (calibrate once per camera). Caveat:
-  assumes a locally-planar road; far-field is calibration-sensitive.
-- **Entry-line volume anchor** (bullet below) — the robust, blind hedge; run it in PARALLEL with the
-  BEV de-risk (low-risk win regardless of how BEV lands).
+the only discriminator (the entry) is FOV-clipped. **UPDATE 2026-07-06: BEV is DE-RISKED NEGATIVE
+(solid). A RIGOROUS GT-anchored diagnosis (Miovision per-minute correlations, no geometry;
+`docs/cam2_perapproach_diagnosis_2026-07-06.md`) then RESOLVED the cam2 per-approach mechanism — and it
+is NOT an attribution "swap." It is TWO independent tracking/detection defects that partially cancel:
+(1) SB-RIGHT is MISSED −461 (58% recall, the single biggest error, does not leak); (2) EB is
+DOUBLE-COUNTED +769, driven by SB-thru occlusion splitting EB tracks (corr 0.58 with SB-thru volume;
+305 confirmed concurrent ID-splits). ⇒ the lever is TRACKING/DETECTION QUALITY (recover missed SB-right
++ EB occlusion-dedup), which vindicates why the attribution levers (BEV, anchor) all failed. The earlier
+"entry-starvation swap" mechanism was over-concluded on flawed geometric tests and is corrected.**
+- **BEV / inverse-perspective-mapping** *(DE-RISKED 2026-07-06 → NEGATIVE; NOT the lever)*. The idea:
+  the swap overlaps in the IMAGE but is distinct in WORLD space, so project to a metric ground plane
+  and match there. The de-risk (cam2, data-in-hand, both a zone-diamond and a proper vanishing-point
+  rectification; `docs/bev_derisk_cam2_2026-07-06.md`) found: the geometric PREMISE is TRUE — the
+  ideal template pair separates 16°→**138°** in a rectified BEV — **but it is unrecoverable on the
+  real tracks.** The non-circular test (re-split the tracks by the pipeline's own `_mdh_cost`,
+  compared to **Miovision**) shows BEV moves the SB:EB split *AWAY* from ground truth (EB-right 1595
+  live → 1711 image → **1781 BEV** vs Mio's **1217**). Reason (homography-invariant): the confused
+  tracks are **born downstream of the divergence** (entry-starved), so the separating entry is never
+  observed — and a homography adds zero information. Plus the live cost discards the entry anyway
+  (partial-Fréchet ignores the uncovered prefix; tail-prior = shared exit), and *using* the entry was
+  already DISPROVEN twice (the entry-tiebreak). ⇒ Not the lever.
+- **Entry-line volume anchor** *(prototype INCONCLUSIVE 2026-07-06 — NOT proven either way)*. Count
+  vehicles at an in-FOV tripwire and anchor the approach total. The quick prototype
+  (`scratchpad/anchor_prototype.py`) looked negative (hybrid |dev| worse than pipeline; "swap tracks
+  don't cross an entry wire"), but that was an ARTIFACT: the single wire sat on the THROUGH path where
+  EB-*right* turners are born, so it missed them, and the "downstream/entry-starved" tracks turned out
+  to be normal long EB-approach tracks (born ~(411,113), median 193 pts). So the anchor is UNVALIDATED,
+  not disproven — a real test needs per-movement or operator-drawn entry lines placed BEFORE the
+  movement divergence. Still plausibly useful as conservation-QA infra.
 
 - **Domain-fine-tuned detector** *(candidate — external-idea review 2026-07-06)*. We run a
   GENERIC COCO model (yolo26s) and lean on downstream cleverness. Fine-tuning the detector on our
@@ -185,14 +202,10 @@ the only discriminator (the entry) is FOV-clipped. The two levers that CAN attac
   bbox-size heuristic above. Blind-deployment gate: train on DIVERSE sites, never overfit to FM51,
   or it won't generalize. A real research spike (label a few hundred crops/site, Colab GPU), not a
   knob. Aim it at articulated first (cleanest win vs the heuristic).
-- **Entry-line volume anchor for per-approach totals** *(candidate — external-idea review
-  2026-07-06)*. Our per-approach error is an attribution SCRAMBLE (the cam2 SB↔EB swap); a fixed
-  tripwire crossing is un-scrambleable. Count each approach's ENTRY volume with a line placed
-  INSIDE the FOV (this dodges the FOV-clipping that made entry-TANGENT origin unreliable), ANCHOR
-  the approach total to it, and let trajectory-matching decide only the movement SPLIT within that
-  total. Decouples the easy-robust part (how many entered SB vs EB) from the hard part (where they
-  turned) — directly targets the §1b per-approach gap. Cheap experiment: reuses the existing
-  origin-zone tripwires; no training.
+- **Entry-line volume anchor for per-approach totals** *(external-idea review 2026-07-06; prototype
+  INCONCLUSIVE — see the "last hurdle" block above)*. The un-scrambleable-tripwire idea is untested:
+  the quick prototype used one crude through-path wire per approach (missed turners), so it neither
+  proved nor disproved the anchor. Needs per-movement / operator-drawn entry lines before divergence.
 
 ### E. Miovision-parity deliverables
 - **Light / Medium / Articulated** in the output — mostly a **FHWA→bucket mapping**
