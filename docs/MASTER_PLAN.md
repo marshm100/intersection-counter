@@ -1,7 +1,7 @@
 # MASTER PLAN — Intersection Counter
 
 **From a validated counting stack to an operator-ready Miovision replacement.**
-Living roadmap; supersedes nothing but consolidates everything. Last updated 2026-06-29.
+Living roadmap; supersedes nothing but consolidates everything. Last updated 2026-07-06.
 
 Companion docs (still authoritative for their topics):
 - `docs/architecture_research_2026-06-11.md` — why the approach is SOTA-sound
@@ -88,7 +88,7 @@ decomposes into four distinct problems — NOT one monolithic "algorithms are ba
 | 1 | **Detection/tracking miss, time-localized** | AM ~−3%; **PM 16:30–18:00 = −12% to −20%** (worst −19.6% @17:15). On the **NB FM 51** approach: 1,348 vs 1,668 (−19%); the other through (SB FM 51) was dead-on (1,735 vs 1,741). Likely low afternoon sun / glare / shadow on that approach. | DETECTION |
 | 2 | **Vehicle classification broken** | Articulated **0 vs 102** (all lumped into Mediums → Mediums 211 vs 92). No FHWA-8+ bucket. | CLASSIFIER |
 | 3 | **Calibration didn't match the site** | Real intersection is a **3-leg T** (SB FM 51 / NB FM 51 / WB Co Rd 4699); our calibration had **4 legs** (phantom SE = 0 traffic) and mislabeled directions. | OPERATOR PREP |
-| 4 | **Side-road over-count** | WB Co Rd 4699: ours 105 vs Miovision 60 (+75%). | ASSIGNMENT |
+| 4 | **Side-road over-count** — **FIXED 2026-07-06 (105→72)** | WB Co Rd 4699: ours 105 vs Miovision 60 (+75%). Root cause: short fragments of main-road W→E throughs, origin mis-read onto the adjacent side-road leg, labelled an impossible "through from a T-stem" (duplicating already-counted main-road vehicles). Fix = `services/through_gate.reject_invalid_throughs` (reject a 'through' between a pair the bank labels a TURN); PER-CAMERA validated tool (the corridor regression showed cam3 has 691 LONG real left-turners on a bank-left pair — NOT a blind default). Residual +12 = excess rights + 2 phantom-SE throughs (audit #3). | ASSIGNMENT |
 
 ### Honest hindsight vs preparation split (the key question)
 - **Only knowable with the answer key (hindsight):** the *magnitudes* — −8.1%, the −19%
@@ -151,10 +151,48 @@ data and never hand-edited.** To make resolution feel seamless:
 ### D. Algorithm / capability gaps (generalize — do NOT overfit)
 - **Low-light / dusk detection** — the PM miss (#1). Develop against FM51 + corridor
   labeled data; the fix must generalize (better low-light recall), not a per-site knob.
-- **Articulated classification** — add the FHWA 8–13 bucket (#2). Validate vs Miovision's
-  102; ship as automatic.
+- **Articulated classification** — add the FHWA 8–13 bucket (#2). **SHIPPED 2026-07-06** as a
+  view-invariant SIZE post-pass (truck length vs the local car-size baseline; bbox aspect ratio
+  fails at approach-angle cameras). Honest FM51 result: ~70% recovery (71 vs Miovision's 102,
+  full population) — bbox size can't perfectly split a short semi from a long box truck. Detector
+  fine-tuning below is the path past ~70%. See `project_articulated_classification_2026_07_06`.
 - **Per-camera tuning** — keep develop-time tuning that generalizes; explicitly avoid
   tuning per-site against the answer (the overfit trap).
+
+**Per-approach attribution — the last hurdle (research synthesis 2026-07-06).** Two independent
+deep-research passes (papers/GitHub + X community) converged: there is NO public silver bullet for
+the collinear-swap, AND the SOTA image-space hybrid (Jana et al. arXiv 2111.09171 — min-directed
+Hausdorff + angular + end-proximity) is ALREADY what our `mdh` cost implements. So more image-space
+shape features won't move it: the confused pairs share the exit and are near-identical in-image, and
+the only discriminator (the entry) is FOV-clipped. The two levers that CAN attack it, in priority:
+- **BEV / inverse-perspective-mapping** *(candidate — THE top bet)*. The swap is two paths that
+  overlap in the IMAGE (perspective collapse) but are distinct in WORLD space. Project trajectories
+  to a metric ground plane (auto-cal via vanishing-point / lane cues, `cv2.getPerspectiveTransform`)
+  and match there, where the entry HEADING is a clean ~90° separation instead of the fragile 84%
+  image-space birth proximity. **DE-RISK FIRST** (cheap, data-in-hand, no pipeline code): rough
+  homography for cam2 → project stored SB-thru vs EB-right tracks → measure whether they separate.
+  Separates ⇒ build the BEV matcher + real auto-calibration. Doesn't (divergence FOV-clipped) ⇒ BEV
+  can't save it; fall back to the anchor. CPU-light, blind (calibrate once per camera). Caveat:
+  assumes a locally-planar road; far-field is calibration-sensitive.
+- **Entry-line volume anchor** (bullet below) — the robust, blind hedge; run it in PARALLEL with the
+  BEV de-risk (low-risk win regardless of how BEV lands).
+
+- **Domain-fine-tuned detector** *(candidate — external-idea review 2026-07-06)*. We run a
+  GENERIC COCO model (yolo26s) and lean on downstream cleverness. Fine-tuning the detector on our
+  OWN intersection footage (our angles / lighting / distances) is standard production practice and
+  hits two gaps at once: distant/low-light recall (the PM miss — though 640×480 source is *partly*
+  a resolution wall) and **articulated** — a trained "semi" class would likely beat the ~70%
+  bbox-size heuristic above. Blind-deployment gate: train on DIVERSE sites, never overfit to FM51,
+  or it won't generalize. A real research spike (label a few hundred crops/site, Colab GPU), not a
+  knob. Aim it at articulated first (cleanest win vs the heuristic).
+- **Entry-line volume anchor for per-approach totals** *(candidate — external-idea review
+  2026-07-06)*. Our per-approach error is an attribution SCRAMBLE (the cam2 SB↔EB swap); a fixed
+  tripwire crossing is un-scrambleable. Count each approach's ENTRY volume with a line placed
+  INSIDE the FOV (this dodges the FOV-clipping that made entry-TANGENT origin unreliable), ANCHOR
+  the approach total to it, and let trajectory-matching decide only the movement SPLIT within that
+  total. Decouples the easy-robust part (how many entered SB vs EB) from the hard part (where they
+  turned) — directly targets the §1b per-approach gap. Cheap experiment: reuses the existing
+  origin-zone tripwires; no training.
 
 ### E. Miovision-parity deliverables
 - **Light / Medium / Articulated** in the output — mostly a **FHWA→bucket mapping**

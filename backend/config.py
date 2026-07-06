@@ -325,6 +325,26 @@ ARTICULATED_LEN_RATIO = 2.0      # truck length > this x local-car-median -> art
 ARTICULATED_BAND_PX = 40         # image-row band (px) for the local car-size baseline
 ARTICULATED_MIN_CARS_PER_BAND = 20  # a band needs this many cars for a trustworthy median
 
+# --- Bank-gated through filter (FM51 audit #4, 2026-07-06) ------------------
+# A "through" movement is only legitimate between OPPOSING legs; a through from a
+# T-intersection stem (side road) is geometrically impossible. Short fragments of
+# main-road through vehicles can fall to the fallback scorer, get their origin
+# mis-read onto an adjacent side-road leg, and be labelled a "through" that
+# DUPLICATES an already-counted main-road vehicle (FM51 side road: ours 105 vs
+# Miovision 60, +75%; 33 bogus S->E throughs start at the main-road zone, avg 32-pt
+# fragments). The bank is the authority on which through-movements are real (built
+# from the site's own tracks) -> reject a "through" whose (origin,dest) is NOT a
+# bank through-pair with real support (>= MIN_SUPPORT, so phantom 0-support paths
+# don't count). Blind-deployable (no through where the site has no through-movement),
+# generalizes to any T; 4-ways reject nothing (all throughs connect opposing legs).
+# PER-CAMERA VALIDATED TOOL, NOT a blind default: the corridor regression (2026-07-06)
+# showed cam3 has 691 LONG throughs on a bank-LEFT pair (real left-turners mislabeled,
+# not duplicate fragments) — rejecting those would delete real vehicles. So run
+# reject_invalid_throughs only where validated vs ground truth (FM51 cam2: 33 short
+# duplicate fragments, side road 105->72). See MASTER_PLAN §2 #4 + memory
+# project_per_approach_attribution_2026_06_30.
+THROUGH_GATE_MIN_SUPPORT = 1     # bank turn-paths below this support are phantom (ignored)
+
 # Ensure directories exist
 DATA_DIR.mkdir(exist_ok=True)
 PROJECTS_DIR.mkdir(exist_ok=True)
