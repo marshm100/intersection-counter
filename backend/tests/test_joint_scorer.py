@@ -184,3 +184,108 @@ def test_no_paths_returns_empty():
     traj = _trace(PATHS[0]["polyline"], step=9.0)
     r = score_path_joint(traj, [])
     assert r["origin_leg_id"] is None
+
+
+# --- entry-tiebreak: shared-exit collinear disambiguation -----------------
+
+# Two paths that MERGE to a shared exit (leg 29) and run collinear near it, but
+# whose ENTRIES are 150 px apart — the cam2 SB-thru(27->29) vs EB-right(28->29)
+# attribution swap in miniature. B's body lies EXACTLY on the track while A's
+# bank body sits 11 px off, so under mdh (min-directed) the higher-support rival
+# B ranks first — the mis-pick that rewrites origin 27 -> 28 live. The track's
+# ENTRY, however, is A's. Both labelled "through" so the turn gate is not in play
+# (the swap is an ORIGIN error; movement is incidental here).
+TB_A = {"path_id": 1, "origin_leg_id": 27, "destination_leg_id": 29,
+        "polyline": [[20, 100], [60, 100], [100, 100], [140, 100],
+                     [170, 111], [200, 111], [230, 111], [260, 111], [290, 111]],
+        "movement_label": "through", "supporting_count": 100}
+TB_B = {"path_id": 2, "origin_leg_id": 28, "destination_leg_id": 29,
+        "polyline": [[170, 100], [200, 100], [230, 100], [260, 100], [290, 100]],
+        "movement_label": "through", "supporting_count": 250}
+# A real origin-27 track: its own entry arm (x20..140) plus a body on the shared line.
+TB_TRAJ = [(20, 100), (50, 100), (80, 100), (110, 100), (140, 100),
+           (170, 100), (200, 100), (230, 100), (260, 100), (290, 100)]
+
+
+def test_entry_tiebreak_recovers_origin_from_collinear_shared_exit():
+    # Without the tiebreak, mdh ranks the collinear higher-support rival (B) first
+    # and rewrites origin 27 -> 28 (the live cam2 EB-over / SB-under swap).
+    off = score_path_joint(TB_TRAJ, [TB_A, TB_B], cost_metric="mdh",
+                           entry_tiebreak=False)
+    assert off["origin_leg_id"] == 28
+    assert off["entry_tiebreak_applied"] is False
+    # With it, the track's ENTRY (near A's) breaks the collinear tie back to 27.
+    on = score_path_joint(TB_TRAJ, [TB_A, TB_B], cost_metric="mdh",
+                          entry_tiebreak=True)
+    assert on["origin_leg_id"] == 27
+    assert on["destination_leg_id"] == 29
+    assert on["entry_tiebreak_applied"] is True
+
+
+def test_entry_tiebreak_is_mdh_only():
+    # dtw cameras (e.g. cam3) must never trigger it — the tiebreak targets the
+    # mdh min-directed relaxation specifically, so dtw stays byte-identical.
+    r = score_path_joint(TB_TRAJ, [TB_A, TB_B], cost_metric="dtw_mean",
+                         entry_tiebreak=True)
+    assert r["entry_tiebreak_applied"] is False
+
+
+def test_entry_tiebreak_needs_separated_entries():
+    # If the two entries are not well separated the entry is no discriminator and
+    # the tiebreak must stay out — raising the min-separation above the 150 px gap
+    # disables it, so mdh's (wrong) pick stands.
+    r = score_path_joint(TB_TRAJ, [TB_A, TB_B], cost_metric="mdh",
+                         entry_tiebreak=True, entry_tiebreak_min_entry_sep_px=200.0)
+    assert r["origin_leg_id"] == 28
+    assert r["entry_tiebreak_applied"] is False
+
+
+def test_entry_tiebreak_inert_on_distinct_exit_paths():
+    # On the normal fixture (paths exit to DIFFERENT legs) the shared-exit cluster
+    # never forms, so enabling the tiebreak changes nothing.
+    traj = _trace(PATHS[0]["polyline"], step=9.0)
+    base = score_path_joint(traj, PATHS, cost_metric="mdh", entry_tiebreak=False)
+    tb = score_path_joint(traj, PATHS, cost_metric="mdh", entry_tiebreak=True)
+    assert tb["path_id"] == base["path_id"]
+    assert tb["origin_leg_id"] == base["origin_leg_id"]
+    assert tb["entry_tiebreak_applied"] is False
+
+
+# --- speed-tiebreak: the entry-tiebreak retry -----------------------------
+# Same collinear shared-exit cluster (TB_A/TB_B), but the discriminator is each
+# path's `expected_speed` signature vs the track's median step. TB_TRAJ steps are
+# 30 px -> a "fast" track that matches the SB-approach signature; mdh still ranks
+# the collinear rival B (origin 28) first, and speed re-picks A (origin 27).
+
+def test_speed_tiebreak_recovers_origin_from_collinear_shared_exit():
+    A = {**TB_A, "expected_speed": 28.0}   # SB-approach signature (fast)
+    B = {**TB_B, "expected_speed": 8.0}    # EB-approach signature (slow)
+    off = score_path_joint(TB_TRAJ, [A, B], cost_metric="mdh", speed_tiebreak=False)
+    assert off["origin_leg_id"] == 28
+    assert off["speed_tiebreak_applied"] is False
+    on = score_path_joint(TB_TRAJ, [A, B], cost_metric="mdh", speed_tiebreak=True)
+    assert on["origin_leg_id"] == 27
+    assert on["destination_leg_id"] == 29
+    assert on["speed_tiebreak_applied"] is True
+
+
+def test_speed_tiebreak_is_mdh_only():
+    A = {**TB_A, "expected_speed": 28.0}; B = {**TB_B, "expected_speed": 8.0}
+    r = score_path_joint(TB_TRAJ, [A, B], cost_metric="dtw_mean", speed_tiebreak=True)
+    assert r["speed_tiebreak_applied"] is False
+
+
+def test_speed_tiebreak_inert_without_signatures():
+    # No expected_speed on the paths -> cannot fire. Guarantees production banks
+    # that don't yet carry the signature are byte-identical.
+    r = score_path_joint(TB_TRAJ, [TB_A, TB_B], cost_metric="mdh", speed_tiebreak=True)
+    assert r["speed_tiebreak_applied"] is False
+    assert r["origin_leg_id"] == 28
+
+
+def test_speed_tiebreak_needs_separated_signatures():
+    # Signatures within min_sep can't discriminate -> stay out, mdh's pick stands.
+    A = {**TB_A, "expected_speed": 8.5}; B = {**TB_B, "expected_speed": 8.0}
+    r = score_path_joint(TB_TRAJ, [A, B], cost_metric="mdh", speed_tiebreak=True)
+    assert r["speed_tiebreak_applied"] is False
+    assert r["origin_leg_id"] == 28

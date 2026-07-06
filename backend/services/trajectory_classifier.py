@@ -9,6 +9,7 @@ are captured correctly.
 
 import logging
 import math
+from statistics import median
 
 from backend.config import (
     TRAJECTORY_CURVATURE_THRESHOLD,
@@ -581,6 +582,27 @@ def _mdh_cost(P: list, Q: list) -> float:
     return base + 0.5 * ang + 0.25 * end_prox
 
 
+def _min_directed(P: list, Q: list) -> float:
+    """MIN of the two directed mean-of-minimum point distances between two
+    polylines — the ``base`` term of :func:`_mdh_cost` in isolation.
+
+    A small value means the two curves are collinear/overlapping along at least
+    one direction: every point of one curve lies near the other. This is exactly
+    the mdh ambiguity the entry-tiebreak resolves — two paths that merge to a
+    shared exit read as "the same shape" here even though their entries diverge.
+    Kept as a standalone kernel (small duplication of _mdh_cost's base) so the
+    shipped scoring cost is untouched.
+    """
+    np_local = _np()
+    if len(P) < 2 or len(Q) < 2:
+        return float("inf")
+    Pa = np_local.asarray(P, dtype=np_local.float64)
+    Qa = np_local.asarray(Q, dtype=np_local.float64)
+    diff = Pa[:, None, :] - Qa[None, :, :]
+    dmat = np_local.hypot(diff[..., 0], diff[..., 1])
+    return min(float(dmat.min(axis=1).mean()), float(dmat.min(axis=0).mean()))
+
+
 _COST_METRICS = {
     "dtw_mean": _dtw_mean,
     "frechet": _discrete_frechet,
@@ -645,6 +667,14 @@ def score_path_joint(
     cost_metric: str = "dtw_mean",
     turn_tail_prior_floor: float = 0.85,
     turn_min_coverage: float = 0.40,
+    entry_tiebreak: bool = False,
+    entry_tiebreak_exit_px: float = 15.0,
+    entry_tiebreak_collinear_px: float = 15.0,
+    entry_tiebreak_min_entry_sep_px: float = 60.0,
+    entry_tiebreak_decisive_px: float = 30.0,
+    speed_tiebreak: bool = False,
+    speed_tiebreak_decisive: float = 1.0,
+    speed_tiebreak_min_sep: float = 1.5,
 ) -> dict:
     """Joint origin+destination+movement scorer via partial Fréchet.
 
@@ -673,6 +703,7 @@ def score_path_joint(
         "movement_label": None, "path_id": None,
         "distance": float("inf"), "coverage": 0.0,
         "considered": 0, "via": "joint_partial_frechet",
+        "entry_tiebreak_applied": False, "speed_tiebreak_applied": False,
     }
     if not paths or len(trajectory) < 4:
         return empty
@@ -682,10 +713,23 @@ def score_path_joint(
     tail = traj[-tw:]
     tail_dir = _unit(tail[-1][0] - tail[0][0], tail[-1][1] - tail[0][1])
 
+    # Observed pixel speed = median inter-point step of the RAW (un-resampled)
+    # trajectory. A blind per-approach signature the speed-tiebreak uses to split
+    # collinear shared-exit pairs mdh can't (cam2 SB approaches run ~5 px/step,
+    # EB ~1-2 due to camera foreshortening). Computed on the raw points so
+    # resampling doesn't distort it.
+    _steps = [math.hypot(trajectory[i + 1][0] - trajectory[i][0],
+                         trajectory[i + 1][1] - trajectory[i][1])
+              for i in range(len(trajectory) - 1)]
+    observed_speed = median(_steps) if len(_steps) >= 3 else None
+
     best_score = -1.0
     best = None
     best_cost = float("inf")
     best_cov = 0.0
+    # Every candidate that clears the coverage + turn gates, kept for the
+    # entry-tiebreak post-step (only consulted when entry_tiebreak + mdh).
+    cands: list = []
 
     for p in paths:
         poly = p.get("polyline") or []
@@ -733,6 +777,10 @@ def score_path_joint(
         )
 
         support = p.get("supporting_count", 0)
+        cands.append({
+            "path": p, "composite": composite, "cost": cost, "coverage": coverage,
+            "entry": poly_dense[0], "exit": poly_dense[end], "poly": poly_dense,
+        })
         if (composite > best_score
                 or (abs(composite - best_score) < 1e-4
                     and best is not None
@@ -741,6 +789,91 @@ def score_path_joint(
             best = p
             best_cost = cost
             best_cov = coverage
+
+    # --- Entry-tiebreak: shared-exit collinear disambiguation (mdh only) -----
+    # mdh's min-directed relaxation makes two paths that MERGE to a shared exit
+    # and run collinear near it read as the same shape, discarding the ENTRY
+    # that actually separates them (cam2 SB-thru vs EB-right, 11 px apart, entries
+    # 171 px apart). When the winner has such a rival AND their entries are well
+    # separated, re-pick by which candidate's entry is closest to the track's
+    # first point. A RELATIVE tiebreak between already-collinear candidates — never
+    # an absolute entry->origin estimate (that regressed cam2 14.4->23.5). Fires
+    # only under mdh, so dtw cameras are byte-identical. See config
+    # ENTRY_TIEBREAK_* + docs/handoff_2026-07-02_session_end.md.
+    entry_applied = False
+    if (entry_tiebreak and cost_metric == "mdh"
+            and best is not None and len(cands) >= 2):
+        def _d(a, b):
+            return math.hypot(a[0] - b[0], a[1] - b[1])
+        top = next((c for c in cands if c["path"] is best), None)
+        top_dest = top["path"].get("destination_leg_id") if top else None
+        if top is not None and top_dest is not None:
+            cluster = [top]
+            for c in cands:
+                if c is top:
+                    continue
+                if c["path"].get("destination_leg_id") != top_dest:
+                    continue  # not the same exit leg
+                if _d(c["exit"], top["exit"]) > entry_tiebreak_exit_px:
+                    continue  # exits not co-located
+                if _min_directed(c["poly"], top["poly"]) > entry_tiebreak_collinear_px:
+                    continue  # not collinear -> shape already separates them
+                if _d(c["entry"], top["entry"]) < entry_tiebreak_min_entry_sep_px:
+                    continue  # entries too close to be a useful discriminator
+                cluster.append(c)
+            if len(cluster) >= 2:
+                traj_entry = traj[0]
+                winner = min(cluster, key=lambda c: _d(c["entry"], traj_entry))
+                if (winner is not top
+                        and _d(top["entry"], traj_entry) - _d(winner["entry"], traj_entry)
+                        >= entry_tiebreak_decisive_px):
+                    best = winner["path"]
+                    best_cost = winner["cost"]
+                    best_cov = winner["coverage"]
+                    entry_applied = True
+
+    # --- Speed-tiebreak: same shared-exit collinear cluster, but split by the
+    # track's PIXEL SPEED vs each candidate path's `expected_speed` signature.
+    # Unlike the (disproven) entry signal, speed is a per-approach signature mdh
+    # doesn't use and that FOV-clipping doesn't corrupt: at cam2 SB approaches run
+    # ~5 px/step, EB ~1-2. Overrides the mdh pick only when the track's speed is
+    # DECISIVELY closer to a collinear rival whose signature differs enough to
+    # discriminate. Inert unless the bank paths carry `expected_speed` (blind:
+    # computed from supporting tracks, not GT). See config SPEED_TIEBREAK_*.
+    speed_applied = False
+    if (speed_tiebreak and cost_metric == "mdh" and observed_speed is not None
+            and best is not None and len(cands) >= 2 and not entry_applied):
+        def _pd(a, b):
+            return math.hypot(a[0] - b[0], a[1] - b[1])
+        top = next((c for c in cands if c["path"] is best), None)
+        top_dest = top["path"].get("destination_leg_id") if top else None
+        top_spd = top["path"].get("expected_speed") if top else None
+        if top is not None and top_dest is not None and top_spd is not None:
+            cluster = [top]
+            for c in cands:
+                if c is top:
+                    continue
+                if c["path"].get("destination_leg_id") != top_dest:
+                    continue  # not the same exit leg
+                if _pd(c["exit"], top["exit"]) > entry_tiebreak_exit_px:
+                    continue  # exits not co-located
+                if _min_directed(c["poly"], top["poly"]) > entry_tiebreak_collinear_px:
+                    continue  # not collinear -> shape already separates them
+                c_spd = c["path"].get("expected_speed")
+                if c_spd is None or abs(c_spd - top_spd) < speed_tiebreak_min_sep:
+                    continue  # no signature, or signatures too close to discriminate
+                cluster.append(c)
+            if len(cluster) >= 2:
+                winner = min(cluster,
+                             key=lambda c: abs(observed_speed - c["path"]["expected_speed"]))
+                if (winner is not top
+                        and abs(observed_speed - top_spd)
+                        - abs(observed_speed - winner["path"]["expected_speed"])
+                        >= speed_tiebreak_decisive):
+                    best = winner["path"]
+                    best_cost = winner["cost"]
+                    best_cov = winner["coverage"]
+                    speed_applied = True
 
     if best is None or best_cost > max_cost:
         return {**empty,
@@ -757,6 +890,8 @@ def score_path_joint(
         "coverage": best_cov,
         "considered": len(paths),
         "via": "joint_partial_frechet",
+        "entry_tiebreak_applied": entry_applied,
+        "speed_tiebreak_applied": speed_applied,
     }
 
 

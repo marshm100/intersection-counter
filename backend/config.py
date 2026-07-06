@@ -236,6 +236,67 @@ JOINT_SCORER_TURN_MIN_COVERAGE = 0.40
 ORIGIN_REWRITE_GATE_ENABLED = True
 ORIGIN_REWRITE_GATE_STRAIGHTNESS = 0.97  # only gate tracks at/above this straightness
 
+# Entry-tiebreak for shared-exit collinear path pairs (2026-07-02). Under the
+# mdh cost metric two paths that MERGE to the same exit and run collinear near
+# it are indistinguishable to min-directed-Hausdorff: the min-relaxation that
+# makes mdh fragment-robust discards the one signal that separates them, the
+# ENTRY. cam2 is the exemplar — SB-thru (27->29) and EB-right (28->29) share the
+# leg-29 exit (1 px), run 11 px apart, but their entries are 171 px apart; mdh
+# sees ~11 px = "same shape", so a real SB-thru track matches the EB-right path
+# and its origin is rewritten SB->EB (EB +25% over / SB -11% under, a ~700-veh
+# swap; a second pair does the same at the leg-26 exit). This targeted tiebreak:
+# when the top match has a collinear rival that SHARES its exit AND whose entry
+# is well separated, re-pick by which candidate's ENTRY is closest to the
+# track's first point. It is a RELATIVE tiebreak between two already-collinear
+# candidates, never an absolute entry->origin estimate (that fails here — the
+# FOV clips approaches, which regressed cam2 14.4->23.5 when tried globally),
+# fires only under mdh (dtw cameras like cam3 can never trigger it, so they are
+# byte-identical), and overrides the mdh winner only on a decisive entry margin.
+# See docs/handoff_2026-07-02_session_end.md + memory
+# project_per_approach_attribution_2026_06_30.
+#
+# DISPROVEN 2026-07-02 (kept OFF; scaffolding retained for a non-entry retry).
+# Full-chain replay REGRESSED cam2: EB 33.2->41.0, SB 12.3->15.8, 747 firings.
+# Birth diagnostic (scripts/diagnose_cam2_entry.py) shows why: SB tracks are 84%
+# born near the SB entry, so births DO discriminate — but the tiebreak by
+# construction only fires when the entry DECISIVELY favors the rival, which
+# selects exactly the misleading ~16% of genuinely-SB tracks born mid-approach
+# (past the far-edge SB bank entry, drifting toward the central EB entry pixel).
+# It is a biased sampler of its own worst cases: it can't move the real overcount
+# (EB-attributed tracks are 87% EB-near) and corrupts the SB tracks it touches.
+# The cluster detection (shared-exit + collinear) is sound and reusable; only the
+# entry DISCRIMINATOR is dead here. A speed/curvature discriminator is the retry.
+ENTRY_TIEBREAK_ENABLED = False
+ENTRY_TIEBREAK_EXIT_PX = 15.0           # top & rival exit points within this = "shared exit"
+ENTRY_TIEBREAK_COLLINEAR_PX = 15.0      # min-directed dist between the two paths below this = collinear
+ENTRY_TIEBREAK_MIN_ENTRY_SEP_PX = 60.0  # only fire when the two ENTRIES are at least this far apart
+ENTRY_TIEBREAK_DECISIVE_PX = 30.0       # override the mdh winner only if the rival's entry is this much closer
+
+# Speed-tiebreak (2026-07-02) — the retry after the ENTRY tiebreak was disproven.
+# Same shared-exit collinear cluster (reuses ENTRY_TIEBREAK_EXIT_PX/COLLINEAR_PX),
+# but splits the pair by the track's PIXEL SPEED (median inter-point step) vs each
+# candidate path's `expected_speed` signature. Speed is a per-approach signature
+# mdh does NOT use and FOV-clipping does NOT corrupt (diagnostic: cam2 SB approaches
+# ~5 px/step, EB ~1-2, Cohen's d~2-2.8; and it leans the RIGHT way on the exact
+# tracks entry got wrong). Overrides the mdh pick only when the track's speed is
+# DECISIVELY closer to a collinear rival whose signature differs enough to
+# discriminate. Blind-deployable: `expected_speed` is computed from a path's
+# SUPPORTING TRACKS at bank-build time (NOT Miovision) — so this is INERT until the
+# bank carries it (live banks don't yet; the replay harness augments for the A/B).
+# See scripts/diagnose_cam2_speed*.py + memory project_per_approach_attribution_2026_06_30.
+#
+# PER-CAMERA, NOT global (1/3/4/5 regression sweep 2026-07-02). Validated
+# NET-POSITIVE on cam2 (EB 33.2->28.8, SB 12.3->10.8, 392 fires) and cam5 (NB
+# 9.0->5.3, 2027 fires); provably INERT on cam1 (0 fires, no qualifying cluster)
+# and cam3 (dtw-gated, 0 fires). BUT it REGRESSED cam4 (NB 4.9->5.8 PASS->FAIL,
+# 1487 fires) — cam4's collinear speed signatures don't separate cleanly. So the
+# default is OFF; enable per camera via the `calib_speed_tiebreak` knob only where
+# a sweep confirms it helps (cam2, cam5). Still inert until build_bank supplies
+# expected_speed on the paths.
+SPEED_TIEBREAK_ENABLED = False          # OFF by default; per-camera calib_speed_tiebreak opt-in (cam2/cam5 validated)
+SPEED_TIEBREAK_DECISIVE = 1.0           # px/step: override only if track speed is this much closer to the rival's signature
+SPEED_TIEBREAK_MIN_SEP = 1.5            # px/step: only fire when the two paths' speed signatures differ by this
+
 # Pipeline-level grace period before considering a tracker-missing vehicle
 # "lost" and finalizing it. YOLO detection can flicker (detect, miss, detect)
 # on consecutive frames; without a grace window every flicker fragments a

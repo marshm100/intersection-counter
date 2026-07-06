@@ -17,6 +17,11 @@ import cv2
 
 from backend.config import (
     CHECKPOINT_INTERVAL_SECONDS,
+    ENTRY_TIEBREAK_COLLINEAR_PX,
+    ENTRY_TIEBREAK_DECISIVE_PX,
+    ENTRY_TIEBREAK_ENABLED,
+    ENTRY_TIEBREAK_EXIT_PX,
+    ENTRY_TIEBREAK_MIN_ENTRY_SEP_PX,
     HEADING_FALLBACK_EXCLUDE_LABEL_KEYWORDS,
     JOINT_SCORER_COST_METRIC,
     JOINT_SCORER_COVERAGE_WEIGHT,
@@ -30,6 +35,9 @@ from backend.config import (
     ORIGIN_REWRITE_GATE_ENABLED,
     ORIGIN_REWRITE_GATE_STRAIGHTNESS,
     PRE_TRACK_NMS_IOU,
+    SPEED_TIEBREAK_DECISIVE,
+    SPEED_TIEBREAK_ENABLED,
+    SPEED_TIEBREAK_MIN_SEP,
     TRACK_FINALIZE_GAP_FRAMES,
     TRAJECTORY_MIN_DISTANCE_PX,
     USE_JOINT_PARTIAL_FRECHET_SCORER,
@@ -213,6 +221,12 @@ class ProcessingPipeline:
         # Snap-magnet defence: turn matches rejected because a straight (through)
         # track's origin was being rewritten to a non-nearest leg.
         self.n_origin_rewrite_gated: int = 0
+        # Entry-tiebreak: shared-exit collinear matches whose origin was re-picked
+        # by entry proximity (the cam2 SB<->EB swap fix). mdh cameras only.
+        self.n_entry_tiebreak: int = 0
+        # Speed-tiebreak: same cluster, re-picked by pixel-speed signature vs
+        # each path's expected_speed (the entry retry). mdh cameras only.
+        self.n_speed_tiebreak: int = 0
         # Low-confidence births rejected by the track-quality gate (Phase 1.1;
         # only counts when calibration_params["track_quality_filter"] is set).
         self.n_quality_filtered: int = 0
@@ -937,7 +951,25 @@ class ProcessingPipeline:
                              or JOINT_SCORER_COST_METRIC),
                 turn_tail_prior_floor=JOINT_SCORER_TURN_TAIL_PRIOR_FLOOR,
                 turn_min_coverage=JOINT_SCORER_TURN_MIN_COVERAGE,
+                # Shared-exit collinear entry-tiebreak (cam2 SB<->EB swap fix).
+                # Per-camera enable via calib knob; mdh-only inside the scorer.
+                entry_tiebreak=self._calibration_params.get(
+                    "entry_tiebreak", ENTRY_TIEBREAK_ENABLED),
+                entry_tiebreak_exit_px=ENTRY_TIEBREAK_EXIT_PX,
+                entry_tiebreak_collinear_px=ENTRY_TIEBREAK_COLLINEAR_PX,
+                entry_tiebreak_min_entry_sep_px=ENTRY_TIEBREAK_MIN_ENTRY_SEP_PX,
+                entry_tiebreak_decisive_px=ENTRY_TIEBREAK_DECISIVE_PX,
+                # Speed-tiebreak (entry retry): inert unless paths carry
+                # expected_speed. Per-camera enable via calib knob; mdh-only.
+                speed_tiebreak=self._calibration_params.get(
+                    "speed_tiebreak", SPEED_TIEBREAK_ENABLED),
+                speed_tiebreak_decisive=SPEED_TIEBREAK_DECISIVE,
+                speed_tiebreak_min_sep=SPEED_TIEBREAK_MIN_SEP,
             )
+            if joint.get("entry_tiebreak_applied"):
+                self.n_entry_tiebreak += 1
+            if joint.get("speed_tiebreak_applied"):
+                self.n_speed_tiebreak += 1
             # Origin-rewrite gate (snap-magnet defence): a straight "turn"
             # polyline can capture a THROUGH track and rewrite its origin to a
             # leg the track never entered from. Reject a TURN match that would
