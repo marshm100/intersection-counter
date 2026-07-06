@@ -714,6 +714,10 @@ class ProcessingPipeline:
                 "bbox_height": detection["bbox_height"],
                 "bbox_area": detection["bbox_area"],
                 "initial_bbox_ratio": detection["bbox_width"] / max(detection["bbox_height"], 1),
+                # Max bbox length + center-y at that max, for the §3-D articulated
+                # size test (the vehicle's fullest-visible extent). Updated below.
+                "max_bbox_length": 0.0,
+                "bbox_center_y_at_max": None,
             }
             self.n_tracks_total += 1
 
@@ -723,6 +727,10 @@ class ProcessingPipeline:
         vehicle["bbox_width"] = detection["bbox_width"]
         vehicle["bbox_height"] = detection["bbox_height"]
         vehicle["bbox_area"] = detection["bbox_area"]
+        _len = max(detection["bbox_width"], detection["bbox_height"])
+        if _len > vehicle.get("max_bbox_length", 0.0):
+            vehicle["max_bbox_length"] = _len
+            vehicle["bbox_center_y_at_max"] = center[1]
 
         if vehicle["origin_leg_id"] is None:
             n_pts = len(vehicle["trajectory"])
@@ -1138,6 +1146,10 @@ class ProcessingPipeline:
             destination_confidence=dest_result.get("confidence"),
             destination_posterior_json=posterior_json,
             destination_margin=destination_margin,
+            # §3-D: the vehicle's max bbox length + center-y, for the articulated
+            # size test (exact from the tracker -> no cache re-linking needed).
+            bbox_length=vehicle.get("max_bbox_length"),
+            bbox_center_y=vehicle.get("bbox_center_y_at_max"),
         )
 
         self.vehicle_count += 1
@@ -1185,10 +1197,12 @@ class ProcessingPipeline:
                     destination_leg_id,
                     destination_confidence,
                     destination_posterior_json,
-                    destination_margin)
+                    destination_margin,
+                    bbox_length,
+                    bbox_center_y)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                            ?, ?, ?, ?, ?,
-                           ?, ?, ?, ?)""",
+                           ?, ?, ?, ?, ?, ?)""",
                 (
                     self.video_id,
                     camera_id,
@@ -1214,6 +1228,8 @@ class ProcessingPipeline:
                     kwargs.get("destination_confidence"),
                     kwargs.get("destination_posterior_json"),
                     kwargs.get("destination_margin"),
+                    kwargs.get("bbox_length"),
+                    kwargs.get("bbox_center_y"),
                 ),
             )
             conn.commit()

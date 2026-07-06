@@ -200,6 +200,10 @@ CREATE TABLE IF NOT EXISTS vehicle_events (
     -- so the review flag feeder can filter ambiguous-movement events in SQL
     -- instead of parsing every posterior in Python. See services/posterior.py.
     destination_margin              REAL,
+    -- §3-D articulated: the vehicle's max bbox length + center-y at that max, for
+    -- the view-invariant size test (semi vs box truck). See services/articulated.py.
+    bbox_length                     REAL,
+    bbox_center_y                   REAL,
     FOREIGN KEY (origin_leg_id) REFERENCES legs(leg_id),
     FOREIGN KEY (video_id) REFERENCES videos(video_id),
     FOREIGN KEY (camera_id) REFERENCES cameras(camera_id),
@@ -408,6 +412,12 @@ def get_connection(project_id: str) -> sqlite3.Connection:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_posterior_json TEXT")
     if "destination_margin" not in ev_cols:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_margin REAL")
+    # 2026-07-06: per-vehicle max bbox length + its center-y, for the §3-D
+    # articulated size test (exact from the tracker -> no cache re-linking).
+    if "bbox_length" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN bbox_length REAL")
+    if "bbox_center_y" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN bbox_center_y REAL")
     # One-time backfill, guarded by an O(1) sentinel — the NULL-margin probe is a
     # full scan, so we must NOT run it on every connection. New events get their
     # margin at write time; any stray NULL is still caught by the feeder's
