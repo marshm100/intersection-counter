@@ -202,8 +202,12 @@ class BotSortBackend:
     than OC-SORT's observation-centric model, which mispredicts on SHARP turns
     (the Sunnyvale EB cross-street turns: the boxes exist across the curve — the
     greedy NN-linker recovers ~22 — but OC-SORT's momentum breaks the track and
-    only ~4 survive). cmc_method='none' because this is a STATIC camera, so no
-    image is needed → runs on the bbox-only detection cache like OC-SORT.
+    only ~4 survive). cmc_method=None DISABLES global motion compensation —
+    correct for a STATIC camera fed the bbox-only detection cache with a blank
+    image. NB: pass Python None, not the STRING 'none' (which raises in boxmot 18
+    — get_cmc_method only treats None as "disabled"). The prior 'ecc' fell through
+    to running ECC against the blank frame EVERY frame → failed-to-converge →
+    identity warp: a no-op that only burned cycles and spewed warnings.
     """
 
     def __init__(
@@ -230,7 +234,7 @@ class BotSortBackend:
         self._with_reid = bool(with_reid)
         self._reid = reid_embeddings if self._with_reid else None
         self._kwargs = dict(
-            reid_model=None, with_reid=self._with_reid, cmc_method="ecc",
+            reid_model=None, with_reid=self._with_reid, cmc_method=None,
             track_high_thresh=track_activation_threshold,
             track_low_thresh=track_low_thresh,
             new_track_thresh=new_track_thresh,
