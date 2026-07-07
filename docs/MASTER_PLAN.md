@@ -216,10 +216,80 @@ DOUBLE-COUNTED +769, driven by SB-thru occlusion splitting EB tracks (corr 0.58 
 - **PDF report like Miovision** — example in hand: the `*.pdf` in the same folder. We
   already produce the data; this is a rendering layer.
 
+### F. Calibration studio — the operator's authoring surface (2026-07-07)
+
+The calibration UI is the operator's highest-leverage screen and it's currently cluttered
+with legacy overlays that no longer drive the count. An audit against the pipeline (not
+guesses) sets the direction.
+
+**Audit — what actually feeds the readings vs. what's stale/fallback:**
+- **Primary + perspective-robust:** the **leg origin points**, and the **bank path polylines /
+  operator channels**. For a bank-calibrated camera, origin comes from `score_origin_by_polyline`
+  / `score_path_joint` (pipeline.py:772, 948) and **movement comes from the bank path's label,
+  not the angle classifier** — the code is explicit: *"the reported movement comes from the path
+  label (not classification), so counts are unaffected"* (pipeline.py:1019–1021). These work
+  because they're defined in the real, skewed image space (clustered real tracks / hand drawing).
+- **Fallback-only AND perspective-fragile (retire from the default view):** the **perpendicular
+  tripwire** (`tripwire_half_length_px`, Tier-1 fallback, pipeline.py:799) and the **angle-fan
+  disks** (`through/turn/uturn` thresholds → `classify_trajectory`, whose movement is discarded
+  for bank cameras). Both bake in a **top-down assumption our oblique pole cameras violate**:
+  `calibration.js:_computeNodeHeading` literally points each leg's heading at the IMAGE CENTER
+  (radial/BEV), and the tripwire is welded perpendicular to it. On an angled view those are
+  systematically wrong — which is *why* the system already moved onto image-space polylines and
+  why the engineer's edits are mandatory, not cosmetic.
+
+**Design principles:**
+- **Review-first, not manual-first.** Auto-cal (`auto_calibrator_v2` / `scripts/auto_calibrate`)
+  + the GT-free bank builder do the bulk (find the arms, cluster the paths). The engineer sets
+  only what the computer *cannot* know: leg **count + cardinal + road names** (world knowledge),
+  and **channels for the movements the sample traffic under-represents** — the QA card tells them
+  which (this is exactly the cam2 SB-right −461 case: auto truncated it, a human draws one channel).
+- **Everything editable; nothing locked to 90°.** Because the camera is oblique, every auto-derived
+  element (leg heading, path vertices, channel handles, any fallback tripwire) stays hand-conformable
+  to the real perspective. The human eye reading the tilted video is the perspective-correction
+  authority. Auto = a draft to correct, never a locked output.
+- **Canvas is the hero; the panel is a quiet stepper.** One accent, one button family, terse copy,
+  layer toggles so the road stays visible.
+
+**The studio — one surface, three moments (the target UX):**
+1. **During auto-cal — live perception.** The canvas plays the frames the detector is reading, with
+   detection boxes + track trails, and the **leg-zone / path clusters visibly assemble** as evidence
+   accumulates. (Root cause of today's "looks stuck": `collect_trajectories` computes progress every
+   30 s but only *logs* it — `progress_pct` is pinned at 5 % the whole pass; `run()` takes
+   `should_cancel` but no `on_progress`. The per-frame view exists in the loop and is thrown away.)
+2. **Right after — clusters are the draft.** The detected zones/paths land on the frame as editable
+   proposals.
+3. **Then — playback editing against motion.** The 15-min sample window becomes a **scoped, playable
+   video**; the auto-detected tracks replay **in sync**; the engineer toggles layers (Legs · Paths ·
+   Channels · Fallback · detections) off/on and conforms the geometry to the traffic they can *watch*
+   — the only way to get an oblique camera's directions right.
+
+**New backend bits this needs:** an `on_progress`/live-preview channel out of `collect_trajectories`;
+a **range-served** segment of the sample window for real `<video>` playback (not one-frame decodes);
+and **persisting the sample trajectories with timestamps** so they replay in sync.
+
+**Build in 3 shippable stages (each reviewable; do not big-bang):**
+1. **Clean surface + layer toggles + strip the stale top-down overlays** (static frame). Road becomes
+   visible, panel becomes the review-first stepper, nothing welded to 90°. *Unblocks cam2 channel
+   drawing immediately.*
+2. **Live auto-cal perception view** — stream frames + detections + forming clusters; fix the
+   pinned-progress plumbing.
+3. **The playback studio** — range-served window playback + synced track replay + layer-toggle editing
+   against moving traffic. The largest piece.
+
+Relates to [[project_per_approach_attribution_2026_06_30]] (the SB-right channel this enables),
+[[project_bev_derisk]]/`docs/bev_derisk_cam2_2026-07-06.md` (why oblique-perspective geometry can't be
+trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/js/calibration.js`
+(1914 lines, mostly inline-styled → consolidate into `styles.css`).
+
 ---
 
 ## 4. Sequencing (proposed)
 
+0. **F1 — calibration clean surface + layers (IN PROGRESS 2026-07-07)** — strip the stale
+   top-down overlays, add layer toggles, review-first stepper. Pulled to the front because it
+   is *actively blocking* the cam2 SB-right channel fix and everything the operator authors
+   starts here. F2 (live auto-cal view) + F3 (playback studio) follow as their own track.
 1. **B-coverage diagnostic + the flag queue model** — highest leverage: it's the blind
    accuracy assurance, and it directs all review work. Without it, deployment can't be
    *trusted*, only *measured*.
@@ -230,6 +300,8 @@ DOUBLE-COUNTED +769, driven by SB-thru occlusion splitting EB tracks (corr 0.58 
    classifier capability.
 5. **D-low-light detection** — the hardest/most-research-y; informed by what the coverage
    diagnostic (B) shows about *where* detection sags.
+6. **F2 + F3 — calibration studio** — live auto-cal perception view, then the playback
+   editing surface. Pairs with C (shared canvas/layer/keyboard scaffolding).
 
 Each is a self-contained phase; ship and validate before the next.
 
