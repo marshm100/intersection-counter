@@ -33,7 +33,11 @@ from groundtruth import VIDEO_START
 
 
 def sidecar_path(pq: Path) -> Path:
-    return pq.with_name(pq.stem + ".reid.npz")
+    # a DIRECTORY of memmapped npy (frames/bboxes/embs) — embeddings are STREAMED to
+    # disk as they are computed, so peak RAM stays flat regardless of window length
+    # (the old single-.npz accumulated all embeddings in RAM then copied -> OOM on 8 GB
+    # at a 30-min window; operator boxes are just as modest). Reader memmaps it back.
+    return pq.with_name(pq.stem + ".reid")
 
 
 def main() -> int:
@@ -76,11 +80,22 @@ def main() -> int:
     from boxmot.reid.core.reid import ReID
     model = ReID(weights=args.weights, device=args.device).model
 
+    EMB_DIM = 512   # osnet_x0_25 feature dim (asserted on the first batch below)
+
+    # Pre-size the output as three memmapped .npy arrays sized to the UPPER bound
+    # (total_dets). Each embedding is written straight to disk as it is computed, so
+    # RAM never holds more than one frame's crops + the model (the OOM was the old
+    # in-RAM accumulation of all ~310k vectors + the contiguous savez copy).
+    from numpy.lib.format import open_memmap
+    out.mkdir(parents=True, exist_ok=True)
+    fr_mm = open_memmap(out / "frames.npy", mode="w+", dtype=np.int32, shape=(total_dets,))
+    bb_mm = open_memmap(out / "bboxes.npy", mode="w+", dtype=np.float32, shape=(total_dets, 4))
+    em_mm = open_memmap(out / "embs.npy", mode="w+", dtype=np.float16, shape=(total_dets, EMB_DIM))
+
     cap = cv2.VideoCapture(vpath)
     cap.set(cv2.CAP_PROP_POS_FRAMES, min(need))
-    frames_out, bboxes_out, embs_out = [], [], []
     hi = max(need)
-    done = 0
+    done = w = 0
     while need:
         ret, img = cap.read()
         if not ret:
@@ -93,22 +108,23 @@ def main() -> int:
             continue
         boxes = np.asarray(bbs, dtype=np.float32)
         feats = np.asarray(model.get_features(boxes, img), dtype=np.float16)
-        for bb, emb in zip(boxes, feats):
-            frames_out.append(actual)
-            bboxes_out.append(bb)
-            embs_out.append(emb)
+        if feats.shape[1] != EMB_DIM:
+            raise SystemExit(f"embedding dim {feats.shape[1]} != expected {EMB_DIM} — set EMB_DIM")
+        n = len(boxes)
+        fr_mm[w:w + n] = actual
+        bb_mm[w:w + n] = boxes
+        em_mm[w:w + n] = feats
+        w += n
         done += 1
         if done % 2000 == 0:
-            print(f"  embedded {done} frames...")
+            print(f"  embedded {done} frames ({w} dets)...", flush=True)
     cap.release()
 
-    frames_arr = np.asarray(frames_out, dtype=np.int32)
-    bboxes_arr = np.asarray(bboxes_out, dtype=np.float32)
-    embs_arr = np.asarray(embs_out, dtype=np.float16)
-    np.savez(out, frames=frames_arr, bboxes=bboxes_arr, embs=embs_arr)
-    miss = total_dets - len(frames_arr)
-    print(f"wrote {out}  ({len(frames_arr)} embeddings, dim {embs_arr.shape[1] if embs_arr.size else 0}, "
-          f"{miss} detections missed/undeocded)")
+    fr_mm.flush(); bb_mm.flush(); em_mm.flush()
+    del fr_mm, bb_mm, em_mm            # release the memmaps
+    (out / "count.txt").write_text(str(w))   # valid-row count (<= total_dets)
+    miss = total_dets - w
+    print(f"wrote {out}  ({w} embeddings, dim {EMB_DIM}, {miss} detections missed/undecoded)")
     return 0
 
 
