@@ -40,6 +40,14 @@
     let _dragMoved = false;
     let _editingIdx = -1;
 
+    // ---- F1 view state: per-leg × per-type canvas visibility + open step ---
+    // _vis[legKey] = {legs, paths, channels, fallback}. Fallback (perpendicular
+    // tripwire + angle-fan disks) defaults OFF — it assumes a top-down view our
+    // oblique cameras don't have, so it just clutters the road. MASTER_PLAN §F.
+    let _vis = {};
+    let _openStep = 'legs';
+    let _dragHeading = null;   // leg idx while dragging its heading arrow to aim it
+
     // ---- Phase 2 polyline-paths state ---------------------------------
     let _paths = [];               // saved paths from GET /paths
     let _drawingPath = null;       // { origin_leg_id, destination_leg_id,
@@ -84,6 +92,9 @@
         _dragLeg = null;
         _dragMoved = false;
         _editingIdx = -1;
+        _vis = {};
+        _openStep = 'legs';
+        _dragHeading = null;
 
         host.innerHTML = '<p class="empty-message">Loading calibration...</p>';
 
@@ -159,17 +170,26 @@
         const allDone = _legs.length >= _numLegs;
         const camLabel = opts.cameraLabel || `Camera ${cid}`;
 
+        const step = (n, id, title) => `
+            <div class="cal-step" id="cal-step-${id}">
+                <div class="cal-step__head" onclick="v3CalToggleStep('${id}')">
+                    <span class="cal-step__n">${n}</span>
+                    <span class="cal-step__title">${title}</span>
+                    <span class="cal-step__status" id="cal-status-${id}"></span>
+                    <span class="cal-step__chev">&#9656;</span>
+                </div>
+                <div class="cal-step__body" id="cal-body-${id}"></div>
+            </div>`;
         host.innerHTML = `
+          <div class="cal">
             <div class="v3-calib-header">
                 <a href="#" class="back-link" onclick="event.preventDefault(); v3CalibrationBack();">&larr; Back to cameras</a>
                 <h3 style="margin:0;font-size:16px;">Calibrating ${escapeHtml(camLabel)}</h3>
             </div>
             <div class="calib-layout">
                 <div class="calib-canvas-wrap">
-                    <p style="font-size:13px;color:#6b7280;margin-bottom:6px;">
-                        Click once on each approach arm to place an origin node.
-                    </p>
-                    <canvas id="v3-calib-canvas" style="border:1px solid #d1d5db;cursor:crosshair;max-width:100%;display:block;"></canvas>
+                    <div class="cal-layers-grid" id="v3-calib-layers"></div>
+                    <canvas id="v3-calib-canvas" style="cursor:crosshair;max-width:100%;display:block;"></canvas>
                     <div class="calib-scrubber-row">
                         <span class="calib-scrubber-time" id="v3-calib-time-display">00:00:05</span>
                         <input type="range" id="v3-calib-scrubber"
@@ -181,21 +201,39 @@
                 </div>
                 <div class="calib-sidebar">
                     <div id="v3-calib-suggestion" style="margin-bottom:10px;"></div>
-                    <div id="v3-calib-leg-list"></div>
-                    <p id="v3-calib-status" style="margin-top:8px;font-size:13px;color:#6b7280;"></p>
-                    <div id="v3-calib-form" style="display:none;margin-top:12px;"></div>
-                    <div id="v3-calib-paths" style="margin-top:20px;"></div>
-                    <div id="v3-calib-channels" style="margin-top:20px;"></div>
-                    <div id="v3-calib-bank" style="margin-top:20px;"></div>
-                    <div id="v3-calib-params" style="margin-top:20px;"></div>
-                    <div style="margin-top:16px;">
-                        <button id="v3-calib-save-btn" class="btn-proc btn-start"
+                    <div id="v3-calib-form" style="display:none;margin-bottom:10px;"></div>
+                    <div class="cal-steps">
+                        ${step(1, 'legs', 'Legs')}
+                        ${step(2, 'channels', 'Channels')}
+                        ${step(3, 'bank', 'Path bank')}
+                    </div>
+                    <details class="cal-disc" style="margin-top:8px;">
+                        <summary>Road paths <span id="cal-paths-count" class="cal-meta"></span></summary>
+                        <div class="cal-disc__body"><div id="v3-calib-paths"></div></div>
+                    </details>
+                    <details class="cal-disc" style="margin-top:8px;">
+                        <summary>Advanced &middot; fallback only</summary>
+                        <div class="cal-disc__body">
+                            <p class="cal-hint">Tunes the no-bank fallback (perpendicular tripwire + angle buckets). Does not affect a bank-calibrated count.</p>
+                            <div id="v3-calib-params"></div>
+                        </div>
+                    </details>
+                    <p id="v3-calib-status" class="cal-hint" style="margin-top:10px;"></p>
+                    <div class="cal-foot">
+                        <button id="v3-calib-save-btn" class="cal-btn cal-btn--primary"
                             onclick="v3CalibrationSave()" ${allDone ? '' : 'disabled'}>
-                            Save Calibration
+                            Save calibration
                         </button>
                     </div>
                 </div>
-            </div>`;
+            </div>
+          </div>`;
+        // Relocate the section host divs into their step bodies (the section
+        // render fns still target these IDs — only their container moved).
+        document.getElementById('cal-body-legs').innerHTML =
+            '<p class="cal-hint">Click each approach arm to drop an origin, set its cardinal + name, and drag the arrow to aim it along the real direction of travel.</p><div id="v3-calib-leg-list"></div>';
+        document.getElementById('cal-body-channels').innerHTML = '<div id="v3-calib-channels"></div>';
+        document.getElementById('cal-body-bank').innerHTML = '<div id="v3-calib-bank"></div>';
 
         _canvas = document.getElementById('v3-calib-canvas');
         _ctx = _canvas.getContext('2d');
@@ -214,6 +252,9 @@
             _renderBankSection();
             _refreshBankStatus();   // pick up an already-running build/apply job
             _renderSuggestionBanner();
+            _renderLayers();
+            _updateStepStatus();
+            _setOpenStep(_legs.length >= _numLegs ? 'channels' : 'legs');
         };
         _img.onerror = () => {
             const el = document.getElementById('v3-calib-status');
@@ -244,6 +285,100 @@
                 _scrubTimer = setTimeout(() => _loadFrame(_currentSeconds), 300);
             });
         }
+    }
+
+    // ---- F1: panel stepper ---------------------------------------------
+    window.v3CalToggleStep = function (id) {
+        _setOpenStep(_openStep === id ? null : id);
+    };
+
+    // ---- F1: visibility grouped by leg (approach) ----------------------
+    // A per-leg × per-type visibility matrix so the engineer can isolate one
+    // approach on a cluttered canvas (e.g. show only SB's node + paths +
+    // channels while editing SB-right). Keyed by leg_id (falls back to a local
+    // key for a not-yet-saved leg). Transient view state — never persisted.
+    const _VIS_TYPES = [
+        { k: 'legs', label: 'Legs', short: 'Legs', sw: '#3b82f6' },
+        { k: 'paths', label: 'Paths', short: 'Paths', sw: '#22c55e' },
+        { k: 'channels', label: 'Channels', short: 'Chan', sw: '#0ea5e9' },
+        { k: 'fallback', label: 'Fallback', short: 'Fall', sw: '#f59e0b' },
+    ];
+    function _legKey(leg) { return leg.leg_id != null ? leg.leg_id : ('i' + leg.idx); }
+    function _visFor(legKey) {
+        if (!_vis[legKey]) _vis[legKey] = { legs: true, paths: true, channels: true, fallback: false };
+        return _vis[legKey];
+    }
+    // Draw-time check by ORIGIN leg_id (paths/channels) or leg key (nodes).
+    function _visible(type, legKey) { return _visFor(legKey)[type]; }
+
+    window.v3CalVis = function (legKey, type) {
+        const v = _visFor(legKey); v[type] = !v[type];
+        _redraw(); _renderLayers();
+    };
+    window.v3CalVisAll = function (type) {
+        // Master column toggle: if any leg has this type ON, turn all OFF; else all ON.
+        const keys = _legs.map(_legKey);
+        const anyOn = keys.some(k => _visFor(k)[type]);
+        keys.forEach(k => { _visFor(k)[type] = !anyOn; });
+        _redraw(); _renderLayers();
+    };
+
+    // The layers matrix: a compact grid, rows = legs, cols = the 4 types, plus
+    // an "All" master row. Rebuilt whenever the leg set changes.
+    function _renderLayers() {
+        const host = document.getElementById('v3-calib-layers');
+        if (!host) return;
+        const legs = _legs.slice().sort((a, b) => a.sort_order - b.sort_order);
+        const cell = (on, color, onclick, title) =>
+            `<button class="cal-lay-cell${on ? ' is-on' : ''}" style="--c:${color};" onclick="${onclick}" title="${title}"></button>`;
+        let head = `<div class="cal-lay-row cal-lay-head"><span class="cal-lay-name">Layers</span>`;
+        for (const t of _VIS_TYPES) head += `<span class="cal-lay-col" title="${t.label}">${t.short}</span>`;
+        head += `</div>`;
+        let rows = '';
+        for (const leg of legs) {
+            const key = _legKey(leg);
+            const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
+            rows += `<div class="cal-lay-row">
+                <span class="cal-lay-name"><span class="sw" style="background:${color};"></span>${escapeHtml(leg.label)}</span>`;
+            for (const t of _VIS_TYPES)
+                rows += cell(_visFor(key)[t.k], t.sw, `v3CalVis('${key}','${t.k}')`, `${leg.label} · ${t.label}`);
+            rows += `</div>`;
+        }
+        let master = `<div class="cal-lay-row cal-lay-master"><span class="cal-lay-name">All approaches</span>`;
+        for (const t of _VIS_TYPES) {
+            const anyOn = _legs.some(l => _visFor(_legKey(l))[t.k]);
+            master += cell(anyOn, t.sw, `v3CalVisAll('${t.k}')`, `Toggle ${t.label} for all`);
+        }
+        master += `</div>`;
+        host.innerHTML = head + rows + master;
+    }
+
+    function _setOpenStep(id) {
+        _openStep = id;
+        for (const s of ['legs', 'channels', 'bank']) {
+            const el = document.getElementById(`cal-step-${s}`);
+            if (el) el.classList.toggle('is-open', s === id);
+        }
+    }
+
+    // Live per-step status in the card headers + the done-check on Legs.
+    function _updateStepStatus() {
+        const set = (id, txt) => {
+            const el = document.getElementById(`cal-status-${id}`);
+            if (el) el.textContent = txt;
+        };
+        set('legs', `${_legs.length}/${_numLegs}`);
+        const legStep = document.getElementById('cal-step-legs');
+        if (legStep) legStep.classList.toggle('is-done', _legs.length >= _numLegs);
+        set('channels', _channels.length ? `${_channels.length} drawn` : 'none');
+        const b = _bankStatus;
+        set('bank', !b ? 'not built'
+            : b.status === 'running' ? 'building…'
+            : (b.status === 'complete' && b.kind === 'apply') ? 'applied'
+            : b.status === 'complete' ? 'built'
+            : b.status === 'error' ? 'error' : 'not built');
+        const pc = document.getElementById('cal-paths-count');
+        if (pc) pc.textContent = _paths.length ? `(${_paths.length})` : '';
     }
 
     function _loadFrame(seconds) {
@@ -350,9 +485,41 @@
                 return;
             }
         }
+        // Heading-arrow-tip drag — aim the leg's direction of travel (F1). The
+        // tip sits 40 px from the node along the heading, disjoint from the 16 px
+        // node hit region above, so this only fires when grabbing the arrowhead.
+        const tipHit = (leg, isCur) => {
+            if (leg.reference_heading == null) return false;
+            const [px, py] = leg.origin_zone[0];
+            const rad = (leg.reference_heading - 90) * Math.PI / 180;
+            const tx = px + Math.cos(rad) * 40, ty = py + Math.sin(rad) * 40;
+            if (Math.hypot(x - tx, y - ty) <= 12) {
+                _dragHeading = { idx: leg.idx, isCurrentLeg: isCur };
+                _canvas.style.cursor = 'grabbing';
+                e.preventDefault();
+                return true;
+            }
+            return false;
+        };
+        for (const leg of _legs) if (_visible('legs', _legKey(leg)) && tipHit(leg, false)) return;
+        if (_currentLeg && tipHit(_currentLeg, true)) return;
     }
 
     function _onCanvasMousemove(e) {
+        if (_dragHeading) {
+            const { x, y } = _canvasCoords(e);
+            const target = _dragHeading.isCurrentLeg
+                ? _currentLeg : _legs.find(l => l.idx === _dragHeading.idx);
+            if (target) {
+                const [nx, ny] = target.origin_zone[0];
+                const h = (Math.atan2(y - ny, x - nx) * 180 / Math.PI + 90 + 360) % 360;
+                target.reference_heading = Math.round(h * 10) / 10;
+                _redraw();
+                const inp = document.getElementById(`v3-leg-heading-${target.idx}`);
+                if (inp) inp.value = target.reference_heading;
+            }
+            return;
+        }
         if (_dragChannel) {
             _moveChannelHandle(_dragChannel, _canvasCoordsArr(e));
             _channelsDirty = true;
@@ -386,6 +553,12 @@
     }
 
     function _onCanvasMouseup() {
+        if (_dragHeading) {
+            _dragHeading = null;
+            _canvas.style.cursor = 'crosshair';
+            _updateLegList();
+            return;
+        }
         if (_dragChannel) {
             _dragChannel = null;
             return;
@@ -462,14 +635,10 @@
                             style="font-size:11px;padding:2px 6px;cursor:pointer;">+15°</button>
                     </div>
                 </div>
-                <button onclick="v3CalibrationConfirmLeg(${leg.idx})"
-                    class="btn-proc btn-start"
-                    style="font-size:13px;padding:4px 12px;">
+                <button onclick="v3CalibrationConfirmLeg(${leg.idx})" class="cal-btn cal-btn--primary cal-btn--sm">
                     ${isEdit ? 'Update' : 'Confirm'} Leg ${leg.idx + 1}
                 </button>
-                <button onclick="v3CalibrationCancelLeg()"
-                    class="btn-proc btn-cancel"
-                    style="font-size:13px;padding:4px 12px;margin-left:6px;">
+                <button onclick="v3CalibrationCancelLeg()" class="cal-btn cal-btn--sm" style="margin-left:6px;">
                     Cancel
                 </button>
             </div>`;
@@ -558,27 +727,29 @@
         _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
         _ctx.drawImage(_img, 0, 0);
 
-        // Saved polyline paths drawn first (under everything else) so the
-        // leg dots and calibration overlays stay readable on top.
-        _drawChannels();              // operator corridors at the very bottom
-        _drawSavedPaths();
-        _drawSuggestedPaths();        // dashed overlay when preview is on
-        if (_drawingPath) _drawInProgressPath();
+        // Layered draw, gated by the per-leg × per-type Layers matrix (F1).
+        // Paths/channels are gated by their ORIGIN leg; nodes + fallback by their
+        // own leg. Fallback (top-down-assuming fans + tripwires) defaults OFF so
+        // the road stays visible; it doesn't drive a bank count.
+        _drawChannels();                           // each channel self-gates by origin leg
+        _drawSavedPaths();                         // each path self-gates by origin leg
+        _drawSuggestedPaths();                     // dashed overlay when preview is on
+        if (_drawingPath) _drawInProgressPath();   // active draw always shows
         if (_drawingChannel) _drawChannelDraft();
 
-        // Draw calibration-param overlays UNDER the leg nodes/arrows so the
-        // dots stay legible on top. Fans are most-transparent, then tripwires,
-        // then the leg dot + heading arrow + label.
         for (const leg of _legs) {
-            if (leg.reference_heading == null) continue;
-            const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
-            _drawAngleFan(leg.origin_zone[0], leg.reference_heading);
-            _drawTripwire(leg.origin_zone[0], leg.reference_heading, color);
+            const key = _legKey(leg);
+            if (leg.reference_heading != null && _visible('fallback', key)) {
+                const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
+                _drawAngleFan(leg.origin_zone[0], leg.reference_heading);
+                _drawTripwire(leg.origin_zone[0], leg.reference_heading, color);
+            }
         }
         for (const leg of _legs) {
+            if (!_visible('legs', _legKey(leg))) continue;
             _drawNode(leg.origin_zone[0], LEG_COLORS[leg.idx % LEG_COLORS.length], leg.label, leg.reference_heading);
         }
-        if (_currentLeg) {
+        if (_currentLeg) {   // the leg being placed/edited always shows
             _drawNode(_currentLeg.origin_zone[0],
                 LEG_COLORS[_currentLeg.idx % LEG_COLORS.length], '', _currentLeg.reference_heading);
         }
@@ -710,26 +881,23 @@
     }
 
     function _updateLegList() {
+        _updateStepStatus();
+        _renderLayers();   // keep the per-leg visibility matrix in sync with legs
         const listDiv = document.getElementById('v3-calib-leg-list');
         if (!listDiv) return;
         if (_legs.length === 0) {
-            listDiv.innerHTML = '<p style="font-size:13px;color:#6b7280;">No legs drawn yet.</p>';
+            listDiv.innerHTML = '<p class="cal-meta">No legs placed yet — click an approach arm.</p>';
             return;
         }
         let html = '';
         for (const leg of _legs) {
             const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
-            html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;">
-                <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                <span style="flex:1;">${escapeHtml(leg.label)} (${escapeHtml(leg.cardinal_direction)}) ${Number(leg.reference_heading).toFixed(1)}°</span>
-                <button onclick="v3CalibrationEditLeg(${leg.idx})"
-                    style="font-size:11px;padding:1px 6px;color:#3b82f6;background:none;border:1px solid #3b82f6;border-radius:3px;cursor:pointer;">
-                    Edit
-                </button>
-                <button onclick="v3CalibrationRemoveLeg(${leg.idx})"
-                    style="font-size:11px;padding:1px 6px;color:#ef4444;background:none;border:1px solid #ef4444;border-radius:3px;cursor:pointer;">
-                    Remove
-                </button>
+            html += `<div class="cal-row">
+                <span class="sw" style="border-radius:50%;background:${color};"></span>
+                <span class="cal-row__main">${escapeHtml(leg.label)}
+                    <span class="cal-meta">(${escapeHtml(leg.cardinal_direction)}) ${Number(leg.reference_heading).toFixed(0)}&deg;</span></span>
+                <button class="cal-btn cal-btn--sm" onclick="v3CalibrationEditLeg(${leg.idx})">Edit</button>
+                <button class="cal-btn cal-btn--danger" onclick="v3CalibrationRemoveLeg(${leg.idx})">Remove</button>
             </div>`;
         }
         listDiv.innerHTML = html;
@@ -802,13 +970,7 @@
             host.innerHTML = '';
             return;
         }
-        let html = `
-            <div style="border-top:1px solid #e5e7eb;padding-top:14px;">
-                <h4 style="margin:0 0 4px;font-size:14px;">Calibration parameters</h4>
-                <p style="margin:0 0 12px;font-size:12px;color:#6b7280;">
-                    Per-intersection overrides. Leave blank to use the default (shown as placeholder).
-                </p>
-                <div style="display:flex;flex-direction:column;gap:10px;">`;
+        let html = `<div style="display:flex;flex-direction:column;gap:10px;">`;
         for (const p of _PARAMS) {
             const override = _intersectionRow ? _intersectionRow[p.col] : null;
             const def = _calibDefaults[p.key];
@@ -831,9 +993,7 @@
                     </p>
                 </div>`;
         }
-        html += `</div>
-                <p id="v3-calib-params-status" style="margin-top:10px;font-size:12px;color:#6b7280;min-height:1em;"></p>
-            </div>`;
+        html += `</div><p id="v3-calib-params-status" class="cal-meta" style="margin-top:8px;min-height:1em;"></p>`;
         host.innerHTML = html;
     }
 
@@ -946,6 +1106,7 @@
     function _drawSavedPaths() {
         if (!_paths || _paths.length === 0) return;
         for (const p of _paths) {
+            if (!_visible('paths', p.origin_leg_id)) continue;
             const color = MOVEMENT_COLORS[p.movement_label] || "#888";
             _drawPolyline(p.polyline, color, /*alpha*/ 0.7,
                           /*lineWidth*/ 2, /*dashed*/ false, /*tipArrow*/ true);
@@ -1017,37 +1178,26 @@
             (byOrigin[p.origin_leg_id] = byOrigin[p.origin_leg_id] || []).push(p);
         }
 
-        let html = `<div style="border-top:1px solid #e5e7eb;padding-top:14px;">
-            <h4 style="margin:0 0 4px;font-size:14px;">Road paths (polylines)</h4>
-            <p style="margin:0 0 12px;font-size:12px;color:#6b7280;">
-                Each path is one (origin&rarr;destination) road centerline through the
-                intersection. The pipeline uses these for curve-aware origin attribution
-                and movement labeling.
-            </p>`;
+        _updateStepStatus();
+        let html = '';
         if (_paths.length === 0) {
-            html += `<p style="font-size:12px;color:#9ca3af;margin-bottom:8px;">
-                No paths saved yet.
-            </p>`;
+            html += `<p class="cal-meta">No paths yet — auto-cal or Build bank fills these; drawing one by hand is rarely needed.</p>`;
         }
         for (const leg of legs) {
             const group = byOrigin[leg.leg_id] || [];
             if (group.length === 0) continue;
             const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
             html += `<div style="margin-bottom:6px;">
-                <div style="font-size:12px;font-weight:600;color:${color};">
-                    From ${escapeHtml(leg.label)} (${escapeHtml(leg.cardinal_direction)})
-                </div>`;
+                <div style="font-size:11px;font-weight:600;color:${color};">From ${escapeHtml(leg.label)} (${escapeHtml(leg.cardinal_direction)})</div>`;
             for (const p of group) {
                 const destLeg = legs.find(l => l.leg_id === p.destination_leg_id);
                 const destLbl = destLeg ? destLeg.label : `leg ${p.destination_leg_id}`;
                 const moveColor = MOVEMENT_COLORS[p.movement_label] || "#888";
-                html += `<div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:2px 0 2px 10px;">
-                    <span style="display:inline-block;width:10px;height:10px;background:${moveColor};border-radius:1px;flex-shrink:0;"></span>
-                    <span style="flex:1;">&rarr; ${escapeHtml(destLbl)} (${escapeHtml(p.movement_label)}, ${p.polyline.length} pts, ${p.supporting_count}n, ${p.source})</span>
-                    <button onclick="v3CalibrationDeletePath(${p.path_id})"
-                        style="font-size:10px;padding:1px 4px;color:#ef4444;background:none;border:1px solid #ef4444;border-radius:3px;cursor:pointer;">
-                        Del
-                    </button>
+                html += `<div class="cal-row" style="padding-left:8px;">
+                    <span class="sw" style="width:10px;height:10px;background:${moveColor};"></span>
+                    <span class="cal-row__main">&rarr; ${escapeHtml(destLbl)}
+                        <span class="cal-meta">${escapeHtml(p.movement_label)} &middot; ${p.supporting_count}n</span></span>
+                    <button class="cal-btn cal-btn--danger" onclick="v3CalibrationDeletePath(${p.path_id})">Del</button>
                 </div>`;
             }
             html += `</div>`;
@@ -1056,62 +1206,33 @@
         // Drawing form / in-progress path UI.
         if (_drawingPath) {
             const status = _drawingPath.polyline.length === 0
-                ? "Click on the canvas to start drawing the path. Add 2+ points. Enter or double-click to save; Escape to cancel."
-                : `${_drawingPath.polyline.length} points placed. Add more, or finish (Enter / double-click).`;
-            html += `<div style="margin-top:8px;padding:8px;background:#eff6ff;border:1px solid #3b82f6;border-radius:4px;font-size:12px;">
-                <div style="font-weight:600;margin-bottom:4px;">Drawing:
-                    L${_drawingPath.origin_leg_id} &rarr; L${_drawingPath.destination_leg_id}
-                    (${escapeHtml(_drawingPath.movement_label)})
-                </div>
-                <p style="margin:0 0 6px;color:#1e40af;">${status}</p>
-                <button onclick="v3CalibrationFinishPath()"
-                    style="font-size:11px;padding:2px 8px;margin-right:4px;background:#3b82f6;color:white;border:none;border-radius:3px;cursor:pointer;">
-                    Finish path
-                </button>
-                <button onclick="v3CalibrationCancelPath()"
-                    style="font-size:11px;padding:2px 8px;background:white;color:#6b7280;border:1px solid #d1d5db;border-radius:3px;cursor:pointer;">
-                    Cancel
-                </button>
+                ? "Click the canvas to start. Add 2+ points; Enter / double-click to save, Esc to cancel."
+                : `${_drawingPath.polyline.length} points. Add more, or finish (Enter / double-click).`;
+            html += `<div class="cal-note">
+                <div style="font-weight:600;margin-bottom:2px;">Drawing L${_drawingPath.origin_leg_id} &rarr; L${_drawingPath.destination_leg_id} (${escapeHtml(_drawingPath.movement_label)})</div>
+                <p style="margin:0 0 6px;">${status}</p>
+                <button class="cal-btn cal-btn--primary cal-btn--sm" onclick="v3CalibrationFinishPath()">Finish</button>
+                <button class="cal-btn cal-btn--sm" onclick="v3CalibrationCancelPath()">Cancel</button>
             </div>`;
         } else if (_pathFormVisible) {
-            // Show selector form: origin, destination, movement label.
-            html += `<div style="margin-top:8px;padding:8px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:12px;">
+            html += `<div class="cal-note" style="background:#f8fafc;border-color:var(--cal-line);">
                 <div style="font-weight:600;margin-bottom:6px;">New path</div>
-                <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 6px;align-items:center;">
-                    <label>Origin leg:</label>
-                    <select id="v3-path-origin" style="font-size:12px;">
-                        ${legs.map(l => `<option value="${l.leg_id}">${escapeHtml(l.label)} (${escapeHtml(l.cardinal_direction)})</option>`).join("")}
-                    </select>
-                    <label>Destination leg:</label>
-                    <select id="v3-path-dest" style="font-size:12px;">
-                        ${legs.map(l => `<option value="${l.leg_id}">${escapeHtml(l.label)} (${escapeHtml(l.cardinal_direction)})</option>`).join("")}
-                    </select>
-                    <label>Movement:</label>
-                    <select id="v3-path-movement" style="font-size:12px;">
-                        <option value="through">through</option>
-                        <option value="left">left</option>
-                        <option value="right">right</option>
-                        <option value="u_turn">u_turn</option>
-                    </select>
+                <div class="cal-field">
+                    <label>Origin</label>
+                    <select id="v3-path-origin">${legs.map(l => `<option value="${l.leg_id}">${escapeHtml(l.label)} (${escapeHtml(l.cardinal_direction)})</option>`).join("")}</select>
+                    <label>Destination</label>
+                    <select id="v3-path-dest">${legs.map(l => `<option value="${l.leg_id}">${escapeHtml(l.label)} (${escapeHtml(l.cardinal_direction)})</option>`).join("")}</select>
+                    <label>Movement</label>
+                    <select id="v3-path-movement"><option>through</option><option>left</option><option>right</option><option value="u_turn">u_turn</option></select>
                 </div>
-                <div style="margin-top:6px;">
-                    <button onclick="v3CalibrationStartDrawPath()"
-                        style="font-size:11px;padding:2px 8px;margin-right:4px;background:#22c55e;color:white;border:none;border-radius:3px;cursor:pointer;">
-                        Start drawing
-                    </button>
-                    <button onclick="v3CalibrationHidePathForm()"
-                        style="font-size:11px;padding:2px 8px;background:white;color:#6b7280;border:1px solid #d1d5db;border-radius:3px;cursor:pointer;">
-                        Cancel
-                    </button>
+                <div style="margin-top:8px;">
+                    <button class="cal-btn cal-btn--primary cal-btn--sm" onclick="v3CalibrationStartDrawPath()">Start drawing</button>
+                    <button class="cal-btn cal-btn--sm" onclick="v3CalibrationHidePathForm()">Cancel</button>
                 </div>
             </div>`;
         } else if (_legs.length >= 2) {
-            html += `<button onclick="v3CalibrationShowPathForm()"
-                style="font-size:12px;padding:4px 10px;margin-top:6px;background:white;color:#3b82f6;border:1px solid #3b82f6;border-radius:3px;cursor:pointer;">
-                + New path
-            </button>`;
+            html += `<button class="cal-btn cal-btn--ghost cal-btn--sm" onclick="v3CalibrationShowPathForm()">+ New path (advanced)</button>`;
         }
-        html += `</div>`;
         host.innerHTML = html;
     }
 
@@ -1281,6 +1402,7 @@
     function _drawChannels() {
         for (let i = 0; i < _channels.length; i++) {
             const ch = _channels[i];
+            if (!_visible('channels', ch.origin_leg_id)) continue;
             const sel = i === _selectedChannel;
             const color = _chColor(i);
             const c = _chCtrl(ch);
@@ -1446,68 +1568,47 @@
         const host = document.getElementById("v3-calib-channels");
         if (!host) return;
         const legs = _legs.slice().sort((a, b) => a.sort_order - b.sort_order);
-        let html = `<div style="border-top:1px solid #e5e7eb;padding-top:14px;">
-            <h4 style="margin:0 0 4px;font-size:14px;">Movement channels
-                ${_channelsDirty ? '<span style="color:#f59e0b;font-size:11px;">(unsaved)</span>' : ''}</h4>
-            <p style="margin:0 0 10px;font-size:12px;color:#6b7280;">
-                Operator-drawn corridors declaring each movement and where it runs.
-                Used to bootstrap new sites without ground truth (and to pin flows
-                at cameras where leg anchors sit on a through path). Draw the
-                THROUGH corridors too, not just turns.
-            </p>`;
+        _updateStepStatus();
+        let html = `<p class="cal-hint">Draw each movement's corridor — click <b>entry &rarr; bend &rarr; exit</b>. Ends snap to the nearest leg. Draw THROUGHS too, not just turns.${_channelsDirty ? ' <span style="color:var(--cal-warn);font-weight:600;">· unsaved</span>' : ''}</p>`;
 
         if (_drawingChannel) {
-            const next = ["entry", "apex (the bend)", "exit"][_drawingChannel.pts.length] || "exit";
-            html += `<div style="padding:8px;background:#ecfeff;border:1px solid #0ea5e9;border-radius:4px;font-size:12px;margin-bottom:8px;">
-                <b>Drawing channel:</b> next click = <b>${next}</b>.
-                Endpoints snap to the nearest leg. 2 clicks + Enter = straight channel.
-                Esc cancels, Backspace undoes a point.
-                <div style="margin-top:6px;">
-                    <button onclick="v3CalibrationCancelChannel()"
-                        style="font-size:11px;padding:2px 8px;background:white;color:#6b7280;border:1px solid #d1d5db;border-radius:3px;cursor:pointer;">
-                        Cancel
-                    </button>
-                </div>
+            const next = ["entry", "bend (apex)", "exit"][_drawingChannel.pts.length] || "exit";
+            html += `<div class="cal-note">
+                <b>Next click: ${next}.</b>
+                <span class="cal-meta">2 clicks + Enter = straight &middot; Esc cancels &middot; Backspace undoes</span>
+                <div style="margin-top:6px;"><button class="cal-btn cal-btn--sm" onclick="v3CalibrationCancelChannel()">Cancel</button></div>
             </div>`;
         }
 
         if (_channels.length === 0 && !_drawingChannel) {
-            html += `<p style="font-size:12px;color:#9ca3af;margin-bottom:8px;">No channels yet.</p>`;
+            html += `<p class="cal-meta">No channels yet.</p>`;
         }
         for (let i = 0; i < _channels.length; i++) {
             const ch = _channels[i];
             const sel = i === _selectedChannel;
-            html += `<div onclick="v3CalibrationSelectChannel(${i})"
-                style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 6px;margin-bottom:3px;
-                       border:1px solid ${sel ? '#0ea5e9' : '#e5e7eb'};border-radius:4px;cursor:pointer;
-                       background:${sel ? '#f0f9ff' : 'white'};">
-                <span style="display:inline-block;width:10px;height:10px;background:${_chColor(i)};border-radius:2px;flex-shrink:0;"></span>
-                <span style="flex:1;">${escapeHtml(_chLegCard(ch.origin_leg_id))}&rarr;${escapeHtml(_chLegCard(ch.destination_leg_id))}
-                    <b>${escapeHtml(ch.movement)}</b>
-                    <span style="color:#9ca3af;">in ${Math.round(ch.width_in)} / out ${Math.round(ch.width_out)} px</span></span>
-                <button onclick="event.stopPropagation(); v3CalibrationDeleteChannel(${i})"
-                    style="font-size:10px;padding:1px 5px;color:#ef4444;background:none;border:1px solid #ef4444;border-radius:3px;cursor:pointer;">
-                    Del
-                </button>
+            html += `<div class="cal-row" onclick="v3CalibrationSelectChannel(${i})"
+                style="cursor:pointer;padding:4px 6px;margin-bottom:3px;border-radius:6px;border:1px solid ${sel ? 'var(--cal-accent)' : 'var(--cal-line)'};background:${sel ? 'var(--cal-accent-weak)' : 'transparent'};">
+                <span class="sw" style="background:${_chColor(i)};"></span>
+                <span class="cal-row__main">${escapeHtml(_chLegCard(ch.origin_leg_id))}&rarr;${escapeHtml(_chLegCard(ch.destination_leg_id))}
+                    <b>${escapeHtml(ch.movement)}</b> <span class="cal-meta">${Math.round(ch.width_in)}/${Math.round(ch.width_out)}px</span></span>
+                <button class="cal-btn cal-btn--danger" onclick="event.stopPropagation(); v3CalibrationDeleteChannel(${i})">Del</button>
             </div>`;
         }
 
-        // Selected-channel editor: legs + movement dropdowns.
         const selCh = _channels[_selectedChannel];
         if (selCh && !_drawingChannel) {
             const legOpts = (cur) => legs.map(l =>
                 `<option value="${l.leg_id}" ${l.leg_id === cur ? 'selected' : ''}>${escapeHtml(l.label)} (${escapeHtml(l.cardinal_direction)})</option>`).join("");
-            html += `<div style="margin-top:6px;padding:8px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;">
-                <div style="font-weight:600;margin-bottom:4px;">Selected channel</div>
-                <p style="margin:0 0 6px;color:#6b7280;">Drag the green entry / orange exit / yellow apex
-                    on the canvas; white dots set mouth widths. Esc deselects.</p>
-                <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 6px;align-items:center;">
-                    <label>Origin:</label>
-                    <select onchange="v3CalibrationChannelField(${_selectedChannel}, 'origin_leg_id', parseInt(this.value,10))" style="font-size:12px;">${legOpts(selCh.origin_leg_id)}</select>
-                    <label>Destination:</label>
-                    <select onchange="v3CalibrationChannelField(${_selectedChannel}, 'destination_leg_id', parseInt(this.value,10))" style="font-size:12px;">${legOpts(selCh.destination_leg_id)}</select>
-                    <label>Movement:</label>
-                    <select onchange="v3CalibrationChannelField(${_selectedChannel}, 'movement', this.value)" style="font-size:12px;">
+            html += `<div class="cal-note" style="background:#f8fafc;border-color:var(--cal-line);">
+                <div style="font-weight:600;margin-bottom:2px;">Selected channel</div>
+                <p class="cal-meta" style="margin:0 0 6px;">Drag green entry / orange exit / yellow bend on the canvas; white dots set widths. Esc deselects.</p>
+                <div class="cal-field">
+                    <label>Origin</label>
+                    <select onchange="v3CalibrationChannelField(${_selectedChannel}, 'origin_leg_id', parseInt(this.value,10))">${legOpts(selCh.origin_leg_id)}</select>
+                    <label>Destination</label>
+                    <select onchange="v3CalibrationChannelField(${_selectedChannel}, 'destination_leg_id', parseInt(this.value,10))">${legOpts(selCh.destination_leg_id)}</select>
+                    <label>Movement</label>
+                    <select onchange="v3CalibrationChannelField(${_selectedChannel}, 'movement', this.value)">
                         ${["through", "left", "right", "u_turn"].map(m =>
                             `<option value="${m}" ${m === selCh.movement ? 'selected' : ''}>${m}</option>`).join("")}
                     </select>
@@ -1516,18 +1617,11 @@
         }
 
         if (!_drawingChannel) {
-            html += `<div style="margin-top:8px;">
-                <button onclick="v3CalibrationNewChannel()" ${_legs.length < 2 ? 'disabled' : ''}
-                    style="font-size:12px;padding:4px 10px;margin-right:6px;background:white;color:#0ea5e9;border:1px solid #0ea5e9;border-radius:3px;cursor:pointer;">
-                    + New channel
-                </button>
-                <button onclick="v3CalibrationSaveChannels()" ${_channelsDirty ? '' : 'disabled'}
-                    style="font-size:12px;padding:4px 10px;background:${_channelsDirty ? '#0ea5e9' : '#e5e7eb'};color:white;border:none;border-radius:3px;cursor:${_channelsDirty ? 'pointer' : 'default'};">
-                    Save channels
-                </button>
+            html += `<div style="margin-top:8px;display:flex;gap:6px;">
+                <button class="cal-btn cal-btn--primary cal-btn--sm" onclick="v3CalibrationNewChannel()" ${_legs.length < 2 ? 'disabled' : ''}>+ New channel</button>
+                <button class="cal-btn cal-btn--sm" onclick="v3CalibrationSaveChannels()" ${_channelsDirty ? '' : 'disabled'}>Save channels</button>
             </div>`;
         }
-        html += `</div>`;
         host.innerHTML = html;
     }
 
@@ -1603,10 +1697,10 @@
         const running = _suggestionJobStatus &&
             ["queued", "running"].includes(_suggestionJobStatus.status);
         if (!_suggestion && !running) {
-            host.innerHTML = `<button onclick="v3CalibrationStartAutoCal()"
-                style="font-size:12px;padding:4px 10px;background:white;color:#7c3aed;border:1px solid #7c3aed;border-radius:3px;cursor:pointer;">
-                Run auto-calibration on this video
-            </button>`;
+            host.innerHTML = `<button onclick="v3CalibrationStartAutoCal()" class="cal-btn cal-btn--primary" style="width:100%;">
+                &#9655;&nbsp; Auto-calibrate this camera
+            </button>
+            <p class="cal-meta" style="margin:6px 0 0;">Finds the legs + road paths from a 15-min sample. Review and adjust — it's a draft, not final.</p>`;
             return;
         }
         if (running) {
@@ -1817,11 +1911,9 @@
                 <input id="v3-bank-hms" value="${escapeHtml(_bankWindow.hms)}" style="width:80px;"></label>
             <label style="font-size:12px;">Minutes<br>
                 <input id="v3-bank-min" type="number" min="1" value="${_bankWindow.min}" style="width:60px;"></label>
-            <button onclick="v3BankBuild()" class="btn-proc btn-start" style="font-size:12px;padding:4px 12px;">
-                ${label || "Build bank"}</button>
+            <button onclick="v3BankBuild()" class="cal-btn cal-btn--primary cal-btn--sm">${label || "Build bank"}</button>
         </div>
-        <p style="font-size:11px;color:#9ca3af;margin:6px 0 0;">
-            Process a sample window first (Processing tab); the build tracks it to learn the movements.</p>`;
+        <p class="cal-meta" style="margin:6px 0 0;">Process a sample window first (Processing tab); the build tracks it to learn the movements.</p>`;
     }
 
     function _bankQaCard(s) {
@@ -1842,8 +1934,8 @@
             ${block("Straight 'turn' — verify visually", q.straight_turn_warnings,
                 w => `<li>${escapeHtml(w.cell)}</li>`, "#6b7280")}
             <div style="margin-top:10px;display:flex;gap:6px;">
-                <button onclick="v3BankBuild()" class="btn-secondary" style="font-size:12px;padding:4px 10px;">Rebuild</button>
-                <button onclick="v3BankApply()" class="btn-proc btn-start" style="font-size:12px;padding:4px 12px;">Apply bank</button>
+                <button onclick="v3BankBuild()" class="cal-btn cal-btn--sm">Rebuild</button>
+                <button onclick="v3BankApply()" class="cal-btn cal-btn--primary cal-btn--sm">Apply bank</button>
             </div>
             <p style="font-size:11px;color:#9ca3af;margin:6px 0 0;">
                 Apply retracks this window with the bank and installs its paths (this camera's counts are
@@ -1872,11 +1964,8 @@
         } else {
             body = _bankBuildForm();
         }
-        host.innerHTML = `<div style="border-top:1px solid #e5e7eb;padding-top:14px;">
-            <h4 style="margin:0 0 4px;font-size:14px;">Path bank</h4>
-            <p style="margin:0 0 4px;font-size:12px;color:#6b7280;">
-                Build a GT-free bank from this camera's own traffic, review the QA, then apply.</p>
-            ${body}</div>`;
+        host.innerHTML = `<p class="cal-hint">Build a bank from this camera's own traffic, review the QA flags, then apply.</p>${body}`;
+        _updateStepStatus();
     }
 
     window.v3BankBuild = async function () {

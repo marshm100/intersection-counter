@@ -491,3 +491,100 @@ header h1 { font-size: 24px; }
     color: #374151;
     min-width: 60px;
 }
+
+/* ============================================================
+   Calibration studio (F1) — scoped design system (.cal)
+   Precision-instrument look: quiet monochrome panel so the
+   colorful canvas is the hero. System fonts (offline app),
+   one indigo accent, one button family, 4px grid.
+   ============================================================ */
+.cal {
+    --cal-card:#fff; --cal-line:#e6e8ec; --cal-line-2:#eef1f5;
+    --cal-ink:#0f172a; --cal-ink-2:#475569; --cal-ink-3:#94a3b8;
+    --cal-accent:#4f46e5; --cal-accent-2:#4338ca; --cal-accent-weak:#eef2ff;
+    --cal-danger:#dc2626; --cal-ok:#16a34a; --cal-warn:#b45309;
+    --cal-r:10px; --cal-r-sm:7px;
+    color:var(--cal-ink-2); font-size:13px;
+}
+.cal .v3-calib-header { display:flex; align-items:baseline; gap:12px; margin-bottom:10px; }
+.cal .v3-calib-header h3 { color:var(--cal-ink); letter-spacing:-.01em; }
+
+/* wider sidebar; keep it in view + independently scrollable so the save stays reachable */
+.cal .calib-sidebar { width:320px; position:sticky; top:8px; align-self:flex-start;
+    max-height:calc(100vh - 24px); overflow:auto; padding-right:2px; }
+.cal .calib-canvas-wrap canvas { border-radius:8px; border:1px solid var(--cal-line); }
+
+/* --- canvas layer matrix (visibility grouped by leg) --- */
+.cal-layers-grid { margin:0 0 8px; border:1px solid var(--cal-line); border-radius:8px;
+    background:var(--cal-card); padding:6px 10px 5px; display:inline-block; }
+.cal-lay-row { display:grid; grid-template-columns:minmax(116px,1fr) repeat(4, 46px);
+    align-items:center; height:25px; }
+.cal-lay-name { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--cal-ink-2);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:10px; }
+.cal-lay-name .sw { width:10px; height:10px; border-radius:3px; flex:none; }
+.cal-lay-col { font-size:9px; font-weight:700; letter-spacing:.02em; text-transform:uppercase;
+    color:var(--cal-ink-3); text-align:center; overflow:hidden; white-space:nowrap; }
+.cal-lay-head .cal-lay-name { font-size:10px; font-weight:700; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--cal-ink-3); }
+.cal-lay-master { border-top:1px solid var(--cal-line-2); margin-top:3px; padding-top:3px; height:26px; }
+.cal-lay-master .cal-lay-name { font-size:11px; color:var(--cal-ink-3); }
+.cal-lay-cell { width:19px; height:19px; margin:0 auto; border-radius:5px; cursor:pointer;
+    border:1.5px solid var(--c); background:transparent; padding:0; opacity:.38; transition:opacity .1s; }
+.cal-lay-cell.is-on { background:var(--c); opacity:1; }
+.cal-lay-cell:hover { opacity:.8; }
+
+/* --- stepped panel --- */
+.cal-steps { display:flex; flex-direction:column; gap:8px; }
+.cal-step { border:1px solid var(--cal-line); border-radius:var(--cal-r); background:var(--cal-card); }
+.cal-step__head { display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer;
+    user-select:none; }
+.cal-step__n { flex:none; width:22px; height:22px; border-radius:50%; display:grid; place-items:center;
+    font-size:11px; font-weight:700; background:#f1f5f9; color:var(--cal-ink-3); }
+.cal-step.is-open>.cal-step__head .cal-step__n,
+.cal-step.is-done>.cal-step__head .cal-step__n { background:var(--cal-accent); color:#fff; }
+.cal-step__title { flex:1; font-size:13px; font-weight:600; color:var(--cal-ink); }
+.cal-step__status { font-size:12px; color:var(--cal-ink-3); font-variant-numeric:tabular-nums; }
+.cal-step__chev { color:var(--cal-ink-3); font-size:11px; transition:transform .15s; }
+.cal-step.is-open>.cal-step__head .cal-step__chev { transform:rotate(90deg); }
+.cal-step__body { padding:2px 12px 12px; display:none; }
+.cal-step.is-open>.cal-step__body { display:block; }
+.cal-hint { font-size:12px; color:var(--cal-ink-3); margin:0 0 8px; line-height:1.45; }
+
+/* --- collapsible reference/advanced disclosures --- */
+.cal-disc { border:1px solid var(--cal-line); border-radius:var(--cal-r); background:var(--cal-card); }
+.cal-disc>summary { list-style:none; cursor:pointer; padding:10px 12px; font-size:12px; font-weight:600;
+    color:var(--cal-ink-2); display:flex; align-items:center; gap:8px; }
+.cal-disc>summary::-webkit-details-marker { display:none; }
+.cal-disc>summary::before { content:"\25B8"; color:var(--cal-ink-3); transition:transform .15s; }
+.cal-disc[open]>summary::before { transform:rotate(90deg); }
+.cal-disc__body { padding:0 12px 12px; }
+
+/* --- one button family --- */
+.cal-btn { font:inherit; font-size:12px; font-weight:500; padding:6px 12px; border-radius:var(--cal-r-sm);
+    border:1px solid var(--cal-line); background:var(--cal-card); color:var(--cal-ink); cursor:pointer; }
+.cal-btn:hover { border-color:var(--cal-ink-3); }
+.cal-btn--primary { background:var(--cal-accent); border-color:var(--cal-accent); color:#fff; }
+.cal-btn--primary:hover { background:var(--cal-accent-2); border-color:var(--cal-accent-2); }
+.cal-btn:disabled, .cal-btn--primary:disabled { background:#c8ccd6; border-color:#c8ccd6; color:#fff;
+    cursor:default; }
+.cal-btn--ghost { background:transparent; border-color:transparent; color:var(--cal-accent); padding:6px 4px; }
+.cal-btn--ghost:hover { border-color:transparent; text-decoration:underline; }
+.cal-btn--sm { font-size:11px; padding:2px 8px; }
+.cal-btn--danger { color:var(--cal-danger); border-color:transparent; background:transparent; padding:2px 6px;
+    font-size:11px; }
+.cal-btn--danger:hover { background:#fef2f2; border-color:transparent; }
+
+/* --- list rows (legs, paths, channels) --- */
+.cal-row { display:flex; align-items:center; gap:8px; font-size:12px; padding:4px 0; }
+.cal-row .sw { width:11px; height:11px; border-radius:3px; flex:none; }
+.cal-row__main { flex:1; min-width:0; color:var(--cal-ink-2); }
+.cal-meta { color:var(--cal-ink-3); font-size:11px; }
+.cal-field { display:grid; grid-template-columns:auto 1fr; gap:5px 8px; align-items:center; font-size:12px; }
+.cal-field label { color:var(--cal-ink-2); }
+.cal-field input, .cal-field select, .cal input[type="number"], .cal input[type="text"], .cal select {
+    font:inherit; font-size:12px; padding:4px 6px; border:1px solid var(--cal-line);
+    border-radius:6px; color:var(--cal-ink); background:var(--cal-card); }
+.cal-note { border:1px solid var(--cal-accent); background:var(--cal-accent-weak); border-radius:8px;
+    padding:8px 10px; font-size:12px; color:var(--cal-ink-2); margin:8px 0; }
+.cal-foot { margin-top:12px; }
+.cal-foot .cal-btn--primary { width:100%; padding:9px; font-size:13px; }
