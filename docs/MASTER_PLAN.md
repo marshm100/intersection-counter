@@ -103,6 +103,46 @@ decomposes into four distinct problems — NOT one monolithic "algorithms are ba
 
 ---
 
+## 2b. Session re-diagnosis + re-prioritization (2026-07-07)
+
+Working cam2 with the operator's OWN drawn channels re-diagnosed the per-approach gap and
+re-ordered the roadmap. Full synthesis: [[project_box_clip_direction_2026_07_07]].
+
+**The error is a STACK that bottoms out in TRACKING — not drawings, not the matcher:**
+1. **Drawings are good; the code was discarding them.** Cars sit 12–25px on the operator's drawn
+   curves (90%+ within 25px); curvature separates movements the auto-bank could not (drawn NB-left
+   40→105 vs GT 103). Bug was ours — `build_bank_gtfree` refit + dedup-dropped channels before use.
+   **FIXED: drawn-direct** (centerline used verbatim as the UI Bézier `_chCtrl`/`_chQuadAt`; u-turn
+   reversal-fraction gate; `--refit-channels` escape hatch; `test_channel_centerline.py`). The
+   earlier "collinear WALL / corridors can't separate collinear" conclusion is OVERTURNED.
+2. **Attribution: shape-matching is right, but COVERAGE-BLIND.** Point-to-zone (nearest-anchor /
+   box-crossing) is a snap-magnet — 43–55% vs shape's 10.8% (re-validates "NO exit zones").
+   `_mdh_cost` hard-wires coverage=1.0, so movements sharing an origin- or exit-leg run collinear
+   and scramble regardless of drawing quality. Lever = **coverage-aware matching**: box-clip-with-
+   SHAPE (not zone), or a road-aligned **(s,d) curvilinear matcher** (perpendicular cross-sections →
+   coverage = s-span fixes u-turn/graze/collinear; forecast = extend s at constant d).
+3. **Tracking is the floor.** Far-field cars birth LATE (births 6.7× deeper into frame than deaths;
+   the birth gate drops 32% of real faint detections at the oblique frame's top) → the
+   DISCRIMINATING entry/exit segment is truncated → collinear becomes unattributable BY
+   CONSTRUCTION. Lowering the gate just fragments (3,621 tracks for 1,387 cars). Fix = appearance
+   re-association, **ReID** — BUILT, measured discriminative at 20–40px (AUC 0.87–0.89), SHIPPED on
+   cam1 (21.8→7.2% net, `reid_project_plan_2026-06-01`), but **never applied to cam2–5**; the live
+   app still defaults to plain ByteTrack. Also: BoT-SORT's `cmc_method="ecc"` (should be `none` on a
+   static camera) silently wastes processing time (`tracker.py:233`).
+
+**Blind reframe (governs all — see §0):** we have been tuning cam2 AGAINST Miovision; those
+per-camera `calib_*` knobs do NOT transfer to a GT-free new site. Reliable blind ≤5% needs tracking
+good BY DEFAULT (ReID, not per-camera babysitting) + attribution robust to those tracks + a TRUSTED
+blind acceptance gate (§3-B). GT is a one-time validator, never a per-site input.
+
+**Re-prioritized levers (highest first):** ① tracking by default (ReID + cam2–5; prove it
+generalizes without per-camera GT tuning; fix ECC) → ② coverage-aware attribution
+(box-clip-with-shape / (s,d)) → ③ GT-free defaults (the `calib_*` knobs were GT-tuned) → ④
+calibration UX (drawings already good enough — mechanics are NOT the current blocker; auto-cal's
+midnight sample window is the one real weak spot) → ⑤ trusted blind gate.
+
+---
+
 ## 3. Roadmap — operator-readiness
 
 The shift: from "research pipeline + Claude's CLI scripts" to **a product an operator runs
@@ -159,7 +199,12 @@ data and never hand-edited.** To make resolution feel seamless:
 - **Per-camera tuning** — keep develop-time tuning that generalizes; explicitly avoid
   tuning per-site against the answer (the overfit trap).
 
-**Per-approach attribution — the last hurdle (research synthesis 2026-07-06).** Two independent
+**Per-approach attribution — the last hurdle.** **UPDATE 2026-07-07 (§2b):** re-diagnosed with the
+operator's drawn channels — the mechanism is coverage-blind matching on far-field-TRUNCATED tracks,
+and the fix is **ReID-by-default + coverage-aware matching**, not more image-space features. The
+2026-07-06 synthesis below stands (no image-space silver bullet) but is now subsumed by §2b.
+
+_(research synthesis 2026-07-06)._ Two independent
 deep-research passes (papers/GitHub + X community) converged: there is NO public silver bullet for
 the collinear-swap, AND the SOTA image-space hybrid (Jana et al. arXiv 2111.09171 — min-directed
 Hausdorff + angular + end-proximity) is ALREADY what our `mdh` cost implements. So more image-space
@@ -270,8 +315,9 @@ and **persisting the sample trajectories with timestamps** so they replay in syn
 
 **Build in 3 shippable stages (each reviewable; do not big-bang):**
 1. **Clean surface + layer toggles + strip the stale top-down overlays** (static frame). Road becomes
-   visible, panel becomes the review-first stepper, nothing welded to 90°. *Unblocks cam2 channel
-   drawing immediately.*
+   visible, panel becomes the review-first stepper, nothing welded to 90°. **SHIPPED 2026-07-07**,
+   plus **drawn-direct channels** (operator curves used verbatim — see §2b). *Unblocked cam2
+   channel drawing.*
 2. **Live auto-cal perception view** — stream frames + detections + forming clusters; fix the
    pinned-progress plumbing.
 3. **The playback studio** — range-served window playback + synced track replay + layer-toggle editing
@@ -284,24 +330,28 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
 
 ---
 
-## 4. Sequencing (proposed)
+## 4. Sequencing (proposed — re-ordered 2026-07-07 per §2b)
 
-0. **F1 — calibration clean surface + layers (IN PROGRESS 2026-07-07)** — strip the stale
-   top-down overlays, add layer toggles, review-first stepper. Pulled to the front because it
-   is *actively blocking* the cam2 SB-right channel fix and everything the operator authors
-   starts here. F2 (live auto-cal view) + F3 (playback studio) follow as their own track.
-1. **B-coverage diagnostic + the flag queue model** — highest leverage: it's the blind
-   accuracy assurance, and it directs all review work. Without it, deployment can't be
-   *trusted*, only *measured*.
-2. **C review UX** — pairs with B; turns flags into a fast resolved count.
-3. **A productize bank + classification + export gating** — removes the CLI dependency so
-   an operator can actually run it solo.
-4. **D-articulated** + **E deliverables (L/M/A, Excel, PDF)** — parity + the one real
-   classifier capability.
-5. **D-low-light detection** — the hardest/most-research-y; informed by what the coverage
-   diagnostic (B) shows about *where* detection sags.
-6. **F2 + F3 — calibration studio** — live auto-cal perception view, then the playback
-   editing surface. Pairs with C (shared canvas/layer/keyboard scaffolding).
+0. **F1 — calibration clean surface + layers + drawn-direct channels (SHIPPED 2026-07-07).**
+   Stale top-down overlays stripped, per-leg × per-type layer matrix, review-first stepper; and
+   operator channel curves now used VERBATIM (drawn-direct). Committed. F2/F3 are their own track.
+1. **Tracking quality — ReID by default + cam2–5 (NEW TOP LEVER, §2b).** Apply the proven cam1
+   recipe (21.8→7.2%) to the other cameras and make it the app DEFAULT (retire the plain-ByteTrack
+   default); fix the ECC waste. This is the floor everything else rests on, and proving it
+   generalizes WITHOUT per-camera GT tuning IS the core blind-deployment test. Gate: cam2
+   per-approach closes materially vs Miovision with no new per-camera babysitting.
+2. **B-coverage diagnostic + the flag queue model** — the blind accuracy assurance; directs all
+   review work. Without it, deployment can't be *trusted*, only *measured*.
+3. **C review UX** — pairs with B; turns flags into a fast resolved count.
+4. **Coverage-aware attribution (§2b ②)** — box-clip-with-shape / (s,d) matcher, on the clean ReID
+   tracks. Only worth building once tracking (1) lands — it cannot fix truncated tracks.
+5. **A productize bank + classification + export gating** — removes the CLI dependency so an
+   operator can actually run it solo.
+6. **D-articulated** + **E deliverables (L/M/A, Excel, PDF)** — parity + the one real classifier capability.
+7. **D-low-light detection** — hardest/most-research-y; informed by what the coverage diagnostic
+   (B) shows about *where* detection sags.
+8. **F2 + F3 — calibration studio** — live auto-cal perception view, then the playback editing
+   surface. Pairs with C (shared canvas/layer/keyboard scaffolding).
 
 Each is a self-contained phase; ship and validate before the next.
 
