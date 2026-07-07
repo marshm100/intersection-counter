@@ -88,14 +88,31 @@ Phase-1 tracker direction (`project_phase1_tracker_2026_06_11`) — which is PER
 (it helped cam3, hurt over-count cams), so it must be validated on cam2 specifically
 against Miovision per-interval before shipping.
 
-## Next steps (scoped, in priority)
-1. **SB-right (−461, biggest) — DONE diagnosing: it's tracking.** Next = try a cam2
-   tracker recipe (buffered-IoU + edge-birth loosening + ReID) and measure whether
-   SB-right tracks persist through the turn (death x moves from ~581 toward the ~497
-   exit) and recall rises toward 1108, without regressing NB/WB.
-2. **EB occlusion double-count (+769):** same tracker change should also reduce the
-   ID-splits; measure EB ratio dropping from ~1.33 toward 1.0. If tracking alone
-   doesn't clear it, add a concurrent-duplicate dedup (the validated <20px test).
-3. Re-measure the per-15-min interval metric after each; the bar is AVG|err| ≤ 5%
-   per approach. Guard against per-camera over-fit (Phase-1 tracker is not a blind
+## Tracker experiment (2026-07-07) — motion-tracker lever is NEGATIVE
+Clean A/B retrack of the 07:00 window from the detection cache (isolated temp DB,
+live bank, same NMS; `scratchpad/cam2_tracker_experiment.py`), 15 min:
+| metric | Miovision | ByteTrack (live) | BoT-SORT |
+|---|---|---|---|
+| SB-right | 28 | 14 (recall 0.50) | **14 (0.50)** |
+| SB-right death-x | (exit ~497) | 563 | **575** |
+| EB-thru / EB-right | 17 / 27 | 25 / 31 | 22 / **40** |
+| SB-thru / NB / WB | 135/345/55 | 136/369/51 | 127/360/52 |
+
+- Baseline ByteTrack **reproduces** the diagnosed defects (SB-right 0.50, EB over) —
+  instrument validated.
+- **BoT-SORT (motion-only, the sharp-turn-robust association) does NOT recover
+  SB-right** — recall unchanged, death-x still ~575 — and *worsens* EB-right (31→40).
+- `trajectory_data` is the RAW track (pipeline.py:892), so death-x ~575 is a real
+  track TERMINATION, not path-clipping. Both trackers terminate at the same point
+  despite abundant detections past it ⇒ motion association can't bridge the occluded
+  turn. **The only tracker lever left is appearance (ReID).**
+
+## Next steps (revised after the experiment)
+1. **SB-right:** motion-tracker exhausted. Remaining = **BoT-SORT + ReID** (build a
+   cam2 ReID cache — heavy: video decode + OSNet) to re-associate the specific
+   vehicle across the turn occlusion; or accept SB-right as tracking-limited.
+2. **EB double-count (+769):** a CHEAP independent lever — a post-tracking
+   concurrent-duplicate dedup (the validated 305 <20px ID-splits), no tracker change.
+   ~40% of the EB over is directly addressable here.
+3. Re-measure the per-15-min interval metric after any change (bar: AVG|err| ≤ 5%). Guard against per-camera over-fit (Phase-1 tracker is not a blind
    default).
