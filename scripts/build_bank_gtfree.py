@@ -46,6 +46,7 @@ import argparse, json, math, sqlite3, sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+from statistics import median
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -92,6 +93,40 @@ def _mean_pairwise_dist(a, b) -> float:
     return sum(math.hypot(p[0]-q[0], p[1]-q[1]) for p, q in zip(a, b)) / len(a)
 
 
+def _channel_centerline(entry, apex, exit_, n: int):
+    """Sample the SAME quadratic Bezier the calibration UI renders for a channel
+    (frontend/js/calibration.js `_chCtrl` + `_chQuadAt`): a control point placed
+    so the curve passes through the operator's drawn apex at t=0.5. Returns n
+    points [[x,y],...]. This is the operator's template VERBATIM — no refit — so
+    it matches exactly what they aligned to the road. Falls back to a straight
+    entry->exit line when no apex was drawn.
+
+    NOTE: `_densify([entry, apex, exit], n)` (used elsewhere for track control
+    polylines) samples a piecewise-LINEAR bend through the apex, which is NOT the
+    smooth curve the UI shows — do not use it for channels."""
+    if apex is None:
+        return _densify([entry, exit_], n)
+    cx = 2.0 * apex[0] - (entry[0] + exit_[0]) / 2.0
+    cy = 2.0 * apex[1] - (entry[1] + exit_[1]) / 2.0
+    out = []
+    for i in range(n):
+        t = i / (n - 1)
+        u = 1.0 - t
+        out.append([round(u*u*entry[0] + 2*u*t*cx + t*t*exit_[0], 1),
+                    round(u*u*entry[1] + 2*u*t*cy + t*t*exit_[1], 1)])
+    return out
+
+
+def _reverses(pts) -> bool:
+    """True if a track flips its direction of travel ~180 deg end-to-end (a real
+    U-turn). Used to gate drawn U-turn channels: their wide corridor over-grabs
+    straight-through cars that do NOT reverse, so the raw claim count is not
+    evidence of a U-turn — this reversal test is."""
+    a = _avg_bearing(pts, 3, tail=False)
+    b = _avg_bearing(pts, 3, tail=True)
+    return a is not None and b is not None and _bearing_diff(a, b) > 120
+
+
 class BankBuildError(Exception):
     """Raised for operator-actionable build failures (no video / no detection
     cache) so the app job + the CLI can surface a clear message."""
@@ -123,6 +158,12 @@ def main() -> int:
     ap.add_argument("--channels", default=None,
                     help="operator-drawn channels JSON; declares the movement set and "
                          "provides fallback polylines for cells the data didn't cover")
+    ap.add_argument("--refit-channels", action="store_true",
+                    help="LEGACY: refit operator channels from claimed tracks (old behavior) "
+                         "instead of using the drawn centerline verbatim. For A/B only.")
+    ap.add_argument("--uturn-min-support", type=int, default=3,
+                    help="a drawn U-turn channel becomes a path only if it claimed at least "
+                         "this many tracks (else it magnets straight-through cars). 0 = always.")
     ap.add_argument("--channel-buffer-px", type=float, default=20.0,
                     help="slack added to a channel's half-width when claiming tracks to "
                          "its corridor (halfw = width/2 + buffer). Default 20 (back-compat). "
@@ -139,7 +180,8 @@ def main() -> int:
             min_support=args.min_support, min_share=args.min_share, min_path=args.min_path,
             poly_pts=args.poly_pts, bearing_tol=args.bearing_tol, ambiguity_px=args.ambiguity_px,
             minor_spread_px=args.minor_spread_px, channels=args.channels,
-            channel_buffer_px=args.channel_buffer_px)
+            channel_buffer_px=args.channel_buffer_px,
+            refit_channels=args.refit_channels, uturn_min_support=args.uturn_min_support)
     except BankBuildError as e:
         print(str(e), file=sys.stderr)
         return 2
@@ -151,7 +193,8 @@ def build_gtfree_bank(*, camera: int, project: str = "97a7849a", out=None,
                       min_support: int = 5, min_share: float = 0.01, min_path: float = 80.0,
                       poly_pts: int = 15, bearing_tol: float = 55.0, ambiguity_px: float = 30.0,
                       minor_spread_px: float = 40.0, channels=None,
-                      channel_buffer_px: float = 20.0) -> dict:
+                      channel_buffer_px: float = 20.0, refit_channels: bool = False,
+                      uturn_min_support: int = 3) -> dict:
     """Build a GT-free path bank from the site's own traffic (Phase 2 productized
     entry point; the CLI main() is a thin wrapper). Returns
     {out_path, qa_path, paths, qa, missing_movements}. Raises BankBuildError when
@@ -161,7 +204,8 @@ def build_gtfree_bank(*, camera: int, project: str = "97a7849a", out=None,
         camera=camera, project=project, out=out, start_hms=start_hms, minutes=minutes,
         variant=variant, min_support=min_support, min_share=min_share, min_path=min_path,
         poly_pts=poly_pts, bearing_tol=bearing_tol, ambiguity_px=ambiguity_px,
-        minor_spread_px=minor_spread_px, channels=channels, channel_buffer_px=channel_buffer_px)
+        minor_spread_px=minor_spread_px, channels=channels, channel_buffer_px=channel_buffer_px,
+        refit_channels=refit_channels, uturn_min_support=uturn_min_support)
     cam = args.camera
     project = args.project
     out_path = Path(args.out or f"evaluations/gtfree_bank_cam{cam}.json")
@@ -373,14 +417,16 @@ def build_gtfree_bank(*, camera: int, project: str = "97a7849a", out=None,
             print(f"loaded {len(raw_chans)} operator channels from the channels table")
     chan_decls = []
     for chd in raw_chans:
-        ctrl = [chd["entry"], chd.get("apex") or chd["entry"], chd["exit"]]
         chan_decls.append({
             "od": chd["od"],
             "movement": chd["movement"],
-            "poly": _densify(ctrl, args.poly_pts),
+            "poly": _channel_centerline(chd["entry"], chd.get("apex"), chd["exit"], args.poly_pts),
             "halfw": max(float(chd.get("width_in", 40)),
                          float(chd.get("width_out", 40))) / 2.0 + args.channel_buffer_px,
         })
+    # ODs the operator drew become drawn-direct templates (emitted verbatim
+    # below, skipped by the auto-fit) unless --refit-channels restores legacy.
+    channel_ods = set() if args.refit_channels else {chd["od"] for chd in raw_chans}
 
     def _channel_claim(pts):
         """Best channel whose corridor contains the track AND whose direction
@@ -419,12 +465,13 @@ def build_gtfree_bank(*, camera: int, project: str = "97a7849a", out=None,
     # (cam3 31->31 had 121 such); heading recovery may still surface a real
     # cell. Drop same-leg anchor groups from PRIMARY admission.
     candidates: dict[tuple, tuple[list, str]] = {
-        od: (g, "gtfree-anchor") for od, g in groups.items() if od[0] != od[1]}
+        od: (g, "gtfree-anchor") for od, g in groups.items()
+        if od[0] != od[1] and od not in channel_ods}
     # Heading recovery: a heading cell with enough support whose anchor group
     # was too small (the cam5 EB-right blind spot). Bearing gate downstream
     # rejects over-collecting straight recoveries.
     for od, hg in hgroups.items():
-        if od[0] == od[1]:
+        if od[0] == od[1] or od in channel_ods:
             continue
         if len(candidates.get(od, ((), ""))[0]) < args.min_support <= len(hg):
             candidates[od] = (hg, "gtfree-heading-recovered")
@@ -567,17 +614,82 @@ def build_gtfree_bank(*, camera: int, project: str = "97a7849a", out=None,
     for p in paths:
         p.pop("_signed", None)
 
-    # --- operator channels: declared movement set + fallback geometry -------
-    if raw_chans:
+    # --- operator channels: drawn-direct templates --------------------------
+    # The operator's centerline IS the attribution template (the UI Bezier,
+    # verbatim) — NOT a refit of claimed tracks, and NOT subject to the fit /
+    # dedup / bearing gates. Width already claimed the supporting tracks (for
+    # support count / expected_speed / QA). This is what makes a hand-drawn turn
+    # that is collinear-in-image with its through actually stick: the refit +
+    # dedup used to flatten it and drop it (cam2 NB-left replayed 40, drawn ~105).
+    if raw_chans and not args.refit_channels:
+        drawn_through_origins = {chd["od"][0] for chd in raw_chans
+                                 if chd["movement"] == "through"}
+        for chd in raw_chans:
+            od = chd["od"]
+            claimed = groups.get(od, [])
+            n = len(claimed)
+            mv = chd["movement"] or _cardinal_movement(*od)
+            if mv is None:
+                mv = ("u_turn" if od[0] == od[1]
+                      else derive_movement(leg_dicts[od[0]], leg_dicts[od[1]], all_legs))
+            label = f"L{od[0]}->L{od[1]} {mv}"
+            # U-turn support gate: admit a drawn U-turn only if enough claimed
+            # tracks actually REVERSE direction (~180 deg). The wide corridor
+            # over-grabs straight-through cars (cam2 u-turns claimed 16-42 real
+            # throughs), so the raw claim count is not evidence of a U-turn; the
+            # reversal test is. Without this the U-turn polyline magnets straight
+            # cars (+35 NB, +20 EB phantom u-turns) and suppresses the parallel
+            # turn (NB-left 105 -> 44).
+            if mv == "u_turn":
+                n_rev = sum(1 for m in claimed if _reverses(m))
+                frac = n_rev / n if n else 0.0
+                # Real U-turn: a MAJORITY of claimed tracks reverse. Phantom (the
+                # wide corridor grazing a straight through): a few noisy grabs may
+                # clear the per-track reversal angle, but the fraction stays low.
+                if n_rev < uturn_min_support or frac < 0.5:
+                    qa_cells.append({"cell": label, "n": n, "n_reverse": n_rev,
+                                     "reverse_frac": round(frac, 2),
+                                     "status": "uturn_unsupported_heldout"})
+                    print(f"{label:<26}{n:>5}{'--':>7}{'--':>9}{'--':>12}  "
+                          f"UTURN_HELDOUT ({n_rev}/{n} reverse, frac {frac:.2f})")
+                    continue
+                print(f"    (u-turn {label} ADMITTED: {n_rev}/{n} reverse, frac {frac:.2f})")
+            # expected_speed from the claimed tracks (blind, no GT) for the
+            # speed-tiebreak; None when nothing was claimed.
+            espeed = None
+            if n:
+                steps = [median([math.hypot(m[i+1][0]-m[i][0], m[i+1][1]-m[i][1])
+                                 for i in range(len(m)-1)])
+                         for m in claimed if len(m) >= 4]
+                espeed = median(steps) if steps else None
+            paths.append({"origin_leg_id": od[0], "destination_leg_id": od[1],
+                          "movement_label": mv,
+                          "polyline": _channel_centerline(chd["entry"], chd.get("apex"),
+                                                          chd["exit"], args.poly_pts),
+                          "supporting_count": n, "source": "hand-drawn-channel",
+                          "expected_speed": espeed})
+            qa_cells.append({"cell": label, "n": n, "status": "channel_direct"})
+            print(f"{label:<26}{n:>5}{'--':>7}{'--':>9}{'--':>12}  "
+                  f"CHANNEL_DIRECT (drawn curve, support {n})")
+            # Global-partition hint: a drawn turn whose same-origin through is NOT
+            # also drawn can be absorbed by the greedy auto-fit through (the
+            # selective-drop-in failure: NB-left 105 -> 18). Tell the operator.
+            if mv in ("left", "right") and od[0] not in drawn_through_origins:
+                qa_cells.append({"cell": label, "status": "warn_turn_without_drawn_through",
+                                 "hint": "draw the parallel through channel from this leg too, "
+                                         "else the auto-fit through may absorb this turn"})
+    elif raw_chans and args.refit_channels:
+        # LEGACY (--refit-channels): drawn channels only fill cells the data-fit
+        # left uncovered; the fitted polyline wins where tracks exist.
         covered = {(p["origin_leg_id"], p["destination_leg_id"]) for p in paths}
         for chd in raw_chans:
             od = chd["od"]
             if od in covered:
                 continue
-            ctrl = [chd["entry"], chd.get("apex") or chd["entry"], chd["exit"]]
             paths.append({"origin_leg_id": od[0], "destination_leg_id": od[1],
                           "movement_label": chd["movement"],
-                          "polyline": _densify(ctrl, args.poly_pts),
+                          "polyline": _channel_centerline(chd["entry"], chd.get("apex"),
+                                                          chd["exit"], args.poly_pts),
                           "supporting_count": 0, "source": "hand-drawn-channel"})
             qa_cells.append({"cell": f"L{od[0]}->L{od[1]} {chd['movement']}",
                              "n": 0, "status": "channel_fallback"})
