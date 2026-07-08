@@ -212,6 +212,9 @@ independent GT-free counters disagreeing = the "suspected gap" feeder — it wou
 flagged cam2's SB-thru/EB-right exactly). The sweep also REFRAMED the problem: the
 per-approach crisis is CONCENTRATED (cam2 + cam5-EB + cam1-NB), not corridor-wide, and
 cam2's worst cells are detection-bounded → the §3-D detector fine-tune is the lever.
+**(REFINED same-day by the detector de-risk spike, `docs/detector_derisk_spike_2026-07-08.md`:
+the failing cells are DOWNSTREAM-bounded — detection contributes ~10% on cam2 SB-right and
+nothing on cam5-EB/cam1-NB; cam5-EB's live bank is missing its EB-thru path entirely.)**
 The two-pass architecture itself stands (pass-1 dumps exist for all 5 cams; pass-2
 re-runs in ~1 min). cam1 blind-gate re-validation: **RESOLVED 2026-07-08** — no blind
 collapse; honest blind cam1 = ~10% per-cell abs vs 6.7% GT-gated (total net +2.2% vs
@@ -418,11 +421,16 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
 0. **F1 — calibration clean surface + layers + drawn-direct channels (SHIPPED 2026-07-07).**
    Stale top-down overlays stripped, per-leg × per-type layer matrix, review-first stepper; and
    operator channel curves now used VERBATIM (drawn-direct). Committed. F2/F3 are their own track.
-1. **Detector de-risk spike (NEW TOP LEVER — Gate B reframe).** The per-approach crisis is
-   CONCENTRATED in detection-bounded cells (cam2 SB-right 58% recall, cam5-EB, cam1-NB). Before
-   the full §3-D fine-tune: re-detect samples of the failing ZONES at accurate_1280 / yolo26l
-   (both already on disk) and measure zone recall. Detects → per-camera detection profile
-   (config, cheap). Doesn't → the fine-tune is justified with evidence.
+1. **Detector de-risk spike — DONE 2026-07-08 (`docs/detector_derisk_spike_2026-07-08.md`).**
+   VERDICT: the per-camera detection-profile config lever is DEAD as the failing-cell fix —
+   cam1-NB ×0.91–1.04 uplift (novel dets = stationary flicker), cam5-EB uplift below its own
+   control (uniform more-boxes effect), cam2 SB-right the one real zone-specific gap
+   (novel 11.2% vs control 1.6%) but sized at ~10% of that cell's miss. Gate B's
+   "detection-bounded" framing REFINED → the cells are DOWNSTREAM-bounded: cam2 SB-right =
+   tracker birth/association (detection assists ~10%); cam5-EB = bank COVERAGE (live bank has
+   NO EB-thru path — re-apply with drawn-direct channels, the cheapest candidate on the board);
+   cam1-NB = association/attribution residual. §3-D fine-tune justified at its REAL targets
+   (articulated, low-light, edge-clip recall) with a held-out SITE gate — scoped in the doc.
    *(Box-clip counter RETIRED by Gate B — demoted to the §3-B QA cross-check signal. ReID
    rollout retired earlier. Two-pass replay infra stays — it's how all of this gets measured.)*
 2. **cam1 blind-gate re-validation (§2c) — DONE 2026-07-08.** Cache restored as
