@@ -410,24 +410,26 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
 
 ---
 
-## 4. Sequencing (re-ordered 2026-07-08 per §2c)
+## 4. Sequencing (re-ordered 2026-07-08 post-Gate-B — see §2c verdict)
 
 0. **F1 — calibration clean surface + layers + drawn-direct channels (SHIPPED 2026-07-07).**
    Stale top-down overlays stripped, per-leg × per-type layer matrix, review-first stepper; and
    operator channel curves now used VERBATIM (drawn-direct). Committed. F2/F3 are their own track.
-1. **Two-pass + box-clip attribution (TOP LEVER, §2c).** Prototype pass 2 over the FULL 7–9 AM
-   cam2 trim from the existing detection caches: box-clip origin/destination as the classification
-   authority (no track dropped on shape mismatch), path discovery pooled over the whole corpus as
-   disambiguator + window-scaled volume priors, trim-edge padding. Score with the §1b harness
-   (`scripts/measure_cam2_reid_spike.py` generalizes to any events DB). Gate: cam2 per-approach
-   AVG |err| materially closes toward ≤5%, blind. Then extend to cam3–5.
-   *(ReID-by-default rollout is RETIRED as the lever — spike FAIL, §2c. The sidecar +
-   `--resume`/`--threads` infra stays for QA and future need; cam1 keeps its shipped config.)*
-2. **cam1 blind-gate re-validation (§2c).** Re-run cam1 with the GT-free volume gate
-   (`expected_by_cell` = bank supporting counts) and re-score — the shipped 7.2% partially leans
-   on Miovision through the old gate; the blind number is the honest one.
+1. **Detector de-risk spike (NEW TOP LEVER — Gate B reframe).** The per-approach crisis is
+   CONCENTRATED in detection-bounded cells (cam2 SB-right 58% recall, cam5-EB, cam1-NB). Before
+   the full §3-D fine-tune: re-detect samples of the failing ZONES at accurate_1280 / yolo26l
+   (both already on disk) and measure zone recall. Detects → per-camera detection profile
+   (config, cheap). Doesn't → the fine-tune is justified with evidence.
+   *(Box-clip counter RETIRED by Gate B — demoted to the §3-B QA cross-check signal. ReID
+   rollout retired earlier. Two-pass replay infra stays — it's how all of this gets measured.)*
+2. **cam1 blind-gate re-validation (§2c).** Restore the 30-min balanced cache from its .bak
+   (new variant name; the ReID sidecar npz is keyed to it), retrack the arms, combine GT-gated
+   vs bank-count-gated, score both — the shipped 7.2% partially leans on Miovision through the
+   old gate; the blind number is the honest one.
 3. **B-coverage diagnostic + the flag queue model** — the blind accuracy assurance; directs all
-   review work. Without it, deployment can't be *trusted*, only *measured*.
+   review work. Box-clip's role lives HERE: two independent GT-free counters disagreeing on a
+   cell/interval = the "suspected gap" feeder (it would have flagged cam2 SB-thru/EB-right
+   exactly). Without this workstream, deployment can't be *trusted*, only *measured*.
 4. **C review UX** — pairs with B; turns flags into a fast resolved count.
 5. **A productize the two-pass flow + export gating** — wire pass 1 into ingest and pass 2 into
    "Confirm & process" (§3-A); removes the CLI dependency so an operator runs it solo.

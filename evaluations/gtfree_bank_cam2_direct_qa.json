@@ -1,0 +1,142 @@
+{
+  "camera": 2,
+  "window": "07:00:00+30min",
+  "n_tracks_usable": 1860,
+  "agreement_rate": 0.409,
+  "cells": [
+    {
+      "cell": "L26->L26 u_turn",
+      "n": 19,
+      "n_reverse": 3,
+      "reverse_frac": 0.16,
+      "status": "uturn_unsupported_heldout"
+    },
+    {
+      "cell": "L26->L27 right",
+      "n": 76,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L26->L28 through",
+      "n": 92,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L26->L29 left",
+      "n": 17,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L27->L26 left",
+      "n": 102,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L27->L27 u_turn",
+      "n": 27,
+      "n_reverse": 8,
+      "reverse_frac": 0.3,
+      "status": "uturn_unsupported_heldout"
+    },
+    {
+      "cell": "L27->L28 right",
+      "n": 24,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L27->L29 through",
+      "n": 187,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L28->L26 through",
+      "n": 36,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L28->L27 left",
+      "n": 47,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L28->L28 u_turn",
+      "n": 42,
+      "n_reverse": 15,
+      "reverse_frac": 0.36,
+      "status": "uturn_unsupported_heldout"
+    },
+    {
+      "cell": "L28->L29 right",
+      "n": 131,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L29->L26 right",
+      "n": 14,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L29->L27 through",
+      "n": 548,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L29->L28 left",
+      "n": 482,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L29->L29 u_turn",
+      "n": 16,
+      "n_reverse": 7,
+      "reverse_frac": 0.44,
+      "status": "uturn_unsupported_heldout"
+    }
+  ],
+  "ambiguous_pairs": [],
+  "leg_sanity": [
+    {
+      "leg_id": 28,
+      "calibrated_heading": 240.6,
+      "observed_entry_bearing": 273.8,
+      "diff_deg": 33.2,
+      "verdict": "ok"
+    },
+    {
+      "leg_id": 29,
+      "calibrated_heading": 114.4,
+      "observed_entry_bearing": 95.4,
+      "diff_deg": 19.0,
+      "verdict": "ok"
+    },
+    {
+      "leg_id": 27,
+      "calibrated_heading": 288.2,
+      "observed_entry_bearing": 291.2,
+      "diff_deg": 3.0,
+      "verdict": "ok"
+    },
+    {
+      "leg_id": 26,
+      "calibrated_heading": 53.8,
+      "observed_entry_bearing": 67.0,
+      "diff_deg": 13.2,
+      "verdict": "ok"
+    }
+  ],
+  "missing_movements": [],
+  "anchor_cells_raw": {
+    "29->27": 548,
+    "29->28": 482,
+    "27->29": 187,
+    "28->29": 131,
+    "27->26": 102,
+    "26->28": 92,
+    "26->27": 76,
+    "28->27": 47,
+    "28->28": 42,
+    "28->26": 36,
+    "27->27": 27,
+    "27->28": 24
+  }
+}
