@@ -181,7 +181,7 @@ def gate_lane_clusters(gates, bank_paths):
 
 def classify(track, gates, lanes=None):
     """track: [(frame,x,y)...] ->
-    (origin_leg, dest_leg, origin_cross_frame, dest_cross_frame, tag)."""
+    (origin_leg, dest_leg, origin_frame, dest_frame, origin_pos, dest_pos, tag)."""
     crossings = []          # (frame_interp, leg, inward: bool, pos: (x,y))
     for i in range(len(track) - 1):
         f0, x0, y0 = track[i]
@@ -229,13 +229,13 @@ def classify(track, gates, lanes=None):
                 lane_ok = abs(oproj - out_m) < abs(oproj - in_m)
             if ((dest[0] - origin[0]) < UTURN_MIN_FRAMES or mouth_far < UTURN_MIN_PX
                     or lane_shift < UTURN_MIN_LANE_SHIFT or not lane_ok):
-                return origin[1], None, origin[0], None, "entry_only"
-        return origin[1], dest[1], origin[0], dest[0], "full"
+                return origin[1], None, origin[0], None, origin[3], None, "entry_only"
+        return origin[1], dest[1], origin[0], dest[0], origin[3], dest[3], "full"
     if origin:
-        return origin[1], None, origin[0], None, "entry_only"
+        return origin[1], None, origin[0], None, origin[3], None, "entry_only"
     if dest:
-        return None, dest[1], dest[0], None, "exit_only"
-    return None, None, None, None, "no_crossing"
+        return None, dest[1], dest[0], None, None, dest[3], "exit_only"
+    return None, None, None, None, None, None, "no_crossing"
 
 
 def _resample(xy, n=15):
@@ -254,7 +254,7 @@ def _resample(xy, n=15):
     return out
 
 
-def discover_channels(recs, min_support=10, cap=300):
+def discover_channels(recs, min_support=5, cap=300):
     """Per-cell mean polylines from OUR OWN full journeys (gate-to-gate clipped)
     — the s2c 'path discovery pooled over the full corpus'. These carry the
     lanes vehicles ACTUALLY drive, where the drawn idealized centerlines can
@@ -293,6 +293,7 @@ STUB_MIN_ARC = 80.0               # px: a no-crossing chain must be at least thi
                                   # long to be attributable (bank --min-path)
 ATTR_PAIR_GAP = 3000.0            # frames (~2 min): same-cell entry piece + later
                                   # exit piece = ONE broken vehicle, count once
+LANE_SD_FLOOR = 8.0               # px: min lane-position spread (bbox jitter scale)
 
 
 def _arclen(pts):
@@ -406,14 +407,17 @@ def attribute(rec, channels, mode):
             costs.append(cost)
         scores.append((sum(costs) / len(costs), cell))
     if not scores:
-        return None, "no_candidates"
+        return None, "no_candidates", None
     scores.sort()
     best, cell = scores[0]
     if best > ATTR_MAX_PX:
-        return None, "poor_fit"
+        return None, "poor_fit", None
     if len(scores) > 1 and best >= ATTR_MARGIN * scores[1][0]:
-        return None, "ambiguous"
-    return cell, best
+        # tied = every candidate that genuinely competes (fit ok, within band)
+        tied = [(sc, c) for sc, c in scores
+                if sc <= ATTR_MAX_PX and sc <= best / ATTR_MARGIN]
+        return None, "ambiguous", tied
+    return cell, best, None
 
 
 def main() -> int:
@@ -432,6 +436,9 @@ def main() -> int:
     ap.add_argument("--no-attribute", action="store_true", help="stage B ablation")
     ap.add_argument("--no-stubs", action="store_true",
                     help="skip attributing no-crossing chains (plan step 5)")
+    ap.add_argument("--no-prior", action="store_true",
+                    help="B4 ablation: reject ambiguous pieces instead of "
+                         "lane-posterior assignment")
     ap.add_argument("--print-gates", action="store_true")
     args = ap.parse_args()
 
@@ -485,11 +492,11 @@ def main() -> int:
             tags["too_short"] += 1
             continue
         pts.sort()
-        o, d, f_cross, f_out, tag = classify(pts, gates, lanes)
+        o, d, f_cross, f_out, o_pos, d_pos, tag = classify(pts, gates, lanes)
         tags[tag] += 1
         recs.append({"tid": tid, "pts": pts, "tag": tag, "o": o, "d": d,
-                     "f": f_cross, "f_out": f_out, "birth": pts[0],
-                     "death": pts[-1], "v_end": _end_speed(pts)})
+                     "f": f_cross, "f_out": f_out, "o_pos": o_pos, "d_pos": d_pos,
+                     "birth": pts[0], "death": pts[-1], "v_end": _end_speed(pts)})
 
     def _event(o, d, f_cross):
         mv = "u_turn" if o == d else label.get((o, d))
@@ -522,10 +529,11 @@ def main() -> int:
                     merged.append(ch[0])
                     continue
                 pts = sorted(p for r in ch for p in r["pts"])
-                o, d, f_in, f_out, tag = classify(pts, gates, lanes)
+                o, d, f_in, f_out, o_pos, d_pos, tag = classify(pts, gates, lanes)
                 stageb[f"chain_to_{tag}"] += 1
                 merged.append({"tid": ch[0]["tid"], "pts": pts, "tag": tag,
                                "o": o, "d": d, "f": f_in, "f_out": f_out,
+                               "o_pos": o_pos, "d_pos": d_pos,
                                "birth": pts[0], "death": pts[-1],
                                "v_end": _end_speed(pts), "members": len(ch)})
             base = merged
@@ -534,40 +542,100 @@ def main() -> int:
         discovered = discover_channels(base)
         attr_channels = dict(channels)          # drawn = fallback...
         attr_channels.update(discovered)        # ...discovered wins where supported
-        print(f"discovered channels (>=10 full journeys): "
+        print(f"discovered channels (>=5 full journeys): "
               f"{sorted(discovered)} ({len(discovered)}/{len(channels)} cells)")
         counted = defaultdict(list)             # cell -> origin frames (suspicious metric)
+        prior = Counter()                       # resolved counts per cell
+        lane_obs = defaultdict(list)            # (side, gate, cell) -> [proj]
+
+        def _gate_proj(gate_leg, pos):
+            p1, p2, _inw = gates[gate_leg]
+            gl = math.hypot(p2[0] - p1[0], p2[1] - p1[1]) or 1.0
+            return ((pos[0] - p1[0]) * (p2[0] - p1[0])
+                    + (pos[1] - p1[1]) * (p2[1] - p1[1])) / gl
+
         for r in base:
             if r["tag"] == "full":
                 e = _event(r["o"], r["d"], r["f"])
                 _record(e, "chain" if r.get("members", 1) > 1 else "full")
                 if e:
-                    counted[(r["o"], r["d"])].append(r["f"])
+                    cell = (r["o"], r["d"])
+                    counted[cell].append(r["f"])
+                    prior[cell] += 1
+                    if r.get("o_pos"):
+                        lane_obs[("entry", r["o"], cell)].append(_gate_proj(r["o"], r["o_pos"]))
+                    if r.get("d_pos"):
+                        lane_obs[("exit", r["d"], cell)].append(_gate_proj(r["d"], r["d_pos"]))
+
+        lane_mu = {}
+        for key, vs in lane_obs.items():
+            if len(vs) >= 3:
+                mu = sum(vs) / len(vs)
+                sd = max((sum((v - mu) ** 2 for v in vs) / len(vs)) ** 0.5, LANE_SD_FLOOR)
+                lane_mu[key] = (mu, sd)
+
+        pr_credit = defaultdict(float)
+        pr_assigned = Counter()
+
+        def posterior_assign(r, tied, mode):
+            """Lane-likelihood x volume-prior posterior over the tied cells;
+            deterministic proportional assignment (credit accumulation)."""
+            side = "entry" if mode == "entry" else "exit"
+            gate = r["o"] if mode == "entry" else r["d"]
+            pos = r["o_pos"] if mode == "entry" else r["d_pos"]
+            if pos is None:
+                return None
+            proj = _gate_proj(gate, pos)
+            ws = []
+            for _sc, cell in tied:
+                ms = lane_mu.get((side, gate, cell))
+                if ms:
+                    mu, sd = ms
+                    like = math.exp(-0.5 * ((proj - mu) / sd) ** 2) / sd
+                else:
+                    like = 1.0 / 100.0          # no lane stats: ~uniform over the gate
+                ws.append(((prior[cell] + 1) * like, cell))
+            tot = sum(w for w, _c in ws)
+            if tot <= 0:
+                return None
+            for w, cell in ws:
+                pr_credit[cell] += w / tot
+            best = max(ws, key=lambda wc: pr_credit[wc[1]] - pr_assigned[wc[1]])
+            pr_assigned[best[1]] += 1
+            return best[1]
         if not args.no_attribute:
             # Attribute to cells, then SAME-CELL entry/exit pairing for breaks
             # the chain rules can't span (>3s moving gaps): the two pieces of
             # one vehicle count ONCE. (Removing this when chains landed brought
             # the EB-right double-count straight back.)
             att_e, att_x = defaultdict(list), defaultdict(list)
-            for r in base:
+            for r in sorted(base, key=lambda r: r["birth"][0]):
                 if r["tag"] == "entry_only":
-                    cell, why = attribute(r, attr_channels, "entry")
+                    cell, why, tied = attribute(r, attr_channels, "entry")
+                    srcname = "attr_entry"
+                    if cell is None and why == "ambiguous" and not args.no_prior:
+                        cell = posterior_assign(r, tied, "entry")
+                        srcname = "prior"
                     if cell is None:
                         stageb[f"attr_entry_{why}"] += 1
                     else:
-                        att_e[cell].append(r)
+                        att_e[cell].append((r, srcname))
                 elif r["tag"] == "exit_only":
-                    cell, why = attribute(r, attr_channels, "exit")
+                    cell, why, tied = attribute(r, attr_channels, "exit")
+                    srcname = "attr_exit"
+                    if cell is None and why == "ambiguous" and not args.no_prior:
+                        cell = posterior_assign(r, tied, "exit")
+                        srcname = "prior"
                     if cell is None:
                         stageb[f"attr_exit_{why}"] += 1
                     else:
-                        att_x[cell].append(r)
+                        att_x[cell].append((r, srcname))
             for cell in set(att_e) | set(att_x):
-                es = sorted(att_e.get(cell, []), key=lambda r: r["death"][0])
-                xs = sorted(att_x.get(cell, []), key=lambda r: r["birth"][0])
+                es = sorted(att_e.get(cell, []), key=lambda t: t[0]["death"][0])
+                xs = sorted(att_x.get(cell, []), key=lambda t: t[0]["birth"][0])
                 used_x = set()
-                for r in es:
-                    mate = next((k for k, rx in enumerate(xs)
+                for r, srcname in es:
+                    mate = next((k for k, (rx, _s2) in enumerate(xs)
                                  if k not in used_x
                                  and 0 < rx["birth"][0] - r["death"][0] <= ATTR_PAIR_GAP),
                                 None)
@@ -575,19 +643,21 @@ def main() -> int:
                         used_x.add(mate)
                         stageb["attr_paired"] += 1
                     else:
-                        stageb["attributed_entry"] += 1
+                        stageb["attributed_entry" if srcname != "prior"
+                               else "prior_entry"] += 1
                     e = _event(cell[0], cell[1], r["f"])
-                    _record(e, "attr_pair" if mate is not None else "attr_entry")
+                    _record(e, "attr_pair" if mate is not None else srcname)
                     if e:
                         counted[cell].append(r["f"])
-                for k, rx in enumerate(xs):
+                for k, (rx, srcname) in enumerate(xs):
                     if k in used_x:
                         continue
                     # birth frame approximates the unobserved origin crossing
                     e = _event(cell[0], cell[1], rx["birth"][0])
-                    _record(e, "attr_exit")
+                    _record(e, srcname)
                     if e:
-                        stageb["attributed_exit"] += 1
+                        stageb["attributed_exit" if srcname != "prior"
+                               else "prior_exit"] += 1
                         counted[cell].append(rx["birth"][0])
             if not args.no_stubs:
                 for r in base:
@@ -596,7 +666,7 @@ def main() -> int:
                     if _arclen(r["pts"]) < STUB_MIN_ARC:
                         stageb["stub_too_short"] += 1
                         continue
-                    cell, why = attribute(r, attr_channels, "free")
+                    cell, why, _tied = attribute(r, attr_channels, "free")
                     if cell is None:
                         stageb[f"stub_{why}"] += 1
                         continue
@@ -628,15 +698,15 @@ def main() -> int:
         print("stage B:")
         for k, v2 in sorted(stageb.items()):
             print(f"  {k:<24} {v2:>6}")
-    SOURCES = ("full", "chain", "attr_entry", "attr_exit", "stub")
+    SOURCES = ("full", "chain", "attr_entry", "attr_exit", "prior", "stub")
     print("\nper-cell source matrix (cells with >=20 events):")
     cells_all = sorted({cl for cl, _s in src},
                        key=lambda cl: -sum(src.get((cl, s2), 0) for s2 in SOURCES))
-    print(f"{'cell':<22}{'full':>6}{'chain':>7}{'a_ent':>7}{'a_ex':>6}{'stub':>6}")
+    print(f"{'cell':<22}{'full':>6}{'chain':>7}{'a_ent':>7}{'a_ex':>6}{'prior':>7}{'stub':>6}")
     for cl in cells_all:
         row = [src.get((cl, s2), 0) for s2 in SOURCES]
         if sum(row) >= 20:
-            print(f"{cl:<22}{row[0]:>6}{row[1]:>7}{row[2]:>7}{row[3]:>6}{row[4]:>6}")
+            print(f"{cl:<22}{row[0]:>6}{row[1]:>7}{row[2]:>7}{row[3]:>6}{row[4]:>7}{row[5]:>6}")
     print(f"\nevents written: {len(ins)} -> {out_db}")
     print("score with: py scripts/measure_cam2_reid_spike.py --db", out_db)
     return 0
