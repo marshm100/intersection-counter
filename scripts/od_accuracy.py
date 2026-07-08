@@ -33,17 +33,24 @@ from parse_miovision_xml import APPROACH, approaches, parse, slot_labels
 
 PROJECT_DB = "data/projects/97a7849a/project.db"
 
-# leg.cardinal_direction (N/S/E/W) -> the 2-letter cardinal that prefixes the
-# matching Miovision approach Name (e.g. "SB N Belt Line Rd"). This is the
-# universal, data-driven join between our legs and a camera's XML approaches —
-# it reproduces the hand-built cam1 LEG_TO_APPROACH and the cam2 shim's LEG_IDX.
-_CARD2PREFIX = {"N": "NB", "S": "SB", "E": "EB", "W": "WB"}
+# leg.cardinal_direction records the SIDE of the intersection the leg sits on
+# (same convention as triangulate_manual._CARD_TO_DIR); the traffic ENTERING
+# from that side travels the OPPOSITE cardinal — a leg on the N side feeds the
+# SB approach ("SB N Belt Line Rd" in the Miovision XML). The original
+# same-letter mapping here (N->"NB") was 180-degrees flipped for EVERY leg —
+# it disagreed with the verified cam1 LEG_IDX (despite the old comment claiming
+# agreement) and was only ever exercised for camera_id != 1, where it silently
+# flipped manual_od_by_cell()'s volume-gate expecteds and _measure() reporting
+# (found on the cam2 ReID generalization spike, 2026-07-08).
+_CARD2PREFIX = {"N": "SB", "S": "NB", "E": "WB", "W": "EB"}
 
 
 def leg_idx(camera_id: int, db: str = PROJECT_DB) -> dict[int, int]:
-    """{leg_id: approach_idx} for a camera, by matching leg.cardinal_direction to
-    the cardinal prefix of the camera's XML approach Names. Works for 3-leg (T)
-    and 4-way intersections alike."""
+    """{leg_id: approach_idx} for a camera, by matching leg.cardinal_direction
+    (the SIDE the leg is on) to the approach whose XML Name is prefixed by the
+    OPPOSITE cardinal (the direction of travel entering from that side). Agrees
+    with the hand-built, verified cam1 LEG_IDX. Works for 3-leg (T) and 4-way
+    intersections alike."""
     appr = approaches(camera_id)                                  # {idx: name}
     prefix_to_idx = {(name or "").split()[0]: idx for idx, name in appr.items()}
     conn = sqlite3.connect(str(db))

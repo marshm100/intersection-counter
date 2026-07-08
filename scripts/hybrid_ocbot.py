@@ -116,19 +116,24 @@ def _overlap(a, b):
 def combine_regimes(oc_db, bot_db, out_db, *, merge_turns=True, merge_px=30.0,
                     merge_gap=40.0, merge_vol_factor=1.3, no_dedup=True,
                     dedup_px=60.0, start_hms="07:00:00", minutes=30.0,
-                    camera_id=CAMERA):
+                    camera_id=CAMERA, expected_by_cell=None):
     """Assemble the regime-split combined DB: OC/throughs arm + BoT/turns arm.
     combined = {oc_db events movement='through'} U {bot_db turn events}, with the
     A2 volume-gated intra-turn merge and (default-off) cross-backend boundary dedup.
     Writes out_db (a copy of oc_db with this camera's events replaced) and returns
     (oc_throughs_kept, oc_dropped, bot_turns_inserted). Shared by hybrid_ocbot.main
     (offline measure) and process_camera_reid.py (production orchestrator).
-    camera_id parameterizes the camera (default cam1 for the legacy offline path)."""
+    camera_id parameterizes the camera (default cam1 for the legacy offline path).
+    expected_by_cell overrides the volume-gate expecteds ({(origin,dest): count});
+    default None keeps the legacy DEV behaviour of pulling Miovision manual counts
+    — a GT runtime dependency a blind deployment cannot have. Pass the bank's
+    supporting_count per path for the GT-free production gate."""
     oc_thru = _load(oc_db, "movement = 'through'", camera_id)
     bot_turn = _load(bot_db, "movement IN ('left','right','u_turn')", camera_id)
     keep_turn_ids = None
     if merge_turns:
-        expected = manual_od_by_cell(start_hms, minutes, camera_id=camera_id)
+        expected = (expected_by_cell if expected_by_cell is not None
+                    else manual_od_by_cell(start_hms, minutes, camera_id=camera_id))
         keep_turn_ids = merge_turn_fragments(bot_turn, merge_px, merge_gap,
                                              expected_by_cell=expected, vol_factor=merge_vol_factor)
     drop_oc = set()
