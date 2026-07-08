@@ -50,7 +50,21 @@ def main() -> int:
     ap.add_argument("--variant", default=None,
                     help="detection-cache variant to embed (default DEFAULT_VARIANT); "
                          "set to a study variant e.g. study_0700 for full-study ReID")
+    ap.add_argument("--resume", action="store_true",
+                    help="continue an interrupted build: keep rows already in the memmap "
+                         "sidecar (they survive kills thanks to the periodic flush) and "
+                         "re-embed from the last written frame onward")
+    ap.add_argument("--threads", type=int, default=None,
+                    help="cap CPU threads for torch + cv2 so the box stays responsive "
+                         "during the hours-long pass (default: all cores). RAM is NOT "
+                         "the lever here — the sidecar is memmap-streamed; this rations "
+                         "CPU only, at proportional wall-clock cost")
     args = ap.parse_args()
+
+    if args.threads:
+        cv2.setNumThreads(args.threads)
+        import torch
+        torch.set_num_threads(args.threads)
 
     conn = sqlite3.connect("data/projects/97a7849a/project.db")
     v = conn.execute("SELECT path,file_size_bytes,total_frames,fps FROM videos "
@@ -88,14 +102,41 @@ def main() -> int:
     # in-RAM accumulation of all ~310k vectors + the contiguous savez copy).
     from numpy.lib.format import open_memmap
     out.mkdir(parents=True, exist_ok=True)
-    fr_mm = open_memmap(out / "frames.npy", mode="w+", dtype=np.int32, shape=(total_dets,))
-    bb_mm = open_memmap(out / "bboxes.npy", mode="w+", dtype=np.float32, shape=(total_dets, 4))
-    em_mm = open_memmap(out / "embs.npy", mode="w+", dtype=np.float16, shape=(total_dets, EMB_DIM))
+    w = 0
+    if args.resume and (out / "frames.npy").exists():
+        # Rows are written in frame order and flushed every 1000 frames, so after a
+        # kill the arrays hold a contiguous prefix of complete frames (possibly plus
+        # a partial LAST frame — its per-row writes are not atomic). Rewind to the
+        # START of the last written frame and re-embed it; everything before is kept.
+        fr_mm = open_memmap(out / "frames.npy", mode="r+")
+        if fr_mm.shape != (total_dets,):
+            raise SystemExit(f"--resume: existing sidecar shape {fr_mm.shape} != "
+                             f"({total_dets},) — window/variant mismatch, rebuild fresh")
+        nz = np.flatnonzero(fr_mm[:] != 0)          # window frames are all >0
+        if len(nz):
+            if nz[-1] != len(nz) - 1:
+                raise SystemExit("--resume: written rows not contiguous — rebuild fresh")
+            last = int(fr_mm[nz[-1]])
+            w = int(np.searchsorted(fr_mm[:len(nz)], last))   # first row of `last`
+            done_dets = sum(len(bbs) for f, bbs in need.items() if f < last)
+            if done_dets != w:
+                raise SystemExit(f"--resume: row count {w} != expected {done_dets} for "
+                                 f"frames < {last} — cache/sidecar misaligned, rebuild fresh")
+            for f in [f for f in need if f < last]:
+                del need[f]
+            fr_mm[w:] = 0                            # clear the possibly-partial tail
+            print(f"resuming at frame {last} (row {w}; {len(need)} frames left)")
+        bb_mm = open_memmap(out / "bboxes.npy", mode="r+")
+        em_mm = open_memmap(out / "embs.npy", mode="r+")
+    else:
+        fr_mm = open_memmap(out / "frames.npy", mode="w+", dtype=np.int32, shape=(total_dets,))
+        bb_mm = open_memmap(out / "bboxes.npy", mode="w+", dtype=np.float32, shape=(total_dets, 4))
+        em_mm = open_memmap(out / "embs.npy", mode="w+", dtype=np.float16, shape=(total_dets, EMB_DIM))
 
     cap = cv2.VideoCapture(vpath)
     cap.set(cv2.CAP_PROP_POS_FRAMES, min(need))
     hi = max(need)
-    done = w = 0
+    done = 0
     while need:
         ret, img = cap.read()
         if not ret:
