@@ -289,8 +289,15 @@ ATTR_ANGLE_PX_PER_DEG = 0.7       # direction-mismatch penalty: channels carry a
                                   # convergence zone is distance-close to EB-right
                                   # but moves ~35 deg differently (and a backwards
                                   # traversal is 180 deg off)
+STUB_MIN_ARC = 80.0               # px: a no-crossing chain must be at least this
+                                  # long to be attributable (bank --min-path)
 ATTR_PAIR_GAP = 3000.0            # frames (~2 min): same-cell entry piece + later
                                   # exit piece = ONE broken vehicle, count once
+
+
+def _arclen(pts):
+    return sum(math.hypot(pts[i + 1][1] - pts[i][1], pts[i + 1][2] - pts[i][2])
+               for i in range(len(pts) - 1))
 
 
 def _end_speed(pts, tail=6):
@@ -300,53 +307,88 @@ def _end_speed(pts, tail=6):
             if df > 0 else 0.0)
 
 
-def stitch(entries, exits):
-    """Pair entry-only track A with exit-only track B across an in-box break.
-    Returns (pairs [(a, b, rule)], used_entry_idx, used_exit_idx)."""
+def chain_tracks(recs):
+    """B3 (docs/plan_boxclip_b3_chaining_2026-07-08.md): global fragment
+    chaining. Edge A->B iff B plausibly continues A (the proven break rules,
+    applied to EVERY pair, not just entry x exit). Greedy on (dist + 0.5*gap),
+    each rec <=1 predecessor and <=1 successor; chains strictly extend in time
+    (no cycles). Returns a list of chains (time-ordered lists of recs)."""
+    import bisect
+    rs = sorted(recs, key=lambda r: r["birth"][0])
+    births = [r["birth"][0] for r in rs]
+    # Tag-gating (the dedup_ceiling lesson): death->birth proximity CANNOT
+    # tell a fragment continuation from a 1-2s-headway FOLLOWER on a dense
+    # arterial. So only journey-INCOMPLETE tracks may chain: A must still lack
+    # its exit crossing, B must still lack its entry crossing. A full journey
+    # never chains — ungated, chaining merged complete NB vehicles into their
+    # followers (fulls 3459->2951, NB 2.4%->28.9%).
+    A_OK = ("entry_only", "no_crossing")
+    B_OK = ("exit_only", "no_crossing")
     cands = []
-    for i, a in enumerate(entries):
+    for ai, a in enumerate(rs):
+        if a["tag"] not in A_OK:
+            continue
         fa, xa, ya = a["death"]
-        for j, b in enumerate(exits):
-            fb, xb, yb = b["birth"]
-            gap = fb - fa
-            dist = math.hypot(xb - xa, yb - ya)
-            moving = STITCH_MOVE_GAP[0] <= gap <= STITCH_MOVE_GAP[1] and dist <= STITCH_MOVE_DIST
-            stat = (a["v_end"] < STITCH_STAT_SPEED and 0 < gap <= STITCH_STAT_GAP
-                    and dist <= STITCH_STAT_DIST)
+        lo = bisect.bisect_left(births, fa + STITCH_MOVE_GAP[0])
+        hi = bisect.bisect_right(births, fa + STITCH_STAT_GAP)
+        a_slow = a["v_end"] < STITCH_STAT_SPEED
+        for bi in range(lo, hi):
+            if bi == ai:
+                continue
+            b = rs[bi]
+            if b["tag"] not in B_OK:
+                continue
+            if b["death"][0] <= fa:          # chain must EXTEND in time
+                continue
+            gap = b["birth"][0] - fa
+            dist = math.hypot(b["birth"][1] - xa, b["birth"][2] - ya)
+            moving = (STITCH_MOVE_GAP[0] <= gap <= STITCH_MOVE_GAP[1]
+                      and dist <= STITCH_MOVE_DIST)
+            stat = a_slow and 0 < gap <= STITCH_STAT_GAP and dist <= STITCH_STAT_DIST
             if moving or stat:
-                cands.append((dist + 0.5 * max(gap, 0.0), i, j,
-                              "moving" if moving else "stationary"))
-    cands.sort()
-    used_a, used_b, pairs = set(), set(), []
-    for _s, i, j, rule in cands:
-        if i in used_a or j in used_b:
+                cands.append((dist + 0.5 * max(gap, 0.0), ai, bi))
+    cands.sort(key=lambda c: c[0])
+    succ, pred = {}, {}
+    for _s, ai, bi in cands:
+        if ai in succ or bi in pred:
             continue
-        # Same-leg pair = gate-line jitter split into two fragments, not a
-        # u-turn (mio: ~1 u-turn/2h; this rule killed 160 phantoms). Consume
-        # both pieces WITHOUT counting — attributing them would re-phantom.
-        used_a.add(i); used_b.add(j)
-        if entries[i]["o"] == exits[j]["d"]:
-            pairs.append((entries[i], exits[j], "same_leg_dropped"))
+        succ[ai] = bi
+        pred[bi] = ai
+    chains = []
+    for i in range(len(rs)):
+        if i in pred:
             continue
-        pairs.append((entries[i], exits[j], rule))
-    return pairs, used_a, used_b
+        idx = [i]
+        while idx[-1] in succ:
+            idx.append(succ[idx[-1]])
+        chains.append([rs[k] for k in idx])
+    return chains
 
 
 def attribute(rec, channels, mode):
-    """Assign the missing endpoint of a single-gate track by drawn-channel fit.
+    """Assign the missing endpoint(s) of a truncated track by channel fit.
     mode 'entry': origin known, score LATE 60% vs channels out of it.
     mode 'exit':  dest known,  score EARLY 60% vs channels into it.
+    mode 'free':  NOTHING known (no-crossing chain) — score ALL points vs ALL
+                  channels; same acceptance bar.
     Returns (cell, best_px) or (None, reason)."""
     pts = rec["pts"]
     n = len(pts)
-    sample = pts[int(n * 0.4):] if mode == "entry" else pts[:max(1, int(n * 0.6))]
+    if mode == "entry":
+        sample = pts[int(n * 0.4):]
+    elif mode == "exit":
+        sample = pts[:max(1, int(n * 0.6))]
+    else:
+        sample = pts
     step = max(1, len(sample) // 40)
     sample = sample[::step]
     key = 0 if mode == "entry" else 1          # cell index that must match
     known = rec["o"] if mode == "entry" else rec["d"]
     scores = []
     for cell, poly in channels.items():
-        if cell[key] != known or cell[0] == cell[1]:
+        if cell[0] == cell[1]:
+            continue
+        if mode != "free" and cell[key] != known:
             continue
         costs = []
         for i in range(len(sample)):
@@ -385,9 +427,11 @@ def main() -> int:
     ap.add_argument("--min-points", type=int, default=5,
                     help="ignore tracks shorter than this many points (noise)")
     ap.add_argument("--stage", choices=["A", "B"], default="B",
-                    help="A = pure gates (full journeys only); B = +stitch +attribute")
-    ap.add_argument("--no-stitch", action="store_true", help="stage B ablation")
+                    help="A = pure gates (full journeys only); B = +chain +attribute")
+    ap.add_argument("--no-chain", action="store_true", help="stage B ablation")
     ap.add_argument("--no-attribute", action="store_true", help="stage B ablation")
+    ap.add_argument("--no-stubs", action="store_true",
+                    help="skip attributing no-crossing chains (plan step 5)")
     ap.add_argument("--print-gates", action="store_true")
     args = ap.parse_args()
 
@@ -462,50 +506,62 @@ def main() -> int:
             src[(f"{e[1]}->{e[2]} {e[3]}", source)] += 1
 
     ins = []
-    for r in recs:
-        if r["tag"] == "full":
-            _record(_event(r["o"], r["d"], r["f"]), "full")
+    if args.stage == "A":
+        for r in recs:
+            if r["tag"] == "full":
+                _record(_event(r["o"], r["d"], r["f"]), "full")
 
     stageb = Counter()
     if args.stage == "B":
-        discovered = discover_channels(recs)
+        # ---- B3: chain fragments globally, re-classify each merged chain ----
+        base = recs
+        if not args.no_chain:
+            merged = []
+            for ch in chain_tracks(recs):
+                if len(ch) == 1:
+                    merged.append(ch[0])
+                    continue
+                pts = sorted(p for r in ch for p in r["pts"])
+                o, d, f_in, f_out, tag = classify(pts, gates, lanes)
+                stageb[f"chain_to_{tag}"] += 1
+                merged.append({"tid": ch[0]["tid"], "pts": pts, "tag": tag,
+                               "o": o, "d": d, "f": f_in, "f_out": f_out,
+                               "birth": pts[0], "death": pts[-1],
+                               "v_end": _end_speed(pts), "members": len(ch)})
+            base = merged
+            print("post-chain census:", dict(Counter(r["tag"] for r in base)))
+        # ---- discovery AFTER chaining (mints templates for thin cells) ----
+        discovered = discover_channels(base)
         attr_channels = dict(channels)          # drawn = fallback...
         attr_channels.update(discovered)        # ...discovered wins where supported
         print(f"discovered channels (>=10 full journeys): "
               f"{sorted(discovered)} ({len(discovered)}/{len(channels)} cells)")
-        entries = [r for r in recs if r["tag"] == "entry_only"]
-        exits = [r for r in recs if r["tag"] == "exit_only"]
-        if not args.no_stitch:
-            pairs, used_a, used_b = stitch(entries, exits)
-            for a, b, rule in pairs:
-                if rule == "same_leg_dropped":
-                    stageb["stitch_same_leg_dropped"] += 1
-                    continue
-                e = _event(a["o"], b["d"], a["f"])
+        counted = defaultdict(list)             # cell -> origin frames (suspicious metric)
+        for r in base:
+            if r["tag"] == "full":
+                e = _event(r["o"], r["d"], r["f"])
+                _record(e, "chain" if r.get("members", 1) > 1 else "full")
                 if e:
-                    _record(e, f"stitch_{rule}")
-                    stageb[f"stitched_{rule}"] += 1
-            entries = [r for i, r in enumerate(entries) if i not in used_a]
-            exits = [r for j, r in enumerate(exits) if j not in used_b]
+                    counted[(r["o"], r["d"])].append(r["f"])
         if not args.no_attribute:
-            # Attribute both populations to cells FIRST, then pair within each
-            # cell: an occlusion-broken vehicle leaves an entry piece AND an
-            # exit piece; stitch misses long/turning gaps, and counting both
-            # double-counts (EB-right went 2.4x mio exactly this way).
-            att_e = defaultdict(list)   # cell -> [rec]
-            att_x = defaultdict(list)
-            for r in entries:
-                cell, why = attribute(r, attr_channels, "entry")
-                if cell is None:
-                    stageb[f"attr_entry_{why}"] += 1
-                else:
-                    att_e[cell].append(r)
-            for r in exits:
-                cell, why = attribute(r, attr_channels, "exit")
-                if cell is None:
-                    stageb[f"attr_exit_{why}"] += 1
-                else:
-                    att_x[cell].append(r)
+            # Attribute to cells, then SAME-CELL entry/exit pairing for breaks
+            # the chain rules can't span (>3s moving gaps): the two pieces of
+            # one vehicle count ONCE. (Removing this when chains landed brought
+            # the EB-right double-count straight back.)
+            att_e, att_x = defaultdict(list), defaultdict(list)
+            for r in base:
+                if r["tag"] == "entry_only":
+                    cell, why = attribute(r, attr_channels, "entry")
+                    if cell is None:
+                        stageb[f"attr_entry_{why}"] += 1
+                    else:
+                        att_e[cell].append(r)
+                elif r["tag"] == "exit_only":
+                    cell, why = attribute(r, attr_channels, "exit")
+                    if cell is None:
+                        stageb[f"attr_exit_{why}"] += 1
+                    else:
+                        att_x[cell].append(r)
             for cell in set(att_e) | set(att_x):
                 es = sorted(att_e.get(cell, []), key=lambda r: r["death"][0])
                 xs = sorted(att_x.get(cell, []), key=lambda r: r["birth"][0])
@@ -520,15 +576,42 @@ def main() -> int:
                         stageb["attr_paired"] += 1
                     else:
                         stageb["attributed_entry"] += 1
-                    _record(_event(cell[0], cell[1], r["f"]),
-                            "attr_pair" if mate is not None else "attr_entry")
+                    e = _event(cell[0], cell[1], r["f"])
+                    _record(e, "attr_pair" if mate is not None else "attr_entry")
+                    if e:
+                        counted[cell].append(r["f"])
                 for k, rx in enumerate(xs):
                     if k in used_x:
                         continue
-                    # no origin crossing observed: birth frame approximates the
-                    # origin crossing (late by pre-birth transit; see plan doc)
-                    _record(_event(cell[0], cell[1], rx["birth"][0]), "attr_exit")
-                    stageb["attributed_exit"] += 1
+                    # birth frame approximates the unobserved origin crossing
+                    e = _event(cell[0], cell[1], rx["birth"][0])
+                    _record(e, "attr_exit")
+                    if e:
+                        stageb["attributed_exit"] += 1
+                        counted[cell].append(rx["birth"][0])
+            if not args.no_stubs:
+                for r in base:
+                    if r["tag"] != "no_crossing":
+                        continue
+                    if _arclen(r["pts"]) < STUB_MIN_ARC:
+                        stageb["stub_too_short"] += 1
+                        continue
+                    cell, why = attribute(r, attr_channels, "free")
+                    if cell is None:
+                        stageb[f"stub_{why}"] += 1
+                        continue
+                    # suspicious = plausibly the same vehicle as a counted
+                    # journey in this cell -> SKIPPED (first run counted them:
+                    # 193/240 suspicious, EB-right +316 — pure double-count)
+                    lo, hi = r["birth"][0] - 125, r["death"][0] + 125
+                    if any(lo <= f <= hi for f in counted[cell]):
+                        stageb["stub_suspicious_skipped"] += 1
+                        continue
+                    e = _event(cell[0], cell[1], r["birth"][0])
+                    _record(e, "stub")
+                    if e:
+                        stageb["attributed_stub"] += 1
+                        counted[cell].append(r["birth"][0])
 
     c.executemany("INSERT INTO vehicle_events (camera_id, origin_leg_id,"
                   " destination_leg_id, movement, timestamp_real) VALUES (?,?,?,?,?)", ins)
@@ -536,25 +619,24 @@ def main() -> int:
 
     total = sum(tags.values())
     print(f"\ntracks: {total}   (stage {args.stage}"
-          f"{' no-stitch' if args.no_stitch else ''}"
-          f"{' no-attribute' if args.no_attribute else ''})")
+          f"{' no-chain' if args.no_chain else ''}"
+          f"{' no-attribute' if args.no_attribute else ''}"
+          f"{' no-stubs' if args.no_stubs else ''})")
     for k, v2 in tags.most_common():
         print(f"  {k:<14} {v2:>6}  ({v2/total*100:.1f}%)")
     if stageb:
         print("stage B:")
         for k, v2 in sorted(stageb.items()):
             print(f"  {k:<24} {v2:>6}")
+    SOURCES = ("full", "chain", "attr_entry", "attr_exit", "stub")
     print("\nper-cell source matrix (cells with >=20 events):")
     cells_all = sorted({cl for cl, _s in src},
-                       key=lambda cl: -sum(src.get((cl, s2), 0) for s2 in
-                                           ("full", "stitch_moving", "stitch_stationary",
-                                            "attr_entry", "attr_exit")))
-    print(f"{'cell':<22}{'full':>6}{'st_mv':>7}{'st_st':>7}{'a_ent':>7}{'a_ex':>6}")
+                       key=lambda cl: -sum(src.get((cl, s2), 0) for s2 in SOURCES))
+    print(f"{'cell':<22}{'full':>6}{'chain':>7}{'a_ent':>7}{'a_ex':>6}{'stub':>6}")
     for cl in cells_all:
-        row = [src.get((cl, s2), 0) for s2 in
-               ("full", "stitch_moving", "stitch_stationary", "attr_entry", "attr_exit")]
+        row = [src.get((cl, s2), 0) for s2 in SOURCES]
         if sum(row) >= 20:
-            print(f"{cl:<22}{row[0]:>6}{row[1]:>7}{row[2]:>7}{row[3]:>7}{row[4]:>6}")
+            print(f"{cl:<22}{row[0]:>6}{row[1]:>7}{row[2]:>7}{row[3]:>6}{row[4]:>6}")
     print(f"\nevents written: {len(ins)} -> {out_db}")
     print("score with: py scripts/measure_cam2_reid_spike.py --db", out_db)
     return 0
