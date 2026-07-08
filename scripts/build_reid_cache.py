@@ -116,7 +116,11 @@ def main() -> int:
         em_mm[w:w + n] = feats
         w += n
         done += 1
-        if done % 2000 == 0:
+        if done % 1000 == 0:
+            # msync dirty pages to disk so the OS can reclaim them — WITHOUT this the
+            # memmap's written pages stay resident and creep up like the old in-RAM
+            # accumulation (OOM'd at ~frame 10k on the 8 GB box).
+            em_mm.flush(); fr_mm.flush(); bb_mm.flush()
             print(f"  embedded {done} frames ({w} dets)...", flush=True)
     cap.release()
 
