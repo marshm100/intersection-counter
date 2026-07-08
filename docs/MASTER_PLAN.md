@@ -203,6 +203,19 @@ with the blind gate before any blind-deployment claim.**
   discovery, which the two-pass order structurally forbids: no vehicle is classified
   until the pattern base is complete.
 
+**GATE B VERDICT (2026-07-08 — `docs/gateb_boxclip_blind_sweep_2026-07-08.md`):** the
+box-clip pass-2 prototype reached live-baseline parity on cam2 (net −4.7% vs −4.5%, NB
+PASS 2.2%) but **FAILED the frozen-constants blind sweep** on cams 1/3/4/5 (net −15 to
+−52% vs live baselines of 3.2–8.7% MAE, cams 3/4 PASSING). Box-clip is NOT the
+replacement counter; it demotes to the §3-B blind-QA cross-check signal (two
+independent GT-free counters disagreeing = the "suspected gap" feeder — it would have
+flagged cam2's SB-thru/EB-right exactly). The sweep also REFRAMED the problem: the
+per-approach crisis is CONCENTRATED (cam2 + cam5-EB + cam1-NB), not corridor-wide, and
+cam2's worst cells are detection-bounded → the §3-D detector fine-tune is the lever.
+The two-pass architecture itself stands (pass-1 dumps exist for all 5 cams; pass-2
+re-runs in ~1 min). cam1 blind-gate re-validation is flagged OPEN (its 30-min cache
+was replaced; see the results doc).
+
 ---
 
 ## 3. Roadmap — operator-readiness

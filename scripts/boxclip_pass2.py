@@ -65,13 +65,15 @@ def _closest_on_polyline(poly, pt):
     return best
 
 
-def build_gates(legs, bank_paths):
+def build_gates(legs, bank_paths, leg_head=None):
     """{leg_id: (p1, p2, inward_normal)} — gate segment + which way is 'in'.
 
     Orientation: mean of the leg's channels' local tangents at their closest
     approach to the mouth; the gate is the PERPENDICULAR through the mouth.
     Span: the channels' closest points projected on the gate direction give the
-    lane spread; pad + floor. Inward normal points at the mouth centroid."""
+    lane spread; pad + floor. Inward normal points at the mouth centroid.
+    A leg with NO channels in the bank (e.g. cam1's zero-traffic driveway leg)
+    falls back to the operator's reference_heading for the road direction."""
     centroid = (sum(m[0] for m in legs.values()) / len(legs),
                 sum(m[1] for m in legs.values()) / len(legs))
     gates = {}
@@ -88,6 +90,10 @@ def build_gates(legs, bank_paths):
                 tan = (-tan[0], -tan[1])
             tangents.append(tan)
             cpts.append(cpt)
+        if not tangents:
+            hd = math.radians(float((leg_head or {}).get(leg) or 0.0))
+            # reference_heading: 0=N, clockwise; screen y grows downward
+            tangents = [(math.sin(hd), -math.cos(hd))]
         tx = sum(t[0] for t in tangents) / len(tangents)
         ty = sum(t[1] for t in tangents) / len(tangents)
         n = math.hypot(tx, ty) or 1.0
@@ -143,8 +149,12 @@ def _seg_cross(a, b, p1, p2):
     return t if (0.0 <= t <= 1.0 and 0.0 <= u <= 1.0) else None
 
 
-JITTER_FRAMES = 50.0    # same-gate crossings within this = bbox jitter, keep first
-UTURN_MIN_FRAMES = 125  # a real u-turn dwells in the box >=5s @25fps...
+# Time-based constants (SECONDS / px-per-second, converted via fps at use
+# sites): cams run 10-25 fps, and frame-based constants silently mean
+# DIFFERENT durations per camera — a frozen-constant sweep must freeze TIME.
+# Values chosen on cam2@25fps are preserved exactly (50f=2.0s etc).
+JITTER_S = 2.0          # same-gate crossings within this = bbox jitter, keep first
+UTURN_MIN_S = 5.0       # a real u-turn dwells in the box at least this long...
 UTURN_MIN_PX = 40.0     # ...and excursions past the gate; queue jitter does neither
 UTURN_MIN_LANE_SHIFT = 25.0  # ...and EXITS IN THE OPPOSITE LANE: in/out crossing
                              # points must differ along the gate axis. Queue creep
@@ -179,7 +189,7 @@ def gate_lane_clusters(gates, bank_paths):
     return lanes
 
 
-def classify(track, gates, lanes=None):
+def classify(track, gates, fps, lanes=None):
     """track: [(frame,x,y)...] ->
     (origin_leg, dest_leg, origin_frame, dest_frame, origin_pos, dest_pos, tag)."""
     crossings = []          # (frame_interp, leg, inward: bool, pos: (x,y))
@@ -199,7 +209,7 @@ def classify(track, gates, lanes=None):
     # emits in/out/in... bursts): keep the FIRST crossing of each burst.
     kept = []
     for c in crossings:
-        if kept and c[1] == kept[-1][1] and (c[0] - kept[-1][0]) < JITTER_FRAMES:
+        if kept and c[1] == kept[-1][1] and (c[0] - kept[-1][0]) < JITTER_S * fps:
             continue
         kept.append(c)
     entries = [c for c in kept if c[2]]
@@ -227,7 +237,7 @@ def classify(track, gates, lanes=None):
                 oproj = ((dest[3][0] - g[0][0]) * gdir2[0]
                          + (dest[3][1] - g[0][1]) * gdir2[1])
                 lane_ok = abs(oproj - out_m) < abs(oproj - in_m)
-            if ((dest[0] - origin[0]) < UTURN_MIN_FRAMES or mouth_far < UTURN_MIN_PX
+            if ((dest[0] - origin[0]) < UTURN_MIN_S * fps or mouth_far < UTURN_MIN_PX
                     or lane_shift < UTURN_MIN_LANE_SHIFT or not lane_ok):
                 return origin[1], None, origin[0], None, origin[3], None, "entry_only"
         return origin[1], dest[1], origin[0], dest[0], origin[3], dest[3], "full"
@@ -277,10 +287,10 @@ def discover_channels(recs, min_support=5, cap=300):
 
 
 # ---- STAGE B (docs/plan_boxclip_stageb_2026-07-08.md) ----------------------
-STITCH_MOVE_GAP = (-12.0, 75.0)   # frames: occlusion break mid-box
+STITCH_MOVE_GAP_S = (-0.48, 3.0)  # seconds: occlusion break mid-box
 STITCH_MOVE_DIST = 70.0           # px
-STITCH_STAT_SPEED = 0.4           # px/frame: "ended stationary" (stop bar)
-STITCH_STAT_GAP = 1250.0          # frames (~50 s red): resumes where it stopped
+STITCH_STAT_SPEED_PXS = 10.0      # px/SECOND: "ended stationary" (stop bar)
+STITCH_STAT_GAP_S = 50.0          # seconds (~a red): resumes where it stopped
 STITCH_STAT_DIST = 35.0           # px
 ATTR_MAX_PX = 30.0                # channel fit acceptance (cars sit 12-25px, s2b)
 ATTR_MARGIN = 0.7                 # best must beat 2nd-best by this factor
@@ -291,8 +301,9 @@ ATTR_ANGLE_PX_PER_DEG = 0.7       # direction-mismatch penalty: channels carry a
                                   # traversal is 180 deg off)
 STUB_MIN_ARC = 80.0               # px: a no-crossing chain must be at least this
                                   # long to be attributable (bank --min-path)
-ATTR_PAIR_GAP = 3000.0            # frames (~2 min): same-cell entry piece + later
+ATTR_PAIR_GAP_S = 120.0           # seconds: same-cell entry piece + later
                                   # exit piece = ONE broken vehicle, count once
+SUSPICIOUS_S = 5.0                # stub-vs-counted temporal overlap slack
 LANE_SD_FLOOR = 8.0               # px: min lane-position spread (bbox jitter scale)
 
 
@@ -308,7 +319,7 @@ def _end_speed(pts, tail=6):
             if df > 0 else 0.0)
 
 
-def chain_tracks(recs):
+def chain_tracks(recs, fps):
     """B3 (docs/plan_boxclip_b3_chaining_2026-07-08.md): global fragment
     chaining. Edge A->B iff B plausibly continues A (the proven break rules,
     applied to EVERY pair, not just entry x exit). Greedy on (dist + 0.5*gap),
@@ -330,9 +341,9 @@ def chain_tracks(recs):
         if a["tag"] not in A_OK:
             continue
         fa, xa, ya = a["death"]
-        lo = bisect.bisect_left(births, fa + STITCH_MOVE_GAP[0])
-        hi = bisect.bisect_right(births, fa + STITCH_STAT_GAP)
-        a_slow = a["v_end"] < STITCH_STAT_SPEED
+        lo = bisect.bisect_left(births, fa + STITCH_MOVE_GAP_S[0] * fps)
+        hi = bisect.bisect_right(births, fa + STITCH_STAT_GAP_S * fps)
+        a_slow = a["v_end"] * fps < STITCH_STAT_SPEED_PXS
         for bi in range(lo, hi):
             if bi == ai:
                 continue
@@ -343,9 +354,9 @@ def chain_tracks(recs):
                 continue
             gap = b["birth"][0] - fa
             dist = math.hypot(b["birth"][1] - xa, b["birth"][2] - ya)
-            moving = (STITCH_MOVE_GAP[0] <= gap <= STITCH_MOVE_GAP[1]
+            moving = (STITCH_MOVE_GAP_S[0] * fps <= gap <= STITCH_MOVE_GAP_S[1] * fps
                       and dist <= STITCH_MOVE_DIST)
-            stat = a_slow and 0 < gap <= STITCH_STAT_GAP and dist <= STITCH_STAT_DIST
+            stat = a_slow and 0 < gap <= STITCH_STAT_GAP_S * fps and dist <= STITCH_STAT_DIST
             if moving or stat:
                 cands.append((dist + 0.5 * max(gap, 0.0), ai, bi))
     cands.sort(key=lambda c: c[0])
@@ -425,7 +436,9 @@ def main() -> int:
     ap.add_argument("--camera", type=int, default=2)
     ap.add_argument("--project", default="97a7849a")
     ap.add_argument("--variant", default=None)
-    ap.add_argument("--bank", default="evaluations/gtfree_bank_cam2_direct.json")
+    ap.add_argument("--bank", default="evaluations/gtfree_bank_cam2_direct.json",
+                    help="bank JSON, or 'db' = the camera's LIVE applied bank "
+                         "(intersection_paths) — the blind-deployment reality")
     ap.add_argument("--out-db", default=None,
                     help="default <workdir>/boxclip_cam<N>.db")
     ap.add_argument("--min-points", type=int, default=5,
@@ -447,18 +460,41 @@ def main() -> int:
     v = conn.execute("SELECT path,file_size_bytes,total_frames,fps FROM videos "
                      "WHERE camera_id=? ORDER BY sort_order LIMIT 1",
                      (args.camera,)).fetchone()
-    legs = {lid: tuple(json.loads(oz)[0]) for lid, oz in conn.execute(
-        "SELECT leg_id, origin_zone FROM legs WHERE camera_id=?", (args.camera,))}
+    legs, leg_head = {}, {}
+    for lid, oz, rh in conn.execute(
+            "SELECT leg_id, origin_zone, reference_heading FROM legs WHERE camera_id=?",
+            (args.camera,)):
+        legs[lid] = tuple(json.loads(oz)[0])
+        leg_head[lid] = rh
+    if args.bank == "db":
+        bank_rows = conn.execute(
+            "SELECT origin_leg_id, destination_leg_id, polyline, movement_label,"
+            " supporting_count FROM intersection_paths WHERE camera_id=?",
+            (args.camera,)).fetchall()
     conn.close()
     fps = float(v[3])
     ch, _ = compute_video_content_hash(v[0], file_size_bytes=v[1], total_frames=v[2])
     pq = parquet_path(args.project, args.camera, ch, args.variant or DEFAULT_VARIANT)
     tdir = tracks_path(pq)
 
-    bank = json.loads(Path(args.bank).read_text())
+    if args.bank == "db":
+        bank = {"paths": [{"origin_leg_id": o, "destination_leg_id": d,
+                           "polyline": json.loads(pl), "movement_label": ml,
+                           "supporting_count": sc}
+                          for o, d, pl, ml, sc in bank_rows]}
+    else:
+        bank = json.loads(Path(args.bank).read_text())
     label = {(p["origin_leg_id"], p["destination_leg_id"]): p["movement_label"]
              for p in bank["paths"]}
-    gates = build_gates(legs, bank["paths"])
+    # Cells the bank doesn't cover still need a movement label — derive from
+    # leg GEOMETRY (rank-based; handles skewed intersections), never dropped.
+    from backend.services.trajectory_classifier import derive_movement
+    lds = {lid: {"leg_id": lid, "reference_heading": leg_head[lid]} for lid in legs}
+    for o in legs:
+        for d in legs:
+            if o != d and (o, d) not in label:
+                label[(o, d)] = derive_movement(lds[o], lds[d], list(lds.values()))
+    gates = build_gates(legs, bank["paths"], leg_head)
     lanes = gate_lane_clusters(gates, bank["paths"])
     if args.print_gates:
         for leg, (p1, p2, inw) in sorted(gates.items()):
@@ -492,7 +528,7 @@ def main() -> int:
             tags["too_short"] += 1
             continue
         pts.sort()
-        o, d, f_cross, f_out, o_pos, d_pos, tag = classify(pts, gates, lanes)
+        o, d, f_cross, f_out, o_pos, d_pos, tag = classify(pts, gates, fps, lanes)
         tags[tag] += 1
         recs.append({"tid": tid, "pts": pts, "tag": tag, "o": o, "d": d,
                      "f": f_cross, "f_out": f_out, "o_pos": o_pos, "d_pos": d_pos,
@@ -524,12 +560,12 @@ def main() -> int:
         base = recs
         if not args.no_chain:
             merged = []
-            for ch in chain_tracks(recs):
+            for ch in chain_tracks(recs, fps):
                 if len(ch) == 1:
                     merged.append(ch[0])
                     continue
                 pts = sorted(p for r in ch for p in r["pts"])
-                o, d, f_in, f_out, o_pos, d_pos, tag = classify(pts, gates, lanes)
+                o, d, f_in, f_out, o_pos, d_pos, tag = classify(pts, gates, fps, lanes)
                 stageb[f"chain_to_{tag}"] += 1
                 merged.append({"tid": ch[0]["tid"], "pts": pts, "tag": tag,
                                "o": o, "d": d, "f": f_in, "f_out": f_out,
@@ -637,7 +673,7 @@ def main() -> int:
                 for r, srcname in es:
                     mate = next((k for k, (rx, _s2) in enumerate(xs)
                                  if k not in used_x
-                                 and 0 < rx["birth"][0] - r["death"][0] <= ATTR_PAIR_GAP),
+                                 and 0 < rx["birth"][0] - r["death"][0] <= ATTR_PAIR_GAP_S * fps),
                                 None)
                     if mate is not None:
                         used_x.add(mate)
@@ -673,7 +709,7 @@ def main() -> int:
                     # suspicious = plausibly the same vehicle as a counted
                     # journey in this cell -> SKIPPED (first run counted them:
                     # 193/240 suspicious, EB-right +316 — pure double-count)
-                    lo, hi = r["birth"][0] - 125, r["death"][0] + 125
+                    lo, hi = r["birth"][0] - SUSPICIOUS_S * fps, r["death"][0] + SUSPICIOUS_S * fps
                     if any(lo <= f <= hi for f in counted[cell]):
                         stageb["stub_suspicious_skipped"] += 1
                         continue
