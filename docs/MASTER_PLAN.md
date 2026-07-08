@@ -1,7 +1,7 @@
 # MASTER PLAN — Intersection Counter
 
 **From a validated counting stack to an operator-ready Miovision replacement.**
-Living roadmap; supersedes nothing but consolidates everything. Last updated 2026-07-06.
+Living roadmap; supersedes nothing but consolidates everything. Last updated 2026-07-08.
 
 Companion docs (still authoritative for their topics):
 - `docs/architecture_research_2026-06-11.md` — why the approach is SOTA-sound
@@ -141,6 +141,68 @@ generalizes without per-camera GT tuning; fix ECC) → ② coverage-aware attrib
 calibration UX (drawings already good enough — mechanics are NOT the current blocker; auto-cal's
 midnight sample window is the one real weak spot) → ⑤ trusted blind gate.
 
+**SUPERSEDED 2026-07-08 (§2c):** the lever-① spike RAN and FAILED its gate — and overturned the
+"bottoms out in TRACKING" diagnosis above for cam2's event-level counts. The 2×2 isolation showed
+the collapse follows the BANK/attribution gate, not the tracker; lever ② is now the top lever,
+inside the two-pass architecture. §2c is authoritative; the ECC fix and the drawn-direct repair
+above remain shipped and valid.
+
+---
+
+## 2c. Spike verdict + the TWO-PASS reframe (2026-07-08) — AUTHORITATIVE
+
+The §2b lever-① spike ran end-to-end (`docs/spike_reid_cam2_results_2026-07-08.md`; the
+spike plan doc is removed — git history has it): cam1's BoT+ReID recipe UNCHANGED on cam2,
+drawn-direct bank, 07:00–07:30 window, working DB only. **GATE: FAIL — and it corrects
+§2b: cam2's per-approach error bottoms out in ATTRIBUTION, not tracking.**
+
+**The 2×2 that isolates it** (net error / SB-thru delta, Miovision 310 = truth):
+
+| tracker + bank | net | SB-thru |
+|---|---|---|
+| ByteTrack + live (data-driven) bank — the baseline | −4.5% | −43 |
+| ByteTrack + drawn-direct bank (bank swapped) | −18.5% | −187 |
+| BoT motion + drawn-direct (tracker swapped) | −20.8% | −198 |
+| BoT+ReID + drawn-direct (the recipe) | −18.3% | −182 |
+
+Tracker family moves cam2 a few percent; bank choice moves it ~15 points. The missing
+SB/WB vehicles emit NO event — their far-field-truncated tracks match no channel shape.
+**Shape-matching-as-GATEKEEPER is the defect**: drawn-direct's verbatim centerlines don't
+lie where truncated tracks lie (fitted channels do — why the live bank catches 267/310).
+ReID stays shipped on cam1, but it recovers only +16 SB-thru on cam2 and is NOT the cam2+
+lever. Do NOT roll BoT+ReID out as the default.
+
+**Also found (fixed, commit 9490361):** `od_accuracy.leg_idx()` was 180°-flipped for every
+cam≠1 caller (poisoned the merge volume-gate + `_measure` for cam2+); and `combine_regimes`'
+volume gate consumed **Miovision at runtime** — cam1's shipped 7.2% partially leans on GT
+through it (EB-right lands +30 GT-gated vs +57 blind). The GT-free gate (bank
+`supporting_count` via `expected_by_cell`) is now injectable. **cam1 must be re-validated
+with the blind gate before any blind-deployment claim.**
+
+### The architecture going forward — TWO-PASS processing (adopted 2026-07-08)
+
+- **Pass 1 — at ingest, calibration-independent.** Full-frame detect+track over the
+  ENTIRE trim set (this study: 07:00–09:00 + 16:00–18:00), zero semantics — needs no
+  legs, cardinals, channels, or intersection box, so it runs unattended the moment video
+  lands, even before calibration starts. Heavy compute happens once, cache-backed (cam2's
+  full-trim detection caches already exist). **Pad each trim edge ~1–2 min** of tracking
+  so vehicles mid-intersection at the boundary aren't truncated; bin events by their
+  box-crossing timestamp so counts land in the right interval.
+- **Pass 2 — all semantics, cheap and re-runnable (minutes from cache).** Cardinal
+  labeling, path discovery pooled over the FULL corpus (rare cells finally have enough
+  data — NB-right had 2 tracks in 30 min), then classify + count everything in one go
+  against the complete path set. Operator relabels a cardinal or redraws a channel →
+  re-run pass 2 only; the tracking is never repaid.
+- **Order of authority in pass 2:** box-side crossings decide origin/destination for
+  EVERY track (box-clip — nothing is ever dropped for shape mismatch) → channels (drawn
+  + discovered) only DISAMBIGUATE ambiguous in-box geometry → discovered supporting
+  counts feed the turn-merge volume gate (scaled to the counting window). Fully GT-free.
+- **No cold-start hazard** — verified empirically: detection is stateless and tracking
+  has no cross-vehicle memory (first-3-min capture ratio 0.93 vs 0.81 for the remaining
+  27 min). The only place a "blue-water" effect could exist is *incremental* path
+  discovery, which the two-pass order structurally forbids: no vehicle is classified
+  until the pattern base is complete.
+
 ---
 
 ## 3. Roadmap — operator-readiness
@@ -151,8 +213,10 @@ start-to-finish**. Five workstreams.
 ### A. Productize the pipeline (no CLI, nothing to ask Claude)
 The *logic* exists in scripts; it's just not wired into the app. Same move as the
 cache-writer fix.
-- **"Confirm & process" does the whole thing automatically:** process a sample window →
-  `build_bank_gtfree` → `apply_bank` → process the full window → classify. No CLI.
+- **"Confirm & process" does the whole thing automatically, in the §2c two-pass shape:**
+  pass 1 full-trim track at ingest (calibration-independent, edge-padded) → pass 2: path
+  discovery over the full corpus → box-clip classify + count in one go. No CLI, and no
+  sample-window bootstrap ordering (the old sample→bank→full-window flow is superseded).
 - **Gate the export:** a deliverable can't be printed until the bank exists AND
   classification (incl. articulated) is populated AND the QA gate is satisfied.
 - *Reuse:* `build_bank_gtfree.py` / `apply_bank.py` / `hybrid_prototype.retrack` logic.
@@ -203,6 +267,9 @@ data and never hand-edited.** To make resolution feel seamless:
 operator's drawn channels — the mechanism is coverage-blind matching on far-field-TRUNCATED tracks,
 and the fix is **ReID-by-default + coverage-aware matching**, not more image-space features. The
 2026-07-06 synthesis below stands (no image-space silver bullet) but is now subsumed by §2b.
+**UPDATE 2026-07-08 (§2c):** the spike split that pair — ReID-by-default FAILED to move cam2
+(attribution, not tracking, is the event-level bottleneck); **coverage-aware box-clip inside the
+two-pass architecture is the lever**, ungated on any tracking work.
 
 _(research synthesis 2026-07-06)._ Two independent
 deep-research passes (papers/GitHub + X community) converged: there is NO public silver bullet for
@@ -330,23 +397,27 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
 
 ---
 
-## 4. Sequencing (proposed — re-ordered 2026-07-07 per §2b)
+## 4. Sequencing (re-ordered 2026-07-08 per §2c)
 
 0. **F1 — calibration clean surface + layers + drawn-direct channels (SHIPPED 2026-07-07).**
    Stale top-down overlays stripped, per-leg × per-type layer matrix, review-first stepper; and
    operator channel curves now used VERBATIM (drawn-direct). Committed. F2/F3 are their own track.
-1. **Tracking quality — ReID by default + cam2–5 (NEW TOP LEVER, §2b).** Apply the proven cam1
-   recipe (21.8→7.2%) to the other cameras and make it the app DEFAULT (retire the plain-ByteTrack
-   default); fix the ECC waste. This is the floor everything else rests on, and proving it
-   generalizes WITHOUT per-camera GT tuning IS the core blind-deployment test. Gate: cam2
-   per-approach closes materially vs Miovision with no new per-camera babysitting.
-2. **B-coverage diagnostic + the flag queue model** — the blind accuracy assurance; directs all
+1. **Two-pass + box-clip attribution (TOP LEVER, §2c).** Prototype pass 2 over the FULL 7–9 AM
+   cam2 trim from the existing detection caches: box-clip origin/destination as the classification
+   authority (no track dropped on shape mismatch), path discovery pooled over the whole corpus as
+   disambiguator + window-scaled volume priors, trim-edge padding. Score with the §1b harness
+   (`scripts/measure_cam2_reid_spike.py` generalizes to any events DB). Gate: cam2 per-approach
+   AVG |err| materially closes toward ≤5%, blind. Then extend to cam3–5.
+   *(ReID-by-default rollout is RETIRED as the lever — spike FAIL, §2c. The sidecar +
+   `--resume`/`--threads` infra stays for QA and future need; cam1 keeps its shipped config.)*
+2. **cam1 blind-gate re-validation (§2c).** Re-run cam1 with the GT-free volume gate
+   (`expected_by_cell` = bank supporting counts) and re-score — the shipped 7.2% partially leans
+   on Miovision through the old gate; the blind number is the honest one.
+3. **B-coverage diagnostic + the flag queue model** — the blind accuracy assurance; directs all
    review work. Without it, deployment can't be *trusted*, only *measured*.
-3. **C review UX** — pairs with B; turns flags into a fast resolved count.
-4. **Coverage-aware attribution (§2b ②)** — box-clip-with-shape / (s,d) matcher, on the clean ReID
-   tracks. Only worth building once tracking (1) lands — it cannot fix truncated tracks.
-5. **A productize bank + classification + export gating** — removes the CLI dependency so an
-   operator can actually run it solo.
+4. **C review UX** — pairs with B; turns flags into a fast resolved count.
+5. **A productize the two-pass flow + export gating** — wire pass 1 into ingest and pass 2 into
+   "Confirm & process" (§3-A); removes the CLI dependency so an operator runs it solo.
 6. **D-articulated** + **E deliverables (L/M/A, Excel, PDF)** — parity + the one real classifier capability.
 7. **D-low-light detection** — hardest/most-research-y; informed by what the coverage diagnostic
    (B) shows about *where* detection sags.

@@ -1,7 +1,8 @@
 # Results — cam2 ReID generalization spike (2026-07-08)
 
-Plan: `docs/plan_reid_cam2_spike_2026-07-07.md`. Question: **does the proven cam1
-BoT+ReID recipe close cam2 per-approach WITHOUT per-camera GT tuning?**
+Plan: `plan_reid_cam2_spike_2026-07-07.md` (removed after execution — see git history).
+Question: **does the proven cam1 BoT+ReID recipe close cam2 per-approach WITHOUT
+per-camera GT tuning?**
 
 ## VERDICT: FAIL — but the blocker is ATTRIBUTION, not tracking
 
