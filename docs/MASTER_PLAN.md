@@ -213,8 +213,11 @@ flagged cam2's SB-thru/EB-right exactly). The sweep also REFRAMED the problem: t
 per-approach crisis is CONCENTRATED (cam2 + cam5-EB + cam1-NB), not corridor-wide, and
 cam2's worst cells are detection-bounded → the §3-D detector fine-tune is the lever.
 The two-pass architecture itself stands (pass-1 dumps exist for all 5 cams; pass-2
-re-runs in ~1 min). cam1 blind-gate re-validation is flagged OPEN (its 30-min cache
-was replaced; see the results doc).
+re-runs in ~1 min). cam1 blind-gate re-validation: **RESOLVED 2026-07-08** — no blind
+collapse; honest blind cam1 = ~10% per-cell abs vs 6.7% GT-gated (total net +2.2% vs
+−0.4%), the whole delta being the turn-merge volume gate on NB-left (bank expected 110
+→ no merge → +38). Same accuracy class; the gate weakness is a §3-B flag-queue feeder
+case. Details in the sweep results doc.
 
 ---
 
@@ -422,10 +425,12 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    (config, cheap). Doesn't → the fine-tune is justified with evidence.
    *(Box-clip counter RETIRED by Gate B — demoted to the §3-B QA cross-check signal. ReID
    rollout retired earlier. Two-pass replay infra stays — it's how all of this gets measured.)*
-2. **cam1 blind-gate re-validation (§2c).** Restore the 30-min balanced cache from its .bak
-   (new variant name; the ReID sidecar npz is keyed to it), retrack the arms, combine GT-gated
-   vs bank-count-gated, score both — the shipped 7.2% partially leans on Miovision through the
-   old gate; the blind number is the honest one.
+2. **cam1 blind-gate re-validation (§2c) — DONE 2026-07-08.** Cache restored as
+   `balanced30min_restored` (content-hash verified; the default-variant parquet was already
+   silently restored — only its meta.json is stale). GT gate 6.7% / blind bank gate 10.0%
+   per-cell abs; total net −0.4% vs +2.2%; no collapse — the delta is confined to the
+   turn-merge volume gate (NB-left +38 blind). The honest blind number replaces the shipped
+   7.2% claim. See the Gate-B sweep doc, RESOLVED section.
 3. **B-coverage diagnostic + the flag queue model** — the blind accuracy assurance; directs all
    review work. Box-clip's role lives HERE: two independent GT-free counters disagreeing on a
    cell/interval = the "suspected gap" feeder (it would have flagged cam2 SB-thru/EB-right

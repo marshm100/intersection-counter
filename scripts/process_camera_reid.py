@@ -73,6 +73,12 @@ def main() -> int:
     ap.add_argument("--start-hms", default="07:00:00")
     ap.add_argument("--minutes", type=float, default=30.0)
     ap.add_argument("--reid-cache", default=None, help="embedding sidecar npz (default: auto-locate)")
+    ap.add_argument("--variant", default=DEFAULT_VARIANT,
+                    help="detection-cache variant to retrack from (default DEFAULT_VARIANT)")
+    ap.add_argument("--gate", choices=("gt", "bank"), default="gt",
+                    help="turn-merge volume-gate expecteds: 'gt' = legacy Miovision manual "
+                         "counts (DEV-only — a GT runtime dependency); 'bank' = the bank's "
+                         "supporting_count per (origin,dest) path (the GT-free production gate)")
     ap.add_argument("--workdir", default=None, help="scratch dir (default: system temp, NOT OneDrive)")
     ap.add_argument("--reuse-arms", action="store_true",
                     help="reuse existing arm DBs in workdir instead of retracking")
@@ -94,14 +100,14 @@ def main() -> int:
     s = max(0, min(s, video["total_frames"])); e = max(s, min(e, video["total_frames"]))
     chash, _ = compute_video_content_hash(video["path"], file_size_bytes=video.get("file_size_bytes"),
                                           total_frames=video["total_frames"])
-    pq = parquet_path(PROJECT, camera, chash, DEFAULT_VARIANT)
+    pq = parquet_path(PROJECT, camera, chash, args.variant)
 
     side = Path(args.reid_cache) if args.reid_cache else sidecar_path(pq)
     workdir = Path(args.workdir) if args.workdir else scratch_dir(PROJECT)
     workdir.mkdir(parents=True, exist_ok=True)
     arm_reid = workdir / f"prod_reid_cam{camera}.db"
     arm_motion = workdir / f"prod_motion_cam{camera}.db"
-    final_db = workdir / f"prod_final_cam{camera}.db"
+    final_db = workdir / f"prod_final_cam{camera}_{args.gate}.db"
 
     if not args.reuse_arms:
         if not side.exists():
@@ -118,10 +124,17 @@ def main() -> int:
     else:
         print("(reusing existing arm DBs)")
 
-    print(f"[3/3] regime combine + intra-turn merge -> {final_db}")
+    expected = None
+    if args.gate == "bank":
+        expected = {(p["origin_leg_id"], p["destination_leg_id"]): p.get("supporting_count", 0)
+                    for p in sug.get("paths", []) if p.get("destination_leg_id") is not None}
+        print(f"[gate] bank supporting_count expecteds: "
+              + ", ".join(f"{k}={v}" for k, v in sorted(expected.items())))
+    print(f"[3/3] regime combine + intra-turn merge ({args.gate} gate) -> {final_db}")
     kept, dropped, n = combine_regimes(
         arm_reid, arm_motion, final_db, merge_turns=True, no_dedup=True,
-        start_hms=args.start_hms, minutes=args.minutes, camera_id=camera)
+        start_hms=args.start_hms, minutes=args.minutes, camera_id=camera,
+        expected_by_cell=expected)
     print(f"  throughs(ReID) kept={kept}  turns(motion, merged) inserted={n}")
 
     net, gross = _measure(final_db, args.start_hms, args.minutes, camera_id=camera)
