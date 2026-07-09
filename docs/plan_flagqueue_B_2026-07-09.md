@@ -25,6 +25,16 @@ evidence-backed gap feeders the queue lacks. That is the plan.
 
 ## B-VAL — the retrospective validation (do FIRST; pure measurement)
 
+**RAN 2026-07-09 — `docs/flagqueue_retrospective_2026-07-09.md`.** Result: 1/6
+caught (T1, corridor-conservation, rank 1 — with a caveat), T7 quiet, T2–T5 are
+exactly the S3/S4/S5 classes (justification now empirical), and T6 is invisible
+to S2 by construction AND will be invisible to S3 (common-mode detection input)
+— the detection-sag class is permanently delegated to spot-window stratification
++ §3-D, and the queue's claim is corrected accordingly. Operator-load baseline:
+corridor 159 flags/2 cam-h (Feeder-1 absolute volume — a C-workstream batching
+problem, not a threshold problem). S3's mini-gate below inherits the corrected,
+narrower claim.
+
 Run `rebuild_flags` over the corridor (97a7849a) and FM51 (0acb12c0), then score
 the queue against every KNOWN GT-validated miss. Ground truth is the scorer of
 the QA gate itself — the last legitimate GT use before a blind site.
