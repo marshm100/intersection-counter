@@ -502,7 +502,8 @@ def main() -> int:
                   f"  inward=({inw[0]:+.2f},{inw[1]:+.2f})")
 
     n = int((tdir / "count.txt").read_text())
-    rows = np.load(tdir / "rows.npy", mmap_mode="r")[:n]
+    # geometry = first 4 cols; tolerant of dump format v1 [N,4] and v2 [N,8]
+    rows = np.load(tdir / "rows.npy", mmap_mode="r")[:n, :4]
     print(f"{n} track points; grouping by track_id...", flush=True)
     tracks = defaultdict(list)
     for tid, fr, x, y in rows:

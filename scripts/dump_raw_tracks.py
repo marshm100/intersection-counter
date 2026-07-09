@@ -12,8 +12,15 @@ the per-point FRAME INDEX so pass 2 can timestamp gate crossings and bin
 counts by crossing time.
 
 Output: <parquet>.tracks/ directory (memmap-streamed, same pattern as the ReID
-sidecar): rows.npy [N,4] float32 = (track_id, frame, cx, cy) in emit order,
-count.txt = valid rows. RAM stays flat regardless of window length.
+sidecar): rows.npy [N,8] float32 = (track_id, frame, cx, cy, bw, bh, conf,
+class_id) in emit order, count.txt = valid rows, meta.json = format tag.
+RAM stays flat regardless of window length.
+
+Format v2 (plan_twopass_productize_A_2026-07-09 stage 1): v1 rows were
+(track_id, frame, cx, cy) — enough to count, not enough for pass 2 to
+classify vehicle class or run the articulated size post-pass. v2 appends
+bbox size, confidence and class_id. Readers must slice geometry columns
+(rows[:, :4]), never row-unpack, so both formats load.
 
 Usage:
   py scripts/dump_raw_tracks.py --camera 2 --variant study_0700 \
@@ -89,8 +96,15 @@ def main() -> int:
     print(f"{n_dets} detections in window; pre-sizing {cap_rows} rows", flush=True)
 
     from numpy.lib.format import open_memmap
+    import json as _json
     out.mkdir(parents=True, exist_ok=True)
-    mm = open_memmap(out / "rows.npy", mode="w+", dtype=np.float32, shape=(cap_rows, 4))
+    mm = open_memmap(out / "rows.npy", mode="w+", dtype=np.float32, shape=(cap_rows, 8))
+    (out / "meta.json").write_text(_json.dumps({
+        "format": 2,
+        "cols": ["track_id", "frame", "cx", "cy", "bw", "bh", "conf", "class_id"],
+        "backend": args.backend, "camera": args.camera, "variant": args.variant or DEFAULT_VARIANT,
+        "frames": [f_lo, f_hi],
+    }, indent=2))
 
     w = done = 0
     for fidx, dets in DetectionCacheReader(pq).iter_frames():
@@ -110,7 +124,9 @@ def main() -> int:
                 raise SystemExit(f"row capacity {cap_rows} exceeded at frame {fidx} "
                                  f"— raise the slack factor")
             cx, cy = t["center"]
-            mm[w] = (float(t["track_id"]), float(fidx), float(cx), float(cy))
+            mm[w] = (float(t["track_id"]), float(fidx), float(cx), float(cy),
+                     float(t.get("bbox_width", 0.0)), float(t.get("bbox_height", 0.0)),
+                     float(t.get("confidence", 0.0)), float(t.get("class_id", -1)))
             w += 1
         done += 1
         if done % 5000 == 0:
