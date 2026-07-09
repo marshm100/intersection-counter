@@ -443,6 +443,12 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    review work. Box-clip's role lives HERE: two independent GT-free counters disagreeing on a
    cell/interval = the "suspected gap" feeder (it would have flagged cam2 SB-thru/EB-right
    exactly). Without this workstream, deployment can't be *trusted*, only *measured*.
+   **PLANNED 2026-07-09 (`docs/plan_flagqueue_B_2026-07-09.md`):** the queue infra already
+   shipped (Step B, d31f03c — two feeders, router, acceptance endpoint); the plan is B-VAL
+   (retrospective: score the queue against the 6 known GT-validated misses — the §1b trust
+   step, never done) → three new gap feeders from this week's evidence (S3 box-clip
+   disagreement, S4 bank-coverage hole, S5 merge-gate borderline) → combined re-validation →
+   export gating.
 4. **C review UX** — pairs with B; turns flags into a fast resolved count.
 5. **A productize the two-pass flow + export gating** — wire pass 1 into ingest and pass 2 into
    "Confirm & process" (§3-A); removes the CLI dependency so an operator runs it solo.
