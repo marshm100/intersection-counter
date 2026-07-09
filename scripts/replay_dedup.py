@@ -42,28 +42,46 @@ def main() -> int:
     ap.add_argument("--overlap-frac", type=float, default=0.5)
     ap.add_argument("--start-hms", default="07:00:00")
     ap.add_argument("--minutes", type=float, default=None)
+    ap.add_argument("--db", default=PROJ_DB,
+                    help="events DB to dedup (default: live project.db) — lets the pass "
+                         "compose with a retrack DB (e.g. the cam2 bank-D arm)")
+    ap.add_argument("--movements", default="through",
+                    help="comma list of movements to dedup, or 'all' "
+                         "(concurrent-dedup plan 2026-07-09: cam2's ID-splits sit in "
+                         "TURN cells; scope is an ablation axis)")
+    ap.add_argument("--out-db", default=None,
+                    help="write the deduped DB here and KEEP it (default: temp, deleted); "
+                         "skips the od_accuracy re-measure when set")
     args = ap.parse_args()
     cam = args.camera
 
-    src = sqlite3.connect(PROJ_DB)
+    src = sqlite3.connect(args.db)
     if args.minutes is None:
         mx = src.execute("SELECT MAX(timestamp_video) FROM vehicle_events WHERE camera_id=? AND rejected=0", (cam,)).fetchone()[0]
         t0 = (__import__("datetime").datetime.fromisoformat(f"{VIDEO_START.date().isoformat()}T{args.start_hms}") - VIDEO_START).total_seconds()
         args.minutes = math.ceil((mx - t0) / 60.0)
-    rows = src.execute("SELECT event_id,start_frame,frame_number,trajectory_data,origin_leg_id,destination_leg_id "
-                       "FROM vehicle_events WHERE camera_id=? AND rejected=0 AND movement='through'", (cam,)).fetchall()
+    if args.movements == "all":
+        mv_where = "1=1"
+        mv_params: tuple = ()
+    else:
+        mvs = [m.strip() for m in args.movements.split(",") if m.strip()]
+        mv_where = "movement IN (%s)" % ",".join("?" * len(mvs))
+        mv_params = tuple(mvs)
+    rows = src.execute("SELECT event_id,start_frame,frame_number,trajectory_data,origin_leg_id,destination_leg_id,movement "
+                       f"FROM vehicle_events WHERE camera_id=? AND rejected=0 AND ({mv_where})",
+                       (cam, *mv_params)).fetchall()
     src.close()
 
-    # group by OD cell; only same-cell throughs can be duplicates of one vehicle
+    # group by (OD cell, movement); only same-cell events can be duplicates of one vehicle
     by_cell: dict = {}
-    for eid, sf, ef, tj, ol, dl in rows:
+    for eid, sf, ef, tj, ol, dl, mv in rows:
         try:
             t = json.loads(tj) if tj else []
         except Exception:
             t = []
         if sf is None or ef is None or len(t) < 2:
             continue
-        by_cell.setdefault((ol, dl), []).append((eid, sf, ef, t))
+        by_cell.setdefault((ol, dl, mv), []).append((eid, sf, ef, t))
 
     drop = set()
     for cell, evs in by_cell.items():
@@ -93,14 +111,18 @@ def main() -> int:
                 if i != keep:
                     drop.add(evs[i][0])
 
-    tmp = Path(tempfile.gettempdir()) / f"dedup_cam{cam}.db"
-    shutil.copy2(PROJ_DB, tmp)
+    tmp = Path(args.out_db) if args.out_db else Path(tempfile.gettempdir()) / f"dedup_cam{cam}.db"
+    shutil.copy2(args.db, tmp)
     c = sqlite3.connect(str(tmp))
     with c:
         if drop:
             c.executemany("UPDATE vehicle_events SET rejected=1 WHERE event_id=?", [(i,) for i in drop])
     c.close()
-    print(f"cam{cam} dedup sep={args.sep}px: through events={len(rows)}, merged-away={len(drop)}\n")
+    print(f"cam{cam} dedup sep={args.sep}px overlap>={args.overlap_frac} movements={args.movements}: "
+          f"candidate events={len(rows)}, merged-away={len(drop)}\n")
+    if args.out_db:
+        print(f"(kept deduped DB at {tmp} — measure it yourself)")
+        return 0
     subprocess.run([sys.executable, "scripts/od_accuracy.py", "--camera", str(cam),
                     "--db", str(tmp), "--start-hms", args.start_hms,
                     "--minutes", str(args.minutes)], check=False)

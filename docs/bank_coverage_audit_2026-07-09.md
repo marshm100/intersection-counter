@@ -60,7 +60,15 @@ NB-right template (arm C) magnets +12 phantoms from the 626-strong NB-thru strea
 — dropped in D. WB-left recovers nothing under any bank: those 13 vehicles never
 produce claimable tracks (a tracking miss, not a bank miss).
 
-## The metric tension D exposes (decision needed before apply)
+## The metric tension D exposes (decision: HELD 2026-07-09)
+
+Engineer decision: hold D, pair it with the diagnosed EB ID-split dedup and
+re-test jointly. **The dedup then FAILED its dev ablation same-day**
+(`docs/plan_concurrent_dedup_2026-07-09.md` — the live event stream no longer
+carries concurrent duplicates; the pass eats real NB-thru vehicles at every
+setting), so D stays held indefinitely: its per-approach regression has no
+pending offset. The EB-right/SB-right overcounts are collinear-attribution
+shaped — §2c two-pass territory, or §3-B flag-queue material.
 
 D is better on the PER-CELL cut — which is what the TMC Excel actually delivers —
 but WORSE on the codified per-approach MAE (9.8→11.4), because EB-thru's undercount
