@@ -103,6 +103,13 @@ runs in the §3-A productized pass-2 combine.
 
 Order: S3 → S4 → S5 (value order; S4/S5 are each ~a day, S3 carries the ablation).
 
+**STATUS after the 2026-07-09 second pass (details in the retrospective doc):
+S3 mini-gate FAILED — blocked on a second counter of comparable accuracy (blind
+box-clip's own error dominates the disagreement signal; floods cams 1/3/4). S4
+SHIPPED (T2 caught at rank 3; exactly the 6 audited holes fire). S5 helper
+built at the combine layer (post-hoc infeasible — raw pre-merge counts don't
+survive); queue wiring lands with §3-A.**
+
 ## B6 — re-run B-VAL as the combined gate
 
 With S3–S5 landed: full retrospective again. The queue's deliverable claim

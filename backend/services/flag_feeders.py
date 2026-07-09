@@ -194,9 +194,12 @@ def feed_suspected_gaps(project_id: str, intersection_id: int) -> list[dict]:
     consistency (no ground truth):
       S1 interval_corridor — per-bin corridor mismatch (multi-intersection).
       S2 interval_anomaly  — abrupt asymmetric drop vs a local baseline.
-    See backend/services/coverage_qa.py for the signals and their documented
-    limit (a smooth uniform detection sag is NOT visible here — that is the
-    spot-count's job). Returns insert_flag(**f) dicts for THIS intersection.
+      S4 bank_coverage_hole — operator-drawn movement with no bank path.
+    See backend/services/coverage_qa.py for S1/S2 and their documented limit
+    (a smooth uniform detection sag is NOT visible here — that is the
+    spot-count's job; the two-counter S3 idea is BLOCKED on a second counter
+    of comparable accuracy — see docs/flagqueue_retrospective_2026-07-09.md).
+    Returns insert_flag(**f) dicts for THIS intersection.
     """
     flags: list[dict] = []
     for f in coverage_qa.interval_corridor_gaps(project_id, target_id=intersection_id):
@@ -205,7 +208,64 @@ def feed_suspected_gaps(project_id: str, intersection_id: int) -> list[dict]:
     for f in coverage_qa.interval_anomalies(project_id, intersection_id):
         f.pop("_intersection_id", None)
         flags.append(f)
+    flags += _bank_coverage_holes(project_id, intersection_id)
     return flags
+
+
+def _bank_coverage_holes(project_id: str, intersection_id: int) -> list[dict]:
+    """S4 — an operator-drawn movement with NO applied-bank path
+    (docs/plan_flagqueue_B_2026-07-09.md; the cam2 EB-thru case: 31 real
+    vehicles, 4 counted, no 28->26 path). A drawn channel is the operator
+    declaring "this movement exists here"; when the applied bank has no path
+    for that cell, its vehicles can only surface through fallback tiers, so
+    the cell is structurally under-countable and a human should look.
+
+    impact = the cell's LIVE event count (fallback-tier events are a lower
+    bound of real traffic there). A zero-event hole still flags at impact 1 —
+    it sinks to the bottom of the worklist and is one-keystroke dismissable
+    (the 2026-07-09 bank audit: tiny holes are real but not worth templates).
+    Drawn U-TURN channels are excluded: the calibration UI seeds one per leg,
+    so a missing u-turn path is the default state, not a declaration."""
+    conn = get_connection(project_id)
+    try:
+        flags: list[dict] = []
+        for (cam,) in conn.execute(
+                "SELECT camera_id FROM cameras WHERE intersection_id = ?",
+                (intersection_id,)).fetchall():
+            card = {lid: cd for lid, cd in conn.execute(
+                "SELECT leg_id, cardinal_direction FROM legs WHERE camera_id = ?", (cam,))}
+            label = {lid: lb for lid, lb in conn.execute(
+                "SELECT leg_id, label FROM legs WHERE camera_id = ?", (cam,))}
+            banked = {(o, d) for o, d in conn.execute(
+                "SELECT origin_leg_id, destination_leg_id FROM intersection_paths "
+                "WHERE camera_id = ?", (cam,))}
+            for o, d, mv in conn.execute(
+                    "SELECT origin_leg_id, destination_leg_id, movement FROM channels "
+                    "WHERE camera_id = ?", (cam,)).fetchall():
+                if o == d or (o, d) in banked or o not in card or d not in card:
+                    continue
+                n_live = conn.execute(
+                    "SELECT COUNT(*) FROM vehicle_events WHERE camera_id = ? AND "
+                    "rejected = 0 AND origin_leg_id = ? AND destination_leg_id = ?",
+                    (cam, o, d)).fetchone()[0]
+                ap = bound_approach(card.get(o))
+                flags.append({
+                    "kind": "suspected_gap", "subtype": "bank_coverage_hole",
+                    "camera_id": cam,
+                    "approach": ap, "movement": mv,
+                    "impact": float(max(1, n_live)),
+                    "reason": (f"{ap}B {mv} ({label.get(o, o)} -> {label.get(d, d)}): "
+                               f"channel drawn but the applied bank has NO path for this "
+                               f"cell — its vehicles only surface via fallback tiers "
+                               f"({n_live} events so far). Rebuild/re-apply the bank with "
+                               f"drawn channels, or dismiss if the movement is negligible."),
+                    "evidence": {"origin_leg_id": o, "destination_leg_id": d,
+                                 "live_fallback_events": n_live},
+                    "batch_key": None,
+                })
+        return flags
+    finally:
+        conn.close()
 
 
 def rebuild_flags(project_id: str, intersection_id: int) -> dict:

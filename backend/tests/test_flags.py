@@ -672,3 +672,73 @@ class TestBatchResolve:
         pid = usite[0]
         assert client.post(f"/api/projects/{pid}/intersections/999999/flags/batch",
             json={"batch_key": "x", "status": "resolved"}).status_code == 404
+
+
+def _add_channel(pid, cid, o, d, movement="through"):
+    conn = get_connection(pid)
+    with conn:
+        conn.execute(
+            "INSERT INTO channels (camera_id, origin_leg_id, destination_leg_id, "
+            "movement, entry_pt, apex_pt, exit_pt, width_in, width_out, created_at) "
+            "VALUES (?, ?, ?, ?, '[0,0]', '[5,5]', '[10,10]', 40, 40, '2026-07-09')",
+            (cid, o, d, movement))
+    conn.close()
+
+
+def _add_path(pid, cid, o, d, movement="through"):
+    conn = get_connection(pid)
+    with conn:
+        conn.execute(
+            "INSERT INTO intersection_paths (camera_id, origin_leg_id, "
+            "destination_leg_id, polyline, movement_label, supporting_count, source, "
+            "created_at) VALUES (?, ?, ?, '[[0,0],[10,10]]', ?, 10, 'test', '2026-07-09')",
+            (cid, o, d, movement))
+    conn.close()
+
+
+class TestBankCoverageHoleFeeder:
+    """S4 — drawn channel with no applied-bank path (plan_flagqueue_B_2026-07-09)."""
+
+    def _holes(self, pid, iid):
+        return [f for f in feed_suspected_gaps(pid, iid)
+                if f["subtype"] == "bank_coverage_hole"]
+
+    def test_drawn_channel_without_path_flags(self, usite):
+        pid, iid, cid, legs = usite
+        _add_channel(pid, cid, legs["W"], legs["E"], "through")   # EB-thru declared
+        flags = self._holes(pid, iid)
+        assert len(flags) == 1
+        f = flags[0]
+        assert f["kind"] == "suspected_gap"
+        assert f["approach"] == "E"        # origin at W position -> EB approach
+        assert f["movement"] == "through"
+        assert f["impact"] == 1.0          # no fallback events yet -> floor
+        assert f["evidence"]["live_fallback_events"] == 0
+
+    def test_fallback_events_raise_impact(self, usite):
+        pid, iid, cid, legs = usite
+        _add_channel(pid, cid, legs["W"], legs["E"], "through")
+        for _ in range(3):
+            _add_ev(pid, cid, legs["W"])   # origin leg W; dest defaults to same leg
+        conn = get_connection(pid)
+        with conn:
+            conn.execute("UPDATE vehicle_events SET destination_leg_id = ?",
+                         (legs["E"],))
+        conn.close()
+        flags = self._holes(pid, iid)
+        assert len(flags) == 1
+        assert flags[0]["impact"] == 3.0
+        assert flags[0]["evidence"]["live_fallback_events"] == 3
+
+    def test_banked_cell_is_quiet(self, usite):
+        pid, iid, cid, legs = usite
+        _add_channel(pid, cid, legs["W"], legs["E"], "through")
+        _add_path(pid, cid, legs["W"], legs["E"], "through")
+        assert self._holes(pid, iid) == []
+
+    def test_uturn_channel_is_quiet(self, usite):
+        # The UI seeds a u-turn channel per leg; a missing u-turn path is the
+        # default state, not an operator declaration.
+        pid, iid, cid, legs = usite
+        _add_channel(pid, cid, legs["W"], legs["W"], "u_turn")
+        assert self._holes(pid, iid) == []

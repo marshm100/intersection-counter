@@ -67,3 +67,57 @@ on the −461 all-day deficit directly).
 - S4 covers T2; S5 covers T4. After S3–S5 land, the expected map is 5/6 caught
   + T6 explicitly delegated to spot-count stratification. B6 re-runs this
   harness to verify.
+
+---
+
+# Second pass (same day) — S3 mini-gate NEGATIVE; S4 shipped; S5 helper built
+
+## S3 — two-counter disagreement: BLOCKED on counter quality (mini-gate FAIL)
+
+`scripts/s3_disagreement_gate.py`: box-clip pass-2 rebuilt for all 5 cams from
+live banks (`--bank db`, frozen constants), compared per cell × 15-min bin over
+the common window. Result at EVERY grid point (floor 4–8 × frac 0.20–0.35):
+targets fire 3/4 (cam2 E-right/N-left, cam5 E-right; SB-thru quiet — box-clip
+matches live there) **but the passing cams flood: 16–26 noise flags per 2 h
+EACH on cams 3/4**, and cam1 emits 16 giant through-cell flags — all of them
+pointing at box-clip's OWN blind through-undercount (cam1 N-thru live 266 vs
+box-clip 92/bin; cam3 350 vs 175). Share-normalization (composition instead of
+absolute counts) does not rescue it: on cam5 box-clip reassigns the SB-thru
+stream to SB-right (30.9% share vs live 1.4%), burying the real target under
+its own collapse; cam4 still shows a 440-implied-vehicle divergence.
+
+**Structural conclusion: a two-counter disagreement feeder requires the second
+counter to be within ~roughly 2× of the live counter's accuracy class. Blind
+box-clip (15–52% net, camera-shaped — Gate B) is not, so disagreement maps
+box-clip's failure, not the live counter's.** Gate B's salvage hypothesis
+("box-clip = the disagreement signal") fails the corridor test on 4 of 5
+cameras; it survives only on cam2, box-clip's best case. S3 is BLOCKED until a
+second GT-free counter of comparable accuracy exists — do not wire it.
+
+## S4 — bank_coverage_hole: SHIPPED
+
+`flag_feeders._bank_coverage_holes` + 4 tests (52/52 pass): drawn non-u-turn
+channel with no applied-bank path → suspected_gap flag; impact = the cell's
+live fallback-event count (floor 1). Corridor rebuild fires exactly the 6
+audited holes (cam2 ×3, cam5 ×3), no flood; **T2 now CAUGHT at worklist rank 3**
+(impact 4). U-turn channels excluded (UI seeds them per leg — not a
+declaration).
+
+## S5 — merge-gate borderline: helper built, queue wiring deferred to §3-A
+
+The borderline condition needs RAW pre-merge fragment counts, which do not
+survive into the final events DB — a post-hoc feeder is impossible.
+`hybrid_ocbot.borderline_merge_cells()` (unit-checked: reproduces cam1 NB-left
+134-vs-143) now computes it inside `combine_regimes`, printed on every dev run;
+it becomes a review_flags emitter when §3-A wires pass-2 into the product.
+
+## Coverage map after this pass
+
+| tgt | status |
+|---|---|
+| T1 | CAUGHT — S1 interval_corridor, rank 1 (caveat stands) |
+| T2 | **CAUGHT — S4 bank_coverage_hole, rank 3** |
+| T3, T5 | BLOCKED on a second counter of comparable accuracy (S3 negative) |
+| T4 | mechanism ready at combine layer; queue wiring lands with §3-A |
+| T6 | permanently delegated: spot-window stratification + §3-D low-light |
+| T7 | QUIET ✓ |

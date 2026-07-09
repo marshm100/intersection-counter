@@ -109,6 +109,31 @@ def merge_turn_fragments(turns, merge_px, merge_gap, expected_by_cell=None,
     return set(keep)
 
 
+def borderline_merge_cells(turns, expected_by_cell, vol_factor=1.3,
+                           band=0.2) -> list[dict]:
+    """S5 — merge-gate borderline cells (docs/plan_flagqueue_B_2026-07-09.md).
+    A turn cell whose RAW fragment count sits within +/-band of the volume-gate
+    threshold (vol_factor x expected) is one noise-vehicle away from the merge
+    decision flipping — the cam1 NB-left blind case (134 raw vs threshold 143 ->
+    no merge -> +38 shipped). Only computable HERE, where raw pre-merge counts
+    exist; the final DB has no trace of them. Returns one dict per borderline
+    cell for the caller to surface (print now; review_flags when §3-A wires
+    pass-2 into the product)."""
+    from collections import Counter
+    raw = Counter((ev["ol"], ev["dl"]) for ev in turns)
+    out = []
+    for cell, n in raw.items():
+        exp = (expected_by_cell or {}).get(cell)
+        if not exp:
+            continue
+        thr = vol_factor * max(exp, 1)
+        if thr * (1 - band) <= n <= thr * (1 + band):
+            out.append({"cell": cell, "raw": n, "expected": exp,
+                        "threshold": round(thr, 1),
+                        "merges": n > thr})
+    return out
+
+
 def _overlap(a, b):
     return not (a["e"] < b["s"] or b["e"] < a["s"])
 
@@ -136,6 +161,10 @@ def combine_regimes(oc_db, bot_db, out_db, *, merge_turns=True, merge_px=30.0,
                     else manual_od_by_cell(start_hms, minutes, camera_id=camera_id))
         keep_turn_ids = merge_turn_fragments(bot_turn, merge_px, merge_gap,
                                              expected_by_cell=expected, vol_factor=merge_vol_factor)
+        for b in borderline_merge_cells(bot_turn, expected, merge_vol_factor):
+            print(f"  [S5 borderline] cell {b['cell']}: raw {b['raw']} vs threshold "
+                  f"{b['threshold']} (expected {b['expected']}) — merge decision is "
+                  f"noise-sensitive; flag-queue material when §3-A wires pass-2")
     drop_oc = set()
     if not no_dedup:
         for bt in bot_turn:
