@@ -37,9 +37,11 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from backend.config import PRE_TRACK_NMS_IOU
 from backend.database import get_camera_calibration_params
 from backend.services.detection_cache import (
     DEFAULT_VARIANT, DetectionCacheReader, compute_video_content_hash, parquet_path)
+from backend.services.pipeline import _class_agnostic_nms
 from backend.services.tracker import create_tracker_backend
 from groundtruth import VIDEO_START
 
@@ -78,12 +80,25 @@ def main() -> int:
     activation = float(calib.get("tracker_activation_threshold") or 0.25)
     match = float(calib.get("tracker_match_threshold") or 0.8)
     buf = float(calib.get("bbox_buffer_scale") or 1.0)
+    # Live-parity tracking input (plan_pass2_replay_A2 stage 0): the pipeline
+    # applies per-camera pre-track NMS then bbox buffering BEFORE the tracker;
+    # a dump missing either diverges from the live recipe (cam2 nms=0.85).
+    nms_iou = calib.get("pre_track_nms_iou")
+    if nms_iou is None:
+        nms_iou = PRE_TRACK_NMS_IOU
+    tracker_kwargs = {}
+    ntt = calib.get("new_track_thresh")
+    # Mirror pipeline.py: only botsort's ctor accepts the separate birth gate.
+    if ntt is not None and args.backend == "botsort":
+        tracker_kwargs["new_track_thresh"] = float(ntt)
     be = create_tracker_backend(
         args.backend,
         track_activation_threshold=activation,
         minimum_matching_threshold=match,
-        frame_rate=int(fps))
+        frame_rate=int(fps),
+        **tracker_kwargs)
     print(f"{args.backend} activation={activation} match={match} buf={buf} "
+          f"nms={nms_iou} new_track_thresh={ntt} "
           f"frames [{f_lo},{f_hi}) cam{args.camera}", flush=True)
 
     # Upper bound: one emitted point per detection (+20% slack for coasting).
@@ -104,12 +119,33 @@ def main() -> int:
         "cols": ["track_id", "frame", "cx", "cy", "bw", "bh", "conf", "class_id"],
         "backend": args.backend, "camera": args.camera, "variant": args.variant or DEFAULT_VARIANT,
         "frames": [f_lo, f_hi],
+        "nms_iou": nms_iou, "new_track_thresh": ntt,
+        "activation": activation, "match": match, "bbox_buffer": buf,
     }, indent=2))
 
     w = done = 0
-    for fidx, dets in DetectionCacheReader(pq).iter_frames():
-        if not (f_lo <= fidx < f_hi):
-            continue
+    # Mirror pipeline.process_cached's frame SCHEDULE exactly: every frame in
+    # [f_lo, f_hi) gets a tracker update — an EMPTY one when the cache has no
+    # rows — so the tracker's Kalman/lost-buffer cadence matches the live run
+    # (A2 tier-1 caught the divergence: skipping empty frames leaves tracks
+    # un-aged and shifts finalize splits, cam4 NB-thru +6).
+    reader_iter = DetectionCacheReader(pq).iter_frames()
+    nxt = next(reader_iter, None)
+
+    def _sched():
+        nonlocal nxt
+        for fidx in range(f_lo, f_hi):
+            while nxt is not None and nxt[0] < fidx:
+                nxt = next(reader_iter, None)
+            if nxt is not None and nxt[0] == fidx:
+                yield fidx, nxt[1]
+                nxt = next(reader_iter, None)
+            else:
+                yield fidx, []
+
+    for fidx, dets in _sched():
+        if nms_iou is not None and len(dets) > 1:
+            dets = _class_agnostic_nms(dets, float(nms_iou))
         if buf != 1.0:
             inflated = []
             for d in dets:
