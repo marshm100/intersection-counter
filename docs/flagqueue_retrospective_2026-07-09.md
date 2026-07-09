@@ -19,6 +19,10 @@ that is 159 items/2h: **flood territory without batch_key grouping and the C
 worklist**. Impact ordering does its job: the two gap flags rank 1–2 on their
 intersection, far above the impact-1 event flags.
 
+**RESOLVED same day (plan_flood_control_2026-07-09, shipped): batch-key rollups
+collapse the corridor queue to 77 CARDS (7–23 per intersection; FM51 → 8),
+with gap cards still ranked on top and verdicts unchanged.**
+
 ## Target coverage map
 
 | tgt | verdict | best flag | known miss |

@@ -1,5 +1,13 @@
 # Plan — worklist flood control: batch_key rollups (2026-07-09)
 
+**SHIPPED same day, all three stages.** `low_det_conf` flags batch by
+`lowdet|cam|approach-movement` (`dest` keys gained camera_id); `flag_summary`
+carries `open_cards`; the worklist cursor walks CARDS (→ next card, `.` next
+member, B resolve group, batch-movement buttons suppressed for coarse lowdet
+groups per the safety scoping below). **Measured result: corridor 3,247 flags
+→ 77 cards (7–23 per intersection), FM51 30 → 8.** Retrospective verdicts
+unchanged (T1/T2 still caught at ranks 1/3); 52/52 flag tests pass.
+
 The next implementation after B-VAL/B4 (docs/flagqueue_retrospective_2026-07-09.md).
 
 ## Grounding — what exists, what the measured problem is

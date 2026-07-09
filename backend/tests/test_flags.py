@@ -296,7 +296,8 @@ class TestUncertainFeeder:
         f = flags[0]
         assert f["subtype"] == "low_det_conf" and f["kind"] == "uncertain_event"
         assert f["approach"] == "N"          # origin cardinal S -> NB approach
-        assert f["impact"] == 1.0 and f["batch_key"] is None
+        assert f["impact"] == 1.0
+        assert f["batch_key"] == f"lowdet|{cid}|N-through"   # one card per cam+cell
         assert f["evidence"]["signals"] == ["low_det_conf"]
         assert "phantom" in f["reason"]
 
@@ -308,7 +309,7 @@ class TestUncertainFeeder:
         assert len(flags) == 1
         f = flags[0]
         assert f["subtype"] == "ambiguous_dest"
-        assert f["batch_key"] == "dest|N|E-N"     # approach N, contested exits E & N
+        assert f["batch_key"] == f"dest|{cid}|N|E-N"   # approach N, contested exits E & N
         assert {t["cardinal"] for t in f["evidence"]["top2"]} == {"N", "E"}
         assert f["evidence"]["destination_margin"] < DEST_MARGIN_FLOOR
 
@@ -349,7 +350,7 @@ class TestUncertainFeeder:
                     posterior={str(legs["N"]): 0.45, str(legs["E"]): 0.42})
         flags = feed_uncertain_events(pid, iid)
         assert len(flags) == 2
-        assert flags[0]["batch_key"] == flags[1]["batch_key"] == "dest|N|E-N"
+        assert flags[0]["batch_key"] == flags[1]["batch_key"] == f"dest|{cid}|N|E-N"
 
     def test_rebuild_creates_uncertain_flags(self, usite):
         pid, iid, cid, legs = usite

@@ -158,22 +158,28 @@ def feed_uncertain_events(project_id: str, intersection_id: int) -> list[dict]:
             "severity": round(severity, 3),
         }
 
+        # batch_key groups identically-resolvable flags into ONE worklist card
+        # (plan_flood_control_2026-07-09): same camera + subtype + cell = one
+        # judgment after sampling a few members. Batch actions are accept/
+        # dismiss only (flag-level); per-event edits stay in the drill-in.
+        # camera_id is in the key because a v3 intersection can have several
+        # cameras seeing the same approach.
         if primary == "low_det_conf":
             reason = (f"detection confidence {det:.2f} < {DET_CONF_FLOOR:.2f} "
                       f"— possible phantom")
             if "ambiguous_dest" in signals:
                 reason += "; destination also uncertain"
-            batch_key = None
+            batch_key = f"lowdet|{r['camera_id']}|{approach}-{r['movement']}"
         else:
             if len(top2_ev) == 2:
                 reason = (f"destination near-tie ({top2_ev[0]['label']} "
                           f"{top2_ev[0]['p']:.2f} vs {top2_ev[1]['label']} "
                           f"{top2_ev[1]['p']:.2f}) — movement uncertain")
                 c1, c2 = sorted([top2_ev[0]["cardinal"], top2_ev[1]["cardinal"]])
-                batch_key = f"dest|{approach}|{c1}-{c2}"
+                batch_key = f"dest|{r['camera_id']}|{approach}|{c1}-{c2}"
             else:
                 reason = "destination uncertain"
-                batch_key = f"dest|{approach}|?"
+                batch_key = f"dest|{r['camera_id']}|{approach}|?"
         if traj_low:
             reason += f"; weak track (traj {traj:.2f})"
 

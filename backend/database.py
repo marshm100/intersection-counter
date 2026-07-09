@@ -1905,6 +1905,12 @@ def flag_summary(project_id: str, intersection_id: int) -> dict:
             "SELECT COALESCE(SUM(impact), 0) FROM review_flags "
             "WHERE intersection_id = ? AND status = 'open'",
             (intersection_id,)).fetchone()[0]
+        # Worklist CARDS: batch-keyed flags collapse to one card per key;
+        # unkeyed flags are one card each (plan_flood_control_2026-07-09).
+        open_cards = conn.execute(
+            "SELECT COUNT(DISTINCT COALESCE(batch_key, 'f' || flag_id)) "
+            "FROM review_flags WHERE intersection_id = ? AND status = 'open'",
+            (intersection_id,)).fetchone()[0]
     finally:
         conn.close()
     by_status = {s: n for s, n in status_rows}
@@ -1920,6 +1926,7 @@ def flag_summary(project_id: str, intersection_id: int) -> dict:
         # units differ and must NOT be summed. See spot_check.acceptance().
         "open_impact_by_kind": {k: round(float(imp), 1) for k, _n, imp in kind_rows},
         "open_impact": round(float(open_impact), 1),
+        "open_cards": open_cards,
     }
 
 

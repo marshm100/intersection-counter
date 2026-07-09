@@ -11,6 +11,8 @@
 
 let _wlPid = null, _wlIid = null;
 let _wlList = [], _wlPos = 0;
+let _wlCards = [];           // batch rollup: [{key, flags:[...], impact}] impact-desc
+let _wlInner = 0;            // member cursor within the current card
 let _wlFlag = null;          // current enriched flag
 let _wlSummary = null, _wlGate = null, _wlTotal = 0;
 let _wlLegs = [];            // origin legs for the gap add-missed form
@@ -68,6 +70,19 @@ async function _wlRefreshList() {
     const r = await API.get(`/api/projects/${_wlPid}/intersections/${_wlIid}/flags?status=open`);
     _wlList = r.flags || [];
     _wlSummary = r.summary || _wlSummary;
+    // Roll the flag list up into CARDS (plan_flood_control_2026-07-09): flags
+    // sharing a batch_key = one card (one judgment); unkeyed flags = one card
+    // each. Card impact = summed member impact, so a big low-conf batch still
+    // ranks below a single high-impact gap flag. The cursor walks CARDS.
+    const byKey = new Map();
+    for (const f of _wlList) {
+        const key = f.batch_key || `f${f.flag_id}`;
+        if (!byKey.has(key)) byKey.set(key, { key, flags: [], impact: 0 });
+        const c = byKey.get(key);
+        c.flags.push(f);
+        c.impact += Number(f.impact || 0);
+    }
+    _wlCards = [...byKey.values()].sort((a, b) => b.impact - a.impact);
     try {
         _wlGate = await API.get(`/api/projects/${_wlPid}/intersections/${_wlIid}/qa/acceptance`);
     } catch (e) { _wlGate = null; }
@@ -75,13 +90,16 @@ async function _wlRefreshList() {
         const sum = await API.get(`/api/projects/${_wlPid}/intersections/${_wlIid}/summary`);
         _wlTotal = (sum.totals && sum.totals.vehicles) || 0;
     } catch (e) { /* keep last total */ }
-    if (_wlPos >= _wlList.length) _wlPos = Math.max(0, _wlList.length - 1);
+    if (_wlPos >= _wlCards.length) _wlPos = Math.max(0, _wlCards.length - 1);
+    _wlInner = 0;
 }
 
 async function _wlShow() {
     _wlAddMode = false;
-    if (!_wlList.length) { _wlFlag = null; _wlRender(); return; }
-    const id = _wlList[_wlPos].flag_id;
+    if (!_wlCards.length) { _wlFlag = null; _wlRender(); return; }
+    const card = _wlCards[_wlPos];
+    if (_wlInner >= card.flags.length) _wlInner = 0;
+    const id = card.flags[_wlInner].flag_id;
     try {
         _wlFlag = await API.get(`/api/projects/${_wlPid}/flags/${id}`);
     } catch (e) { _wlFlag = _wlList[_wlPos]; }
@@ -141,9 +159,15 @@ function _wlMainHtml() {
     }
     const f = _wlFlag;
     const approach = f.approach ? `${escapeHtml(f.approach)}B` : '';
+    const card = _wlCards[_wlPos] || { flags: [] };
+    const groupChip = card.flags.length > 1
+        ? `<span style="margin-left:8px;padding:2px 8px;border-radius:10px;background:#e0e7ff;
+             color:#3730a3;font-size:11px;font-weight:700;">×${card.flags.length} similar
+             — viewing ${_wlInner + 1}</span>`
+        : '';
     const head = `<div style="display:flex;justify-content:space-between;align-items:baseline;">
-            <div style="font-weight:700;">${approach} ${escapeHtml((f.subtype || '').replace(/_/g, ' '))}</div>
-            <div class="helper-text">item ${_wlPos + 1} of ${_wlList.length} open</div>
+            <div style="font-weight:700;">${approach} ${escapeHtml((f.subtype || '').replace(/_/g, ' '))}${groupChip}</div>
+            <div class="helper-text">card ${_wlPos + 1} of ${_wlCards.length} (${_wlList.length} flags)</div>
         </div>
         <div style="font-size:13px;color:#374151;margin:4px 0 8px;">${escapeHtml(f.reason || '')}</div>`;
     const loopBadge = f.kind === 'uncertain_event' && f.clip
@@ -188,11 +212,14 @@ function _wlUncertainHtml(f) {
         </div>
         ${_wlGroupSize() > 1 ? `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb;">
             <button onclick="_wlBatch('resolved')"><b>B</b> Resolve all ${_wlGroupSize()} like this</button>
+            <button class="btn-secondary" onclick="_wlBatch('dismissed')">Dismiss all</button>
+            ${(f.batch_key || '').startsWith('dest|') ? `
             <span class="helper-text"> or all as:</span>
             <button class="btn-secondary" onclick="_wlBatchMove('through')">T</button>
             <button class="btn-secondary" onclick="_wlBatchMove('left')">L</button>
             <button class="btn-secondary" onclick="_wlBatchMove('right')">R</button>
-            <button class="btn-secondary" onclick="_wlBatchMove('u_turn')">U</button>
+            <button class="btn-secondary" onclick="_wlBatchMove('u_turn')">U</button>` : `
+            <span class="helper-text">movement edits are per-item for this group (. to step through)</span>`}
         </div>` : ''}`;
 }
 
@@ -238,13 +265,13 @@ function _wlSideHtml() {
         <div style="font-weight:700;margin-bottom:6px;">Live count</div>
         <div>Running total: <b>${(_wlTotal || 0).toLocaleString()}</b> veh</div>
         <div style="font-weight:700;margin:8px 0 6px;">Remaining work</div>
-        <div>Open flags: <b>${s.open || 0}</b></div>
+        <div>Cards: <b>${_wlCards.length}</b> <span class="helper-text">(${s.open || 0} flags)</span></div>
         <div>Est. missed (gaps): <b>${Math.round(gapImpact)}</b></div>
         <div>Uncertain to confirm: <b>${uncertain}</b></div>
         ${gate}
         <button class="btn-secondary" style="margin-top:10px;" onclick="_wlRebuild()">Rebuild queue</button>
         <p class="helper-text" style="margin-top:10px;">Keys: Enter accept · 1–4 movement · Del reject ·
-            A add-missed · D dismiss · → skip</p>
+            A add-missed · D dismiss · → next card · . next in group · B resolve group</p>
     </div>`;
 }
 
@@ -353,7 +380,16 @@ async function _wlReject() {
 
 async function _wlSkip() {
     if (_wlBusy) return;
-    _wlPos = (_wlPos + 1) % Math.max(1, _wlList.length);
+    _wlPos = (_wlPos + 1) % Math.max(1, _wlCards.length);   // next CARD
+    _wlInner = 0;
+    await _wlShow();
+}
+
+async function _wlNextInCard() {
+    if (_wlBusy) return;
+    const card = _wlCards[_wlPos];
+    if (!card || card.flags.length < 2) return;
+    _wlInner = (_wlInner + 1) % card.flags.length;   // sample members before batching
     await _wlShow();
 }
 
@@ -446,6 +482,7 @@ function _wlKeydown(e) {
     if (k === 'Enter') gap ? _wlResolveGap() : _wlAccept();
     else if (k === 'd' || k === 'D') _wlDismiss();
     else if (k === 'ArrowRight' || k === ' ') _wlSkip();
+    else if (k === '.' || k === 'ArrowDown') _wlNextInCard();
     else if ((k === 'b' || k === 'B') && _wlFlag.batch_key && _wlGroupSize() > 1) _wlBatch('resolved');
     else if (gap && (k === 'a' || k === 'A')) _wlToggleAdd();
     else if (!gap && _WL_MOVE_KEY(k)) _wlSetMovement(_WL_MOVE_KEY(k));
