@@ -194,11 +194,16 @@ def build_gtfree_bank(*, camera: int, project: str = "97a7849a", out=None,
                       poly_pts: int = 15, bearing_tol: float = 55.0, ambiguity_px: float = 30.0,
                       minor_spread_px: float = 40.0, channels=None,
                       channel_buffer_px: float = 20.0, refit_channels: bool = False,
-                      uturn_min_support: int = 3) -> dict:
+                      uturn_min_support: int = 3, tracks=None) -> dict:
     """Build a GT-free path bank from the site's own traffic (Phase 2 productized
     entry point; the CLI main() is a thin wrapper). Returns
     {out_path, qa_path, paths, qa, missing_movements}. Raises BankBuildError when
-    the video or its detection cache for the window is missing (operator-actionable)."""
+    the video or its detection cache for the window is missing (operator-actionable).
+
+    tracks: pre-collected track point-lists ([[x,y], ...] per track). When given
+    (the two-pass flow: pass-1 raw dumps pooled over the corpus), the internal
+    tracker collection is SKIPPED — no detection cache needed — and the bank is
+    built from exactly these tracks (stage 3, plan_A4_stage3_2026-07-10)."""
     from types import SimpleNamespace
     args = SimpleNamespace(
         camera=camera, project=project, out=out, start_hms=start_hms, minutes=minutes,
@@ -262,45 +267,50 @@ def build_gtfree_bank(*, camera: int, project: str = "97a7849a", out=None,
         return "through" if a in _PRIMARY and b in _PRIMARY else None
     fps = float(v[3])
     ch, _ = compute_video_content_hash(v[0], file_size_bytes=v[1], total_frames=v[2])
-    pq = parquet_path(project, cam, ch, args.variant or DEFAULT_VARIANT)
-    if not pq.exists():
-        raise BankBuildError(
-            f"!! no detection cache at {pq}\n   process this window once first; the "
-            f"pipeline writes the cache as it detects (~3h for 30min on the iGPU at "
-            f"~1.6fps).")
-    t0 = datetime.fromisoformat(f"{video_start.date().isoformat()}T{args.start_hms}")
-    f_lo = int((t0 - video_start).total_seconds() * fps)
-    f_hi = f_lo + int(args.minutes * 60 * fps)
+    if tracks is not None:
+        # Two-pass flow: pass-1 dump tracks injected — no cache, no retrack.
+        kept = [[tuple(p) for p in pts] for pts in tracks
+                if len(pts) >= 4 and _plen(pts) >= args.min_path]
+    else:
+        pq = parquet_path(project, cam, ch, args.variant or DEFAULT_VARIANT)
+        if not pq.exists():
+            raise BankBuildError(
+                f"!! no detection cache at {pq}\n   process this window once first; the "
+                f"pipeline writes the cache as it detects (~3h for 30min on the iGPU at "
+                f"~1.6fps).")
+        t0 = datetime.fromisoformat(f"{video_start.date().isoformat()}T{args.start_hms}")
+        f_lo = int((t0 - video_start).total_seconds() * fps)
+        f_hi = f_lo + int(args.minutes * 60 * fps)
 
-    # --- track collection with the camera's persisted Phase-1 knobs ---------
-    calib = get_camera_calibration_params(project, cam)
-    tk = {}
-    if calib.get("new_track_thresh") is not None:
-        tk["new_track_thresh"] = float(calib["new_track_thresh"])
-    be = create_tracker_backend(
-        "botsort",
-        track_activation_threshold=float(calib.get("tracker_activation_threshold") or 0.25),
-        minimum_matching_threshold=float(calib.get("tracker_match_threshold") or 0.8),
-        frame_rate=int(fps), **tk)
-    buf = float(calib.get("bbox_buffer_scale") or 1.0)
+        # --- track collection with the camera's persisted Phase-1 knobs -----
+        calib = get_camera_calibration_params(project, cam)
+        tk = {}
+        if calib.get("new_track_thresh") is not None:
+            tk["new_track_thresh"] = float(calib["new_track_thresh"])
+        be = create_tracker_backend(
+            "botsort",
+            track_activation_threshold=float(calib.get("tracker_activation_threshold") or 0.25),
+            minimum_matching_threshold=float(calib.get("tracker_match_threshold") or 0.8),
+            frame_rate=int(fps), **tk)
+        buf = float(calib.get("bbox_buffer_scale") or 1.0)
 
-    tr = defaultdict(list)
-    for fidx, dets in DetectionCacheReader(pq).iter_frames():
-        if not (f_lo <= fidx < f_hi):
-            continue
-        if buf != 1.0:
-            inflated = []
-            for d in dets:
-                x1, y1, x2, y2 = d["bbox"]
-                cx, cy = (x1+x2)/2, (y1+y2)/2
-                hw, hh = (x2-x1)*buf/2, (y2-y1)*buf/2
-                d = dict(d); d["bbox"] = [cx-hw, cy-hh, cx+hw, cy+hh]
-                inflated.append(d)
-            dets = inflated
-        for t in be.update(dets, fidx):
-            tr[t["track_id"]].append(tuple(t["center"]))
+        tr = defaultdict(list)
+        for fidx, dets in DetectionCacheReader(pq).iter_frames():
+            if not (f_lo <= fidx < f_hi):
+                continue
+            if buf != 1.0:
+                inflated = []
+                for d in dets:
+                    x1, y1, x2, y2 = d["bbox"]
+                    cx, cy = (x1+x2)/2, (y1+y2)/2
+                    hw, hh = (x2-x1)*buf/2, (y2-y1)*buf/2
+                    d = dict(d); d["bbox"] = [cx-hw, cy-hh, cx+hw, cy+hh]
+                    inflated.append(d)
+                dets = inflated
+            for t in be.update(dets, fidx):
+                tr[t["track_id"]].append(tuple(t["center"]))
 
-    kept = [pts for pts in tr.values() if len(pts) >= 4 and _plen(pts) >= args.min_path]
+        kept = [pts for pts in tr.values() if len(pts) >= 4 and _plen(pts) >= args.min_path]
 
     def nearest(pt):
         return min(anchors, key=lambda l: math.hypot(pt[0]-anchors[l][0], pt[1]-anchors[l][1]))

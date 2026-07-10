@@ -79,13 +79,19 @@ def _row_to_tracked(row) -> dict:
 
 def replay_camera(project_id: str, camera_id: int, *, variant: str,
                   out_db: str | Path, start_frame: int | None = None,
-                  end_frame: int | None = None) -> dict:
+                  end_frame: int | None = None, bank: dict | None = None) -> dict:
     """Replay a camera's raw-track dump through the production chain into
     `out_db` (a copy of project.db with this camera's events replaced — the
     established retrack working-DB pattern). Returns run stats.
 
     Uses the camera's LIVE calibration, legs and applied bank as they stand in
-    project.db — pass 2 is re-runnable: edit calibration, call again."""
+    project.db — pass 2 is re-runnable: edit calibration, call again.
+
+    bank: optional {'paths': [...], 'window_seconds': float} (the two-pass
+    corpus-built bank). When given, the camera's intersection_paths in OUT_DB
+    are replaced with these paths (sample_window_seconds = window_seconds, so
+    the turn-merge volume gate is scale-1 by construction) and attribution
+    uses them. project.db is never touched."""
     proj_db = Path(f"data/projects/{project_id}/project.db")
     conn = sqlite3.connect(proj_db)
     conn.row_factory = sqlite3.Row
@@ -120,10 +126,31 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
     c = sqlite3.connect(out_db)
     with c:
         c.execute("DELETE FROM vehicle_events WHERE camera_id = ?", (camera_id,))
+        if bank is not None:
+            from datetime import datetime
+            c.execute("DELETE FROM intersection_paths WHERE camera_id = ?",
+                      (camera_id,))
+            now = datetime.now().isoformat()
+            for p in bank["paths"]:
+                if p.get("destination_leg_id") is None:
+                    continue
+                c.execute(
+                    "INSERT INTO intersection_paths (camera_id, origin_leg_id, "
+                    "destination_leg_id, polyline, movement_label, supporting_count, "
+                    "expected_speed, sample_window_seconds, source, created_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (camera_id, p["origin_leg_id"], p["destination_leg_id"],
+                     json.dumps(p["polyline"]), p["movement_label"],
+                     p.get("supporting_count", 0), p.get("expected_speed"),
+                     bank.get("window_seconds"), p.get("source", "two-pass-corpus"),
+                     now))
     c.close()
 
     calib = get_camera_calibration_params(project_id, camera_id)
-    paths = list_paths_for_camera(project_id, camera_id)
+    if bank is not None:
+        paths = [p for p in bank["paths"] if p.get("destination_leg_id") is not None]
+    else:
+        paths = list_paths_for_camera(project_id, camera_id)
     pipe = ProcessingPipeline(
         project_id=project_id, db_path=str(out_db), video_path=video["path"],
         legs=legs, fps=float(video["fps"]),

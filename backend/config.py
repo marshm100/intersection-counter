@@ -108,6 +108,14 @@ PROCESSING_MODES = {
 }
 DEFAULT_PROCESSING_MODE = "accurate"
 
+# Two-pass counting flow (MASTER_PLAN 2c / plan_A4_stage3_2026-07-10):
+# pass-1 raw-track dumps at ingest, pass-2 (bank + replay-classify + turn
+# merge + QA) behind "Confirm & process". OFF until the stage-3 gate + an
+# operator dry-run pass; the legacy live pipeline path is untouched when off.
+# Env override for dev: TWO_PASS_ENABLED=1.
+import os as _os2
+TWO_PASS_ENABLED = _os2.environ.get("TWO_PASS_ENABLED", "") in ("1", "true", "on")
+
 
 def get_processing_mode_config(mode: str | None) -> dict:
     """Return the config dict for `mode`, falling back to default on unknown."""
