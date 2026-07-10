@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS intersection_paths (
     movement_label       TEXT    NOT NULL,                  -- through|left|right|u_turn
     supporting_count     INTEGER NOT NULL DEFAULT 0,
     expected_speed       REAL,                              -- median px/step of supporting tracks (speed-tiebreak signature; NULL = unset)
+    sample_window_seconds REAL,                             -- duration of the sample supporting_count was observed over (scales the turn-merge volume gate; NULL = unknown/legacy)
     source               TEXT    NOT NULL DEFAULT 'manual', -- manual|auto
     last_observed_at     TEXT,
     created_at           TEXT    NOT NULL,
@@ -504,6 +505,12 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     ip_cols = [r[1] for r in conn.execute("PRAGMA table_info(intersection_paths)").fetchall()]
     if "expected_speed" not in ip_cols:
         conn.execute("ALTER TABLE intersection_paths ADD COLUMN expected_speed REAL")
+    # 2026-07-10 (A4a): duration the supporting_count sample covered — scales
+    # the turn-merge volume gate to the counting window. NULL = unknown; the
+    # merge falls back to 1800 s (the corridor banks were 30-min samples) with
+    # a logged warning. Corpus-built banks (§3-A) write the corpus window.
+    if "sample_window_seconds" not in ip_cols:
+        conn.execute("ALTER TABLE intersection_paths ADD COLUMN sample_window_seconds REAL")
 
     # Indexes after migrations so legacy DBs that gained columns above
     # can be indexed on them now that they exist.

@@ -1,83 +1,91 @@
 {
   "camera": 4,
-  "window": "07:00:00+30min",
-  "n_tracks_usable": 1227,
-  "agreement_rate": 0.776,
+  "window": "07:00:00+120min",
+  "n_tracks_usable": 4979,
+  "agreement_rate": 0.789,
   "cells": [
     {
       "cell": "L35->L33 through",
-      "n": 723,
-      "share": 0.5697,
+      "n": 2737,
+      "share": 0.5549,
       "straightness": 0.996,
       "bearing_residuals": [
         3.3,
-        8.5
+        8.4
       ],
       "status": "admitted"
     },
     {
       "cell": "L33->L35 through",
-      "n": 420,
-      "share": 0.331,
+      "n": 1923,
+      "share": 0.3899,
       "straightness": 0.999,
       "bearing_residuals": [
-        1.2,
-        0.9
+        0.8,
+        0.6
       ],
       "status": "admitted"
     },
     {
       "cell": "L34->L35 right",
-      "n": 69,
-      "share": 0.0544,
+      "n": 249,
+      "share": 0.0505,
       "straightness": 1.0,
       "bearing_residuals": [
-        0.3,
-        0.1
-      ],
-      "status": "admitted",
-      "warn": "straight_turn"
-    },
-    {
-      "cell": "L33->L34 right",
-      "n": 38,
-      "share": 0.0299,
-      "straightness": 0.999,
-      "bearing_residuals": [
-        0.0,
-        27.6
+        0.2,
+        0.2
       ],
       "status": "admitted",
       "warn": "straight_turn"
     },
     {
       "cell": "L35->L34 left",
-      "n": 12,
-      "share": 0.0095,
-      "straightness": 0.993,
+      "n": 9,
+      "share": 0.0018,
+      "straightness": 0.999,
       "bearing_residuals": [
-        1.2,
-        127.5
+        6.1,
+        154.1
+      ],
+      "status": "bearing_rejected"
+    },
+    {
+      "cell": "L33->L34 right",
+      "n": 8,
+      "share": 0.0016,
+      "straightness": 0.829,
+      "bearing_residuals": [
+        1.4,
+        152.7
       ],
       "status": "bearing_rejected"
     },
     {
       "cell": "L34->L33 left",
-      "n": 7,
-      "share": 0.0055,
-      "straightness": 0.982,
+      "n": 6,
+      "share": 0.0012,
+      "straightness": 0.794,
       "bearing_residuals": [
-        24.1,
-        7.3
+        11.4,
+        5.0
       ],
-      "member_spread_px": 81.3,
+      "member_spread_px": 63.1,
       "status": "minor_incoherent_rejected"
     },
     {
       "cell": "L33->L34 right",
-      "n": 38,
-      "status": "dedup_dropped",
-      "kept": "L33->L35"
+      "status": "legal_movement_uncovered",
+      "hint": "draw a channel in the calibration UI if this movement exists at the site"
+    },
+    {
+      "cell": "L34->L33 left",
+      "status": "legal_movement_uncovered",
+      "hint": "draw a channel in the calibration UI if this movement exists at the site"
+    },
+    {
+      "cell": "L35->L34 left",
+      "status": "legal_movement_uncovered",
+      "hint": "draw a channel in the calibration UI if this movement exists at the site"
     }
   ],
   "ambiguous_pairs": [],
@@ -85,33 +93,48 @@
     {
       "leg_id": 34,
       "calibrated_heading": 119.4,
-      "observed_entry_bearing": 266.4,
-      "diff_deg": 147.0,
+      "observed_entry_bearing": 267.1,
+      "diff_deg": 147.7,
       "verdict": "SUSPECT_LABEL_OR_HEADING"
     },
     {
       "leg_id": 33,
       "calibrated_heading": 265.1,
-      "observed_entry_bearing": 275.7,
-      "diff_deg": 10.6,
+      "observed_entry_bearing": 271.9,
+      "diff_deg": 6.8,
       "verdict": "ok"
     },
     {
       "leg_id": 35,
       "calibrated_heading": 66.9,
-      "observed_entry_bearing": 85.6,
-      "diff_deg": 18.7,
+      "observed_entry_bearing": 85.7,
+      "diff_deg": 18.8,
       "verdict": "ok"
     }
   ],
+  "missing_movements": [
+    {
+      "cell": "L33->L34",
+      "movement": "right"
+    },
+    {
+      "cell": "L34->L33",
+      "movement": "left"
+    },
+    {
+      "cell": "L35->L34",
+      "movement": "left"
+    }
+  ],
   "anchor_cells_raw": {
-    "35->33": 723,
-    "33->35": 420,
-    "34->35": 69,
-    "35->35": 10,
-    "35->34": 2,
-    "34->33": 1,
-    "33->34": 1,
-    "33->33": 1
+    "35->33": 2737,
+    "33->35": 1923,
+    "34->35": 249,
+    "35->35": 36,
+    "35->34": 9,
+    "33->33": 9,
+    "33->34": 8,
+    "34->33": 6,
+    "34->34": 2
   }
 }

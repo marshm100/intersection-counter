@@ -274,13 +274,21 @@ def _bank_coverage_holes(project_id: str, intersection_id: int) -> list[dict]:
         conn.close()
 
 
-def rebuild_flags(project_id: str, intersection_id: int) -> dict:
+def rebuild_flags(project_id: str, intersection_id: int,
+                  extra_flags: list[dict] | None = None) -> dict:
     """Clear the intersection's open flags, run both feeders, insert the
-    results, and return {created, ...flag_summary}."""
+    results, and return {created, ...flag_summary}.
+
+    extra_flags: additional insert_flags dicts computed by the CALLER's
+    context and inserted atomically with the feeders' — the S5
+    merge_borderline rows from the pass-2 turn merge (A4a), whose raw
+    pre-merge counts exist only at combine time. A manual rebuild (the
+    router) has no merge context, so S5 flags refresh on pass-2 runs only."""
     clear_open_flags(project_id, intersection_id)
     flags: list[dict] = []
     flags += feed_uncertain_events(project_id, intersection_id)
     flags += feed_suspected_gaps(project_id, intersection_id)
+    flags += list(extra_flags or [])
     insert_flags(project_id, intersection_id, flags)   # one transaction, not N commits
     summary = flag_summary(project_id, intersection_id)
     return {"created": len(flags), **summary}

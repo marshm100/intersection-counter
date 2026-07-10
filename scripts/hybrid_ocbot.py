@@ -61,77 +61,11 @@ def _load(db, where, camera_id=CAMERA):
     return out
 
 
-def merge_turn_fragments(turns, merge_px, merge_gap, expected_by_cell=None,
-                         vol_factor=1.3):
-    """BoT-SORT fragments one turning vehicle into several events (it coasts the
-    sharp curve, the pipeline finalizes the stub, then re-tracks the exit). Merge
-    events that share the SAME (origin, dest, movement) and start within merge_px
-    of each other within merge_gap frames — same vehicle. This is far safer than
-    arterial-through stitching (memory project_leg_labels_swapped / dedup_ceiling):
-    turns are low-volume and constrained to one OD cell.
-
-    Volume gate (A2): only merge a cell when its raw event count exceeds
-    vol_factor x its expected volume — i.e. there's clear OVER-count = fragmentation
-    to collapse (e.g. NB-left 136 vs ~96). Sparse, already-well-calibrated cells
-    (e.g. EB-right ~38 vs 36) are left UNTOUCHED so the merge can't collapse two
-    distinct ~1/min turners. `expected_by_cell` maps (origin,dest)->expected count
-    (offline: Miovision manual; in production: the bank's supporting_count). When
-    None, every cell is eligible (legacy behaviour). Returns the kept event ids."""
-    from collections import defaultdict
-    by = defaultdict(list)
-    for ev in turns:
-        by[(ev["ol"], ev["dl"], ev["mv"])].append(ev)
-    keep = []
-    for cell, evs in by.items():
-        evs.sort(key=lambda e: e["s"])
-        # Volume gate: skip merging cells that aren't clearly over-counted.
-        if expected_by_cell is not None:
-            exp = expected_by_cell.get((cell[0], cell[1]), 0)
-            if len(evs) <= vol_factor * max(exp, 1):
-                keep.extend(e["id"] for e in evs)
-                continue
-        used = [False] * len(evs)
-        for i, ei in enumerate(evs):
-            if used[i]:
-                continue
-            used[i] = True
-            keep.append(ei["id"])
-            if ei["start"] is None:
-                continue
-            for j in range(i + 1, len(evs)):
-                ej = evs[j]
-                if used[j] or ej["start"] is None:
-                    continue
-                if (ej["s"] - ei["e"]) <= merge_gap and math.hypot(
-                        ei["start"][0] - ej["start"][0],
-                        ei["start"][1] - ej["start"][1]) <= merge_px:
-                    used[j] = True   # fragment of the same turning vehicle
-    return set(keep)
-
-
-def borderline_merge_cells(turns, expected_by_cell, vol_factor=1.3,
-                           band=0.2) -> list[dict]:
-    """S5 — merge-gate borderline cells (docs/plan_flagqueue_B_2026-07-09.md).
-    A turn cell whose RAW fragment count sits within +/-band of the volume-gate
-    threshold (vol_factor x expected) is one noise-vehicle away from the merge
-    decision flipping — the cam1 NB-left blind case (134 raw vs threshold 143 ->
-    no merge -> +38 shipped). Only computable HERE, where raw pre-merge counts
-    exist; the final DB has no trace of them. Returns one dict per borderline
-    cell for the caller to surface (print now; review_flags when §3-A wires
-    pass-2 into the product)."""
-    from collections import Counter
-    raw = Counter((ev["ol"], ev["dl"]) for ev in turns)
-    out = []
-    for cell, n in raw.items():
-        exp = (expected_by_cell or {}).get(cell)
-        if not exp:
-            continue
-        thr = vol_factor * max(exp, 1)
-        if thr * (1 - band) <= n <= thr * (1 + band):
-            out.append({"cell": cell, "raw": n, "expected": exp,
-                        "threshold": round(thr, 1),
-                        "merges": n > thr})
-    return out
+# Mechanism moved to the backend (A4a, plan_A4_stage3_2026-07-10): one source
+# of truth for the offline scripts AND the pass-2 product path.
+from backend.services.turn_merge import (   # noqa: F401  (re-exported for callers)
+    borderline_merge_cells, merge_turn_fragments,
+)
 
 
 def _overlap(a, b):

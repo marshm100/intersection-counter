@@ -5,6 +5,76 @@
   "paths": [
     {
       "origin_leg_id": 36,
+      "destination_leg_id": 36,
+      "movement_label": "u_turn",
+      "polyline": [
+        [
+          177.3,
+          206.8
+        ],
+        [
+          191.5,
+          209.8
+        ],
+        [
+          203.9,
+          212.2
+        ],
+        [
+          214.4,
+          214.0
+        ],
+        [
+          223.0,
+          215.2
+        ],
+        [
+          229.7,
+          215.8
+        ],
+        [
+          234.6,
+          215.8
+        ],
+        [
+          237.6,
+          215.2
+        ],
+        [
+          238.7,
+          214.0
+        ],
+        [
+          238.0,
+          212.2
+        ],
+        [
+          235.3,
+          209.8
+        ],
+        [
+          230.8,
+          206.8
+        ],
+        [
+          224.5,
+          203.2
+        ],
+        [
+          216.2,
+          199.0
+        ],
+        [
+          206.1,
+          194.2
+        ]
+      ],
+      "supporting_count": 9,
+      "source": "hand-drawn-channel",
+      "expected_speed": 2.681758686213371
+    },
+    {
+      "origin_leg_id": 36,
       "destination_leg_id": 37,
       "movement_label": "right",
       "polyline": [
@@ -69,9 +139,9 @@
           270.6
         ]
       ],
-      "supporting_count": 9,
+      "supporting_count": 71,
       "source": "hand-drawn-channel",
-      "expected_speed": 2.6135612851048533
+      "expected_speed": 12.402822798983367
     },
     {
       "origin_leg_id": 36,
@@ -139,9 +209,9 @@
           425.5
         ]
       ],
-      "supporting_count": 12,
+      "supporting_count": 34,
       "source": "hand-drawn-channel",
-      "expected_speed": 7.152428546384856
+      "expected_speed": 12.92639053250385
     },
     {
       "origin_leg_id": 36,
@@ -209,9 +279,9 @@
           197.0
         ]
       ],
-      "supporting_count": 288,
+      "supporting_count": 1295,
       "source": "hand-drawn-channel",
-      "expected_speed": 6.424575683195139
+      "expected_speed": 6.346154108009972
     },
     {
       "origin_leg_id": 37,
@@ -279,9 +349,9 @@
           194.2
         ]
       ],
-      "supporting_count": 2,
+      "supporting_count": 6,
       "source": "hand-drawn-channel",
-      "expected_speed": 3.019970707156708
+      "expected_speed": 4.2799460768543485
     },
     {
       "origin_leg_id": 37,
@@ -349,9 +419,9 @@
           437.4
         ]
       ],
-      "supporting_count": 20,
+      "supporting_count": 83,
       "source": "hand-drawn-channel",
-      "expected_speed": 27.067324922717837
+      "expected_speed": 24.266344370672556
     },
     {
       "origin_leg_id": 37,
@@ -419,9 +489,9 @@
           194.2
         ]
       ],
-      "supporting_count": 142,
+      "supporting_count": 602,
       "source": "hand-drawn-channel",
-      "expected_speed": 6.645832559530608
+      "expected_speed": 6.4039607323280565
     },
     {
       "origin_leg_id": 38,
@@ -489,9 +559,9 @@
           192.8
         ]
       ],
-      "supporting_count": 15,
+      "supporting_count": 44,
       "source": "hand-drawn-channel",
-      "expected_speed": 8.94481576569526
+      "expected_speed": 6.2829834348777105
     },
     {
       "origin_leg_id": 38,
@@ -559,9 +629,9 @@
           265.7
         ]
       ],
-      "supporting_count": 31,
+      "supporting_count": 133,
       "source": "hand-drawn-channel",
-      "expected_speed": 13.428064135280529
+      "expected_speed": 12.054469003435816
     },
     {
       "origin_leg_id": 38,
@@ -629,9 +699,9 @@
           193.5
         ]
       ],
-      "supporting_count": 36,
+      "supporting_count": 164,
       "source": "hand-drawn-channel",
-      "expected_speed": 1.447069770159298
+      "expected_speed": 1.4272513103624722
     },
     {
       "origin_leg_id": 39,
@@ -699,9 +769,9 @@
           194.2
         ]
       ],
-      "supporting_count": 182,
+      "supporting_count": 563,
       "source": "hand-drawn-channel",
-      "expected_speed": 8.358316114614853
+      "expected_speed": 8.207380877952025
     },
     {
       "origin_leg_id": 39,
@@ -769,9 +839,9 @@
           266.4
         ]
       ],
-      "supporting_count": 549,
+      "supporting_count": 1978,
       "source": "hand-drawn-channel",
-      "expected_speed": 8.523739906859026
+      "expected_speed": 9.329133071233944
     },
     {
       "origin_leg_id": 39,
@@ -839,9 +909,9 @@
           412.2
         ]
       ],
-      "supporting_count": 42,
+      "supporting_count": 175,
       "source": "hand-drawn-channel",
-      "expected_speed": 3.531453119813957
+      "expected_speed": 3.3839604447276317
     },
     {
       "origin_leg_id": 39,
@@ -909,9 +979,9 @@
           200.5
         ]
       ],
-      "supporting_count": 118,
+      "supporting_count": 480,
       "source": "hand-drawn-channel",
-      "expected_speed": 2.769420583666636
+      "expected_speed": 2.7689012196012177
     }
   ],
   "source": "gtfree",
