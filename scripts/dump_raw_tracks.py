@@ -60,6 +60,12 @@ def main() -> int:
     ap.add_argument("--backend", default="bytetrack",
                     help="live-parity default; the 2x2 showed tracker family is "
                          "not the cam2 lever (spike results doc)")
+    ap.add_argument("--resume", action="store_true",
+                    help="continue an interrupted dump: count.txt is flushed "
+                         "periodically as the high-water mark; resume rewinds to "
+                         "the last complete frame and re-tracks from there with a "
+                         "COLD tracker (tracks spanning the boundary split — same "
+                         "class as a trim edge; pad or avoid mid-traffic kills)")
     args = ap.parse_args()
 
     conn = sqlite3.connect(f"data/projects/{args.project}/project.db")
@@ -113,17 +119,42 @@ def main() -> int:
     from numpy.lib.format import open_memmap
     import json as _json
     out.mkdir(parents=True, exist_ok=True)
-    mm = open_memmap(out / "rows.npy", mode="w+", dtype=np.float32, shape=(cap_rows, 8))
-    (out / "meta.json").write_text(_json.dumps({
+    meta = {
         "format": 2,
         "cols": ["track_id", "frame", "cx", "cy", "bw", "bh", "conf", "class_id"],
         "backend": args.backend, "camera": args.camera, "variant": args.variant or DEFAULT_VARIANT,
         "frames": [f_lo, f_hi],
         "nms_iou": nms_iou, "new_track_thresh": ntt,
         "activation": activation, "match": match, "bbox_buffer": buf,
-    }, indent=2))
-
-    w = done = 0
+    }
+    w = 0
+    resume_from = f_lo
+    if args.resume and (out / "rows.npy").exists() and (out / "count.txt").exists():
+        old_meta = _json.loads((out / "meta.json").read_text())
+        if old_meta.get("format") != 2 or old_meta.get("frames") != [f_lo, f_hi]:
+            raise SystemExit(f"--resume: existing dump meta mismatches this run "
+                             f"({old_meta.get('frames')} vs [{f_lo}, {f_hi}]) — "
+                             f"delete {out} to start over")
+        mm = open_memmap(out / "rows.npy", mode="r+")
+        if mm.shape != (cap_rows, 8):
+            raise SystemExit(f"--resume: rows.npy shape {mm.shape} != ({cap_rows}, 8)")
+        w0 = int((out / "count.txt").read_text())
+        if w0 > 0:
+            # Rewind to the last COMPLETE frame: drop its (possibly partial)
+            # rows and re-track from that frame with the cold tracker.
+            f_last = int(mm[w0 - 1, 1])
+            w = w0
+            while w > 0 and int(mm[w - 1, 1]) == f_last:
+                w -= 1
+            resume_from = f_last
+        print(f"resuming at frame {resume_from} (kept {w} rows)", flush=True)
+    else:
+        mm = open_memmap(out / "rows.npy", mode="w+", dtype=np.float32,
+                         shape=(cap_rows, 8))
+    (out / "meta.json").write_text(_json.dumps(meta, indent=2))
+    # count.txt is the resume high-water mark: absent/stale between flushes,
+    # rewritten every progress flush and at completion.
+    done = 0
     # Mirror pipeline.process_cached's frame SCHEDULE exactly: every frame in
     # [f_lo, f_hi) gets a tracker update — an EMPTY one when the cache has no
     # rows — so the tracker's Kalman/lost-buffer cadence matches the live run
@@ -134,7 +165,7 @@ def main() -> int:
 
     def _sched():
         nonlocal nxt
-        for fidx in range(f_lo, f_hi):
+        for fidx in range(resume_from, f_hi):
             while nxt is not None and nxt[0] < fidx:
                 nxt = next(reader_iter, None)
             if nxt is not None and nxt[0] == fidx:
@@ -167,6 +198,7 @@ def main() -> int:
         done += 1
         if done % 5000 == 0:
             mm.flush()
+            (out / "count.txt").write_text(str(w))   # resume high-water mark
             print(f"  tracked {done} frames ({w} points)...", flush=True)
 
     mm.flush(); del mm

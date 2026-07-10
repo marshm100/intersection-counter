@@ -499,6 +499,12 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     # 2026-07-02: per-camera speed-tiebreak opt-in (NULL = config default, 0 off, 1 on).
     if "calib_speed_tiebreak" not in cam_cols:
         conn.execute("ALTER TABLE cameras ADD COLUMN calib_speed_tiebreak INTEGER")
+    # 2026-07-10 (two-pass stage 3): per-camera pass-1 tracking recipe.
+    # NULL = 'bytetrack' (live default). 'botsort' / 'botsort+reid' where the
+    # A2 tier-2 context showed the live table depends on it (cam1 ReID
+    # recovers -529 NB-thru; cam2's live table is a BoT product).
+    if "calib_pass1_backend" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_pass1_backend TEXT")
 
     # 2026-07-02: per-path pixel-speed signature (median step of supporting
     # tracks) feeding the shared-exit collinear speed-tiebreak; NULL = unset.
@@ -936,7 +942,8 @@ def get_camera_calibration_params(project_id: str, camera_id: int) -> dict:
             "SELECT calib_pre_track_nms_iou, calib_tracker_lost_buffer, "
             "calib_tracker_match_threshold, calib_tracker_activation_threshold, "
             "calib_bbox_buffer_scale, calib_track_quality_filter, "
-            "calib_new_track_thresh, calib_cost_metric, calib_speed_tiebreak "
+            "calib_new_track_thresh, calib_cost_metric, calib_speed_tiebreak, "
+            "calib_pass1_backend "
             "FROM cameras WHERE camera_id = ?",
             (camera_id,),
         ).fetchone()
@@ -952,6 +959,8 @@ def get_camera_calibration_params(project_id: str, camera_id: int) -> dict:
     params["cost_metric"] = row["calib_cost_metric"]
     # None when unset -> pipeline resolves to the config default; 0/1 = explicit.
     params["speed_tiebreak"] = row["calib_speed_tiebreak"]
+    # None -> 'bytetrack' at the pass-1 job (two-pass stage 3).
+    params["pass1_backend"] = row["calib_pass1_backend"]
     return params
 
 
