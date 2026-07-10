@@ -123,7 +123,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     workdir.mkdir(parents=True, exist_ok=True)
     bank_res = build_bank(
         camera=camera_id, project=project_id,
-        out=str(workdir / f"twopass_bank_cam{camera_id}.json"),
+        out=str(workdir / f"twopass_bank_cam{camera_id}_{variant}.json"),
         start_hms=start_hms, minutes=window_seconds / 60.0,
         tracks=_dump_tracks_pointlists(rows))
     # Scale-1 merge expecteds = per-cell observed n from the corpus QA (any
@@ -141,7 +141,9 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         expected.setdefault(key, float(p.get("supporting_count", 0)))
 
     # --- 2+3. replay-classify (APPLIED bank), then the turn merge ------------
-    out_db = workdir / f"twopass_cam{camera_id}.db"
+    # Variant in the name: a study day runs one pass-2 per trim window and the
+    # working DBs must coexist (measure-then-apply per window).
+    out_db = workdir / f"twopass_cam{camera_id}_{variant}.db"
     stats = replay_camera(project_id, camera_id, variant=variant, out_db=out_db)
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
                                expected_by_cell=expected)
