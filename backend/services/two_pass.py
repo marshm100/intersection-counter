@@ -36,7 +36,7 @@ import numpy as np
 
 _CELL_RE = re.compile(r"L(\d+)->L(\d+)")
 
-from backend.database import get_connection
+from backend.database import get_connection, get_db_path
 from backend.services.detection_cache import compute_video_content_hash, parquet_path
 from backend.services.flag_feeders import rebuild_flags
 from backend.services.cardinals import bound_approach
@@ -52,6 +52,29 @@ def _dump_tracks_pointlists(rows: np.ndarray) -> list[list[tuple]]:
     for r in rows:
         tracks.setdefault(int(r[0]), []).append((float(r[2]), float(r[3])))
     return list(tracks.values())
+
+
+def _apply_window_events(proj_db: Path, out_db: Path, camera_id: int,
+                         t_lo: float, t_hi: float) -> None:
+    """Swap ONE trim window's events into project.db, scoped by the event's
+    crossing timestamp (the two-pass binning convention) — applying a study
+    day's three windows must not wipe each other. The applied bank is never
+    touched here."""
+    c = sqlite3.connect(proj_db)
+    cols = [r[1] for r in c.execute("PRAGMA table_info(vehicle_events)")
+            if r[1] != "event_id"]
+    collist = ",".join(cols)
+    with c:
+        c.execute("ATTACH DATABASE ? AS w", (str(out_db),))
+        c.execute("DELETE FROM vehicle_events WHERE camera_id = ? AND "
+                  "timestamp_video >= ? AND timestamp_video < ?",
+                  (camera_id, t_lo, t_hi))
+        c.execute(f"INSERT INTO vehicle_events ({collist}) "
+                  f"SELECT {collist} FROM w.vehicle_events WHERE camera_id = ? "
+                  f"AND timestamp_video >= ? AND timestamp_video < ?",
+                  (camera_id, t_lo, t_hi))
+    c.execute("DETACH DATABASE w")
+    c.close()
 
 
 def run_pass2(project_id: str, camera_id: int, *, variant: str,
@@ -136,24 +159,18 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     if not apply:
         return result
 
-    # --- 4. apply: swap EVENTS into project.db (the applied bank stays — it
-    # is the operator's attribution authority), rebuild the queue with S5 ----
-    proj_db = Path(f"data/projects/{project_id}/project.db")
+    # --- 4. apply: swap this WINDOW's events into project.db (the applied
+    # bank stays — it is the operator's attribution authority; other windows'
+    # events stay — a study day is applied one trim window at a time), then
+    # rebuild the queue with the S5 rows ---------------------------------
+    proj_db = get_db_path(project_id)
     backup = proj_db.parent / "backups" / (
         f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_pre_twopass_cam{camera_id}.db")
     backup.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(proj_db, backup)
+    _apply_window_events(proj_db, out_db, camera_id,
+                         f_lo / fps, f_hi / fps)
     c = sqlite3.connect(proj_db)
-    cols = [r[1] for r in c.execute("PRAGMA table_info(vehicle_events)")
-            if r[1] != "event_id"]
-    collist = ",".join(cols)
-    with c:
-        c.execute("ATTACH DATABASE ? AS w", (str(out_db),))
-        c.execute("DELETE FROM vehicle_events WHERE camera_id = ?", (camera_id,))
-        c.execute(f"INSERT INTO vehicle_events ({collist}) "
-                  f"SELECT {collist} FROM w.vehicle_events WHERE camera_id = ?",
-                  (camera_id,))
-    c.execute("DETACH DATABASE w")
     card = {lid: cd for lid, cd in c.execute(
         "SELECT leg_id, cardinal_direction FROM legs WHERE camera_id = ?",
         (camera_id,))}

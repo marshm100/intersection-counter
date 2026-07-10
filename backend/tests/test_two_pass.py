@@ -51,3 +51,38 @@ class TestTwoPassGate:
             # camera WITH video but no dump raises FileNotFoundError ("run
             # pass 1 first") — both surface via /two-pass/status as error.
             run_pass2(pid, cid, variant="study_0700", workdir="unused")
+
+
+class TestWindowScopedApply:
+    def test_three_windows_apply_without_wiping_each_other(self, tmp_path):
+        import sqlite3
+        from backend.services.two_pass import _apply_window_events
+
+        def _mk(path, events):
+            c = sqlite3.connect(path)
+            c.execute("CREATE TABLE vehicle_events (event_id INTEGER PRIMARY KEY, "
+                      "camera_id INT, timestamp_video REAL, movement TEXT)")
+            with c:
+                c.executemany("INSERT INTO vehicle_events "
+                              "(camera_id, timestamp_video, movement) VALUES (?,?,?)",
+                              events)
+            c.close()
+
+        proj = tmp_path / "proj.db"
+        # live: stale events in all three windows + another camera's event
+        _mk(proj, [(2, 100.0, "old_a"), (2, 500.0, "old_b"), (2, 900.0, "old_c"),
+                   (3, 100.0, "other_cam")])
+        wA = tmp_path / "wA.db"; _mk(wA, [(2, 110.0, "new_a")])
+        wB = tmp_path / "wB.db"; _mk(wB, [(2, 510.0, "new_b1"), (2, 511.0, "new_b2")])
+
+        _apply_window_events(proj, wA, 2, 0.0, 400.0)
+        _apply_window_events(proj, wB, 2, 400.0, 800.0)
+
+        c = sqlite3.connect(proj)
+        rows = sorted(r[0] for r in c.execute(
+            "SELECT movement FROM vehicle_events WHERE camera_id = 2"))
+        other = c.execute("SELECT COUNT(*) FROM vehicle_events WHERE camera_id = 3").fetchone()[0]
+        c.close()
+        # window A replaced, window B replaced, window C (900s) UNTOUCHED
+        assert rows == ["new_a", "new_b1", "new_b2", "old_c"]
+        assert other == 1

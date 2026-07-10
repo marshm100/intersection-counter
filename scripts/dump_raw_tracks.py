@@ -131,10 +131,17 @@ def main() -> int:
     resume_from = f_lo
     if args.resume and (out / "rows.npy").exists() and (out / "count.txt").exists():
         old_meta = _json.loads((out / "meta.json").read_text())
-        if old_meta.get("format") != 2 or old_meta.get("frames") != [f_lo, f_hi]:
-            raise SystemExit(f"--resume: existing dump meta mismatches this run "
-                             f"({old_meta.get('frames')} vs [{f_lo}, {f_hi}]) — "
-                             f"delete {out} to start over")
+        # The RECIPE must match too, not just the window — resuming a bytetrack
+        # dump with botsort would silently mix trackers and mislabel the meta
+        # (caught live on cam2 study_0700, 2026-07-10).
+        mismatches = [k for k in ("format", "frames", "backend", "nms_iou",
+                                  "activation", "match", "bbox_buffer")
+                      if old_meta.get(k) != meta.get(k)]
+        if mismatches:
+            raise SystemExit(
+                f"--resume: existing dump differs on {mismatches} "
+                f"(old={[old_meta.get(k) for k in mismatches]} vs "
+                f"new={[meta.get(k) for k in mismatches]}) — delete {out} to start over")
         mm = open_memmap(out / "rows.npy", mode="r+")
         if mm.shape != (cap_rows, 8):
             raise SystemExit(f"--resume: rows.npy shape {mm.shape} != ({cap_rows}, 8)")

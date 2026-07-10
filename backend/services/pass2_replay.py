@@ -92,7 +92,8 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
     are replaced with these paths (sample_window_seconds = window_seconds, so
     the turn-merge volume gate is scale-1 by construction) and attribution
     uses them. project.db is never touched."""
-    proj_db = Path(f"data/projects/{project_id}/project.db")
+    from backend.database import get_db_path
+    proj_db = get_db_path(project_id)
     conn = sqlite3.connect(proj_db)
     conn.row_factory = sqlite3.Row
     video = conn.execute(
