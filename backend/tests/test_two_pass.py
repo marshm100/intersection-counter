@@ -86,3 +86,23 @@ class TestWindowScopedApply:
         # window A replaced, window B replaced, window C (900s) UNTOUCHED
         assert rows == ["new_a", "new_b1", "new_b2", "old_c"]
         assert other == 1
+
+
+class TestStage33Endpoints:
+    def test_pass1_and_process_disabled_404(self, proj):
+        pid, cid = proj
+        r = client.post(f"/api/projects/{pid}/cameras/{cid}/two-pass/pass1",
+                        json={"variant": "v", "start_frame": 0, "end_frame": 10})
+        assert r.status_code == 404
+        r = client.post(f"/api/projects/{pid}/intersections/1/two-pass/process",
+                        json={"windows": {str(cid): "v"}})
+        assert r.status_code == 404
+
+    def test_process_rejects_foreign_camera(self, proj, monkeypatch):
+        import backend.routers.two_pass as tp
+        monkeypatch.setattr(tp, "TWO_PASS_ENABLED", True)
+        pid, cid = proj
+        r = client.post(f"/api/projects/{pid}/intersections/999/two-pass/process",
+                        json={"windows": {str(cid): "v"}})
+        assert r.status_code == 409
+        assert "not on intersection" in r.json()["detail"]

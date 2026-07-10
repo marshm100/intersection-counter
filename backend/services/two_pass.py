@@ -54,6 +54,161 @@ def _dump_tracks_pointlists(rows: np.ndarray) -> list[list[tuple]]:
     return list(tracks.values())
 
 
+def run_pass1(project_id: str, camera_id: int, *, variant: str,
+              start_frame: int, end_frame: int, backend: str | None = None,
+              resume: bool = True, progress=None) -> dict:
+    """Pass 1: raw-track dump for one camera window from its detection cache —
+    the productized core of scripts/dump_raw_tracks.py (the CLI wraps this).
+    Semantics-free: no legs, channels, or classification; live-parity tracking
+    input (per-camera pre-track NMS -> bbox buffer -> tracker, full frame
+    schedule incl. empty updates — the A2 tier-1 lessons).
+
+    backend: None -> the camera's calib_pass1_backend (default bytetrack).
+    'botsort+reid' loads the pre-built ReID sidecar (build_reid_cache);
+    missing sidecar is an actionable error, not an implicit hours-long build.
+    resume: continue from the count.txt high-water mark when the existing
+    dump's recipe matches (recipe mismatch = hard error)."""
+    import numpy as _np
+    from numpy.lib.format import open_memmap
+
+    from backend.config import PRE_TRACK_NMS_IOU
+    from backend.database import get_camera_calibration_params
+    from backend.services.detection_cache import DetectionCacheReader
+    from backend.services.pipeline import _class_agnostic_nms
+    from backend.services.tracker import create_tracker_backend
+
+    conn = get_connection(project_id)
+    conn.row_factory = sqlite3.Row
+    video = conn.execute(
+        "SELECT * FROM videos WHERE camera_id = ? ORDER BY sort_order LIMIT 1",
+        (camera_id,)).fetchone()
+    conn.close()
+    if video is None:
+        raise ValueError(f"camera {camera_id}: no video row")
+    fps = float(video["fps"])
+    chash, _ = compute_video_content_hash(
+        video["path"], file_size_bytes=video["file_size_bytes"],
+        total_frames=video["total_frames"])
+    pq = parquet_path(project_id, camera_id, chash, variant)
+    if not pq.exists():
+        raise FileNotFoundError(
+            f"no detection cache at {pq} — run a processing pass first "
+            f"(the pipeline writes the cache as it detects)")
+    out = tracks_dir(pq)
+
+    calib = get_camera_calibration_params(project_id, camera_id)
+    recipe = (backend or calib.get("pass1_backend") or "bytetrack").lower()
+    with_reid = recipe.endswith("+reid")
+    tracker_backend = recipe.replace("+reid", "")
+    activation = float(calib.get("tracker_activation_threshold") or 0.25)
+    match = float(calib.get("tracker_match_threshold") or 0.8)
+    buf = float(calib.get("bbox_buffer_scale") or 1.0)
+    nms_iou = calib.get("pre_track_nms_iou")
+    if nms_iou is None:
+        nms_iou = PRE_TRACK_NMS_IOU
+    ntt = calib.get("new_track_thresh")
+    tracker_kwargs: dict = {}
+    if ntt is not None and tracker_backend == "botsort":
+        tracker_kwargs["new_track_thresh"] = float(ntt)
+    if with_reid:
+        side = pq.with_name(pq.stem + ".reid")
+        if not side.exists():
+            side_npz = pq.with_name(pq.stem + ".reid.npz")
+            if side_npz.exists():
+                side = side_npz
+            else:
+                raise FileNotFoundError(
+                    f"recipe '{recipe}' needs the ReID sidecar at {side} — "
+                    f"build it first: py scripts/build_reid_cache.py "
+                    f"--camera {camera_id} --variant {variant}")
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "scripts"))
+        from reid_embedding_cache import ReidEmbeddingCache
+        tracker_kwargs["with_reid"] = True
+        tracker_kwargs["reid_embeddings"] = ReidEmbeddingCache(side)
+    be = create_tracker_backend(
+        tracker_backend, track_activation_threshold=activation,
+        minimum_matching_threshold=match, frame_rate=int(fps), **tracker_kwargs)
+
+    meta = {
+        "format": 2,
+        "cols": ["track_id", "frame", "cx", "cy", "bw", "bh", "conf", "class_id"],
+        "backend": recipe, "camera": camera_id, "variant": variant,
+        "frames": [start_frame, end_frame],
+        "nms_iou": nms_iou, "new_track_thresh": ntt,
+        "activation": activation, "match": match, "bbox_buffer": buf,
+    }
+    reader = DetectionCacheReader(pq)
+    n_dets = sum(len(d) for f, d in reader.iter_frames()
+                 if start_frame <= f < end_frame)
+    cap_rows = int(n_dets * 1.2) + 1000
+
+    out.mkdir(parents=True, exist_ok=True)
+    w = 0
+    resume_from = start_frame
+    if resume and (out / "rows.npy").exists() and (out / "count.txt").exists():
+        old_meta = json.loads((out / "meta.json").read_text())
+        mismatches = [k for k in ("format", "frames", "backend", "nms_iou",
+                                  "activation", "match", "bbox_buffer")
+                      if old_meta.get(k) != meta.get(k)]
+        if mismatches:
+            raise ValueError(
+                f"pass-1 resume: existing dump differs on {mismatches} — "
+                f"delete {out} to start over")
+        mm = open_memmap(out / "rows.npy", mode="r+")
+        w0 = int((out / "count.txt").read_text())
+        if w0 > 0:
+            f_last = int(mm[w0 - 1, 1])
+            w = w0
+            while w > 0 and int(mm[w - 1, 1]) == f_last:
+                w -= 1
+            resume_from = f_last
+    else:
+        mm = open_memmap(out / "rows.npy", mode="w+", dtype=_np.float32,
+                         shape=(cap_rows, 8))
+    (out / "meta.json").write_text(json.dumps(meta, indent=2))
+
+    reader_iter = DetectionCacheReader(pq).iter_frames()
+    nxt = next(reader_iter, None)
+    done = 0
+    for fidx in range(resume_from, end_frame):
+        while nxt is not None and nxt[0] < fidx:
+            nxt = next(reader_iter, None)
+        if nxt is not None and nxt[0] == fidx:
+            dets = nxt[1]
+            nxt = next(reader_iter, None)
+        else:
+            dets = []
+        if nms_iou is not None and len(dets) > 1:
+            dets = _class_agnostic_nms(dets, float(nms_iou))
+        if buf != 1.0 and dets:
+            inflated = []
+            for d in dets:
+                x1, y1, x2, y2 = d["bbox"]
+                cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+                hw, hh = (x2 - x1) * buf / 2, (y2 - y1) * buf / 2
+                d = dict(d); d["bbox"] = [cx - hw, cy - hh, cx + hw, cy + hh]
+                inflated.append(d)
+            dets = inflated
+        for t in be.update(dets, fidx):
+            if w >= mm.shape[0]:
+                raise RuntimeError(f"pass-1 row capacity {mm.shape[0]} exceeded")
+            cx, cy = t["center"]
+            mm[w] = (float(t["track_id"]), float(fidx), float(cx), float(cy),
+                     float(t.get("bbox_width", 0.0)), float(t.get("bbox_height", 0.0)),
+                     float(t.get("confidence", 0.0)), float(t.get("class_id", -1)))
+            w += 1
+        done += 1
+        if done % 5000 == 0:
+            mm.flush()
+            (out / "count.txt").write_text(str(w))
+            if progress:
+                progress(done, end_frame - resume_from, w)
+    mm.flush(); del mm
+    (out / "count.txt").write_text(str(w))
+    return {"camera_id": camera_id, "variant": variant, "recipe": recipe,
+            "rows": w, "frames": [start_frame, end_frame], "tracks_dir": str(out)}
+
+
 def _apply_window_events(proj_db: Path, out_db: Path, camera_id: int,
                          t_lo: float, t_hi: float) -> None:
     """Swap ONE trim window's events into project.db, scoped by the event's
