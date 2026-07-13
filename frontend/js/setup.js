@@ -1059,6 +1059,7 @@ async function v3AddTrim() {
         return;
     }
     await _renderTrimsSubTab(document.getElementById('v3-detail-subcontent'));
+    _renderTwoPassPlan();   // trims define the two-pass windows — keep in sync
 }
 
 async function v3PatchTrim(tid, body) {
@@ -1071,6 +1072,7 @@ async function v3PatchTrim(tid, body) {
         );
         // Re-render so coverage status updates
         await _renderTrimsSubTab(document.getElementById('v3-detail-subcontent'));
+        _renderTwoPassPlan();
     } catch (e) {
         alert(`Failed to save trim: ${e.message || e}`);
     }
@@ -1087,6 +1089,7 @@ async function v3DeleteTrim(tid) {
         return;
     }
     await _renderTrimsSubTab(document.getElementById('v3-detail-subcontent'));
+    _renderTwoPassPlan();
 }
 
 // --- Confirm & process popup ------------------------------------------
@@ -1367,17 +1370,21 @@ function _processingChipHtml(intersection, status) {
             // changes every poll while running — used by CSS to retrigger
             // a brief flash so the user can SEE liveness, not just trust it.
             statusBadge = `<span class="chip-badge chip-running chip-running-anim" data-frame="${fp.frame_number ?? 0}"><span class="chip-pulse-dot"></span>Processing…</span>`;
-            const subline = [
+            // A two-pass run reports through v3_run_state without segment
+            // fields — "Segment 1 of 0 · ETA NaN" is worse than saying less.
+            const subline = (segCount > 0 ? [
                 `Segment ${currentIdx + 1} of ${segCount}`,
                 etaTxt && `ETA ${etaTxt}`,
                 fpsTxt,
                 vehiclesTxt,
-            ].filter(Boolean).join(' · ');
+            ] : ['Two-pass processing — counts apply per camera window']
+            ).filter(Boolean).join(' · ');
             detailHtml = `
-                <div class="chip-detail">${escapeHtml(subline)}</div>
+                <div class="chip-detail">${escapeHtml(subline)}</div>` +
+                (segCount > 0 ? `
                 <div class="chip-progress">
                     <div class="chip-progress-fill" style="width:${pct}%"></div>
-                </div>`;
+                </div>` : '');
             actionsHtml = `
                 <button onclick="v3ViewLive(${intersection.intersection_id})">View live</button>
                 <button class="btn-secondary" onclick="v3CancelProcessing(${intersection.intersection_id})">Cancel</button>`;
