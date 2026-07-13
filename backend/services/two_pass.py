@@ -23,13 +23,14 @@ GT-free throughout (prime directive): raw video + operator calibration only.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
 import shutil
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -45,6 +46,199 @@ from backend.services.turn_merge import merge_replay_turns, s5_flags
 
 logger = logging.getLogger(__name__)
 
+# Trim→window contract (stage 3.4 plan doc). A dump "satisfies" a derived
+# window on coverage within this slack, not equality — a few-second trim edit
+# (or the clamped-vs-unclamped start difference) must not orphan a multi-hour
+# dump. Time-based, converted per camera fps (corridor cams are 10–25 fps).
+WINDOW_SLACK_SECONDS = 5.0
+# Legacy dumps (pre-"complete" marker) count as complete when the last dumped
+# row is within this of the window end — cam3's gated study_0000 has a 118 s
+# empty-midnight tail gap, so the tolerance must comfortably exceed that.
+LEGACY_COMPLETE_TAIL_SECONDS = 300.0
+# Every pass-1 resume restarts the tracker COLD, truncating tracks alive at
+# the seam (the §2c edge-padding problem, at seams). Warm the tracker over
+# this much preceding footage before the write boundary — long enough for a
+# signal cycle + queue discharge. Time-based; converted per camera fps.
+PASS1_SEAM_WARMUP_SECONDS = 90.0
+# Detect-at-ingest writes the cache in closed per-chunk parquet parts so a
+# crash resumes at chunk granularity instead of re-detecting hours.
+PASS1_INGEST_CHUNK_SECONDS = 900.0
+
+
+def _first_video(conn: sqlite3.Connection, camera_id: int) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT * FROM videos WHERE camera_id = ? ORDER BY sort_order LIMIT 1",
+        (camera_id,)).fetchone()
+
+
+def calib_fingerprint(project_id: str, camera_id: int) -> str:
+    """Digest of every piece of OPERATOR state pass 2 consumes: calibration
+    params, legs, the applied bank (attribution authority), and drawn channels
+    (feed corpus-bank builds — standing rule 1 keeps them out of attribution).
+    The pass-2 reuse sidecar keys on this + the dump meta, so a calibration
+    edit invalidates a stale working DB (the stage-3.3 known limitation)."""
+    from backend.database import get_camera_calibration_params
+    calib = get_camera_calibration_params(project_id, camera_id)
+    conn = get_connection(project_id)
+    conn.row_factory = sqlite3.Row
+    try:
+        state = {"calib": calib}
+        for name, table, order in (("legs", "legs", "leg_id"),
+                                   ("paths", "intersection_paths", "path_id"),
+                                   ("channels", "channels", "channel_id")):
+            state[name] = [dict(r) for r in conn.execute(
+                f"SELECT * FROM {table} WHERE camera_id = ? ORDER BY {order}",
+                (camera_id,))]
+    finally:
+        conn.close()
+    blob = json.dumps(state, sort_keys=True, default=str)
+    return hashlib.sha256(blob.encode()).hexdigest()
+
+
+def _trim_datetimes(trim: dict, rec_start: datetime) -> tuple[datetime, datetime]:
+    """Trim wallclock HH:MM:SS → datetimes on the recording's date. '24:00:00'
+    and end-before-start both mean 'past midnight' (next day)."""
+    date = rec_start.date().isoformat()
+
+    def _parse(hms: str, *, bump_day: bool = False) -> datetime:
+        if hms.startswith("24:"):
+            dt = datetime.fromisoformat(f"{date}T00{hms[2:]}") + timedelta(days=1)
+        else:
+            dt = datetime.fromisoformat(f"{date}T{hms}")
+        return dt + timedelta(days=1) if bump_day else dt
+
+    t_start = _parse(trim["start_wallclock"])
+    t_end = _parse(trim["end_wallclock"])
+    if t_end <= t_start:
+        t_end = _parse(trim["end_wallclock"], bump_day=True)
+    return t_start, t_end
+
+
+def derive_windows(project_id: str, intersection_id: int) -> list[dict]:
+    """Map the card's trims to per-camera pass-1 dump windows — the naming
+    contract the corridor dumps already follow, now written down:
+      variant = 'study_' + trim start %H%M
+      frames  = round((trim_wallclock − recording_start) × fps), UNCLAMPED
+    (cam3's gated study_0000 starts at frame −20: a 00:00:00 trim against a
+    00:00:02 recording start). Verified against all five corridor dump metas."""
+    from backend.database import list_trims
+    trims = list_trims(project_id, intersection_id)
+    conn = get_connection(project_id)
+    conn.row_factory = sqlite3.Row
+    try:
+        cams = conn.execute(
+            "SELECT camera_id, label FROM cameras WHERE intersection_id = ? "
+            "ORDER BY sort_order, camera_id", (intersection_id,)).fetchall()
+        out: list[dict] = []
+        for cam in cams:
+            video = _first_video(conn, cam["camera_id"])
+            if video is None:
+                continue
+            fps = float(video["fps"])
+            rec_start = datetime.fromisoformat(video["recording_start_datetime"])
+            for trim in trims:
+                t_start, t_end = _trim_datetimes(trim, rec_start)
+                out.append({
+                    "camera_id": cam["camera_id"],
+                    "camera_label": cam["label"],
+                    "trim_id": trim["trim_id"],
+                    "variant": f"study_{t_start.strftime('%H%M')}",
+                    "start_frame": int(round((t_start - rec_start).total_seconds() * fps)),
+                    "end_frame": int(round((t_end - rec_start).total_seconds() * fps)),
+                    "start_wallclock": trim["start_wallclock"],
+                    "end_wallclock": trim["end_wallclock"],
+                    "fps": fps,
+                })
+        return out
+    finally:
+        conn.close()
+
+
+def _camera_parquet(project_id: str, camera_id: int, variant: str) -> Path:
+    from backend.services.detection_cache import HASH_METHOD
+    conn = get_connection(project_id)
+    conn.row_factory = sqlite3.Row
+    try:
+        video = _first_video(conn, camera_id)
+    finally:
+        conn.close()
+    if video is None:
+        raise ValueError(f"camera {camera_id}: no video row")
+    # Prefer the persisted hash — plan_intersection runs on card open and a
+    # fresh 128 MiB hash per camera per view would make the card feel stuck.
+    if (video["content_hash"]
+            and video["content_hash_method"] == HASH_METHOD):
+        chash = video["content_hash"]
+    else:
+        chash, _ = compute_video_content_hash(
+            video["path"], file_size_bytes=video["file_size_bytes"],
+            total_frames=video["total_frames"])
+    return parquet_path(project_id, camera_id, chash, variant)
+
+
+def dump_status(pq: Path, start_frame: int, end_frame: int, fps: float) -> dict:
+    """Classify a pass-1 dump against a derived window: ready | partial |
+    missing | mismatch (coverage rule + completeness marker, plan doc §1)."""
+    tdir = tracks_dir(pq)
+    meta_p, count_p = tdir / "meta.json", tdir / "count.txt"
+    if not (meta_p.exists() and count_p.exists() and (tdir / "rows.npy").exists()):
+        return {"status": "missing"}
+    meta = json.loads(meta_p.read_text())
+    f_lo, f_hi = meta.get("frames", [None, None])
+    slack = WINDOW_SLACK_SECONDS * fps
+    if f_lo is None or f_lo > start_frame + slack or f_hi < end_frame - slack:
+        return {"status": "mismatch", "frames": meta.get("frames")}
+    if meta.get("complete"):
+        return {"status": "ready", "frames": [f_lo, f_hi], "recipe": meta.get("backend")}
+    # Legacy dump (pre-marker): complete iff the last dumped row is near the
+    # window end. Empty-tail tolerance covers cam3's 118 s midnight gap.
+    try:
+        n = int(count_p.read_text())
+        rows = np.load(tdir / "rows.npy", mmap_mode="r")
+        last_frame = int(rows[n - 1, 1]) if n else f_lo
+    except Exception:
+        return {"status": "partial", "frames": [f_lo, f_hi]}
+    if last_frame >= f_hi - LEGACY_COMPLETE_TAIL_SECONDS * fps:
+        return {"status": "ready", "frames": [f_lo, f_hi], "recipe": meta.get("backend")}
+    return {"status": "partial", "frames": [f_lo, f_hi], "last_frame": last_frame}
+
+
+def plan_intersection(project_id: str, intersection_id: int,
+                      workdir: str | Path) -> list[dict]:
+    """The card's two-pass readiness view: each derived window + cache/dump/
+    pass-2 status. pass2 'current' = a reuse sidecar that matches BOTH the
+    dump meta and the live calibration fingerprint."""
+    from backend.services.detection_cache import cache_exists
+    workdir = Path(workdir)
+    plan = derive_windows(project_id, intersection_id)
+    fp_cache: dict[int, str] = {}
+    for w in plan:
+        cid = w["camera_id"]
+        try:
+            pq = _camera_parquet(project_id, cid, w["variant"])
+        except (ValueError, OSError):
+            # no video row / video file unreadable — everything's missing
+            w.update(cache="missing", dump={"status": "missing"}, pass2="missing")
+            continue
+        w["cache"] = "ready" if cache_exists(pq) else "missing"
+        w["dump"] = dump_status(pq, w["start_frame"], w["end_frame"], w["fps"])
+        stats_p = workdir / f"twopass_cam{cid}_{w['variant']}.stats.json"
+        w["pass2"] = "missing"
+        if stats_p.exists() and w["dump"]["status"] == "ready":
+            try:
+                prior = json.loads(stats_p.read_text())
+                meta = json.loads((tracks_dir(pq) / "meta.json").read_text())
+                if cid not in fp_cache:
+                    fp_cache[cid] = calib_fingerprint(project_id, cid)
+                if (prior.get("dump_meta") == meta
+                        and prior.get("calib_fingerprint") == fp_cache[cid]):
+                    w["pass2"] = "current"
+                else:
+                    w["pass2"] = "stale"
+            except Exception:
+                w["pass2"] = "stale"
+    return plan
+
 
 def _dump_tracks_pointlists(rows: np.ndarray) -> list[list[tuple]]:
     """Group dump rows into per-track point lists (build_bank input shape)."""
@@ -57,23 +251,33 @@ def _dump_tracks_pointlists(rows: np.ndarray) -> list[list[tuple]]:
 def run_pass1(project_id: str, camera_id: int, *, variant: str,
               start_frame: int, end_frame: int, backend: str | None = None,
               resume: bool = True, progress=None) -> dict:
-    """Pass 1: raw-track dump for one camera window from its detection cache —
-    the productized core of scripts/dump_raw_tracks.py (the CLI wraps this).
-    Semantics-free: no legs, channels, or classification; live-parity tracking
-    input (per-camera pre-track NMS -> bbox buffer -> tracker, full frame
-    schedule incl. empty updates — the A2 tier-1 lessons).
+    """Pass 1: raw-track dump for one camera window — the productized core of
+    scripts/dump_raw_tracks.py (the CLI wraps this). Semantics-free: no legs,
+    channels, or classification; live-parity tracking input (per-camera
+    pre-track NMS -> bbox buffer -> tracker, full frame schedule incl. empty
+    updates — the A2 tier-1 lessons).
+
+    Detection source (stage 3.4): the variant's detection cache when it
+    exists; otherwise DETECT-AT-INGEST — decode the window once, detect with
+    the project's processing-mode config, write-through the cache in closed
+    ~15-min parquet chunks (crash-resumable; a ParquetWriter file without its
+    footer is unreadable), and merge to the variant parquet at completion.
+    First run = detect+cache+dump; re-runs = pass 2 only.
 
     backend: None -> the camera's calib_pass1_backend (default bytetrack).
     'botsort+reid' loads the pre-built ReID sidecar (build_reid_cache);
     missing sidecar is an actionable error, not an implicit hours-long build.
-    resume: continue from the count.txt high-water mark when the existing
-    dump's recipe matches (recipe mismatch = hard error)."""
+    resume: continue from the high-water mark when the existing dump's recipe
+    matches (recipe mismatch = hard error). Every resume warms the tracker
+    over the preceding ~PASS1_SEAM_WARMUP_SECONDS so the seam doesn't
+    truncate tracks mid-intersection (the §2c edge-padding problem, at seams;
+    ID reuse across the seam is handled downstream by the finalize-gap)."""
     import numpy as _np
     from numpy.lib.format import open_memmap
 
     from backend.config import PRE_TRACK_NMS_IOU
     from backend.database import get_camera_calibration_params
-    from backend.services.detection_cache import DetectionCacheReader
+    from backend.services.detection_cache import cache_exists
     from backend.services.pipeline import _class_agnostic_nms
     from backend.services.tracker import create_tracker_backend
 
@@ -86,14 +290,10 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
     if video is None:
         raise ValueError(f"camera {camera_id}: no video row")
     fps = float(video["fps"])
-    chash, _ = compute_video_content_hash(
+    chash, hash_method = compute_video_content_hash(
         video["path"], file_size_bytes=video["file_size_bytes"],
         total_frames=video["total_frames"])
     pq = parquet_path(project_id, camera_id, chash, variant)
-    if not pq.exists():
-        raise FileNotFoundError(
-            f"no detection cache at {pq} — run a processing pass first "
-            f"(the pipeline writes the cache as it detects)")
     out = tracks_dir(pq)
 
     calib = get_camera_calibration_params(project_id, camera_id)
@@ -137,15 +337,10 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         "nms_iou": nms_iou, "new_track_thresh": ntt,
         "activation": activation, "match": match, "bbox_buffer": buf,
     }
-    reader = DetectionCacheReader(pq)
-    n_dets = sum(len(d) for f, d in reader.iter_frames()
-                 if start_frame <= f < end_frame)
-    cap_rows = int(n_dets * 1.2) + 1000
-
     out.mkdir(parents=True, exist_ok=True)
-    w = 0
-    resume_from = start_frame
-    if resume and (out / "rows.npy").exists() and (out / "count.txt").exists():
+    warm_frames = int(PASS1_SEAM_WARMUP_SECONDS * fps)
+
+    def _check_resume_meta():
         old_meta = json.loads((out / "meta.json").read_text())
         mismatches = [k for k in ("format", "frames", "backend", "nms_iou",
                                   "activation", "match", "bbox_buffer")
@@ -154,30 +349,31 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
             raise ValueError(
                 f"pass-1 resume: existing dump differs on {mismatches} — "
                 f"delete {out} to start over")
-        mm = open_memmap(out / "rows.npy", mode="r+")
-        w0 = int((out / "count.txt").read_text())
-        if w0 > 0:
-            f_last = int(mm[w0 - 1, 1])
-            w = w0
-            while w > 0 and int(mm[w - 1, 1]) == f_last:
-                w -= 1
-            resume_from = f_last
-    else:
-        mm = open_memmap(out / "rows.npy", mode="w+", dtype=_np.float32,
-                         shape=(cap_rows, 8))
-    (out / "meta.json").write_text(json.dumps(meta, indent=2))
 
-    reader_iter = DetectionCacheReader(pq).iter_frames()
-    nxt = next(reader_iter, None)
-    done = 0
-    for fidx in range(resume_from, end_frame):
-        while nxt is not None and nxt[0] < fidx:
-            nxt = next(reader_iter, None)
-        if nxt is not None and nxt[0] == fidx:
-            dets = nxt[1]
-            nxt = next(reader_iter, None)
-        else:
-            dets = []
+    # Shared per-frame step: NMS -> bbox buffer -> tracker -> dump rows.
+    # write=False = warm-up (tracker state only, nothing persisted).
+    state = {"mm": None, "w": 0}
+
+    def _grow_rows(extra: int) -> None:
+        """rows.npy capacity is an estimate; grow by copy when it falls short
+        (the ingest path has no detection count to estimate from)."""
+        import os
+        mm = state["mm"]
+        if state["w"] + extra <= mm.shape[0]:
+            return
+        new_cap = max(mm.shape[0] * 2, state["w"] + extra + 1000)
+        mm.flush(); del mm
+        state["mm"] = None
+        tmp = out / "rows_grow.npy"
+        new = open_memmap(tmp, mode="w+", dtype=_np.float32, shape=(new_cap, 8))
+        old = open_memmap(out / "rows.npy", mode="r")
+        new[:state["w"]] = old[:state["w"]]
+        del old
+        new.flush(); del new
+        os.replace(tmp, out / "rows.npy")
+        state["mm"] = open_memmap(out / "rows.npy", mode="r+")
+
+    def _step(fidx: int, dets: list, write: bool = True) -> None:
         if nms_iou is not None and len(dets) > 1:
             dets = _class_agnostic_nms(dets, float(nms_iou))
         if buf != 1.0 and dets:
@@ -189,24 +385,222 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
                 d = dict(d); d["bbox"] = [cx - hw, cy - hh, cx + hw, cy + hh]
                 inflated.append(d)
             dets = inflated
-        for t in be.update(dets, fidx):
-            if w >= mm.shape[0]:
-                raise RuntimeError(f"pass-1 row capacity {mm.shape[0]} exceeded")
+        tracks = be.update(dets, fidx)
+        if not write:
+            return
+        _grow_rows(len(tracks))
+        mm = state["mm"]
+        for t in tracks:
             cx, cy = t["center"]
-            mm[w] = (float(t["track_id"]), float(fidx), float(cx), float(cy),
-                     float(t.get("bbox_width", 0.0)), float(t.get("bbox_height", 0.0)),
-                     float(t.get("confidence", 0.0)), float(t.get("class_id", -1)))
-            w += 1
+            mm[state["w"]] = (
+                float(t["track_id"]), float(fidx), float(cx), float(cy),
+                float(t.get("bbox_width", 0.0)), float(t.get("bbox_height", 0.0)),
+                float(t.get("confidence", 0.0)), float(t.get("class_id", -1)))
+            state["w"] += 1
+
+    if cache_exists(pq):
+        _pass1_from_cache(
+            pq, out, meta, start_frame, end_frame, warm_frames, resume,
+            progress, state, _step, _check_resume_meta, open_memmap, _np)
+    else:
+        _pass1_ingest(
+            project_id, video, chash, hash_method, pq, out, meta, fps,
+            start_frame, end_frame, warm_frames, resume, progress, state,
+            _step, _check_resume_meta, open_memmap, _np)
+
+    mm = state["mm"]
+    mm.flush(); del mm
+    state["mm"] = None
+    (out / "count.txt").write_text(str(state["w"]))
+    # Positive completeness marker (plan doc §1): nothing else distinguishes a
+    # finished dump from an interrupted one (count.txt updates mid-run). The
+    # start-of-run meta write deliberately omits it, so a resumed dump reads
+    # incomplete until this line runs.
+    meta["complete"] = True
+    (out / "meta.json").write_text(json.dumps(meta, indent=2))
+    return {"camera_id": camera_id, "variant": variant, "recipe": recipe,
+            "rows": state["w"], "frames": [start_frame, end_frame],
+            "tracks_dir": str(out)}
+
+
+def _pass1_from_cache(pq, out, meta, start_frame, end_frame, warm_frames,
+                      resume, progress, state, step, check_resume_meta,
+                      open_memmap, _np) -> None:
+    """Pass-1 tracking over an existing detection-cache parquet (the original
+    stage-3.3 path, plus the resume seam warm-up)."""
+    from backend.services.detection_cache import DetectionCacheReader
+
+    reader = DetectionCacheReader(pq)
+    n_dets = sum(len(d) for f, d in reader.iter_frames()
+                 if start_frame <= f < end_frame)
+    cap_rows = int(n_dets * 1.2) + 1000
+
+    resume_from = start_frame
+    if resume and (out / "rows.npy").exists() and (out / "count.txt").exists():
+        check_resume_meta()
+        mm = open_memmap(out / "rows.npy", mode="r+")
+        w0 = int((out / "count.txt").read_text())
+        if w0 > 0:
+            f_last = int(mm[w0 - 1, 1])
+            w = w0
+            while w > 0 and int(mm[w - 1, 1]) == f_last:
+                w -= 1
+            state["w"] = w
+            resume_from = f_last
+        state["mm"] = mm
+    if state["mm"] is None:
+        state["mm"] = open_memmap(out / "rows.npy", mode="w+",
+                                  dtype=_np.float32, shape=(cap_rows, 8))
+    (out / "meta.json").write_text(json.dumps(meta, indent=2))
+
+    # Warm the tracker over the seam so resumed tracks aren't born cold at
+    # the boundary (rows before resume_from are already in the dump).
+    loop_start = resume_from
+    if resume_from > start_frame:
+        loop_start = max(start_frame, resume_from - warm_frames)
+
+    reader_iter = DetectionCacheReader(pq).iter_frames()
+    nxt = next(reader_iter, None)
+    done = 0
+    for fidx in range(loop_start, end_frame):
+        while nxt is not None and nxt[0] < fidx:
+            nxt = next(reader_iter, None)
+        if nxt is not None and nxt[0] == fidx:
+            dets = nxt[1]
+            nxt = next(reader_iter, None)
+        else:
+            dets = []
+        step(fidx, dets, write=(fidx >= resume_from))
         done += 1
         if done % 5000 == 0:
-            mm.flush()
-            (out / "count.txt").write_text(str(w))
+            state["mm"].flush()
+            (out / "count.txt").write_text(str(state["w"]))
             if progress:
-                progress(done, end_frame - resume_from, w)
-    mm.flush(); del mm
-    (out / "count.txt").write_text(str(w))
-    return {"camera_id": camera_id, "variant": variant, "recipe": recipe,
-            "rows": w, "frames": [start_frame, end_frame], "tracks_dir": str(out)}
+                progress(done, end_frame - loop_start, state["w"])
+
+
+def _pass1_ingest(project_id, video, chash, hash_method, pq, out, meta, fps,
+                  start_frame, end_frame, warm_frames, resume, progress,
+                  state, step, check_resume_meta, open_memmap, _np) -> None:
+    """Detect-at-ingest: no cache for this variant — decode the window ONCE,
+    detect with the project's processing-mode config, write-through the cache
+    in closed per-chunk parquet parts (resume at chunk granularity; a crashed
+    ParquetWriter file has no footer and is unreadable), track+dump in the
+    same pass, merge parts -> the variant parquet at completion."""
+    import cv2
+
+    from backend.config import DEFAULT_PROCESSING_MODE, get_processing_mode_config
+    from backend.database import get_project_info
+    from backend.services.detection_cache import (
+        DetectionCacheReader, DetectionCacheWriter)
+
+    mode_name = (get_project_info(project_id, "processing_mode")
+                 or DEFAULT_PROCESSING_MODE)
+    cfg = get_processing_mode_config(mode_name)
+    skip = int(cfg.get("detection_skip") or 1)
+    chunk_frames = max(1, int(PASS1_INGEST_CHUNK_SECONDS * fps))
+    n_chunks = max(1, -(-(end_frame - start_frame) // chunk_frames))
+
+    def part_path(k: int) -> Path:
+        return pq.with_name(f"{pq.stem}.part{k:05d}.parquet")
+
+    # Resume point = the first chunk whose part is missing or unreadable.
+    k0 = 0
+    for k in range(n_chunks):
+        p = part_path(k)
+        if not p.exists():
+            break
+        try:
+            DetectionCacheReader(p)
+        except Exception:
+            break
+        k0 = k + 1
+    resume_from = start_frame + k0 * chunk_frames
+    if (k0 and resume and (out / "rows.npy").exists()
+            and (out / "count.txt").exists()):
+        check_resume_meta()
+        mm = open_memmap(out / "rows.npy", mode="r+")
+        # Truncate to rows strictly before the resume chunk: count.txt is
+        # written after the part closes, so a crash between the two leaves
+        # either stale count (no-op here) or rows past the last closed part
+        # (dropped here) — both orders reconverge.
+        w = int((out / "count.txt").read_text())
+        while w > 0 and int(mm[w - 1, 1]) >= resume_from:
+            w -= 1
+        state["mm"], state["w"] = mm, w
+    else:
+        k0 = 0
+        resume_from = start_frame
+        for k in range(n_chunks):
+            part_path(k).unlink(missing_ok=True)
+        cap_rows = (end_frame - start_frame) * 8 + 1000
+        state["mm"] = open_memmap(out / "rows.npy", mode="w+",
+                                  dtype=_np.float32, shape=(cap_rows, 8))
+        state["w"] = 0
+    (out / "meta.json").write_text(json.dumps(meta, indent=2))
+
+    # Seam warm-up from the tail of the last closed part.
+    if k0 > 0:
+        warm_from = max(start_frame, resume_from - warm_frames)
+        rd = DetectionCacheReader(part_path(k0 - 1)).iter_frames()
+        nxt = next(rd, None)
+        for fidx in range(warm_from, resume_from):
+            while nxt is not None and nxt[0] < fidx:
+                nxt = next(rd, None)
+            if nxt is not None and nxt[0] == fidx:
+                dets = nxt[1]
+                nxt = next(rd, None)
+            else:
+                dets = []
+            step(fidx, dets, write=False)
+
+    from backend.services.detector import VehicleDetector
+    detector = VehicleDetector(model_path=cfg["yolo_model"],
+                               imgsz=cfg["yolo_imgsz"],
+                               confidence=cfg["yolo_confidence"])
+    cap = cv2.VideoCapture(video["path"])
+    try:
+        decode_from = max(0, resume_from)
+        if decode_from:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, decode_from)
+        done, total = 0, end_frame - resume_from
+        for k in range(k0, n_chunks):
+            c_lo = start_frame + k * chunk_frames
+            c_hi = min(end_frame, c_lo + chunk_frames)
+            writer = DetectionCacheWriter(pq_path=part_path(k), metadata={})
+            for fidx in range(c_lo, c_hi):
+                dets = []
+                if fidx >= 0:                      # pre-recording frames (cam3
+                    ok, frame = cap.read()         # -20 case) don't exist
+                    if ok and fidx % skip == 0:
+                        dets = detector.detect(frame)
+                        writer.add(fidx, dets)     # cache stays raw, pre-NMS
+                step(fidx, dets)
+                done += 1
+                if progress and done % 200 == 0:
+                    progress(done, total, state["w"])
+            state["mm"].flush()
+            (out / "count.txt").write_text(str(state["w"]))
+            writer.close()
+    finally:
+        cap.release()
+
+    # Merge closed parts -> the variant parquet + provenance sidecar (the
+    # same shape the live pipeline's write-through produces, plus windows).
+    merged = DetectionCacheWriter(pq_path=pq, metadata={
+        "camera_id": int(video["camera_id"]), "content_hash": chash,
+        "method": hash_method, "model": cfg["yolo_model"],
+        "imgsz": cfg["yolo_imgsz"], "confidence": cfg["yolo_confidence"],
+        "detection_skip": skip,
+        "windows": [[start_frame, end_frame]]})
+    for k in range(n_chunks):
+        for fidx, dets in DetectionCacheReader(part_path(k)).iter_frames():
+            merged.add(fidx, dets)
+    merged.close()
+    for k in range(n_chunks):
+        p = part_path(k)
+        p.unlink(missing_ok=True)
+        p.with_suffix(".meta.json").unlink(missing_ok=True)
 
 
 def _apply_window_events(proj_db: Path, out_db: Path, camera_id: int,
@@ -273,14 +667,19 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     # --- 0. reuse: a prior compute of THIS dump is still valid ----------------
     # (apply=True used to recompute the whole pass-2 — 2x wall time for
     # nothing when the working DB was just measured. The stats sidecar records
-    # the dump meta; matching meta = identical inputs = reuse.)
+    # the dump meta AND the calibration fingerprint; matching both = identical
+    # inputs = reuse. The fingerprint closes the stage-3.3 known limitation:
+    # an operator calibration/bank/channel edit now invalidates the sidecar.
+    # Legacy sidecars lack the key -> recompute once, then carry it.)
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
+    fingerprint = calib_fingerprint(project_id, camera_id)
     out_db = workdir / f"twopass_cam{camera_id}_{variant}.db"
     stats_p = workdir / f"twopass_cam{camera_id}_{variant}.stats.json"
     if out_db.exists() and stats_p.exists():
         prior = json.loads(stats_p.read_text())
-        if prior.get("dump_meta") == meta:
+        if (prior.get("dump_meta") == meta
+                and prior.get("calib_fingerprint") == fingerprint):
             logger.info("two-pass cam%s %s: reusing computed working DB", camera_id, variant)
             result = prior["result"]
             result["reused"] = True
@@ -329,7 +728,9 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         "borderline": merge["borderline"], "out_db": str(out_db),
         "applied": False,
     }
-    stats_p.write_text(json.dumps({"dump_meta": meta, "result": result},
+    stats_p.write_text(json.dumps({"dump_meta": meta,
+                                   "calib_fingerprint": fingerprint,
+                                   "result": result},
                                   default=str, indent=1))
     if not apply:
         return result

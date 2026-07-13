@@ -58,10 +58,11 @@ class Pass1Body(BaseModel):
 
 
 class ProcessBody(BaseModel):
-    # One entry per camera of the intersection: which dump window to count.
-    # (Trim->window derivation is the stage-3.4 ingest generalization; today
-    # the operator/driver names the windows, the corridor's study_* pattern.)
-    windows: dict[int, str]            # camera_id -> variant
+    # Explicit camera_id -> variant map (the stage-3.3 dev/driver form), or
+    # None -> derive the windows from the card's trims (stage 3.4: the
+    # operator surface — variant/frames come from the trim→window contract,
+    # and missing dumps are produced first, detect-at-ingest included).
+    windows: dict[int, str] | None = None
     apply: bool = True
 
 
@@ -147,16 +148,54 @@ def post_pass1(project_id: str, camera_id: int, body: Pass1Body):
 
 def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
     from backend.database import set_v3_run_state
-    from backend.services.two_pass import run_pass2
+    from backend.services.two_pass import plan_intersection, run_pass1, run_pass2
     key = (project_id, f"i{intersection_id}")
-    results, failed = [], None
+    workdir = PROJECTS_DIR / project_id / "two_pass"
+    results = []
     try:
         set_v3_run_state(project_id, intersection_id, "running")
-        workdir = PROJECTS_DIR / project_id / "two_pass"
-        for camera_id, variant in body.windows.items():
+        if body.windows:
+            # Explicit windows (dev form): dumps must already exist —
+            # run_pass2 errors actionably when they don't.
+            work: list[dict] = [{"camera_id": int(c), "variant": v}
+                                for c, v in body.windows.items()]
+        else:
+            work = plan_intersection(project_id, intersection_id, workdir)
+            if not work:
+                raise ValueError("nothing to process — the card needs trims "
+                                 "and at least one camera with video")
+        for item in work:
+            camera_id, variant = item["camera_id"], item["variant"]
             with _lock:
-                _jobs[key]["current_camera"] = camera_id
-            res = run_pass2(project_id, int(camera_id), variant=variant,
+                _jobs[key].update(current_camera=camera_id,
+                                  current_variant=variant, stage=None)
+            dump = (item.get("dump") or {}).get("status")
+            if dump == "mismatch":
+                raise ValueError(
+                    f"camera {camera_id} {variant}: the existing dump does not "
+                    f"cover the trim window {item['start_frame']}–"
+                    f"{item['end_frame']} — delete the dump or fix the trim")
+            if dump in ("missing", "partial"):
+                # Pass 1 first (detect-at-ingest when the cache is missing
+                # too); partial dumps resume with the seam warm-up.
+                with _lock:
+                    _jobs[key]["stage"] = "pass1"
+
+                def _prog(done, total, points, _c=camera_id, _v=variant):
+                    with _lock:
+                        j = _jobs.get(key)
+                        if j is not None:
+                            j["progress"] = {"camera": _c, "variant": _v,
+                                             "frames": done, "total": total,
+                                             "points": points}
+
+                run_pass1(project_id, camera_id, variant=variant,
+                          start_frame=item["start_frame"],
+                          end_frame=item["end_frame"],
+                          resume=True, progress=_prog)
+            with _lock:
+                _jobs[key]["stage"] = "pass2"
+            res = run_pass2(project_id, camera_id, variant=variant,
                             workdir=workdir, apply=body.apply)
             results.append(res)
         set_v3_run_state(project_id, intersection_id, "complete")
@@ -165,7 +204,7 @@ def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
                           "results": results}
     except Exception as exc:
         logger.exception("two-pass process i%s failed", intersection_id)
-        set_v3_run_state(project_id, intersection_id, "error")
+        set_v3_run_state(project_id, intersection_id, "error", str(exc))
         with _lock:
             _jobs[key] = {"status": "error", "kind": "process", "error": str(exc),
                           "completed": results}
@@ -173,14 +212,18 @@ def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
 
 @router.post("/projects/{project_id}/intersections/{intersection_id}/two-pass/process")
 def post_two_pass_process(project_id: str, intersection_id: int, body: ProcessBody):
-    """The two-pass 'Confirm & process': pass 2 (+ apply + QA rebuild) for each
-    named camera window of the intersection, sequentially, with progress via
-    v3_run_state — the same status surface the card UI already polls."""
+    """The two-pass 'Confirm & process': for each camera window (named, or
+    derived from the card's trims when body.windows is absent) ensure the
+    pass-1 dump exists (detect-at-ingest for cache-less footage), then pass 2
+    (+ apply + QA rebuild), sequentially, with progress via v3_run_state —
+    the same status surface the card UI already polls."""
     _require_enabled()
-    for camera_id in body.windows:
+    for camera_id in (body.windows or {}):
         if _require_camera(project_id, int(camera_id)) != intersection_id:
             raise HTTPException(status_code=409,
                 detail=f"camera {camera_id} is not on intersection {intersection_id}")
+    if body.windows is None:
+        _require_intersection(project_id, intersection_id)
     key = (project_id, f"i{intersection_id}")
     with _lock:
         if _jobs.get(key, {}).get("status") == "running":
@@ -195,3 +238,32 @@ def post_two_pass_process(project_id: str, intersection_id: int, body: ProcessBo
 def get_two_pass_process_status(project_id: str, intersection_id: int):
     _require_enabled()
     return _jobs.get((project_id, f"i{intersection_id}"), {"status": "idle"})
+
+
+def _require_intersection(project_id: str, intersection_id: int) -> None:
+    project_dir = PROJECTS_DIR / project_id
+    if not project_dir.exists() or not (project_dir / "project.db").exists():
+        raise HTTPException(status_code=404, detail="Project not found")
+    conn = get_connection(project_id)
+    try:
+        row = conn.execute(
+            "SELECT intersection_id FROM intersections WHERE intersection_id = ?",
+            (intersection_id,)).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        raise HTTPException(status_code=404,
+                            detail=f"intersection {intersection_id} not found")
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/two-pass/plan")
+def get_two_pass_plan(project_id: str, intersection_id: int):
+    """The card's two-pass readiness view (stage 3.4): each derived window
+    (trim→window contract) + cache/dump/pass-2 status. 404 when the flag is
+    off — the frontend uses that as its feature probe and falls back to the
+    legacy flow untouched."""
+    _require_enabled()
+    _require_intersection(project_id, intersection_id)
+    from backend.services.two_pass import plan_intersection
+    workdir = PROJECTS_DIR / project_id / "two_pass"
+    return {"windows": plan_intersection(project_id, intersection_id, workdir)}
