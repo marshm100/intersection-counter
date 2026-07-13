@@ -38,9 +38,12 @@
   .py edit mid-job restarts the worker and kills the job thread.
 - Legacy flow verified untouched when the flag is off (404-probe pattern;
   test-gated).
-- **Not done here (deliberate):** flipping the default in code — this note
-  is the input to that flip; do it as its own commit with the flag-off
-  regression suite green.
+- **Default FLIPPED ON (same day, follow-up commit):** `TWO_PASS_ENABLED`
+  now defaults ON; `TWO_PASS_ENABLED=0` is the supported fallback to the
+  legacy live pipeline (untouched, still test-gated via explicit
+  monkeypatch-off tests). Full suite green both ways (714 passed each; the
+  one failure is the pre-existing OpenVINO `test_detect_batch`, identical
+  on the clean tree).
 
 Follow-on to `plan_A4_stage3_2026-07-10` (stage 3.3 DONE — endpoints were the
 dry-run surface; this stage makes the CARD the surface). MASTER_PLAN §4 item 6.

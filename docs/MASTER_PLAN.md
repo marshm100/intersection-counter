@@ -508,9 +508,10 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    detect+cache+dump in chunked resumable parts; ~90 s tracker seam warm-up). OPERATOR
    DRY-RUN PASSED on intersection 2: UI-only trims→process→apply reproduced the shipped
    counts EXACTLY (5230/3903/6701, Δ0), backups + fingerprinted sidecars + flag queue +
-   export gate all live. **Verdict: GO — flip `TWO_PASS_ENABLED` default ON as its own
-   commit.** Residuals (API starvation during bank build, S5 last-window-only, no
-   two-pass cancel) are §4-7 C-stage items, listed in the plan doc.
+   export gate all live. **Verdict: GO — and DONE: `TWO_PASS_ENABLED` defaults ON
+   (2026-07-13); `TWO_PASS_ENABLED=0` reverts to the legacy pipeline.** Residuals (API
+   starvation during bank build, S5 last-window-only, no two-pass cancel) are §4-7
+   C-stage items, listed in the plan doc.
 7. **C review UX polish** — the worklist works (cards, batch keys); polish = the stopping
    rule surfacing + batch-card ergonomics, driven by the dry-run's feedback.
 8. **The attribution walls (research):** cam2 NB-left 0.32 and the EB thru/right collinear

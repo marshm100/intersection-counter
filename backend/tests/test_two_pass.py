@@ -32,9 +32,12 @@ def proj():
 
 
 class TestTwoPassGate:
-    def test_disabled_by_default_404(self, proj):
-        # TWO_PASS_ENABLED defaults OFF: the legacy flow must be untouched and
-        # the endpoints invisible.
+    def test_disabled_404(self, proj, monkeypatch):
+        # With the flag off (default flipped ON 2026-07-13 post-dry-run; the
+        # off-mode remains the supported fallback) the legacy flow must be
+        # untouched and the endpoints invisible.
+        import backend.routers.two_pass as tp
+        monkeypatch.setattr(tp, "TWO_PASS_ENABLED", False)
         pid, cid = proj
         r = client.post(f"/api/projects/{pid}/cameras/{cid}/two-pass/run",
                         json={"variant": "study_0700"})
@@ -89,7 +92,9 @@ class TestWindowScopedApply:
 
 
 class TestStage33Endpoints:
-    def test_pass1_and_process_disabled_404(self, proj):
+    def test_pass1_and_process_disabled_404(self, proj, monkeypatch):
+        import backend.routers.two_pass as tp
+        monkeypatch.setattr(tp, "TWO_PASS_ENABLED", False)
         pid, cid = proj
         r = client.post(f"/api/projects/{pid}/cameras/{cid}/two-pass/pass1",
                         json={"variant": "v", "start_frame": 0, "end_frame": 10})

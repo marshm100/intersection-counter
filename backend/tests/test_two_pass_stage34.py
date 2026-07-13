@@ -288,7 +288,9 @@ class TestDetectAtIngest:
 
 
 class TestStage34Endpoints:
-    def test_plan_404_when_disabled(self, proj):
+    def test_plan_404_when_disabled(self, proj, monkeypatch):
+        import backend.routers.two_pass as tpr
+        monkeypatch.setattr(tpr, "TWO_PASS_ENABLED", False)
         iid, cid = _mk_cam(proj)
         r = client.get(f"/api/projects/{proj}/intersections/{iid}/two-pass/plan")
         assert r.status_code == 404
