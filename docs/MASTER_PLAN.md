@@ -247,7 +247,7 @@ The §2c architecture went from plan to product in one week. Full trail:
 | 1 | 8.7% | **7.6%** | APPLIED (07–09; NB 13.3→5.9) |
 | 2 | 9.8% (30 min only) | **8.1%** | APPLIED full study day; SB-right recall 0.58→**1.07** (the #1 corridor deficit, fixed); net −8.8% honest vs +1.5% cancellation-flattered |
 | 5 | 8.7% | **7.1%** | APPLIED |
-| 3 | **3.2%** | 7.5% | HOLD — the dump ran bytetrack but cam3's knobs (ntt=0.18) are botsort-tuned; recipe corrected, re-dump in flight, re-gate next session |
+| 3 | **3.2%** | **3.2%** | APPLIED full day (2026-07-13 re-gate on the botsort dump: tier-1 |Δ|=0 AND tier-2 vs live |Δ|=0 — the recipe diagnosis exact; gate met to the decimal) |
 | 4 | 4.6% | 5.1% | HOLD (pre-declared) — leg-34 calibration defect (calibrated 119°, traffic enters 267°); operator review, not pipeline work |
 
 - **Blind QA validated end-to-end:** the retrospective's reachable targets are
