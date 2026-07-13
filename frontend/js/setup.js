@@ -408,6 +408,7 @@ async function _renderIntersectionDetail(host) {
     ).join('') + '</div>';
 
     html += `<div id="v3-detail-subcontent"></div>`;
+    html += `<div id="v3-twopass-plan"></div>`;
     html += `<div class="isect-detail-footer">
         <button class="btn-confirm-process" onclick="v3ConfirmProcess()">Confirm &amp; process</button>
         <button class="btn-secondary" onclick="v3CloseIntersection()">Done</button>
@@ -415,6 +416,69 @@ async function _renderIntersectionDetail(host) {
     host.innerHTML = html;
 
     await _renderDetailSubTab();
+    _renderTwoPassPlan();   // fire-and-forget; empty when the flag is off
+}
+
+// --- Two-pass readiness (stage 3.4) -------------------------------------
+//
+// The plan endpoint 404s when TWO_PASS_ENABLED is off — that 404 is the
+// feature probe, so the legacy surface stays bit-for-bit untouched.
+
+function _tpBadge(txt, kind) {
+    const c = ({ ok: ['#166534', '#dcfce7'], warn: ['#92400e', '#fef3c7'],
+                 bad: ['#991b1b', '#fee2e2'], dim: ['#475569', '#f1f5f9'] })[kind]
+              || ['#475569', '#f1f5f9'];
+    return `<span style="display:inline-block;padding:0 7px;border-radius:8px;
+        font-size:11px;font-weight:700;color:${c[0]};background:${c[1]};">${txt}</span>`;
+}
+
+function _tpDumpBadge(w) {
+    const s = (w.dump && w.dump.status) || 'missing';
+    if (s === 'ready') return _tpBadge('pass-1 ready', 'ok');
+    if (s === 'partial') return _tpBadge('pass-1 partial — will resume', 'warn');
+    if (s === 'mismatch') return _tpBadge('dump/trim mismatch', 'bad');
+    return w.cache === 'ready'
+        ? _tpBadge('pass-1 needed (from cache)', 'warn')
+        : _tpBadge('pass-1 needed (detect at ingest)', 'warn');
+}
+
+function _tpPass2Badge(w) {
+    if (w.pass2 === 'current') return _tpBadge('pass-2 current', 'ok');
+    if (w.pass2 === 'stale') return _tpBadge('pass-2 stale — will re-run', 'dim');
+    return _tpBadge('pass-2 pending', 'dim');
+}
+
+async function _renderTwoPassPlan() {
+    const host = document.getElementById('v3-twopass-plan');
+    if (!host) return;
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    let plan;
+    try {
+        plan = await API.get(`/api/projects/${pid}/intersections/${iid}/two-pass/plan`);
+    } catch (e) {
+        return;   // flag off (404) or transient error — show nothing
+    }
+    const wins = plan.windows || [];
+    if (!wins.length) {
+        host.innerHTML = `<p class="helper-text" style="margin:8px 0 0;">
+            Two-pass: no processing windows yet — add the study periods in the
+            Clip trim tab; they become the count windows.</p>`;
+        return;
+    }
+    let html = `<div style="margin:10px 0 0;padding:8px 12px;border:1px solid #e2e8f0;
+        border-radius:6px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:4px;">Two-pass readiness</div>`;
+    for (const w of wins) {
+        html += `<div style="display:flex;gap:8px;align-items:center;font-size:12px;
+            padding:2px 0;">
+            <span style="min-width:220px;">Camera ${w.camera_id} · ${escapeHtml(w.variant)}
+                (${escapeHtml(w.start_wallclock)}–${escapeHtml(w.end_wallclock)})</span>
+            ${_tpDumpBadge(w)} ${_tpPass2Badge(w)}
+        </div>`;
+    }
+    html += `</div>`;
+    host.innerHTML = html;
 }
 
 async function v3SwitchDetailSubTab(tabId) {
@@ -1030,6 +1094,18 @@ async function v3DeleteTrim(tid) {
 async function v3ConfirmProcess() {
     const pid = AppState.currentProject;
     const iid = _v3OpenIntersectionId;
+
+    // Two-pass flow (stage 3.4) when the flag is on — the plan endpoint's
+    // 404 is the probe; on it, fall through to the legacy path unchanged.
+    let tpPlan = null;
+    try {
+        tpPlan = await API.get(`/api/projects/${pid}/intersections/${iid}/two-pass/plan`);
+    } catch (e) { tpPlan = null; }
+    if (tpPlan) {
+        await _v3ConfirmProcessTwoPass(pid, iid, tpPlan.windows || []);
+        return;
+    }
+
     let preflight;
     try {
         preflight = await API.post(
@@ -1063,6 +1139,48 @@ async function v3ConfirmProcess() {
     }
     alert('Processing started. Switch to the Processing tab to monitor progress.');
     v3CloseIntersection();
+    await v3SwitchTab('processing');
+}
+
+async function _v3ConfirmProcessTwoPass(pid, iid, wins) {
+    if (!wins.length) {
+        alert('Nothing to process yet — add the study periods in the Clip trim '
+              + 'tab first; they define the count windows.');
+        return;
+    }
+    const mism = wins.filter(w => w.dump && w.dump.status === 'mismatch');
+    if (mism.length) {
+        alert('Cannot process — an existing pass-1 dump does not cover its trim window:\n\n'
+              + mism.map(w => `  • Camera ${w.camera_id} ${w.variant}`).join('\n')
+              + '\n\nDelete the dump or fix the trim, then retry.');
+        return;
+    }
+    const lines = wins.map(w => {
+        const d = (w.dump && w.dump.status) || 'missing';
+        let step;
+        if (d === 'ready') {
+            step = w.pass2 === 'current'
+                ? 'pass 2 — cached result, re-apply (fast)'
+                : 'pass 2 — count from the existing dump (~minutes)';
+        } else if (w.cache === 'ready') {
+            step = 'pass 1 (track from cache) then pass 2';
+        } else {
+            step = 'pass 1 (DETECT + cache + track — can take hours) then pass 2';
+        }
+        return `  • Camera ${w.camera_id} — ${w.start_wallclock}–${w.end_wallclock}: ${step}`;
+    });
+    const msg = 'Two-pass processing plan:\n\n' + lines.join('\n')
+        + '\n\nCounts apply with a backup of the project database; the flag '
+        + 'queue rebuilds after each camera.\n\nStart now?';
+    if (!window.confirm(msg)) return;
+    try {
+        await API.post(`/api/projects/${pid}/intersections/${iid}/two-pass/process`, {});
+    } catch (e) {
+        alert(`Start failed: ${e.message || e}`);
+        return;
+    }
+    alert('Two-pass processing started. Track progress on the Processing tab.');
+    if (_v3OpenIntersectionId !== null) v3CloseIntersection();
     await v3SwitchTab('processing');
 }
 
@@ -1322,6 +1440,17 @@ async function v3StartProcessing(iid) {
     // preflight + confirm flow as v3ConfirmProcess so the user still
     // sees segment/camera/trim counts before committing.
     const pid = AppState.currentProject;
+
+    // Same two-pass probe as v3ConfirmProcess (404 = flag off -> legacy).
+    let tpPlan = null;
+    try {
+        tpPlan = await API.get(`/api/projects/${pid}/intersections/${iid}/two-pass/plan`);
+    } catch (e) { tpPlan = null; }
+    if (tpPlan) {
+        await _v3ConfirmProcessTwoPass(pid, iid, tpPlan.windows || []);
+        return;
+    }
+
     let preflight;
     try {
         preflight = await API.post(
