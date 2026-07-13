@@ -499,10 +499,18 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    reviewed with frame/track overlays — the calibration-defect theory is DEAD (artifact; details
    in the §2d row); its residual moves to item 8's attribution research. Corridor final: 4 of 5
    applied, cam4 honestly held on research, not operator debt.
-6. **Stage 3.4 — the operator surface.** Trim→window derivation (dumps keyed by trims, not
-   study_* names), the card UI button on v3_run_state, detection-at-ingest for cache-less
-   footage, dumper-job chunking with overlap. Then the OPERATOR DRY-RUN → decide flipping
-   `TWO_PASS_ENABLED` on by default.
+6. **Stage 3.4 — the operator surface. DONE 2026-07-13
+   (`plan_stage34_operator_surface_2026-07-13.md`).** Trim→window derivation (the contract
+   the corridor dumps already followed, now written down + test-fixed to their exact
+   numbers), pass-2 sidecar invalidation on a calibration FINGERPRINT (closes the
+   stage-3.3 known limitation), card UI (readiness badges + Confirm & process → two-pass
+   behind a 404-probe so flag-off is bit-for-bit legacy), detect-at-ingest (first run =
+   detect+cache+dump in chunked resumable parts; ~90 s tracker seam warm-up). OPERATOR
+   DRY-RUN PASSED on intersection 2: UI-only trims→process→apply reproduced the shipped
+   counts EXACTLY (5230/3903/6701, Δ0), backups + fingerprinted sidecars + flag queue +
+   export gate all live. **Verdict: GO — flip `TWO_PASS_ENABLED` default ON as its own
+   commit.** Residuals (API starvation during bank build, S5 last-window-only, no
+   two-pass cancel) are §4-7 C-stage items, listed in the plan doc.
 7. **C review UX polish** — the worklist works (cards, batch keys); polish = the stopping
    rule surfacing + batch-card ergonomics, driven by the dry-run's feedback.
 8. **The attribution walls (research):** cam2 NB-left 0.32 and the EB thru/right collinear

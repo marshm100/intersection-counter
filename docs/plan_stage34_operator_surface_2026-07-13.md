@@ -1,5 +1,47 @@
 # Plan — Stage 3.4: the operator surface (2026-07-13)
 
+**STATUS (same day): BUILT + DRY-RUN PASSED — RECOMMENDATION: GO on
+`TWO_PASS_ENABLED` by default.**
+
+- §1–§4 all shipped (commits 6fbe688 backend, 3a25bc5 card UI, 4a922c0
+  dry-run UI fixes; 20 tests incl. detect-at-ingest chunk-resume). Live
+  check: `derive_windows` reproduces all five gated corridor dump windows
+  exactly; intersection 1's card honestly reads study_0700 ready /
+  study_1600 pass-1-needed.
+- **Dry-run (§6) executed on intersection 2 (cam2), Playwright, flag ON:**
+  operator added the three study trims in the UI → readiness flipped to
+  3× "pass-1 ready / pass-2 pending" → Confirm & process → three pass-2
+  runs + applies + flag rebuilds, unattended. Evidence:
+  `screenshots/stage34_dryrun_01..07*.png`.
+- **Reproduction EXACT (the no-go criterion): per-window applied counts
+  5230/3903/6701, delta 0 vs the §2d shipped state**; three per-window
+  backups; sidecars carry the calib fingerprint (752a6ff4…, identical
+  across windows — same operator state); a re-open of the card reads
+  pass-2 CURRENT on all three windows (fingerprint reuse live). Flag queue
+  identical (891 open, S5 present); acceptance gate evaluates (fail on
+  pre-existing corridor QA state — the gate blocking export IS the design;
+  identical pre/post since data is bit-identical).
+- **Dry-run findings fixed in-flight:** stale readiness block after trim
+  edits; running chip rendered "Segment 1 of 0 · ETA NaNs" for two-pass
+  jobs (both in 4a922c0).
+- **Residuals (C-stage / small, none blocking):** (1) during a window's
+  corpus-bank build the API is CPU-starved for minutes — the Processing tab
+  can take >3 min to first render (it recovers; same single-process reality
+  as the legacy pipeline; screenshot 04 predates the chip fix for this
+  reason). (2) S5 merge-borderline flags reflect only the LAST window of a
+  multi-window apply (inherited from the cam2 full-day exercise mechanics,
+  not new). (3) The trim time-edit inputs call a PATCH endpoint that does
+  not exist (pre-existing; add trims works). (4) The stats sidecar records
+  the pre-apply result (`applied: false`) — apply evidence lives in
+  backups/project.db. (5) Two-pass jobs have no cancel (the chip's Cancel
+  targets the legacy path). (6) Ops note: dev server runs reload=True — a
+  .py edit mid-job restarts the worker and kills the job thread.
+- Legacy flow verified untouched when the flag is off (404-probe pattern;
+  test-gated).
+- **Not done here (deliberate):** flipping the default in code — this note
+  is the input to that flip; do it as its own commit with the flag-off
+  regression suite green.
+
 Follow-on to `plan_A4_stage3_2026-07-10` (stage 3.3 DONE — endpoints were the
 dry-run surface; this stage makes the CARD the surface). MASTER_PLAN §4 item 6.
 No accuracy mechanisms change here — frozen constants throughout; this is
