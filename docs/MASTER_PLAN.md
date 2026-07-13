@@ -1,7 +1,7 @@
 # MASTER PLAN — Intersection Counter
 
 **From a validated counting stack to an operator-ready Miovision replacement.**
-Living roadmap; supersedes nothing but consolidates everything. Last updated 2026-07-08.
+Living roadmap; supersedes nothing but consolidates everything. Last updated 2026-07-13.
 
 Companion docs (still authoritative for their topics):
 - `docs/architecture_research_2026-06-11.md` — why the approach is SOTA-sound
@@ -224,6 +224,52 @@ case. Details in the sweep results doc.
 
 ---
 
+## 2d. The two-pass shipping arc (2026-07-08 → 07-13) — AUTHORITATIVE STATUS
+
+The §2c architecture went from plan to product in one week. Full trail:
+`plan_twopass_productize_A` → `pass2_parity_A2` → `a4a_turn_merge_gate` →
+`cam2_fullday_twopass` → `plan_corridor_twopass` (all dated docs).
+
+- **Pass 1** (semantics-free raw-track dump, format v2) productized in
+  `backend/services/two_pass.run_pass1` with per-camera recipes
+  (`calib_pass1_backend`: cam1 botsort+reid, cam2/cam3 botsort, rest
+  bytetrack), live-parity tracking input, and resume. **Pass 2** (corpus
+  discovery → replay-classify on the APPLIED bank → volume-gated turn merge →
+  window-scoped apply → flag-queue rebuild with S5) behind `TWO_PASS_ENABLED`
+  (default OFF); endpoints are the dry-run surface.
+- **Fidelity proven:** replay-from-dump ≡ retrack-from-cache at |Δ| ≤ 2/cell
+  on all five cameras (three at |Δ| = 0). The gate caught and fixed two real
+  dumper divergences (pre-track NMS; the empty-frame tracker schedule).
+- **Corridor scoreboard (per-approach MAE, each camera's honest window):**
+
+| cam | live | two-pass | disposition |
+|---|---|---|---|
+| 1 | 8.7% | **7.6%** | APPLIED (07–09; NB 13.3→5.9) |
+| 2 | 9.8% (30 min only) | **8.1%** | APPLIED full study day; SB-right recall 0.58→**1.07** (the #1 corridor deficit, fixed); net −8.8% honest vs +1.5% cancellation-flattered |
+| 5 | 8.7% | **7.1%** | APPLIED |
+| 3 | **3.2%** | 7.5% | HOLD — the dump ran bytetrack but cam3's knobs (ntt=0.18) are botsort-tuned; recipe corrected, re-dump in flight, re-gate next session |
+| 4 | 4.6% | 5.1% | HOLD (pre-declared) — leg-34 calibration defect (calibrated 119°, traffic enters 267°); operator review, not pipeline work |
+
+- **Blind QA validated end-to-end:** the retrospective's reachable targets are
+  CAUGHT AT RANK 1 of their worklists (T2 bank-hole impact 179; T4
+  merge-borderline impact 87 — emitted by the production S5 path); T1
+  dissolved because its mechanism was actually fixed; flood control holds
+  (queues in the 18–36 card range per intersection).
+- **STANDING RULES (paid for in measurements — do not relitigate):**
+  1. Drawn channels feed bank BUILDS (claiming/expecteds/QA) but NEVER enter a
+     fitted bank's applied attribution path-set (measured 4×: §2c −18.5%,
+     cam5 audit ×2, bank-D retest EB-right +316).
+  2. Turn-merge expecteds must be corpus-window scale-1 — never extrapolated
+     from a shorter sample (A4a run 1).
+  3. A two-counter QA signal needs the second counter within ~2× of the live
+     counter's accuracy class (S3 blocked on this).
+- **Retirements ledger:** box-clip as counter (Gate B), ReID blanket rollout
+  (§2c), concurrent-duplicate dedup (dev-gate fail), bank-D drawn-path fill
+  (twice), ×-scaled merge expecteds, per-camera detection-profile config lever
+  (detector spike).
+
+---
+
 ## 3. Roadmap — operator-readiness
 
 The shift: from "research pipeline + Claude's CLI scripts" to **a product an operator runs
@@ -439,24 +485,30 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    per-cell abs; total net −0.4% vs +2.2%; no collapse — the delta is confined to the
    turn-merge volume gate (NB-left +38 blind). The honest blind number replaces the shipped
    7.2% claim. See the Gate-B sweep doc, RESOLVED section.
-3. **B-coverage diagnostic + the flag queue model** — the blind accuracy assurance; directs all
-   review work. Box-clip's role lives HERE: two independent GT-free counters disagreeing on a
-   cell/interval = the "suspected gap" feeder (it would have flagged cam2 SB-thru/EB-right
-   exactly). Without this workstream, deployment can't be *trusted*, only *measured*.
-   **PLANNED 2026-07-09 (`docs/plan_flagqueue_B_2026-07-09.md`):** the queue infra already
-   shipped (Step B, d31f03c — two feeders, router, acceptance endpoint); the plan is B-VAL
-   (retrospective: score the queue against the 6 known GT-validated misses — the §1b trust
-   step, never done) → three new gap feeders from this week's evidence (S3 box-clip
-   disagreement, S4 bank-coverage hole, S5 merge-gate borderline) → combined re-validation →
-   export gating.
-4. **C review UX** — pairs with B; turns flags into a fast resolved count.
-5. **A productize the two-pass flow + export gating** — wire pass 1 into ingest and pass 2 into
-   "Confirm & process" (§3-A); removes the CLI dependency so an operator runs it solo.
-6. **D-articulated** + **E deliverables (L/M/A, Excel, PDF)** — parity + the one real classifier capability.
-7. **D-low-light detection** — hardest/most-research-y; informed by what the coverage diagnostic
-   (B) shows about *where* detection sags.
-8. **F2 + F3 — calibration studio** — live auto-cal perception view, then the playback editing
-   surface. Pairs with C (shared canvas/layer/keyboard scaffolding).
+3. **B flag queue — VALIDATED + COMPLETED 2026-07-09/10.** B-VAL retrospective run twice;
+   S4 + S5 feeders shipped and catching their targets AT RANK 1 in production; S3 blocked
+   (standing rule 3, §2d); flood control shipped (3,247 flags → 77 cards). Residual B work:
+   S1 sensitivity (the cam2 SB-thru −15% that stayed under threshold) — small, evidence in
+   `cam2_fullday_twopass` doc.
+4. **A two-pass productization — SHIPPED behind TWO_PASS_ENABLED (§2d).** Corridor: 3 of 5
+   applied, both holds root-caused.
+
+**REMAINING, in order (re-sequenced 2026-07-13):**
+
+5. **Close the corridor holds.** cam3: re-gate on the botsort re-dump (in flight) → apply.
+   cam4: OPERATOR leg-34 calibration review (the builder flags it every build) → re-gate.
+6. **Stage 3.4 — the operator surface.** Trim→window derivation (dumps keyed by trims, not
+   study_* names), the card UI button on v3_run_state, detection-at-ingest for cache-less
+   footage, dumper-job chunking with overlap. Then the OPERATOR DRY-RUN → decide flipping
+   `TWO_PASS_ENABLED` on by default.
+7. **C review UX polish** — the worklist works (cards, batch keys); polish = the stopping
+   rule surfacing + batch-card ergonomics, driven by the dry-run's feedback.
+8. **The attribution walls (research):** cam2 NB-left 0.32 and the EB thru/right collinear
+   split — the §2b coverage-aware matcher direction inherits these; any mechanism gets the
+   full gate discipline. The §3-D fine-tune (articulated first, held-out-site gate — scoped
+   in `detector_derisk_spike_2026-07-08`) is the parallel capability track.
+9. **D-low-light** + **E deliverables (L/M/A Excel, PDF)** + **F2/F3 calibration studio** —
+   unchanged from prior sequencing.
 
 Each is a self-contained phase; ship and validate before the next.
 

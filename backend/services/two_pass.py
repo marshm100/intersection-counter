@@ -270,12 +270,29 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     window_seconds = (f_hi - f_lo) / fps
     rows = load_dump(tdir)
 
+    # --- 0. reuse: a prior compute of THIS dump is still valid ----------------
+    # (apply=True used to recompute the whole pass-2 — 2x wall time for
+    # nothing when the working DB was just measured. The stats sidecar records
+    # the dump meta; matching meta = identical inputs = reuse.)
+    workdir = Path(workdir)
+    workdir.mkdir(parents=True, exist_ok=True)
+    out_db = workdir / f"twopass_cam{camera_id}_{variant}.db"
+    stats_p = workdir / f"twopass_cam{camera_id}_{variant}.stats.json"
+    if out_db.exists() and stats_p.exists():
+        prior = json.loads(stats_p.read_text())
+        if prior.get("dump_meta") == meta:
+            logger.info("two-pass cam%s %s: reusing computed working DB", camera_id, variant)
+            result = prior["result"]
+            result["reused"] = True
+            if not apply:
+                return result
+            return _finish_apply(project_id, camera_id, intersection_id,
+                                 out_db, f_lo, f_hi, fps, result)
+
     # --- 1. corpus bank: discovery over the dump's own tracks ---------------
     from datetime import timedelta
     rec_start = datetime.fromisoformat(video["recording_start_datetime"])
     start_hms = (rec_start + timedelta(seconds=f_lo / fps)).strftime("%H:%M:%S")
-    workdir = Path(workdir)
-    workdir.mkdir(parents=True, exist_ok=True)
     bank_res = build_bank(
         camera=camera_id, project=project_id,
         out=str(workdir / f"twopass_bank_cam{camera_id}_{variant}.json"),
@@ -298,7 +315,6 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     # --- 2+3. replay-classify (APPLIED bank), then the turn merge ------------
     # Variant in the name: a study day runs one pass-2 per trim window and the
     # working DBs must coexist (measure-then-apply per window).
-    out_db = workdir / f"twopass_cam{camera_id}_{variant}.db"
     stats = replay_camera(project_id, camera_id, variant=variant, out_db=out_db)
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
                                expected_by_cell=expected)
@@ -313,30 +329,38 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         "borderline": merge["borderline"], "out_db": str(out_db),
         "applied": False,
     }
+    stats_p.write_text(json.dumps({"dump_meta": meta, "result": result},
+                                  default=str, indent=1))
     if not apply:
         return result
+    return _finish_apply(project_id, camera_id, intersection_id,
+                         out_db, f_lo, f_hi, fps, result)
 
-    # --- 4. apply: swap this WINDOW's events into project.db (the applied
-    # bank stays — it is the operator's attribution authority; other windows'
-    # events stay — a study day is applied one trim window at a time), then
-    # rebuild the queue with the S5 rows ---------------------------------
+
+def _finish_apply(project_id: str, camera_id: int, intersection_id: int,
+                  out_db: Path, f_lo: int, f_hi: int, fps: float,
+                  result: dict) -> dict:
+    """The apply half of pass 2: swap this WINDOW's events into project.db
+    (the applied bank stays — it is the operator's attribution authority;
+    other windows' events stay), then rebuild the queue with the S5 rows."""
     proj_db = get_db_path(project_id)
     backup = proj_db.parent / "backups" / (
         f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_pre_twopass_cam{camera_id}.db")
     backup.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(proj_db, backup)
-    _apply_window_events(proj_db, out_db, camera_id,
-                         f_lo / fps, f_hi / fps)
+    _apply_window_events(proj_db, out_db, camera_id, f_lo / fps, f_hi / fps)
     c = sqlite3.connect(proj_db)
     card = {lid: cd for lid, cd in c.execute(
         "SELECT leg_id, cardinal_direction FROM legs WHERE camera_id = ?",
         (camera_id,))}
     c.close()
 
-    extra = s5_flags(camera_id, merge["borderline"], card, bound_approach)
+    # borderline cells round-trip through the stats sidecar as lists
+    borderline = [dict(b, cell=tuple(b["cell"])) for b in result["borderline"]]
+    extra = s5_flags(camera_id, borderline, card, bound_approach)
     flag_summary = rebuild_flags(project_id, intersection_id, extra_flags=extra)
-    result.update({"applied": True, "backup": str(backup),
-                   "flags": flag_summary})
+    result = dict(result)
+    result.update({"applied": True, "backup": str(backup), "flags": flag_summary})
     logger.info("two-pass apply cam%s: %s events (applied bank kept), backup %s",
-                camera_id, stats["events"], backup)
+                camera_id, result["replay"]["events"], backup)
     return result

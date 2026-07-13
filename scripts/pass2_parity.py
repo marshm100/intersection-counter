@@ -69,6 +69,11 @@ def main() -> int:
     ap.add_argument("--variant", default="study_0700")
     ap.add_argument("--skip-retrack", action="store_true",
                     help="reuse the existing tier-1 reference DB")
+    ap.add_argument("--start-hms", default=None,
+                    help="scope the gate to a sub-window of the dump (e.g. a "
+                         "24h dump gated on 07:00-09:00 — a full-day reference "
+                         "retrack is pointless compute)")
+    ap.add_argument("--minutes", type=float, default=None)
     args = ap.parse_args()
     cam = args.camera
     SCRATCH.mkdir(parents=True, exist_ok=True)
@@ -92,6 +97,14 @@ def main() -> int:
     meta = json.loads((tracks_dir(pq) / "meta.json").read_text())
     f_lo, f_hi = meta["frames"]
     fps = float(video["fps"])
+    if args.start_hms is not None:
+        h, m, s = (int(x) for x in args.start_hms.split(":"))
+        w_lo = int((h * 3600 + m * 60 + s) * fps)
+        w_hi = w_lo + int((args.minutes or 120.0) * 60 * fps)
+        if not (f_lo <= w_lo and w_hi <= f_hi):
+            raise SystemExit(f"--start-hms window [{w_lo},{w_hi}) outside the "
+                             f"dump's [{f_lo},{f_hi})")
+        f_lo, f_hi = w_lo, w_hi
     m0 = int(f_lo / fps // 60)
     n_min = int((f_hi - f_lo) / fps // 60)
     minutes = [time((m0 + i) // 60, (m0 + i) % 60) for i in range(n_min)]
@@ -114,7 +127,8 @@ def main() -> int:
     # --- candidate: replay-from-dump -----------------------------------------
     rep_db = SCRATCH / f"parity_replay_cam{cam}.db"
     print(f"[replay] dump -> {rep_db}")
-    stats = replay_camera(PROJECT, cam, variant=args.variant, out_db=rep_db)
+    stats = replay_camera(PROJECT, cam, variant=args.variant, out_db=rep_db,
+                          start_frame=f_lo, end_frame=f_hi)
     print(f"  {stats['rows']} rows, {stats['tracks']} tracks -> {stats['events']} events "
           f"(insufficient {stats['insufficient_data']}, quality {stats['quality_filtered']})")
 
