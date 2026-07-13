@@ -113,14 +113,29 @@ def main() -> int:
           f"match={meta.get('match')} activation={meta.get('activation')})")
 
     # --- tier-1 reference: retrack-from-cache, identical inputs -------------
+    # The reference tracker must match the DUMP's recipe — comparing a botsort
+    # dump against a bytetrack retrack would fail on tracker family, not
+    # mechanics (plan_cam3_regate_2026-07-13). A +reid dump gets the same
+    # sidecar embeddings fed to the reference (the process_camera_reid
+    # pattern), so both arms see identical appearance signals.
+    recipe = meta.get("backend") or "bytetrack"
+    ref_backend = recipe.replace("+reid", "")
+    tracker_kwargs = None
+    if recipe.endswith("+reid"):
+        from reid_embedding_cache import ReidEmbeddingCache
+        side = pq.with_name(pq.stem + ".reid")
+        if not side.exists():
+            side = pq.with_name(pq.stem + ".reid.npz")
+        tracker_kwargs = {"with_reid": True,
+                          "reid_embeddings": ReidEmbeddingCache(side)}
     ref_db = SCRATCH / f"parity_ref_cam{cam}.db"
     if not args.skip_retrack or not ref_db.exists():
-        print(f"[tier1-ref] retrack from cache -> {ref_db}")
+        print(f"[tier1-ref] retrack ({recipe}) from cache -> {ref_db}")
         sug = {"paths": live_paths, "updated_legs": []}   # live bank, live legs
         calib = get_camera_calibration_params(PROJECT, cam)
         mode_cfg = get_processing_mode_config("balanced")
-        retrack(ref_db, "bytetrack", video, ctx, calib, mode_cfg, sug,
-                f_lo, f_hi, pq, cam)
+        retrack(ref_db, ref_backend, video, ctx, calib, mode_cfg, sug,
+                f_lo, f_hi, pq, cam, tracker_kwargs=tracker_kwargs)
     else:
         print(f"[tier1-ref] reusing {ref_db}")
 
