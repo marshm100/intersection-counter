@@ -248,7 +248,7 @@ The §2c architecture went from plan to product in one week. Full trail:
 | 2 | 9.8% (30 min only) | **8.1%** | APPLIED full study day; SB-right recall 0.58→**1.07** (the #1 corridor deficit, fixed); net −8.8% honest vs +1.5% cancellation-flattered |
 | 5 | 8.7% | **7.1%** | APPLIED |
 | 3 | **3.2%** | **3.2%** | APPLIED full day (2026-07-13 re-gate on the botsort dump: tier-1 |Δ|=0 AND tier-2 vs live |Δ|=0 — the recipe diagnosis exact; gate met to the decimal) |
-| 4 | 4.6% | 5.1% | HOLD (pre-declared) — leg-34 calibration defect (calibrated 119°, traffic enters 267°); operator review, not pipeline work |
+| 4 | 4.6% | 5.1% | HOLD — RECLASSIFIED 2026-07-13 after the frame/track review: the leg-sanity flag is an ARTIFACT (mid-block arterial births mis-binned to the driveway anchor produce the 267° consensus; even live origin-34 events start mid-road at bearing ~81°). Heading 119° is plausibly correct; the anchor-move fix was A/B-measured WORSE (5.5% vs 5.1%) and reverted. cam4's +31 EB-left residual = the mid-block-birth origin-assignment wall — §4 item 8 research, NOT operator work. cam4 keeps its live table (which passes the product bar). |
 
 - **Blind QA validated end-to-end:** the retrospective's reachable targets are
   CAUGHT AT RANK 1 of their worklists (T2 bank-hole impact 179; T4
@@ -495,8 +495,10 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
 
 **REMAINING, in order (re-sequenced 2026-07-13):**
 
-5. **Close the corridor holds.** cam3: re-gate on the botsort re-dump (in flight) → apply.
-   cam4: OPERATOR leg-34 calibration review (the builder flags it every build) → re-gate.
+5. **Close the corridor holds — DONE 2026-07-13.** cam3: re-gated and APPLIED (see §2d). cam4:
+   reviewed with frame/track overlays — the calibration-defect theory is DEAD (artifact; details
+   in the §2d row); its residual moves to item 8's attribution research. Corridor final: 4 of 5
+   applied, cam4 honestly held on research, not operator debt.
 6. **Stage 3.4 — the operator surface.** Trim→window derivation (dumps keyed by trims, not
    study_* names), the card UI button on v3_run_state, detection-at-ingest for cache-less
    footage, dumper-job chunking with overlap. Then the OPERATOR DRY-RUN → decide flipping
