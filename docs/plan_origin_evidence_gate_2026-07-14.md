@@ -181,3 +181,28 @@ exactly the POSTERIOR half's named workload, gating separately as planned.
 Filter+fill FREEZES as-is (no tunable constants): next = held-out
 11:00/16:00 through the FULL pass-2 chain (merge included), then the
 five-camera blind sweep, EB-left a watched cell.
+
+## HELD-OUT VERDICT (2026-07-14, post-merge, no re-tuning): MIXED — freeze HELD
+
+study_1100: ctrl |err| 1054 → frozen 1052 (flat). study_1600: 1284 → 1406
+(WORSE). The mechanism does exactly what it claims — target cells recover
+strongly and consistently on all three windows (NB-left +62/+110 held-out,
+recall 0.23→0.37 and 0.39→0.65; EB-thru +70/+185, reaching 0.65 of Mio on
+1600) — but the aggregate does not follow: **SB-right COLLAPSES on both
+held-out windows (400→188 vs Mio 388; 430→241 vs 341)**, SB-thru drifts
+down on 1600 (−195), EB-right worsens there (835→951).
+
+Reading: the fit window's SB-right dip (361→314) was the early warning.
+Phase-0 showed SB-right was FED by stolen NB-lefts — if its near-Mio
+control totals were partly CANCELLATION (real SB-rights missed, stolen
+NB-lefts filling in), then de-flipping EXPOSES a masked SB-right recall
+deficit rather than causing one. That hypothesis is testable with the
+same autopsy machinery and MUST be tested before any sweep: exposed
+deficit → the gate is truth-improving and the deficit is its own (new)
+wall; induced error → the gate steals SB-rights somewhere and the
+mechanism is wrong.
+
+**Decision: freeze HELD, five-cam sweep POSTPONED.** Next: the SB-right
+autopsy (bucket the frozen arm's (27→28) events + find where Mio's
+missing SB-rights went, both windows). The aggregate-flat/worse result
+stands recorded; no constants were touched.
