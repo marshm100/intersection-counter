@@ -376,6 +376,17 @@ function v3CloseIntersection() {
     _renderIntersectionsTab(document.getElementById('v3-tab-content'));
 }
 
+// Leave the card WITHOUT re-rendering the tab content. The confirm flows
+// navigate to the Processing tab right after closing the card; using
+// v3CloseIntersection there raced its un-awaited intersections render
+// against the processing render over the same host — on a slow fetch the
+// intersections grid landed second and overwrote the chips (both stage-3.4
+// dry-run grid timeouts were this).
+function _v3LeaveIntersection() {
+    _v3OpenIntersectionId = null;
+    _v3IntersectionDetail = null;
+}
+
 async function _renderIntersectionDetail(host) {
     const pid = AppState.currentProject;
     const iid = _v3OpenIntersectionId;
@@ -1141,7 +1152,7 @@ async function v3ConfirmProcess() {
         return;
     }
     alert('Processing started. Switch to the Processing tab to monitor progress.');
-    v3CloseIntersection();
+    _v3LeaveIntersection();
     await v3SwitchTab('processing');
 }
 
@@ -1183,7 +1194,7 @@ async function _v3ConfirmProcessTwoPass(pid, iid, wins) {
         return;
     }
     alert('Two-pass processing started. Track progress on the Processing tab.');
-    if (_v3OpenIntersectionId !== null) v3CloseIntersection();
+    _v3LeaveIntersection();
     await v3SwitchTab('processing');
 }
 
