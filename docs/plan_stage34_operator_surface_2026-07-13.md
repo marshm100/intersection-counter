@@ -30,8 +30,10 @@
   as the legacy pipeline; screenshot 04 predates the chip fix for this
   reason). (2) S5 merge-borderline flags reflect only the LAST window of a
   multi-window apply (inherited from the cam2 full-day exercise mechanics,
-  not new). (3) The trim time-edit inputs call a PATCH endpoint that does
-  not exist (pre-existing; add trims works). (4) The stats sidecar records
+  not new). (3) ~~The trim time-edit inputs call a PATCH endpoint that does
+  not exist~~ — WRONG, corrected 2026-07-14: `PATCH .../trims/{trim_id}`
+  exists (intersections.py:570); this was inferred from an incomplete grep,
+  never observed. (4) The stats sidecar records
   the pre-apply result (`applied: false`) — apply evidence lives in
   backups/project.db. (5) Two-pass jobs have no cancel (the chip's Cancel
   targets the legacy path). (6) Ops note: dev server runs reload=True — a
