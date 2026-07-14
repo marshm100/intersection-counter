@@ -78,7 +78,7 @@ def _enrich(project_id: str, flag: dict) -> dict:
                 "e.detection_confidence, e.trajectory_confidence, "
                 "e.destination_leg_id, e.destination_confidence, "
                 "e.destination_posterior_json, e.trajectory_data, "
-                "e.timestamp_video, e.rejected "
+                "e.timestamp_video, e.rejected, e.manually_edited "
                 "FROM vehicle_events e LEFT JOIN legs l ON l.leg_id = e.origin_leg_id "
                 "WHERE e.event_id = ?", (eid,)).fetchone()
         finally:
@@ -172,9 +172,10 @@ def post_batch(project_id: str, intersection_id: int, body: FlagBatchBody):
     if body.movement is not None and body.movement not in _VALID_MOVEMENTS:
         raise HTTPException(status_code=422,
             detail=f"movement must be one of {_VALID_MOVEMENTS}")
-    n = batch_resolve_flags(project_id, intersection_id, body.batch_key,
-                            body.status, body.movement)
-    return {"affected": n, "summary": flag_summary(project_id, intersection_id)}
+    res = batch_resolve_flags(project_id, intersection_id, body.batch_key,
+                              body.status, body.movement)
+    return {"affected": res["affected"], "changes": res["changes"],
+            "summary": flag_summary(project_id, intersection_id)}
 
 
 @router.patch("/projects/{project_id}/flags/{flag_id}")

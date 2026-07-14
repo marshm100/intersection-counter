@@ -102,6 +102,10 @@ class PatchEventBody(BaseModel):
     vehicle_class: Optional[str] = None
     movement: Optional[str] = None
     rejected: Optional[bool] = None
+    # Explicit manually_edited override — the worklist's UNDO restores the
+    # pre-edit value with this (absent = the normal set-to-1 on any edit), so
+    # an edit-then-undo doesn't leave the event falsely marked operator-edited.
+    manually_edited: Optional[bool] = None
 
 
 @router.patch("/projects/{project_id}/review/{event_id}")
@@ -132,8 +136,12 @@ def patch_event(project_id: str, event_id: int, body: PatchEventBody):
             updates.append("rejected = ?")
             params.append(1 if body.rejected else 0)
 
-        if updates:
-            updates.append("manually_edited = 1")
+        if updates or body.manually_edited is not None:
+            if body.manually_edited is not None:
+                updates.append("manually_edited = ?")
+                params.append(1 if body.manually_edited else 0)
+            else:
+                updates.append("manually_edited = 1")
             params.append(event_id)
             conn.execute(
                 f"UPDATE vehicle_events SET {', '.join(updates)} WHERE event_id = ?",

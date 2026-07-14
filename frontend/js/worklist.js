@@ -20,6 +20,8 @@ let _wlAddMode = false;
 let _wlSeconds = 0;          // current scrub position (video seconds)
 let _wlBusy = false;
 let _wlFlipTimer = null, _wlFlipFrames = [], _wlFlipIdx = 0;   // looping clip state
+let _wlUndoStack = [];       // session-only action stack for Z (plan_C_polish §3b)
+const _WL_UNDO_CAP = 50;
 
 const _WL_MOVE = { '1': 'through', '2': 'left', '3': 'right', '4': 'u_turn' };
 // Looping clip: stills sampled across the event clip window, cycled in JS (no
@@ -246,32 +248,84 @@ function _wlGapHtml(f) {
         </div>`;
 }
 
+// The stopping rule (plan_C_polish §3a): which gate items block export and
+// what action closes each. The queue can only clear review_flags — the
+// conservation checks and spot count need the QA tab, and saying so is the
+// difference between "grind flags forever" and "know when you're done".
+const _WL_GATE_HINTS = {
+    corridor_consistency: "cross-intersection conservation — investigate on the QA tab; flags alone won't clear it",
+    reverse_balance: 'directional balance — investigate on the QA tab',
+    spot_count: 'record a spot count on the QA tab',
+    review_flags: 'work the cards below',
+};
+
+function _wlVerdictBadge(v) {
+    const c = ({ ok: ['#166534', '#dcfce7'], warn: ['#92400e', '#fef3c7'],
+                 fail: ['#991b1b', '#fee2e2'], review: ['#92400e', '#fef3c7'],
+                 info: ['#475569', '#f1f5f9'] })[v] || ['#475569', '#f1f5f9'];
+    return `<span style="display:inline-block;min-width:44px;text-align:center;
+        padding:0 6px;border-radius:8px;font-size:10px;font-weight:700;
+        color:${c[0]};background:${c[1]};">${escapeHtml((v || '?').toUpperCase())}</span>`;
+}
+
+function _wlGateItemFact(it) {
+    const d = it.detail;
+    if (it.item === 'corridor_consistency' && Array.isArray(d)) {
+        const bad = d.filter(l => l.verdict === 'fail').length;
+        return bad ? `${bad} of ${d.length} corridor links failing`
+                   : `${d.length} corridor links checked`;
+    }
+    if (it.item === 'spot_count' && Array.isArray(d)) {
+        const todo = d.find(c => c.verdict === 'review');
+        return todo ? (todo.note || 'coverage segment unsampled') : 'covered';
+    }
+    return (d && d.note) || '';
+}
+
+function _wlGateRowsHtml() {
+    if (!_wlGate) return '';
+    const ov = _wlGate.overall;
+    const col = ov === 'ship' ? '#16a34a' : ov === 'fail' ? '#b91c1c' : '#b45309';
+    let rows = '';
+    for (const it of (_wlGate.items || [])) {
+        const hint = _WL_GATE_HINTS[it.item] || '';
+        const blocking = it.verdict === 'fail' || it.verdict === 'review';
+        rows += `<div style="display:flex;gap:6px;align-items:baseline;margin-top:5px;
+                ${it.verdict === 'info' ? 'opacity:0.6;' : ''}">
+            ${_wlVerdictBadge(it.verdict)}
+            <div style="min-width:0;">
+                <div style="font-weight:600;">${escapeHtml(it.item.replace(/_/g, ' '))}</div>
+                <div class="helper-text">${escapeHtml(_wlGateItemFact(it))}</div>
+                ${blocking && hint ? `<div class="helper-text" style="color:#2563eb;">→ ${escapeHtml(hint)}</div>` : ''}
+            </div>
+        </div>`;
+    }
+    return `<div style="margin-top:12px;padding:10px;border-radius:6px;background:#f8fafc;">
+        <div style="font-weight:700;color:${col};">Gate: ${ov.toUpperCase()}</div>
+        ${ov === 'ship' ? `<div style="color:#16a34a;font-weight:600;margin-top:4px;">✓ Ready to export</div>` : ''}
+        ${rows}
+    </div>`;
+}
+
 function _wlSideHtml() {
     const s = _wlSummary || {};
     const gapImpact = (s.open_impact_by_kind && s.open_impact_by_kind.suspected_gap) || 0;
     const uncertain = (s.by_kind && s.by_kind.uncertain_event) || 0;
-    let gate = '';
-    if (_wlGate) {
-        const rf = (_wlGate.items || []).find(i => i.item === 'review_flags');
-        const ov = _wlGate.overall;
-        const col = ov === 'ship' ? '#16a34a' : ov === 'fail' ? '#b91c1c' : '#b45309';
-        gate = `<div style="margin-top:12px;padding:10px;border-radius:6px;background:#f8fafc;">
-            <div style="font-weight:700;color:${col};">Gate: ${ov.toUpperCase()}</div>
-            ${rf ? `<div class="helper-text">${escapeHtml(rf.detail.note || '')}</div>` : ''}
-            ${ov === 'ship' ? `<div style="color:#16a34a;font-weight:600;margin-top:4px;">✓ Ready to export</div>` : ''}
-        </div>`;
-    }
+    const impact = Math.round(s.open_impact || 0);
     return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;font-size:13px;">
         <div style="font-weight:700;margin-bottom:6px;">Live count</div>
         <div>Running total: <b>${(_wlTotal || 0).toLocaleString()}</b> veh</div>
         <div style="font-weight:700;margin:8px 0 6px;">Remaining work</div>
-        <div>Cards: <b>${_wlCards.length}</b> <span class="helper-text">(${s.open || 0} flags)</span></div>
+        <div><b>${_wlCards.length}</b> cards · <b>${s.open || 0}</b> flags ·
+            est. impact ~<b>${impact}</b> veh to a clean queue</div>
         <div>Est. missed (gaps): <b>${Math.round(gapImpact)}</b></div>
         <div>Uncertain to confirm: <b>${uncertain}</b></div>
-        ${gate}
+        ${_wlGateRowsHtml()}
         <button class="btn-secondary" style="margin-top:10px;" onclick="_wlRebuild()">Rebuild queue</button>
-        <p class="helper-text" style="margin-top:10px;">Keys: Enter accept · 1–4 movement · Del reject ·
-            A add-missed · D dismiss · → next card · . next in group · B resolve group</p>
+        <div class="helper-text" style="margin-top:8px;">Z undo (${_wlUndoStack.length} available)</div>
+        <p class="helper-text" style="margin-top:6px;">Keys: Enter accept · 1–4 movement ·
+            Shift+1–4 batch movement · Del reject · A add-missed · D dismiss ·
+            → next card · . next in group · B resolve group · Z undo</p>
     </div>`;
 }
 
@@ -354,26 +408,105 @@ async function _wlAfterTerminal() {
     await _wlShow();
 }
 
-async function _wlAccept() { await _wlGuard(async () => { await _wlPatchFlag('resolved'); await _wlAfterTerminal(); }); }
-async function _wlDismiss() { await _wlGuard(async () => { await _wlPatchFlag('dismissed'); await _wlAfterTerminal(); }); }
-async function _wlResolveGap() { await _wlGuard(async () => { await _wlPatchFlag('resolved'); await _wlAfterTerminal(); }); }
+// --- undo (plan_C_polish §3b) -------------------------------------------
+// Entries are pushed AFTER the action's API calls succeed; priors for single
+// edits come from the enriched flag at display time, priors for batches from
+// the batch endpoint's `changes`. Reverting uses only existing endpoints
+// (flag reopen clears resolved_at server-side; the review PATCH accepts an
+// explicit manually_edited so an edit-then-undo doesn't leave the event
+// falsely marked operator-edited). Add-missed is deliberately not undoable.
+
+function _wlPushUndo(label, flags, events) {
+    _wlUndoStack.push({ label, flags: flags || [], events: events || [] });
+    if (_wlUndoStack.length > _WL_UNDO_CAP) _wlUndoStack.shift();
+}
+
+function _wlEventPrior(patch) {
+    const ev = _wlFlag && _wlFlag.event;
+    if (!ev) return null;
+    return { event_id: ev.event_id,
+             patch: { ...patch, manually_edited: !!ev.manually_edited } };
+}
+
+async function _wlUndoLast() {
+    if (_wlBusy) return;
+    const entry = _wlUndoStack.pop();
+    if (!entry) { _wlToast('Nothing to undo'); return; }
+    _wlBusy = true;
+    try {
+        for (const ev of entry.events) {
+            await API.patch(`/api/projects/${_wlPid}/review/${ev.event_id}`, ev.patch);
+        }
+        for (const fid of entry.flags) {
+            await API.patch(`/api/projects/${_wlPid}/flags/${fid}`, { status: 'open' });
+        }
+        _wlToast(`Undone: ${entry.label}`);
+    } catch (e) {
+        alert(`Undo failed (was the queue rebuilt since?): ${e.message || e}`);
+    } finally {
+        _wlBusy = false;
+    }
+    await _wlRefreshList();
+    await _wlShow();
+}
+
+function _wlToast(msg) {
+    const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);'
+        + 'background:#111827;color:#f9fafb;padding:8px 16px;border-radius:6px;'
+        + 'font-size:13px;z-index:1000;opacity:0.95;';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+}
+
+async function _wlAccept() {
+    await _wlGuard(async () => {
+        const fid = _wlFlag.flag_id;
+        await _wlPatchFlag('resolved');
+        _wlPushUndo('accept', [fid]);
+        await _wlAfterTerminal();
+    });
+}
+async function _wlDismiss() {
+    await _wlGuard(async () => {
+        const fid = _wlFlag.flag_id;
+        await _wlPatchFlag('dismissed');
+        _wlPushUndo('dismiss', [fid]);
+        await _wlAfterTerminal();
+    });
+}
+async function _wlResolveGap() {
+    await _wlGuard(async () => {
+        const fid = _wlFlag.flag_id;
+        await _wlPatchFlag('resolved');
+        _wlPushUndo('resolve interval', [fid]);
+        await _wlAfterTerminal();
+    });
+}
 
 async function _wlSetMovement(m) {
     await _wlGuard(async () => {
+        const fid = _wlFlag.flag_id;
+        const prior = _wlEventPrior({ movement: _wlFlag.event && _wlFlag.event.movement });
         if (_wlFlag.event) {
             await API.patch(`/api/projects/${_wlPid}/review/${_wlFlag.event.event_id}`, { movement: m });
         }
         await _wlPatchFlag('resolved');
+        _wlPushUndo(`set movement ${m}`, [fid], prior ? [prior] : []);
         await _wlAfterTerminal();
     });
 }
 
 async function _wlReject() {
     await _wlGuard(async () => {
+        const fid = _wlFlag.flag_id;
+        const prior = _wlEventPrior({ rejected: !!(_wlFlag.event && _wlFlag.event.rejected) });
         if (_wlFlag.event) {
             await API.patch(`/api/projects/${_wlPid}/review/${_wlFlag.event.event_id}`, { rejected: true });
         }
         await _wlPatchFlag('resolved');
+        _wlPushUndo('reject phantom', [fid], prior ? [prior] : []);
         await _wlAfterTerminal();
     });
 }
@@ -395,10 +528,20 @@ async function _wlNextInCard() {
 
 async function _wlBatch(status, movement) {
     await _wlGuard(async () => {
-        await API.post(`/api/projects/${_wlPid}/intersections/${_wlIid}/flags/batch`, {
+        const r = await API.post(`/api/projects/${_wlPid}/intersections/${_wlIid}/flags/batch`, {
             batch_key: _wlFlag.batch_key, status: status || 'resolved',
             movement: movement || null,
         });
+        const changes = r.changes || [];
+        // events were only touched when a movement was applied
+        const events = movement ? changes
+            .filter(c => c.event_id != null)
+            .map(c => ({ event_id: c.event_id,
+                         patch: { movement: c.prior_movement,
+                                  manually_edited: !!c.prior_manually_edited } }))
+            : [];
+        _wlPushUndo(`batch ${status || 'resolved'}${movement ? ' as ' + movement : ''} ×${r.affected}`,
+                    changes.map(c => c.flag_id), events);
         await _wlAfterTerminal();
     });
 }
@@ -475,9 +618,14 @@ async function _wlGuard(fn) {
 function _wlKeydown(e) {
     const t = e.target;
     if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+    // Undo works even with the queue clear (the last resolve emptied it).
+    if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); _wlUndoLast(); return; }
     if (!_wlFlag) return;
     const k = e.key;
     const gap = _wlFlag.kind === 'suspected_gap';
+    // Shift+digit must match on e.code — e.key yields '!' etc. on US layouts.
+    const shiftMove = (!gap && e.shiftKey && /^Digit[1-4]$/.test(e.code))
+        ? _WL_MOVE[e.code.slice(5)] : null;
     let handled = true;
     if (k === 'Enter') gap ? _wlResolveGap() : _wlAccept();
     else if (k === 'd' || k === 'D') _wlDismiss();
@@ -485,6 +633,8 @@ function _wlKeydown(e) {
     else if (k === '.' || k === 'ArrowDown') _wlNextInCard();
     else if ((k === 'b' || k === 'B') && _wlFlag.batch_key && _wlGroupSize() > 1) _wlBatch('resolved');
     else if (gap && (k === 'a' || k === 'A')) _wlToggleAdd();
+    else if (shiftMove && (_wlFlag.batch_key || '').startsWith('dest|') && _wlGroupSize() > 1)
+        _wlBatchMove(shiftMove);
     else if (!gap && _WL_MOVE_KEY(k)) _wlSetMovement(_WL_MOVE_KEY(k));
     else if (!gap && (k === 'Delete' || k === 'Backspace')) _wlReject();
     else handled = false;

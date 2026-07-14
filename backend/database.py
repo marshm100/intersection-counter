@@ -1947,22 +1947,33 @@ def flag_summary(project_id: str, intersection_id: int) -> dict:
 
 
 def batch_resolve_flags(project_id: str, intersection_id: int, batch_key: str,
-                        status: str, movement: str | None = None) -> int:
+                        status: str, movement: str | None = None) -> dict:
     """Apply a status to ALL open flags sharing a batch_key in an intersection,
     optionally setting `movement` on their anchored events first (mirrors the
     single-edit path in routers/review.py: movement + manually_edited=1). Powers
-    the worklist's one-key batch resolve. Returns the number of flags affected."""
+    the worklist's one-key batch resolve.
+
+    Returns {"affected": n, "changes": [...]} where changes carries each
+    member's PRIOR values (captured in the same transaction, before the
+    UPDATEs) — the worklist's undo stack needs them to revert a batch without
+    leaving events falsely marked operator-edited (plan_C_polish §3b)."""
     resolved_at = (datetime.now(timezone.utc).isoformat()
                    if status in _FLAG_TERMINAL_STATUSES else None)
     conn = get_connection(project_id)
     try:
         with conn:
             rows = conn.execute(
-                "SELECT flag_id, event_id FROM review_flags "
-                "WHERE intersection_id = ? AND batch_key = ? AND status = 'open'",
+                "SELECT f.flag_id, f.event_id, e.movement, e.manually_edited "
+                "FROM review_flags f "
+                "LEFT JOIN vehicle_events e ON e.event_id = f.event_id "
+                "WHERE f.intersection_id = ? AND f.batch_key = ? "
+                "AND f.status = 'open'",
                 (intersection_id, batch_key)).fetchall()
             if not rows:
-                return 0
+                return {"affected": 0, "changes": []}
+            changes = [{"flag_id": r[0], "event_id": r[1],
+                        "prior_movement": r[2], "prior_manually_edited": r[3]}
+                       for r in rows]
             flag_ids = [r[0] for r in rows]
             event_ids = [r[1] for r in rows if r[1] is not None]
             if movement and event_ids:
@@ -1974,6 +1985,6 @@ def batch_resolve_flags(project_id: str, intersection_id: int, batch_key: str,
             conn.execute(
                 f"UPDATE review_flags SET status = ?, resolved_at = ? "
                 f"WHERE flag_id IN ({ph})", [status, resolved_at, *flag_ids])
-        return len(flag_ids)
+        return {"affected": len(flag_ids), "changes": changes}
     finally:
         conn.close()
