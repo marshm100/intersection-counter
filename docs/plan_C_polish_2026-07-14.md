@@ -241,6 +241,23 @@ Ops rails: server detached (Start-Process), Monitor for the run wait, no
 
 ## Stage 3 — implementation detail (planned 2026-07-14, post-stage-2)
 
+**STATUS (same day): BUILT + IDENTITY GATE PASSED — item 7 CLOSED**
+(commit 7e2c645; screenshots `stage3_01..03*.png`).
+
+- Playwright drove REAL keyboard events on intersection 2's live queue
+  (892 flags / 24 cards): Enter-resolve, 2-set-movement, Del-reject,
+  B-batch-resolve, and Shift+2 batch-move on a `dest|` card — each undone
+  with `Z` (toast captured). **Post-drive hashes of (flag_id, status,
+  resolved_at) and (event_id, movement, rejected, manually_edited) are
+  byte-identical to pre-drive** — undo restores everything, including
+  manually_edited fidelity through the batch path.
+- Sidebar renders the stopping rule live: "2 of 4 corridor links failing"
+  with the QA-tab hints, the spot-count prompt, progress-to-done, and the
+  undo-count line.
+- Suite: 727 passed both flag states (the lone failure remains the
+  pre-existing OpenVINO test_detect_batch); 4 new backend tests for the
+  undo-fidelity touches.
+
 Worklist only (`frontend/js/worklist.js`) plus two small, tested backend
 touches for undo fidelity. No feeder/threshold changes; the ±5% logic stays
 in the acceptance endpoint.

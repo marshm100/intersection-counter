@@ -512,8 +512,15 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    (2026-07-13); `TWO_PASS_ENABLED=0` reverts to the legacy pipeline.** Residuals (API
    starvation during bank build, S5 last-window-only, no two-pass cancel) are §4-7
    C-stage items, listed in the plan doc.
-7. **C review UX polish** — the worklist works (cards, batch keys); polish = the stopping
-   rule surfacing + batch-card ergonomics, driven by the dry-run's feedback.
+7. **C review UX polish — DONE 2026-07-14 (`plan_C_polish_2026-07-14.md`, 3 stages, all
+   gated).** Two-pass cancel (checkpointed, resumable — exercised live on the corridor),
+   S5 multi-window union (proven: 1→2 borderline cells on cam2's queue), chip live
+   progress + cancelled-state restart, stopping-rule sidebar (per-gate-item verdicts +
+   what-closes-this hints), Z undo (identity-gated on the live 892-flag queue incl.
+   manually_edited fidelity), Shift+1–4 batch movement. Also fixed en route: the
+   confirm-flow render race (the real cause of the dry-run's ">3 min render"). Residuals
+   parked in the plan doc: backup rotation, subprocess job runner (GIL starvation),
+   add-missed undo.
 8. **The attribution walls (research):** cam2 NB-left 0.32 and the EB thru/right collinear
    split — the §2b coverage-aware matcher direction inherits these; any mechanism gets the
    full gate discipline. The §3-D fine-tune (articulated first, held-out-site gate — scoped
