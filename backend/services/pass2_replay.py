@@ -37,6 +37,13 @@ from backend.services.detection_cache import (
 from backend.services.pipeline import ProcessingPipeline
 
 
+class JobCancelled(Exception):
+    """Raised at a cancel checkpoint (plan_C_polish_2026-07-14 §A). Everything
+    on disk stays resumable: dumps resume from their high-water/chunk marks,
+    working DBs recompute, and applies are never interrupted (the checkpoints
+    deliberately exclude _finish_apply)."""
+
+
 def tracks_dir(pq: Path) -> Path:
     """<variant>.tracks next to the detection parquet (dump_raw_tracks layout)."""
     return pq.with_name(pq.stem + ".tracks")
@@ -79,7 +86,8 @@ def _row_to_tracked(row) -> dict:
 
 def replay_camera(project_id: str, camera_id: int, *, variant: str,
                   out_db: str | Path, start_frame: int | None = None,
-                  end_frame: int | None = None, bank: dict | None = None) -> dict:
+                  end_frame: int | None = None, bank: dict | None = None,
+                  should_cancel=None) -> dict:
     """Replay a camera's raw-track dump through the production chain into
     `out_db` (a copy of project.db with this camera's events replaced — the
     established retrack working-DB pattern). Returns run stats.
@@ -172,6 +180,9 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
     f_first = int(rows[0, 1]) if n else 0
     f_last = int(rows[n - 1, 1]) if n else -1
     for frame in range(f_first, f_last + 1):
+        if should_cancel is not None and should_cancel():
+            raise JobCancelled(f"replay cancelled at frame {frame} "
+                               f"(cam {camera_id} {variant})")
         seen_ids: set[int] = set()
         while i < n and int(rows[i, 1]) == frame:
             t = _row_to_tracked(rows[i])

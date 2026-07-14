@@ -1207,6 +1207,16 @@ def processing_status(project_id: str, intersection_id: int):
     _require_project(project_id)
     intersection = _require_intersection(project_id, intersection_id)
     configured = _is_intersection_configured(project_id, intersection)
+
+    # Two-pass live detail (plan_C_polish §C): the process job carries
+    # stage/camera/window progress the bare run-state row lacks. Merged as a
+    # `two_pass` key so the chip can render a real subline + route Cancel.
+    try:
+        from backend.routers.two_pass import get_process_job
+        two_pass_job = get_process_job(project_id, intersection_id)
+    except Exception:
+        two_pass_job = None
+
     key = (project_id, intersection_id)
     with _v3_jobs_lock:
         job = _v3_jobs.get(key)
@@ -1218,13 +1228,18 @@ def processing_status(project_id: str, intersection_id: int):
             out = {k: v for k, v in job.items() if k not in _JOB_NON_SERIALIZABLE_KEYS}
             out["pipeline_stats"] = _pipeline_live_stats(pipeline)
             out["configured"] = configured
+            if two_pass_job:
+                out["two_pass"] = two_pass_job
             return out
 
     # No in-memory job — check the DB. After a server restart this is the
     # only place the UI can learn that a prior run was interrupted.
     db_state = get_v3_run_state(project_id, intersection_id)
     if db_state is None:
-        return {"status": "idle", "configured": configured}
+        out = {"status": "idle", "configured": configured}
+        if two_pass_job:
+            out["two_pass"] = two_pass_job
+        return out
 
     has_checkpoint = False
     try:
@@ -1234,13 +1249,16 @@ def processing_status(project_id: str, intersection_id: int):
     except Exception:
         pass
 
-    return {
+    out = {
         "status": db_state["status"],
         "configured": configured,
         "error": db_state.get("error_message"),
         "has_checkpoint": has_checkpoint,
         "updated_at": db_state.get("updated_at"),
     }
+    if two_pass_job:
+        out["two_pass"] = two_pass_job
+    return out
 
 
 @router.get("/projects/{project_id}/intersections/{intersection_id}/processing/preview-stream")

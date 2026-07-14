@@ -148,10 +148,29 @@ def post_pass1(project_id: str, camera_id: int, body: Pass1Body):
 
 def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
     from backend.database import set_v3_run_state
-    from backend.services.two_pass import plan_intersection, run_pass1, run_pass2
+    from backend.services.pass2_replay import JobCancelled
+    from backend.services.two_pass import (
+        plan_intersection, rebuild_s5_union, run_pass1, run_pass2,
+    )
     key = (project_id, f"i{intersection_id}")
     workdir = PROJECTS_DIR / project_id / "two_pass"
     results = []
+
+    def should_cancel() -> bool:
+        # Lock-free read of a bool under the GIL — this runs inside the hot
+        # pass-1/replay frame loops.
+        return bool(_jobs.get(key, {}).get("cancel_requested"))
+
+    def _s5_union_if_needed():
+        # One rebuild with ALL applied windows' S5 rows (plan_C_polish §B).
+        # Single-window runs keep the per-window rebuild's identical result.
+        if body.apply and len(results) > 1:
+            with _lock:
+                j = _jobs.get(key)
+                if j is not None:
+                    j["stage"] = "s5-union"
+            rebuild_s5_union(project_id, intersection_id, results)
+
     try:
         set_v3_run_state(project_id, intersection_id, "running")
         if body.windows:
@@ -164,11 +183,14 @@ def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
             if not work:
                 raise ValueError("nothing to process — the card needs trims "
                                  "and at least one camera with video")
-        for item in work:
+        for idx, item in enumerate(work):
+            if should_cancel():
+                raise JobCancelled("cancelled between windows")
             camera_id, variant = item["camera_id"], item["variant"]
             with _lock:
                 _jobs[key].update(current_camera=camera_id,
-                                  current_variant=variant, stage=None)
+                                  current_variant=variant, stage=None,
+                                  window_index=idx + 1, window_total=len(work))
             dump = (item.get("dump") or {}).get("status")
             if dump == "mismatch":
                 raise ValueError(
@@ -192,16 +214,34 @@ def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
                 run_pass1(project_id, camera_id, variant=variant,
                           start_frame=item["start_frame"],
                           end_frame=item["end_frame"],
-                          resume=True, progress=_prog)
+                          resume=True, progress=_prog,
+                          should_cancel=should_cancel)
+            if should_cancel():
+                raise JobCancelled("cancelled between stages")
             with _lock:
                 _jobs[key]["stage"] = "pass2"
             res = run_pass2(project_id, camera_id, variant=variant,
-                            workdir=workdir, apply=body.apply)
+                            workdir=workdir, apply=body.apply,
+                            should_cancel=should_cancel)
             results.append(res)
+        _s5_union_if_needed()
         set_v3_run_state(project_id, intersection_id, "complete")
         with _lock:
             _jobs[key] = {"status": "complete", "kind": "process",
                           "results": results}
+    except JobCancelled as exc:
+        logger.info("two-pass process i%s cancelled: %s", intersection_id, exc)
+        # Applied windows stay applied (each apply was atomic with its own
+        # backup); keep their S5 rows coherent before parking the job.
+        try:
+            _s5_union_if_needed()
+        except Exception:
+            logger.exception("s5 union after cancel failed (queue keeps the "
+                             "last per-window rebuild)")
+        set_v3_run_state(project_id, intersection_id, "cancelled")
+        with _lock:
+            _jobs[key] = {"status": "cancelled", "kind": "process",
+                          "detail": str(exc), "completed": results}
     except Exception as exc:
         logger.exception("two-pass process i%s failed", intersection_id)
         set_v3_run_state(project_id, intersection_id, "error", str(exc))
@@ -238,6 +278,43 @@ def post_two_pass_process(project_id: str, intersection_id: int, body: ProcessBo
 def get_two_pass_process_status(project_id: str, intersection_id: int):
     _require_enabled()
     return _jobs.get((project_id, f"i{intersection_id}"), {"status": "idle"})
+
+
+@router.post("/projects/{project_id}/intersections/{intersection_id}/two-pass/cancel")
+def post_two_pass_cancel(project_id: str, intersection_id: int):
+    """Request cancellation of the intersection's running two-pass process
+    job. Coarse by design: the job stops at its next checkpoint (between
+    windows/stages, or inside a pass-1/replay frame loop) — the corpus-bank
+    build and the apply step always run to completion, so already-applied
+    windows stay applied and everything on disk stays resumable."""
+    _require_enabled()
+    key = (project_id, f"i{intersection_id}")
+    with _lock:
+        j = _jobs.get(key)
+        if j is None or j.get("status") != "running":
+            raise HTTPException(status_code=409,
+                                detail="no running two-pass job to cancel")
+        j["cancel_requested"] = True
+    return {"status": "cancelling",
+            "detail": "stopping at the next checkpoint (current step finishes)"}
+
+
+# Whitelist for the processing-status merge: the chip needs live progress,
+# not the full per-window results payload.
+_JOB_PUBLIC_KEYS = ("status", "kind", "stage", "current_camera",
+                    "current_variant", "window_index", "window_total",
+                    "progress", "error", "detail", "cancel_requested")
+
+
+def get_process_job(project_id: str, intersection_id: int) -> dict | None:
+    """Read-only snapshot of the intersection's two-pass process job for the
+    legacy /processing/status merge (the chip's live subline). None when no
+    job entry exists."""
+    with _lock:
+        j = _jobs.get((project_id, f"i{intersection_id}"))
+        if j is None:
+            return None
+        return {k: j[k] for k in _JOB_PUBLIC_KEYS if k in j}
 
 
 def _require_intersection(project_id: str, intersection_id: int) -> None:

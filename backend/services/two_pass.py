@@ -41,7 +41,9 @@ from backend.database import get_connection, get_db_path
 from backend.services.detection_cache import compute_video_content_hash, parquet_path
 from backend.services.flag_feeders import rebuild_flags
 from backend.services.cardinals import bound_approach
-from backend.services.pass2_replay import load_dump, replay_camera, tracks_dir
+from backend.services.pass2_replay import (
+    JobCancelled, load_dump, replay_camera, tracks_dir,
+)
 from backend.services.turn_merge import merge_replay_turns, s5_flags
 
 logger = logging.getLogger(__name__)
@@ -250,7 +252,7 @@ def _dump_tracks_pointlists(rows: np.ndarray) -> list[list[tuple]]:
 
 def run_pass1(project_id: str, camera_id: int, *, variant: str,
               start_frame: int, end_frame: int, backend: str | None = None,
-              resume: bool = True, progress=None) -> dict:
+              resume: bool = True, progress=None, should_cancel=None) -> dict:
     """Pass 1: raw-track dump for one camera window — the productized core of
     scripts/dump_raw_tracks.py (the CLI wraps this). Semantics-free: no legs,
     channels, or classification; live-parity tracking input (per-camera
@@ -401,12 +403,13 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
     if cache_exists(pq):
         _pass1_from_cache(
             pq, out, meta, start_frame, end_frame, warm_frames, resume,
-            progress, state, _step, _check_resume_meta, open_memmap, _np)
+            progress, state, _step, _check_resume_meta, open_memmap, _np,
+            should_cancel)
     else:
         _pass1_ingest(
             project_id, video, chash, hash_method, pq, out, meta, fps,
             start_frame, end_frame, warm_frames, resume, progress, state,
-            _step, _check_resume_meta, open_memmap, _np)
+            _step, _check_resume_meta, open_memmap, _np, should_cancel)
 
     mm = state["mm"]
     mm.flush(); del mm
@@ -425,7 +428,7 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
 
 def _pass1_from_cache(pq, out, meta, start_frame, end_frame, warm_frames,
                       resume, progress, state, step, check_resume_meta,
-                      open_memmap, _np) -> None:
+                      open_memmap, _np, should_cancel=None) -> None:
     """Pass-1 tracking over an existing detection-cache parquet (the original
     stage-3.3 path, plus the resume seam warm-up)."""
     from backend.services.detection_cache import DetectionCacheReader
@@ -463,6 +466,11 @@ def _pass1_from_cache(pq, out, meta, start_frame, end_frame, warm_frames,
     nxt = next(reader_iter, None)
     done = 0
     for fidx in range(loop_start, end_frame):
+        if should_cancel is not None and should_cancel():
+            # flush so the resume high-water mark reflects everything written
+            state["mm"].flush()
+            (out / "count.txt").write_text(str(state["w"]))
+            raise JobCancelled(f"pass-1 cancelled at frame {fidx} (resumable)")
         while nxt is not None and nxt[0] < fidx:
             nxt = next(reader_iter, None)
         if nxt is not None and nxt[0] == fidx:
@@ -481,7 +489,8 @@ def _pass1_from_cache(pq, out, meta, start_frame, end_frame, warm_frames,
 
 def _pass1_ingest(project_id, video, chash, hash_method, pq, out, meta, fps,
                   start_frame, end_frame, warm_frames, resume, progress,
-                  state, step, check_resume_meta, open_memmap, _np) -> None:
+                  state, step, check_resume_meta, open_memmap, _np,
+                  should_cancel=None) -> None:
     """Detect-at-ingest: no cache for this variant — decode the window ONCE,
     detect with the project's processing-mode config, write-through the cache
     in closed per-chunk parquet parts (resume at chunk granularity; a crashed
@@ -569,6 +578,11 @@ def _pass1_ingest(project_id, video, chash, hash_method, pq, out, meta, fps,
             c_hi = min(end_frame, c_lo + chunk_frames)
             writer = DetectionCacheWriter(pq_path=part_path(k), metadata={})
             for fidx in range(c_lo, c_hi):
+                if should_cancel is not None and should_cancel():
+                    # mid-chunk cancel = the crash-resume path: the open part
+                    # has no footer, so resume re-enters at this chunk's start
+                    raise JobCancelled(
+                        f"pass-1 ingest cancelled in chunk {k} (resumable)")
                 dets = []
                 if fidx >= 0:                      # pre-recording frames (cam3
                     ok, frame = cap.read()         # -20 case) don't exist
@@ -627,10 +641,15 @@ def _apply_window_events(proj_db: Path, out_db: Path, camera_id: int,
 
 
 def run_pass2(project_id: str, camera_id: int, *, variant: str,
-              workdir: str | Path, apply: bool = False) -> dict:
+              workdir: str | Path, apply: bool = False,
+              should_cancel=None) -> dict:
     """Pass 2 for one camera from its pass-1 dump. Returns stats incl. the
     working DB path; apply=True additionally swaps events+bank into project.db
-    (backup first) and rebuilds the intersection's flag queue with S5 rows."""
+    (backup first) and rebuilds the intersection's flag queue with S5 rows.
+
+    should_cancel: polled at stage boundaries and inside the replay frame
+    loop (JobCancelled). The corpus-bank build is not interruptible (scripts
+    function), and _finish_apply never is — apply stays atomic."""
     # scripts/ is on the path for build_bank_gtfree (Phase-2 productized entry
     # point that still lives there; the CLI and this service share it).
     scripts = str(Path(__file__).resolve().parent.parent.parent / "scripts")
@@ -689,6 +708,8 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                                  out_db, f_lo, f_hi, fps, result)
 
     # --- 1. corpus bank: discovery over the dump's own tracks ---------------
+    if should_cancel is not None and should_cancel():
+        raise JobCancelled(f"pass-2 cancelled before corpus bank (cam {camera_id})")
     from datetime import timedelta
     rec_start = datetime.fromisoformat(video["recording_start_datetime"])
     start_hms = (rec_start + timedelta(seconds=f_lo / fps)).strftime("%H:%M:%S")
@@ -714,7 +735,10 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     # --- 2+3. replay-classify (APPLIED bank), then the turn merge ------------
     # Variant in the name: a study day runs one pass-2 per trim window and the
     # working DBs must coexist (measure-then-apply per window).
-    stats = replay_camera(project_id, camera_id, variant=variant, out_db=out_db)
+    if should_cancel is not None and should_cancel():
+        raise JobCancelled(f"pass-2 cancelled after corpus bank (cam {camera_id})")
+    stats = replay_camera(project_id, camera_id, variant=variant, out_db=out_db,
+                          should_cancel=should_cancel)
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
                                expected_by_cell=expected)
 
@@ -736,6 +760,39 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         return result
     return _finish_apply(project_id, camera_id, intersection_id,
                          out_db, f_lo, f_hi, fps, result)
+
+
+def rebuild_s5_union(project_id: str, intersection_id: int,
+                     results: list[dict]) -> dict:
+    """One flag-queue rebuild carrying the UNION of S5 merge-borderline rows
+    across every window a process run applied. A per-window _finish_apply
+    rebuild only carries its own window's rows, so a multi-window apply used
+    to leave the LAST window's S5 flags only (stage-3.4 dry-run finding).
+    Dedup by (camera, cell) keeping the max-|raw−expected| instance; cells
+    round-trip through JSON sidecars as lists, so normalize to tuples."""
+    best: dict[tuple, dict] = {}
+    for res in results:
+        cam = res["camera_id"]
+        for b in res.get("borderline") or []:
+            b = dict(b, cell=tuple(b["cell"]))
+            key = (cam, b["cell"])
+            if (key not in best or abs(b["raw"] - b["expected"])
+                    > abs(best[key]["raw"] - best[key]["expected"])):
+                best[key] = b
+    by_cam: dict[int, list[dict]] = {}
+    for (cam, _), b in best.items():
+        by_cam.setdefault(cam, []).append(b)
+    extras: list[dict] = []
+    conn = get_connection(project_id)
+    try:
+        for cam, borderline in by_cam.items():
+            card = {lid: cd for lid, cd in conn.execute(
+                "SELECT leg_id, cardinal_direction FROM legs WHERE camera_id = ?",
+                (cam,))}
+            extras.extend(s5_flags(cam, borderline, card, bound_approach))
+    finally:
+        conn.close()
+    return rebuild_flags(project_id, intersection_id, extra_flags=extras)
 
 
 def _finish_apply(project_id: str, camera_id: int, intersection_id: int,
