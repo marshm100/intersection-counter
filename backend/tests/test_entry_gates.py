@@ -97,3 +97,28 @@ def test_corridor_cam2_gate_pin():
         assert abs(inw[0] ** 2 + inw[1] ** 2 - 1.0) < 1e-6   # unit normals
         # every gate segment is sane: finite, non-degenerate
         assert 20.0 < ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5 < 2000.0
+
+
+def test_pipeline_origin_evidence_extraction():
+    """The pipeline's evidence hook (mechanism-1 filter half) reads an inward
+    entry crossing off the vehicle trajectory — without a full pipeline."""
+    from backend.services.pipeline import ProcessingPipeline
+
+    class P:
+        _ensure_entry_gates = ProcessingPipeline._ensure_entry_gates
+        _origin_evidence = ProcessingPipeline._origin_evidence
+
+    p = P()
+    p._entry_gates = None
+    p.fps = 10.0
+    p.legs = [{"leg_id": lid, "origin_zone": [list(m)],
+               "reference_heading": HEAD[lid]} for lid, m in LEGS.items()]
+    p._paths = [dict(pp) for pp in PATHS]
+    # entered from leg 1 heading south -> evidence = 1
+    veh = {"start_frame": 100,
+           "trajectory": [[50.0, -10.0 + 12.0 * i] for i in range(12)]}
+    assert p._origin_evidence(veh) == 1
+    # born mid-box -> no evidence
+    veh2 = {"start_frame": 100,
+            "trajectory": [[45.0 + i, 50.0] for i in range(5)]}
+    assert p._origin_evidence(veh2) is None

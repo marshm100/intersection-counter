@@ -307,6 +307,20 @@ SPEED_TIEBREAK_ENABLED = False          # OFF by default; per-camera calib_speed
 SPEED_TIEBREAK_DECISIVE = 1.0           # px/step: override only if track speed is this much closer to the rival's signature
 SPEED_TIEBREAK_MIN_SEP = 1.5            # px/step: only fire when the two paths' speed signatures differ by this
 
+# --- Origin-evidence gate (item-8 mechanism 1, 2026-07-14) ------------------
+# Phase-0 autopsy: all three attribution walls share one axis — origin gets
+# CLAIMED without entry evidence (the joint scorer reads origin off the winning
+# bank path; 208 NB-left->SB-right + 454 EB->SB-thru flips on cam2, 71 mid-block
+# driveway grabs on cam4). When ON, a track that crossed a leg's entry gate
+# inward has that origin BOUND: the joint scorer's candidates are filtered to
+# paths from that leg, and the early entry-tangent origin is overridden to the
+# evidenced leg. Tracks with NO entry evidence keep current behavior (counted
+# via n_origin_unevidenced; the posterior half gates separately per the plan).
+# OFF by default until the cam2 fit-window ablation + five-cam blind sweep
+# (docs/plan_origin_evidence_gate_2026-07-14.md). Env override for dev sweeps.
+ORIGIN_EVIDENCE_GATE_ENABLED = _os.environ.get(
+    "ORIGIN_EVIDENCE_GATE_ENABLED", "") in ("1", "true", "on")
+
 # Pipeline-level grace period before considering a tracker-missing vehicle
 # "lost" and finalizing it. YOLO detection can flicker (detect, miss, detect)
 # on consecutive frames; without a grace window every flicker fragments a

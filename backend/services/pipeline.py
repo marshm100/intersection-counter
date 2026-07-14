@@ -40,6 +40,7 @@ from backend.config import (
     SPEED_TIEBREAK_MIN_SEP,
     TRACK_FINALIZE_GAP_FRAMES,
     TRAJECTORY_MIN_DISTANCE_PX,
+    ORIGIN_EVIDENCE_GATE_ENABLED,
     USE_JOINT_PARTIAL_FRECHET_SCORER,
 )
 from backend.services.checkpoint import CheckpointManager
@@ -230,6 +231,15 @@ class ProcessingPipeline:
         # Low-confidence births rejected by the track-quality gate (Phase 1.1;
         # only counts when calibration_params["track_quality_filter"] is set).
         self.n_quality_filtered: int = 0
+        # Origin-evidence gate (item-8 mechanism 1): entry-gate crossings bind
+        # origin and filter the joint scorer's candidates. Counters instrument
+        # the ablation (plan_origin_evidence_gate stage 3): how many tracks had
+        # entry evidence vs not, and how often the evidence CORRECTED the early
+        # entry-tangent origin (each correction is a prevented flip).
+        self._entry_gates = None          # built lazily on first finalize
+        self.n_origin_evidenced: int = 0
+        self.n_origin_unevidenced: int = 0
+        self.n_origin_corrected: int = 0
         # Inline track stitching (Phase 1.5, calibration_params["track_stitch"]):
         # new tracker IDs remapped onto a coasting prior track (ID-switch repair).
         self._stitch_alias: dict[int, int] = {}
@@ -873,6 +883,37 @@ class ProcessingPipeline:
         vehicle = self.active_vehicles.pop(track_id)
         self._finalize_vehicle_data(track_id, vehicle, frame_number)
 
+    def _ensure_entry_gates(self):
+        """Build the leg entry gates once (operator mouths + bank tangents —
+        the entry_gates service, ported from the proven box-clip machinery)."""
+        if self._entry_gates is None:
+            from backend.services.entry_gates import build_gates
+            mouths, heads = {}, {}
+            for lg in self.legs:
+                oz = lg.get("origin_zone")
+                if oz:
+                    mouths[lg["leg_id"]] = tuple(oz[0])
+                    heads[lg["leg_id"]] = lg.get("reference_heading")
+            self._entry_gates = build_gates(mouths, self._paths or [], heads) \
+                if mouths else {}
+        return self._entry_gates
+
+    def _origin_evidence(self, vehicle: dict) -> int | None:
+        """The leg whose entry gate this track crossed INWARD, else None.
+        Frames are approximated as start_frame + index (coasted gaps shift
+        jitter windows by at most the gap — immaterial at 2 s granularity)."""
+        from backend.services.entry_gates import classify as gate_classify
+        gates = self._ensure_entry_gates()
+        if not gates:
+            return None
+        f0 = vehicle.get("start_frame") or 0
+        pts = [(float(f0 + i), float(p[0]), float(p[1]))
+               for i, p in enumerate(vehicle["trajectory"])]
+        if len(pts) < 2:
+            return None
+        origin, _d, _fo, _fd, _op, _dp, _tag = gate_classify(pts, gates, self.fps)
+        return origin
+
     def _finalize_vehicle_data(self, track_id: int, vehicle: dict, frame_number: int):
         """Finalize a vehicle dict (from active_vehicles or recently_lost)."""
         # Audit snapshot first — before any early-return — so dropped tracks
@@ -930,6 +971,30 @@ class ProcessingPipeline:
             (lg for lg in self.legs if lg["leg_id"] == origin_leg_id), None,
         )
 
+        # --- Origin-evidence gate (item-8 mechanism 1, filter half) ---------
+        # An inward entry-gate crossing BINDS origin: the early entry-tangent
+        # assignment is overridden to the evidenced leg, and the joint scorer
+        # only sees paths FROM that leg — the winning path can no longer
+        # rewrite origin across the intersection (the phase-0 flip mechanism).
+        # No evidence -> current behavior, counted (the posterior half gates
+        # separately per plan_origin_evidence_gate_2026-07-14).
+        candidate_paths = self._paths
+        if ORIGIN_EVIDENCE_GATE_ENABLED and self._paths:
+            evidenced = self._origin_evidence(vehicle)
+            if evidenced is not None:
+                self.n_origin_evidenced += 1
+                if evidenced != origin_leg_id:
+                    self.n_origin_corrected += 1
+                    origin_leg_id = evidenced
+                    origin_leg = next(
+                        (lg for lg in self.legs if lg["leg_id"] == evidenced),
+                        origin_leg)
+                    vehicle["origin_leg_id"] = evidenced
+                candidate_paths = [p for p in self._paths
+                                   if p["origin_leg_id"] == evidenced]
+            else:
+                self.n_origin_unevidenced += 1
+
         # --- Tier 0: polyline-path (origin + destination + movement) ---
         # When the camera has calibrated paths, the (origin_leg,
         # destination_leg, movement_label) triple comes directly from the
@@ -945,9 +1010,9 @@ class ProcessingPipeline:
         # destination scorer remains the fallback when the joint scorer finds
         # no confident match. See docs/implementation_plan_accuracy_2026-05-27.md.
         polyline_dest = None
-        if self._paths and USE_JOINT_PARTIAL_FRECHET_SCORER:
+        if candidate_paths and USE_JOINT_PARTIAL_FRECHET_SCORER:
             joint = score_path_joint(
-                trajectory, self._paths,
+                trajectory, candidate_paths,
                 max_cost=JOINT_SCORER_MAX_COST_PX,
                 min_coverage_frac=JOINT_SCORER_MIN_COVERAGE_FRAC,
                 tail_window=JOINT_SCORER_TAIL_WINDOW,
