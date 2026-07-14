@@ -240,8 +240,12 @@ def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
                              "last per-window rebuild)")
         set_v3_run_state(project_id, intersection_id, "cancelled")
         with _lock:
+            prior = _jobs.get(key, {})
             _jobs[key] = {"status": "cancelled", "kind": "process",
-                          "detail": str(exc), "completed": results}
+                          "detail": str(exc), "completed": results,
+                          "completed_windows": len(results),
+                          "window_index": prior.get("window_index"),
+                          "window_total": prior.get("window_total")}
     except Exception as exc:
         logger.exception("two-pass process i%s failed", intersection_id)
         set_v3_run_state(project_id, intersection_id, "error", str(exc))
@@ -303,7 +307,8 @@ def post_two_pass_cancel(project_id: str, intersection_id: int):
 # not the full per-window results payload.
 _JOB_PUBLIC_KEYS = ("status", "kind", "stage", "current_camera",
                     "current_variant", "window_index", "window_total",
-                    "progress", "error", "detail", "cancel_requested")
+                    "completed_windows", "progress", "error", "detail",
+                    "cancel_requested")
 
 
 def get_process_job(project_id: str, intersection_id: int) -> dict | None:

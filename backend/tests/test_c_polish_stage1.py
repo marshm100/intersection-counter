@@ -84,6 +84,9 @@ class TestProcessCancel:
         assert calls == ["w1"]
         assert tpr._jobs[key]["status"] == "cancelled"
         assert len(tpr._jobs[key]["completed"]) == 1
+        # the chip's "M of N windows applied" line (stage-2 render)
+        assert tpr._jobs[key]["completed_windows"] == 1
+        assert tpr._jobs[key]["window_total"] == 2
         assert get_v3_run_state(proj, iid)["status"] == "cancelled"
         tpr._jobs.pop(key, None)
 

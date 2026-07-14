@@ -1359,6 +1359,40 @@ function _processingChipHtml(intersection, status) {
             detailHtml = `<div class="chip-detail">${segCount} segments queued</div>`;
             break;
         case 'running': {
+            const tp = (status.two_pass && status.two_pass.status === 'running')
+                ? status.two_pass : null;
+            if (tp) {
+                // Live two-pass subline from the /processing/status merge
+                // (plan_C_polish §2a). Pass-1 has real frame progress; pass-2
+                // is honest at window granularity.
+                const stageLabel = ({
+                    pass1: 'pass 1 — tracking',
+                    pass2: 'pass 2 — counting',
+                    's5-union': 'finalizing QA flags',
+                })[tp.stage] || 'starting';
+                statusBadge = `<span class="chip-badge chip-running chip-running-anim" data-frame="${(tp.progress && tp.progress.frames) ?? tp.window_index ?? 0}"><span class="chip-pulse-dot"></span>Processing…</span>`;
+                const parts = [
+                    `Two-pass · camera ${tp.current_camera ?? '?'} · ${escapeHtml(tp.current_variant || '')}`
+                    + (tp.window_total ? ` (window ${tp.window_index} of ${tp.window_total})` : ''),
+                    stageLabel,
+                ];
+                if (tp.cancel_requested) parts.push('cancelling after the current step…');
+                const p1 = (tp.stage === 'pass1' && tp.progress && tp.progress.total > 0)
+                    ? Math.min(100, 100 * tp.progress.frames / tp.progress.total)
+                    : null;
+                detailHtml = `
+                    <div class="chip-detail">${parts.join(' · ')}</div>` +
+                    (p1 !== null ? `
+                    <div class="chip-progress">
+                        <div class="chip-progress-fill" style="width:${p1}%"></div>
+                    </div>` : '');
+                // No "View live": the legacy preview queue is never fed by a
+                // two-pass job — the button would be a dead-end.
+                actionsHtml = tp.cancel_requested
+                    ? `<button class="btn-secondary" disabled>Cancelling…</button>`
+                    : `<button class="btn-secondary" onclick="v3CancelTwoPass(${intersection.intersection_id})">Cancel</button>`;
+                break;
+            }
             const fp = status.frame_progress || {};
             const etaTxt = _formatEta(fp.eta_seconds);
             const fpsTxt = fp.fps_processing
@@ -1372,6 +1406,7 @@ function _processingChipHtml(intersection, status) {
             statusBadge = `<span class="chip-badge chip-running chip-running-anim" data-frame="${fp.frame_number ?? 0}"><span class="chip-pulse-dot"></span>Processing…</span>`;
             // A two-pass run reports through v3_run_state without segment
             // fields — "Segment 1 of 0 · ETA NaN" is worse than saying less.
+            // (Reached when a restart wiped the in-memory two-pass job.)
             const subline = (segCount > 0 ? [
                 `Segment ${currentIdx + 1} of ${segCount}`,
                 etaTxt && `ETA ${etaTxt}`,
@@ -1403,12 +1438,27 @@ function _processingChipHtml(intersection, status) {
                 <button onclick="v3ContinueProcessing(${intersection.intersection_id})">Continue</button>
                 <button class="btn-secondary" onclick="v3ReprocessFromStart(${intersection.intersection_id})">Restart from beginning</button>`;
             break;
-        case 'cancelled':
+        case 'cancelled': {
             statusBadge = '<span class="chip-badge chip-warn">Cancelled</span>';
+            const tpc = status.two_pass;
+            if (tpc && tpc.kind === 'process') {
+                // Applied windows stayed applied; restarting routes through
+                // v3StartProcessing's plan probe (two-pass vs legacy decided
+                // at click time — correct even after a server restart).
+                const done = (typeof tpc.completed_windows === 'number' && tpc.window_total)
+                    ? ` — ${tpc.completed_windows} of ${tpc.window_total} windows applied`
+                    : '';
+                detailHtml = `<div class="chip-detail">${escapeHtml((tpc.detail || 'Cancelled') + done)}.
+                    Applied windows are kept; restart resumes from cached work.</div>`;
+                actionsHtml = `
+                    <button onclick="v3StartProcessing(${intersection.intersection_id})">Restart</button>`;
+                break;
+            }
             actionsHtml = `
                 <button onclick="v3OpenIntersection(${intersection.intersection_id})">Restart</button>
                 <button class="btn-secondary" onclick="v3ReprocessFromStart(${intersection.intersection_id})">Restart from beginning</button>`;
             break;
+        }
         case 'error':
             statusBadge = '<span class="chip-badge chip-error">Error</span>';
             detailHtml = `<div class="chip-detail">${escapeHtml(status.error || '')}</div>`;
@@ -1439,6 +1489,22 @@ async function v3CancelProcessing(iid) {
     } catch (e) {
         alert(`Cancel failed: ${e.message || e}`);
     }
+}
+
+async function v3CancelTwoPass(iid) {
+    if (!window.confirm('Cancel this two-pass run?\n\nIt stops at the next '
+            + 'checkpoint — the current step finishes first, and camera '
+            + 'windows already applied stay applied (each has its own '
+            + 'backup). Restarting later reuses all completed work.')) return;
+    const pid = AppState.currentProject;
+    try {
+        await API.post(`/api/projects/${pid}/intersections/${iid}/two-pass/cancel`, {});
+    } catch (e) {
+        // 409 = the job finished between chip polls — benign race.
+        alert(`Cancel: ${e.message || e}`);
+    }
+    const host = document.getElementById('v3-processing-chips-host');
+    if (host) await _refreshProcessingChips(host);
 }
 
 async function v3StartProcessing(iid) {
