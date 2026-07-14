@@ -28,7 +28,9 @@
   corpus-bank build the API is CPU-starved for minutes — the Processing tab
   can take >3 min to first render (it recovers; same single-process reality
   as the legacy pipeline; screenshot 04 predates the chip fix for this
-  reason). (2) S5 merge-borderline flags reflect only the LAST window of a
+  reason). **CORRECTED 2026-07-14 (C-polish stage 2):** the >3 min FIRST
+  render was actually a confirm-flow render race (fixed, 8f2eec4);
+  starvation is real but only delays chip UPDATES during the bank build. (2) S5 merge-borderline flags reflect only the LAST window of a
   multi-window apply (inherited from the cam2 full-day exercise mechanics,
   not new). (3) ~~The trim time-edit inputs call a PATCH endpoint that does
   not exist~~ — WRONG, corrected 2026-07-14: `PATCH .../trims/{trim_id}`

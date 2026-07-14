@@ -131,6 +131,35 @@ Two cheap, high-value keys; nothing structural:
 
 ## Stage 2 — implementation detail (planned 2026-07-14, post-stage-1)
 
+**STATUS (same day): BUILT + EVIDENCE GATE PASSED** (commits 1e8e9a2 chip/
+cancel UI, 8f2eec4 render-race fix; screenshots `stage2_00..05*.png`).
+
+- Playwright drive on intersection 2 with a right-sized run (windows 1–2
+  sidecar-reuse ≈ 5 s each; window 3's derived artifacts deleted → ~13 min
+  recompute): live subline rendered ("window 3 of 3 · pass 2 — counting"),
+  **UI Cancel** landed mid-bank-build and the job stopped at the
+  after-corpus-bank checkpoint — cancelled chip read "2 of 3 windows
+  applied; applied windows are kept", **Restart from the chip** relaunched
+  (confirm popup correctly showed 2× cached re-apply + 1× recompute) and
+  ran to completion.
+- **Verify: PASS.** Event counts strict Δ0 (5230/3903/6701); S5 union
+  invariant holds — the queue now carries BOTH borderline cells
+  ((28,29) impact 95 = the max-impact instance across windows, (28,27)
+  impact 77 from window 3) vs the pre-fix single last-window row; open
+  flags 891→892 = exactly the added S5 row; backups 6→14 = the expected
+  +8 (3 + 2 + 3 across the three runs).
+- **Root-cause correction to the stage-3.4 residual (1):** the ">3 min
+  Processing-tab first render" was NOT API starvation — it was a confirm-
+  flow RACE (v3CloseIntersection's un-awaited intersections render landing
+  after the processing render and overwriting it; fixed in 8f2eec4, both
+  legacy and two-pass flows). Real starvation still exists during the
+  corpus-bank build (chip polls stall — the transient "cancelling…" state
+  wasn't captured for exactly that reason), but it delays UPDATES, not the
+  initial render. The subprocess-runner item stays out of scope.
+- **New residual observed:** apply backups accumulate fast (8 × 360 MB in
+  one day of exercising — one full project.db copy per window apply).
+  Backup rotation/pruning is a small ops item for stage 3 or later.
+
 All in `frontend/js/setup.js` except one two-line backend addition. Stage 1
 already ships everything the chip needs via `/processing/status`'s
 `two_pass` block.
