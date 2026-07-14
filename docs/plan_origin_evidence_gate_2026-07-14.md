@@ -170,3 +170,14 @@ recheck (the corpus bank re-discovers from de-flipped tracks first).
 Ablations run detached with logs + resume; no repo `.py` edits while a
 server job runs; scorers (`measure_cam2_reid_spike`, `triangulate_manual`,
 `interval_metric`) remain the only GT readers.
+
+**AUTOPSY RESULT (2026-07-14): RECOVERY — freeze proceeds.** Of the +146
+delta (ctrl 157 → fill 303): **+83 are bucket-1 GENUINE box-full 28→27
+journeys** (49→132; the gate recovered real EB-lefts the control had
+misplaced), +41 unevidenced (83→124), +23 truncated-28 (14→37), hard
+errors flat (10→9, bucket 4 immaterial). The cell's remaining overshoot
+(+75 vs Mio) is carried by the 108 unevidenced + 37 truncated suspects —
+exactly the POSTERIOR half's named workload, gating separately as planned.
+Filter+fill FREEZES as-is (no tunable constants): next = held-out
+11:00/16:00 through the FULL pass-2 chain (merge included), then the
+five-camera blind sweep, EB-left a watched cell.
