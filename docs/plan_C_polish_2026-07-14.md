@@ -239,6 +239,90 @@ finish. No artificial slowdowns, no sidecar deletions.
 Ops rails: server detached (Start-Process), Monitor for the run wait, no
 `.py` edits while the job runs (the 2b edit lands BEFORE the drive).
 
+## Stage 3 — implementation detail (planned 2026-07-14, post-stage-2)
+
+Worklist only (`frontend/js/worklist.js`) plus two small, tested backend
+touches for undo fidelity. No feeder/threshold changes; the ±5% logic stays
+in the acceptance endpoint.
+
+### 3a. Stopping-rule sidebar (§D render spec)
+
+`_wlSideHtml()` gains a per-item gate breakdown (payload shapes verified in
+`spot_check.acceptance`):
+
+- `corridor_consistency` (detail = link list): badge + "N of M links
+  failing" + hint *"cross-intersection conservation — investigate on the
+  QA tab; flags alone won't clear it"*.
+- `reverse_balance` (detail = {applicable, note}): badge + the service's
+  own note verbatim (it already writes honest copy) + the QA-tab hint on
+  fail/warn; `info` renders dimmed.
+- `spot_count` (detail = per-camera list): badge + the first uncovered
+  camera's note (the service names the window to sample) + hint *"record a
+  spot count on the QA tab"*.
+- `review_flags`: badge + detail.note + *"work the cards below"*.
+- Progress-to-done line: "N cards · M flags · est. impact ~I veh to a
+  clean queue" (numbers the sidebar already fetches), and an undo
+  affordance line "Z undo (K available)".
+- Badges reuse the existing verdict colors. Render-only — zero endpoints.
+
+### 3b. Undo-last (§E1) — action stack + two backend touches
+
+Facts that shape the design (verified): `batch_resolve_flags` DOES patch
+events (`movement` + `manually_edited=1`) but returns only a count and
+captures no priors; flag reopen already works (`update_flag_status` clears
+`resolved_at`). Honest undo must restore `manually_edited` too — an event
+edited-then-undone must not stay marked operator-edited (and one already
+manually_edited before the session must keep its 1).
+
+- **Backend touch 1:** `batch_resolve_flags` also returns
+  `changes: [{flag_id, event_id, prior_movement, prior_manually_edited}]`
+  (read in the same transaction, before the UPDATEs); the batch endpoint
+  passes it through. Callers of the old int return updated; test.
+- **Backend touch 2:** PATCH `/review/{event_id}` accepts an optional
+  `manually_edited` so undo can restore the prior value (absent = current
+  set-to-1 behavior). Exact current reject/movement field handling to be
+  read from `routers/review.py` at build time; test.
+- **Client stack** `_wlUndo` (cap 50, session-only), pushed only after the
+  action's API calls succeed:
+  - accept/dismiss/resolve-gap → `{flags: [{id}]}` (reopen on undo);
+  - set-movement / reject → + `{events: [{event_id, movement|rejected,
+    manually_edited}]}` with priors captured from the enriched
+    `_wlFlag.event` at display time;
+  - batch → flags from the card's member ids + events from the endpoint's
+    new `changes`.
+  - Add-missed: NOT undoable (unchanged decision).
+- **`Z` executor:** pop → PATCH events back → PATCH flags back to open →
+  `_wlRefreshList` + `_wlShow`; a 404 (row vanished after an explicit
+  rebuild) alerts and drops the entry; `_wlGuard` serializes. Transient
+  toast ("Undone: …") for feedback.
+
+### 3c. `Shift+1–4` batch movement (§E2)
+
+In `_wlKeydown`: **`e.code` `Digit1..4` + `e.shiftKey`** — `e.key` is
+unusable (Shift+1 produces `'!'` on US layouts). Guard identical to the
+buttons: `batch_key` starts with `dest|` AND group > 1 → `_wlBatchMove`.
+
+### 3d. Evidence gate (Playwright, the real queue)
+
+Intersection 2's live queue (892 flags / 24 cards). Hard requirement: the
+drive leaves the queue and events EXACTLY as found.
+
+1. Manual project.db backup first (insurance beyond per-apply backups).
+2. Pre-snapshot hash: review_flags (flag_id, status, resolved_at) + the
+   i2 cameras' vehicle_events (event_id, movement, rejected,
+   manually_edited).
+3. Drive with REAL keyboard events (page.keyboard): Enter-resolve one,
+   2-set-movement one, Del-reject one, B batch-resolve a small card,
+   Shift+2 batch-move a `dest|` card (skip gracefully if none open) — then
+   `Z` × 5 unwinds everything.
+4. Post-snapshot hash must equal pre. Screenshots: sidebar gate breakdown,
+   the undo toast, before/after card counts.
+5. `node --check`; suite both flag states (backend touches carry tests);
+   close MASTER_PLAN item 7 on pass.
+
+Out of scope reaffirmed: backup rotation (recorded stage-2 residual),
+feeder sensitivity, add-missed undo.
+
 ## Sequencing, gates, evidence
 
 1. **Stage 1 — backend (A cancel, B S5 union, C job accessor):** unit
