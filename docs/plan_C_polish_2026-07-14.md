@@ -129,6 +129,87 @@ Two cheap, high-value keys; nothing structural:
 - **Tests:** endpoint-level none needed (no backend change); UI-level via
   the gate drive below.
 
+## Stage 2 — implementation detail (planned 2026-07-14, post-stage-1)
+
+All in `frontend/js/setup.js` except one two-line backend addition. Stage 1
+already ships everything the chip needs via `/processing/status`'s
+`two_pass` block.
+
+### 2a. Chip render (`_processingChipHtml`)
+
+- **`running` + `status.two_pass.status === 'running'`** (call it `tp`):
+  - Subline: `Two-pass · camera {tp.current_camera} · {tp.current_variant}
+    (window {tp.window_index} of {tp.window_total}) · {stage}` with stage
+    labels: `pass1` → "pass 1 — tracking", `pass2` → "pass 2 — counting",
+    `s5-union` → "finalizing QA flags", null → "starting".
+  - Progress bar only when `tp.stage === 'pass1' && tp.progress?.total > 0`
+    (frames/total; pass-2 has no incremental counter — window granularity
+    is honest, per the plan's §C).
+  - `tp.cancel_requested` → append "· cancelling after the current step…"
+    and render Cancel disabled.
+  - Buttons: **Cancel → `v3CancelTwoPass(iid)`** (new); **hide "View live"**
+    — it feeds from the legacy preview queue, which a two-pass job never
+    fills (same dead-end class this plan exists to fix).
+  - Resilience: a server restart wipes `_jobs` → `two_pass` disappears and
+    the chip falls back to the existing generic two-pass subline (the
+    `segCount > 0` guard from the dry-run fix). No code needed; stated so
+    nobody "fixes" it.
+- **`cancelled` + `status.two_pass` present**: detail line "stopped at:
+  {tp.detail} — {tp.completed_windows} of {tp.window_total} windows
+  applied"; single **Restart → `v3StartProcessing(iid)`** button (its
+  plan-endpoint probe routes two-pass vs legacy at click time — correct
+  even after a restart wipes the block). When no `two_pass` block, the
+  legacy cancelled buttons stay exactly as they are (`v3ReprocessFromStart`
+  has legacy checkpoint semantics that must not be re-routed blindly).
+- `error`/`complete` cases: unchanged (two-pass errors already land in
+  `v3_run_state.error_message`; complete keeps dashboard/Excel).
+
+### 2b. The one backend touch
+
+The cancel handler parks `{status, kind, detail, completed}` — the chip
+can't say "2 of 3 windows applied" because `window_total` is dropped and
+`completed` is a heavy payload the whitelist strips. Keep
+`window_index`/`window_total` in the parked dict, add
+`completed_windows: len(results)`, and whitelist `completed_windows`.
+Extend `test_cancel_between_windows` to assert them.
+
+### 2c. Cancel routing (`v3CancelTwoPass`)
+
+New function, used only by the chip's two-pass branch: `window.confirm`
+copy states the semantics ("stops at the next checkpoint; the current step
+finishes; already-applied windows stay applied") → POST
+`/two-pass/cancel`; 409 → alert (job already finished between polls —
+benign race); then force one chip refresh. `v3CancelProcessing` (legacy)
+is untouched.
+
+### 2d. Evidence gate (Playwright, corridor intersection 2)
+
+Reuse makes this cheap: all three cam2 windows are pass-2-current, so a
+re-run is ~apply-only per window (~1–2 min each: 360 MB backup copy +
+window swap + flag rebuild) — long enough to screenshot, short enough to
+finish. No artificial slowdowns, no sidecar deletions.
+
+1. Snapshot pre-state (the dryrun_verify pre/post harness).
+2. Card 2 → Confirm & process (dialog auto-accept) → Processing tab.
+3. Screenshot the live subline (window 1, "pass 2 — counting").
+4. When `window_index ≥ 2`: click Cancel → confirm → screenshot the
+   cancelling/cancelled chip. Assert: `v3_run_state = cancelled`; applied
+   windows' event counts Δ0; S5 rows = union of the APPLIED windows'
+   sidecar borderlines (the stage-1 cancel handler runs the union).
+5. Restart via the chip's new Restart button → run to completion →
+   complete-chip screenshot.
+6. Final assert: per-window event counts Δ0 vs pre-state, backups present.
+   **Flag-count note:** the S5 rows may legitimately differ from
+   yesterday's `flags_s5 = 1` — the union fix is SUPPOSED to change that.
+   The gate asserts S5 == the deduped union of the three sidecars'
+   borderline cells (computed from the sidecar files), not equality with
+   the pre-fix count. Event counts stay strict-Δ0.
+7. `node --check setup.js`; re-run the two-pass test files both flag
+   states (the 2b field change touches the router).
+
+Ops rails: server detached (Start-Process), Monitor for the run wait, no
+`.py` edits while the job runs (the 2b edit lands BEFORE the drive).
+
 ## Sequencing, gates, evidence
 
 1. **Stage 1 — backend (A cancel, B S5 union, C job accessor):** unit
