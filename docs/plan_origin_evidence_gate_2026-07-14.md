@@ -45,6 +45,32 @@ regression is FALSIFIED**: the 147 extra EB-lefts are not starved
 EB-thrus (they didn't drain into the new thru path; EB-thru's +42 came
 from the fallback pool). The regression has an unidentified mechanism.
 
+## The EB-left autopsy (planned 2026-07-14, gates the freeze)
+
+**Reframe worth testing first:** control was UNDER Miovision (157 vs 229,
+−72); the gated arm is OVER (304, +75) — nearly symmetric. So the +147 may
+be part RECOVERY (up to ~72 real EB-lefts the control missed) and part
+overshoot — "regression" is not yet established, only movement.
+
+**Method (one script on existing artifacts, no replay, ~2 min):** for every
+(28→27,'left') event in the fill DB (study_0700 window), join
+vehicle_track_id → dump track → classify with the PINNED box-clip gates,
+plus per-track features (evidenced?, death-vs-divergence, length, birth).
+Bucket:
+1. box-FULL 28→27 journeys — genuine lefts (recovered real; cap ~229/Mio);
+2. truncated entry-only-28 — shape-matched to the left path (the suspect
+   pool: real thrus/rights whose partial curve reads left);
+3. unevidenced tracks (the 1140 pool is NOT filtered — they can still
+   match 28→* paths and land here);
+4. box-says-other (full journeys to 26/29 called left — hard errors).
+Same buckets for the CONTROL's 157 for the delta story.
+
+**Verdicts:** bucket 1 dominant → recovery, freeze proceeds with EB-left
+watched at the sweep; bucket 2/3 dominant → the truncated/unevidenced
+shape-match is the mechanism and the POSTERIOR half (or a turn-tail-prior
+tightening for evidenced-truncated tracks) must land before freeze; bucket
+4 material → gate-geometry defect, back to stage 1.
+
 **Next (before freeze): the EB-left autopsy** — box-clip cells for the
 fill-DB's (28→27) events on study_0700 (the phase-0 join machinery on the
 working DB): who are the +147 — truncated EB-thrus whose shape curves
