@@ -894,7 +894,13 @@ class ProcessingPipeline:
                 if oz:
                     mouths[lg["leg_id"]] = tuple(oz[0])
                     heads[lg["leg_id"]] = lg.get("reference_heading")
-            self._entry_gates = build_gates(mouths, self._paths or [], heads) \
+            # Gate geometry must be STABLE: built from _gate_paths (set by
+            # callers that inject experimental candidate sets, e.g. replay
+            # bank injection) so ablating candidates never rotates the gates
+            # themselves. The fill-arm confound (origin_evidenced 4691->2628
+            # from one added path's mouth tangents) is why this is separate.
+            gate_paths = getattr(self, "_gate_paths", None) or self._paths
+            self._entry_gates = build_gates(mouths, gate_paths or [], heads) \
                 if mouths else {}
         return self._entry_gates
 

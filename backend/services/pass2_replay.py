@@ -167,6 +167,10 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         video_id=video["video_id"], calibration_params=calib, paths=paths)
     pipe._v3_camera_id = camera_id
     pipe._v3_trim_id = None
+    if bank is not None:
+        # Injected candidates must not perturb the origin-evidence gate
+        # geometry — gates stay pinned to the camera's DB-applied paths.
+        pipe._gate_paths = list_paths_for_camera(project_id, camera_id)
 
     # --- the post-tracker per-frame loop, replicated verbatim ---------------
     # (pipeline._process_frame after tracker.update: vehicle accumulation +
