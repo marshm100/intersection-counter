@@ -1,5 +1,37 @@
 # Plan — item-8 phase 1, mechanism ①: the origin-evidence gate (2026-07-14)
 
+**STATUS (same day): stages 1–2 SHIPPED (59d021d, e0fa2c0, flag default
+OFF); stage-3 fit-window ablation RUN — filter half = qualified PASS with
+one induced regression, traced.**
+
+cam2 study_0700, Mio / flag-off control / gated (counters: 4691 evidenced
+= 80%, 1140 unevidenced, **348 corrected flips**; events 5347 vs 5440 ctrl,
+insufficient +93 — no drop ballooning):
+
+| cell | mio | ctrl | gate | read |
+|---|---|---|---|---|
+| NB-left | 411 | 146 | **209** | recall 0.36→0.51 — the flip fix works |
+| SB-thru | 1384 | 1082 | **1137** | +55, contamination shed |
+| SB-right | 379 | 361 | 314 | down past Mio (0.83) — shed its stolen NB-lefts |
+| EB-right | 167 | 494 | **394** | overcount −100 |
+| EB-thru | 119 | 23 | 34 | still the bank hole |
+| **EB-left** | 229 | 157 | **304** | **INDUCED regression 0.69→1.33** |
+| NB-thru / WB-right | — | — | — | stable (tripwires hold) |
+
+Watch-cell |err| sum 1124→946 (−16%). **The EB-left regression is the bank
+hole made visible:** evidenced origin-28 tracks are now correctly bound to
+28→* candidates, but the applied bank has NO 28→26 (EB-thru) path — so
+real EB-thrus are forced into 28→27 (left) and 28→29 (right). Before the
+gate they escaped into other origins' cells (wrong, but spread out). This
+is the predicted ①→③ coupling, arriving early.
+
+**Decision (next ablation before any freeze):** fill the 28→26 hole with
+the CORPUS-FITTED path (discovered from the site's own tracks — standing
+rule 1 bans DRAWN paths in fitted banks; a corpus-fitted path is
+bank-family-consistent) and re-run the arm. If EB-left returns to ~ctrl
+and EB-thru rises, the filter+fill pair goes to held-out 11:00/16:00 and
+then the five-cam sweep. The posterior half remains separate.
+
 Phase-0 verdict (`phase0_wall_autopsies_2026-07-14.md`): all three walls
 share one axis — origin is CLAIMED without entry evidence (208 NB-left→
 SB-right flips, 454 EB→SB-thru flips, 71 mid-block driveway grabs). The
