@@ -214,5 +214,8 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         "tracks": int(pipe.n_tracks_total), "events": int(n_events),
         "insufficient_data": int(pipe.n_insufficient_data),
         "quality_filtered": int(getattr(pipe, "n_quality_filtered", 0)),
+        "origin_evidenced": int(getattr(pipe, "n_origin_evidenced", 0)),
+        "origin_unevidenced": int(getattr(pipe, "n_origin_unevidenced", 0)),
+        "origin_corrected": int(getattr(pipe, "n_origin_corrected", 0)),
         "out_db": str(out_db),
     }
