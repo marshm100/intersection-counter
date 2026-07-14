@@ -32,6 +32,26 @@ bank-family-consistent) and re-run the arm. If EB-left returns to ~ctrl
 and EB-thru rises, the filter+fill pair goes to held-out 11:00/16:00 and
 then the five-cam sweep. The posterior half remains separate.
 
+**FILL ARM (pinned gates, same day):** first run was CONFOUNDED — gate
+geometry was derived from the candidate set, so the injected path rotated
+the leg-26/28 gates (evidenced 4691→2628). Fixed by pinning gates to
+`_gate_paths` (900e9df — also a product hazard: an operator path edit
+would have rotated evidence gates silently). Pinned rerun, gate vs fill:
+NB-left/SB-right/NB-thru/WB-right byte-identical (pin verified, 348
+corrections stable); **EB-thru 34→76** (the fill reaches its cell);
+EB-right 394→381; watch |err| 946→**902** (ctrl 1124, −20% total).
+**BUT EB-left 304→303 — the bank-hole hypothesis for the EB-left
+regression is FALSIFIED**: the 147 extra EB-lefts are not starved
+EB-thrus (they didn't drain into the new thru path; EB-thru's +42 came
+from the fallback pool). The regression has an unidentified mechanism.
+
+**Next (before freeze): the EB-left autopsy** — box-clip cells for the
+fill-DB's (28→27) events on study_0700 (the phase-0 join machinery on the
+working DB): who are the +147 — truncated EB-thrus whose shape curves
+left? mis-evidenced non-EB tracks? full-journey 27-exits? The freeze
+decision waits on this; everything else in the arm supports shipping the
+filter+fill pair.
+
 Phase-0 verdict (`phase0_wall_autopsies_2026-07-14.md`): all three walls
 share one axis — origin is CLAIMED without entry evidence (208 NB-left→
 SB-right flips, 454 EB→SB-thru flips, 71 mid-block driveway grabs). The
