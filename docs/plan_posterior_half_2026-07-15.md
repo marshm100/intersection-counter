@@ -172,6 +172,38 @@ merge), zero re-tuning (`stage5_heldout.py`, session scratchpad):
 The posterior half holds its freeze. Next: the stage-6 five-camera blind
 sweep (tripwires cam3 / cam4-live; cam4's (34→33) mid-block watch cell).
 
+## STAGE-6 SWEEP, RUN 1 (2026-07-15): FAIL on cam1 — defect diagnosed, fixed, re-gating
+
+Blind sweep (frozen constants, scoreboard metric recomputed for arm AND
+baseline over identical minute coverage; `stage6_sweep.py`):
+
+- **cam2: 9.1% → 3.3% TOTAL (PASS, −5.8 pts)** — EB 24.3→17.0, NB 13.9→3.2,
+  SB 8.7→9.5 (the honest SB-right deficit), WB 9.8→9.0. The corridor's
+  hardest camera lands under the 5% bar.
+- **cam1: 4.3% → 5.0% total — but per-approach EB 14.4% → 199.4%** (NB
+  5.9→21.1). FAIL. Autopsy (samples + bank query): all 400 sampled
+  explosion events had posterior {24: 1.0} — the 24→23 LEFT path (support
+  16) was the ONLY admitted candidate. Truncated exit stubs near the shared
+  exit fail the long thru path's coverage floor (22→23, support 692) but
+  clear the short turn path's — and **branch 1 ran AFTER the origin-rewrite
+  gate and resurrected the vetoed family from the raw candidate list**.
+  Legacy's winner-only veto had been routing exactly these tracks to the
+  fallback (live 22→23 thru 1,821). cam1 exposes it because only 36% of its
+  tracks have entry evidence (2,489 of 4,930 events took branch 1).
+- cam4/cam5: only study_0700 dumps exist (1100/1600 `.tracks` never dumped)
+  — pass-1 backfill launched from the cached detections; windows rerun at
+  the re-sweep. cam3 stopped pre-run (no point sweeping the defective build
+  for hours).
+
+**FIX (structural, zero new constants):** the rewrite-gate rule applied
+PER-CANDIDATE to the branch-1 pool — a straight track (same
+ORIGIN_REWRITE_GATE_STRAIGHTNESS test) excludes turn-labeled candidates
+whose origin is not its nearest origin zone; an emptied pool stands branch 1
+down (legacy fallback proceeds). Counter n_posterior_vetoed instruments it.
+Unit tests: veto fires on the straight-track case, curved tracks keep their
+turn candidates. **Per gate discipline the fix re-gates stages 4→5→6 from
+scratch** (the fill-arm-confound pattern: diagnose → pin → rerun).
+
 ## Risks named
 
 - **Popularity snap:** supports-weighted posteriors could funnel unevidenced

@@ -190,10 +190,14 @@ class TestPipelineWiring:
 
     def test_branch1_unevidenced_origin_posterior(self, env, monkeypatch):
         """Unevidenced track: origin re-picked at the posterior max (supports
-        beat the composite's flip pick), posterior + margin persisted."""
+        beat the composite's flip pick), posterior + margin persisted. The
+        rival is a THROUGH from the other origin — a straight track keeps
+        through candidates (the collinear-flip class branch 1 exists for);
+        turn candidates on straight tracks are the veto test below."""
         plmod = _enable(monkeypatch)
         monkeypatch.setattr(ProcessingPipeline, "_gate_evidence",
                             lambda self, v: (None, None, "no_crossing"))
+        pb_thru = {**P_B, "movement_label": "through"}
         _canned_joint(monkeypatch, plmod, {
             "origin_leg_id": 1, "destination_leg_id": 3, "movement_label":
             "through", "path_id": 1, "distance": 5.0, "coverage": 0.5,
@@ -201,16 +205,16 @@ class TestPipelineWiring:
             "speed_tiebreak_applied": False,
             "candidates": [{"path": P_A, "cost": 5.0, "coverage": 0.5,
                             "composite": 0.9},
-                           {"path": P_B, "cost": 5.0, "coverage": 0.5,
+                           {"path": pb_thru, "cost": 5.0, "coverage": 0.5,
                             "composite": 0.8}]})
-        p = _mk_pipe(env, [P_A, P_B])
+        p = _mk_pipe(env, [P_A, pb_thru])
         p.active_vehicles[9] = _vehicle()
         p._finalize_vehicle(9, frame_number=25)
         evs = _events(env["db"])
         assert len(evs) == 1
         e = evs[0]
-        assert e["origin_leg_id"] == 2          # P_B: 31/41 of the weight
-        assert e["movement"] == "right"
+        assert e["origin_leg_id"] == 2          # pb_thru: 31/41 of the weight
+        assert e["movement"] == "through"
         post = json.loads(e["origin_posterior_json"])
         assert set(post) == {"1", "2"} and post["2"] > post["1"]
         assert 0.0 < e["origin_margin"] < 1.0
@@ -246,7 +250,7 @@ class TestPipelineWiring:
         monkeypatch.setattr(ProcessingPipeline, "_gate_evidence",
                             lambda self, v: (None, None, "no_crossing"))
         pa = {**P_A, "supporting_count": 10}
-        pb = {**P_B, "supporting_count": 12}
+        pb = {**P_B, "movement_label": "through", "supporting_count": 12}
         _canned_joint(monkeypatch, plmod, {
             "origin_leg_id": 1, "destination_leg_id": 3, "movement_label":
             "through", "path_id": 1, "distance": 5.0, "coverage": 0.5,
@@ -362,6 +366,72 @@ class TestPipelineWiring:
         post = json.loads(e["destination_posterior_json"])
         assert post["2"] == pytest.approx(51.0 / 62.0, abs=1e-3)
         assert p.n_posterior_rescued == 1
+
+    def test_branch1_straight_track_turn_veto(self, env, monkeypatch):
+        """The cam1 sweep defect (2026-07-15): a STRAIGHT unevidenced track
+        whose only admitted candidate is a wrong-origin TURN must not be
+        counted there by the posterior — the rewrite-gate rule applies
+        per-candidate, the pool empties, and legacy fallback proceeds."""
+        plmod = _enable(monkeypatch)
+        monkeypatch.setattr(ProcessingPipeline, "_gate_evidence",
+                            lambda self, v: (None, None, "no_crossing"))
+        # as the real chain would look: the winner-only rewrite gate already
+        # nulled the composite pick; the vetoed turn is still in candidates
+        _canned_joint(monkeypatch, plmod, {
+            "origin_leg_id": 2, "destination_leg_id": None, "movement_label":
+            None, "path_id": None, "distance": 5.0, "coverage": 0.5,
+            "considered": 1, "entry_tiebreak_applied": False,
+            "speed_tiebreak_applied": False,
+            "candidates": [{"path": P_B, "cost": 5.0, "coverage": 0.5,
+                            "composite": 0.9}]})
+        monkeypatch.setattr(plmod, "score_destination_by_polyline",
+                            lambda *a, **k: None)
+        monkeypatch.setattr(plmod, "score_destination_leg",
+                            lambda *a, **k: {"destination_leg_id": 3,
+                                             "confidence": 0.5,
+                                             "posterior": {3: 1.0}})
+        p = _mk_pipe(env, [P_A, P_B])
+        # distinct zones so the straight track's nearest origin is leg 1
+        p.legs = [dict(l) for l in env["legs"]]
+        p.legs[0]["origin_zone"] = [[500, 80], [510, 80]]
+        p.legs[1]["origin_zone"] = [[0, 400], [10, 400]]
+        p.legs[2]["origin_zone"] = [[500, 900], [510, 900]]
+        p.active_vehicles[9] = _vehicle()          # straight, starts (500,100)
+        p._finalize_vehicle(9, frame_number=25)
+        evs = _events(env["db"])
+        assert len(evs) == 1
+        e = evs[0]
+        assert e["origin_posterior_json"] is None  # branch 1 stood down
+        assert e["origin_leg_id"] == 1             # legacy provisional origin
+        assert p.n_posterior_vetoed == 1
+        assert p.n_posterior_origin == 0
+
+    def test_branch1_curved_track_turn_not_vetoed(self, env, monkeypatch):
+        """A genuinely CURVED track keeps its turn candidates — the veto is
+        straightness-gated, same constant as the rewrite gate."""
+        plmod = _enable(monkeypatch)
+        monkeypatch.setattr(ProcessingPipeline, "_gate_evidence",
+                            lambda self, v: (None, None, "no_crossing"))
+        _canned_joint(monkeypatch, plmod, {
+            "origin_leg_id": 2, "destination_leg_id": 3, "movement_label":
+            "right", "path_id": 2, "distance": 5.0, "coverage": 0.5,
+            "considered": 1, "entry_tiebreak_applied": False,
+            "speed_tiebreak_applied": False,
+            "candidates": [{"path": P_B, "cost": 5.0, "coverage": 0.5,
+                            "composite": 0.9}]})
+        p = _mk_pipe(env, [P_A, P_B])
+        import math
+        veh = _vehicle()
+        veh["trajectory"] = [(500.0 + 300.0 * math.cos(math.pi * (1.5 + t / 40.0)),
+                              400.0 + 300.0 * math.sin(math.pi * (1.5 + t / 40.0)))
+                             for t in range(20)]          # quarter-arc: curved
+        p.active_vehicles[9] = veh
+        p._finalize_vehicle(9, frame_number=25)
+        e = _events(env["db"])[0]
+        assert e["origin_posterior_json"] is not None
+        assert e["movement"] == "right"
+        assert p.n_posterior_vetoed == 0
+        assert p.n_posterior_origin == 1
 
     def test_unevidenced_drop_stays_dropped(self, env, monkeypatch):
         """No evidence + nothing admitted -> still dropped (the popularity-

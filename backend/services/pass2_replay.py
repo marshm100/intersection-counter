@@ -227,5 +227,6 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         "posterior_dest": int(getattr(pipe, "n_posterior_dest", 0)),
         "posterior_rescued": int(getattr(pipe, "n_posterior_rescued", 0)),
         "origin_ambiguous": int(getattr(pipe, "n_origin_ambiguous", 0)),
+        "posterior_vetoed": int(getattr(pipe, "n_posterior_vetoed", 0)),
         "out_db": str(out_db),
     }

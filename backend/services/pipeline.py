@@ -251,6 +251,8 @@ class ProcessingPipeline:
         self.n_posterior_dest: int = 0       # branch 2: truncated dest tie
         self.n_posterior_rescued: int = 0    # evidenced insufficient-rescue
         self.n_origin_ambiguous: int = 0     # origin margin < floor
+        self.n_posterior_vetoed: int = 0     # branch-1 pools trimmed by the
+                                             # straight-track turn veto
         # Inline track stitching (Phase 1.5, calibration_params["track_stitch"]):
         # new tracker IDs remapped onto a coasting prior track (ID-switch repair).
         self._stitch_alias: dict[int, int] = {}
@@ -1109,14 +1111,39 @@ class ProcessingPipeline:
                 cands = joint.get("candidates") or []
                 if gate_origin is None and cands:
                     pool = cands
-                    if gate_tag == "exit_only" and gate_dest is not None:
+                    # The origin-rewrite gate's rule, applied PER-CANDIDATE
+                    # (the cam1 sweep defect, 2026-07-15): a geometrically
+                    # STRAIGHT track may not claim a TURN path whose origin is
+                    # not its nearest origin zone. The winner-only veto above
+                    # nulls the composite pick, but the posterior re-picked
+                    # from the raw candidate list and resurrected the vetoed
+                    # family — truncated exit stubs clear a short turn path's
+                    # coverage floor while failing the long thru path's, so
+                    # the turn is the ONLY admitted candidate (cam1 24->23
+                    # left: 582 counted vs Mio 86). Same rule, same constant,
+                    # no new knobs. An emptied pool = branch 1 stands down and
+                    # the legacy fallback chain proceeds.
+                    if (ORIGIN_REWRITE_GATE_ENABLED
+                            and classification["path_straightness"]
+                            >= ORIGIN_REWRITE_GATE_STRAIGHTNESS):
+                        near = self._nearest_origin_leg_id(trajectory[0])
+                        if near is not None:
+                            allowed = [c for c in pool if not (
+                                c["path"].get("movement_label")
+                                in ("left", "right", "u_turn")
+                                and c["path"].get("origin_leg_id") != near)]
+                            if len(allowed) < len(pool):
+                                self.n_posterior_vetoed += 1
+                            pool = allowed
+                    if pool and gate_tag == "exit_only" and gate_dest is not None:
                         exit_pool = [
-                            c for c in cands
+                            c for c in pool
                             if c["path"].get("destination_leg_id") == gate_dest]
                         # An exit graze that matches no admitted path must not
-                        # starve the posterior — fall back to the full set.
-                        pool = exit_pool or cands
-                    marg, best_by = partial_evidence.origin_posterior(pool)
+                        # starve the posterior — fall back to the (vetoed) set.
+                        pool = exit_pool or pool
+                    marg, best_by = (partial_evidence.origin_posterior(pool)
+                                     if pool else ({}, {}))
                     if marg:
                         o_star = max(marg, key=marg.get)
                         win = best_by[o_star]
