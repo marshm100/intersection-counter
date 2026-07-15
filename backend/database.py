@@ -207,6 +207,10 @@ CREATE TABLE IF NOT EXISTS vehicle_events (
     -- origin_ambiguous flag subtype. NULL everywhere else (incl. legacy).
     origin_posterior_json           TEXT,
     origin_margin                   REAL,
+    -- Which posterior branch produced this event (conservation-pass join key
+    -- + run-2 instrumentation): 'branch1' / 'rescue_full' / 'rescue_supports'
+    -- / 'dest_tie'. NULL = the legacy chain (non-additive).
+    posterior_source                TEXT,
     -- §3-D articulated: the vehicle's max bbox length + center-y at that max, for
     -- the view-invariant size test (semi vs box truck). See services/articulated.py.
     bbox_length                     REAL,
@@ -432,6 +436,8 @@ def get_connection(project_id: str) -> sqlite3.Connection:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN origin_posterior_json TEXT")
     if "origin_margin" not in ev_cols:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN origin_margin REAL")
+    if "posterior_source" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN posterior_source TEXT")
     # One-time backfill, guarded by an O(1) sentinel — the NULL-margin probe is a
     # full scan, so we must NOT run it on every connection. New events get their
     # margin at write time; any stray NULL is still caught by the feeder's

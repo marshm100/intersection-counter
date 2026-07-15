@@ -251,6 +251,90 @@ def _dump_tracks_pointlists(rows: np.ndarray) -> list[list[tuple]]:
     return list(tracks.values())
 
 
+_ADDITIVE = ("branch1", "rescue_full", "rescue_supports")
+_ADDITIVE_RANK = {"rescue_full": 0, "branch1": 1, "rescue_supports": 2}
+
+
+def conserve_replay_additions(db: str | Path, camera_id: int,
+                              chain_map: dict) -> dict:
+    """The conservation pass (plan_conservation_pass_2026-07-15): at most one
+    counted event per fragment CHAIN, and additive events (posterior_source
+    branch1/rescue_*) always lose to legacy events. Write-then-reject, the
+    turn-merge pattern (rejected=1, non-destructive). Singleton/unmapped
+    tracks are untouched. Returns counter stats."""
+    conn = sqlite3.connect(db)
+    rows = conn.execute(
+        "SELECT event_id, vehicle_track_id, posterior_source, "
+        "COALESCE(classifier_num_points, 0) FROM vehicle_events "
+        "WHERE camera_id = ? AND COALESCE(rejected, 0) = 0",
+        (camera_id,)).fetchall()
+    groups: dict = {}
+    for eid, tid, src, npts in rows:
+        cid = chain_map.get(int(tid))
+        if cid is None:
+            continue
+        groups.setdefault(cid, []).append((eid, src, npts))
+    reject: list = []
+    n_legacy_dupe = n_additive_dupe = 0
+    for evs in groups.values():
+        if len(evs) < 2:
+            continue
+        additive = [e for e in evs if e[1] in _ADDITIVE]
+        if not additive:
+            continue                      # legacy multi-counts pre-date us
+        if len(additive) < len(evs):
+            # the chain already has a legacy event: every additive one is a
+            # duplicate of a counted vehicle
+            reject += [e[0] for e in additive]
+            n_legacy_dupe += len(additive)
+        else:
+            # all additive: keep the single best-evidenced (longest breaks
+            # ties), reject the rest
+            additive.sort(key=lambda e: (_ADDITIVE_RANK.get(e[1], 9),
+                                         -e[2], e[0]))
+            reject += [e[0] for e in additive[1:]]
+            n_additive_dupe += len(additive) - 1
+    with conn:
+        conn.executemany(
+            "UPDATE vehicle_events SET rejected = 1 WHERE event_id = ?",
+            [(eid,) for eid in reject])
+    conn.close()
+    return {"chains_with_events": len(groups), "rejected": len(reject),
+            "rejected_vs_legacy": n_legacy_dupe,
+            "rejected_vs_additive": n_additive_dupe}
+
+
+def conserve_pass(project_id: str, camera_id: int, rows: np.ndarray,
+                  fps: float, out_db: str | Path) -> dict:
+    """Convenience wrapper for run_pass2 + the ablation harness: build the
+    pinned gates + fragment-chain map from the dump, then conserve."""
+    from backend.database import list_paths_for_camera
+    from backend.services.entry_gates import build_gates
+    from backend.services.track_chains import build_chain_map
+    conn = get_connection(project_id)
+    mouths, heads = {}, {}
+    for lid, oz, rh in conn.execute(
+            "SELECT leg_id, origin_zone, reference_heading FROM legs "
+            "WHERE camera_id = ?", (camera_id,)):
+        if oz:
+            z = json.loads(oz)
+            mouths[lid] = tuple(z[0])
+            heads[lid] = rh
+    conn.close()
+    if not mouths:
+        return {"skipped": "no leg mouths"}
+    gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
+                        heads)
+    if not gates:
+        return {"skipped": "no gates"}
+    tracks: dict[int, list] = {}
+    for r in rows:
+        tracks.setdefault(int(r[0]), []).append(
+            (float(r[1]), float(r[2]), float(r[3])))
+    chain_map = build_chain_map(tracks, gates, fps)
+    return conserve_replay_additions(out_db, camera_id, chain_map)
+
+
 def census_expecteds(project_id: str, camera_id: int, rows: np.ndarray,
                      fps: float) -> dict:
     """Gate-evidence merge expecteds (posterior half stage 3,
@@ -779,6 +863,14 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         raise JobCancelled(f"pass-2 cancelled after corpus bank (cam {camera_id})")
     stats = replay_camera(project_id, camera_id, variant=variant, out_db=out_db,
                           should_cancel=should_cancel)
+    # Conservation pass (posterior half iteration 3): at most one counted
+    # event per fragment chain, additive loses to legacy — BEFORE the merge
+    # so the volume gate polices turns over de-duplicated counts.
+    if ORIGIN_POSTERIOR_ENABLED:
+        conserve = conserve_pass(project_id, camera_id, rows, fps, out_db)
+        stats["conservation"] = conserve
+        logger.info("two-pass cam%s %s: conservation %s", camera_id, variant,
+                    conserve)
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
                                expected_by_cell=expected)
 

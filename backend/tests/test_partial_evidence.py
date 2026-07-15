@@ -185,6 +185,7 @@ class TestPipelineWiring:
         assert len(evs) == 1
         assert evs[0]["origin_posterior_json"] is None
         assert evs[0]["origin_margin"] is None
+        assert evs[0]["posterior_source"] is None
         assert (p.n_posterior_origin, p.n_posterior_dest,
                 p.n_posterior_rescued, p.n_origin_ambiguous) == (0, 0, 0, 0)
 
@@ -220,6 +221,7 @@ class TestPipelineWiring:
         assert 0.0 < e["origin_margin"] < 1.0
         assert p.n_posterior_origin == 1
         assert p.n_origin_ambiguous == 0        # margin ~0.49 > floor 0.25
+        assert e["posterior_source"] == "branch1"
 
     def test_branch1_exit_evidence_filters_candidates(self, env, monkeypatch):
         """exit_only evidence pins the destination before the posterior."""
@@ -341,6 +343,7 @@ class TestPipelineWiring:
         assert e["movement"] == "through"       # P_A's label at the cell
         assert p.n_posterior_rescued == 1
         assert p.n_insufficient_data == 0
+        assert e["posterior_source"] == "rescue_full"
 
     def test_rescue_entry_only_supports_posterior(self, env, monkeypatch):
         plmod = _enable(monkeypatch)
@@ -366,6 +369,7 @@ class TestPipelineWiring:
         post = json.loads(e["destination_posterior_json"])
         assert post["2"] == pytest.approx(51.0 / 62.0, abs=1e-3)
         assert p.n_posterior_rescued == 1
+        assert e["posterior_source"] == "rescue_supports"
 
     def test_branch1_straight_track_turn_veto(self, env, monkeypatch):
         """The cam1 sweep defect (2026-07-15): a STRAIGHT unevidenced track

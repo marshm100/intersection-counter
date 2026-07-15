@@ -1008,6 +1008,7 @@ class ProcessingPipeline:
         origin_post_json = None
         origin_margin_val = None
         dest_tie_marg = None
+        posterior_source = None
         if ORIGIN_EVIDENCE_GATE_ENABLED and self._paths:
             evidenced, gate_dest, gate_tag = self._gate_evidence(vehicle)
             gate_origin = evidenced
@@ -1159,6 +1160,7 @@ class ProcessingPipeline:
                         origin_post_json = json.dumps(
                             {str(l): round(p, 4) for l, p in marg.items()})
                         origin_margin_val = posterior_margin(marg)
+                        posterior_source = "branch1"
                         self.n_posterior_origin += 1
                         if origin_margin_val < ORIGIN_POSTERIOR_MARGIN_FLOOR:
                             self.n_origin_ambiguous += 1
@@ -1189,6 +1191,7 @@ class ProcessingPipeline:
                                 "coverage": win["coverage"],
                             }
                             dest_tie_marg = marg
+                            posterior_source = "dest_tie"
                             self.n_posterior_dest += 1
 
             if joint.get("destination_leg_id") is not None:
@@ -1295,6 +1298,7 @@ class ProcessingPipeline:
                             "destination_leg_id": gate_dest, "confidence": 1.0,
                             "posterior": {gate_dest: 1.0}, "via": "gate_rescue",
                         }
+                        posterior_source = "rescue_full"
                         rescued = True
                 elif gate_tag == "entry_only":
                     origin_paths = [p for p in self._paths
@@ -1315,6 +1319,7 @@ class ProcessingPipeline:
                                 "confidence": marg[d_star],
                                 "posterior": marg, "via": "supports_rescue",
                             }
+                            posterior_source = "rescue_supports"
                             rescued = True
             if rescued:
                 self.n_posterior_rescued += 1
@@ -1408,6 +1413,7 @@ class ProcessingPipeline:
             # its near-tie margin; NULL for every other event (legacy shape).
             origin_posterior_json=origin_post_json,
             origin_margin=origin_margin_val,
+            posterior_source=posterior_source,
             # §3-D: the vehicle's max bbox length + center-y, for the articulated
             # size test (exact from the tracker -> no cache re-linking needed).
             bbox_length=vehicle.get("max_bbox_length"),
@@ -1462,11 +1468,12 @@ class ProcessingPipeline:
                     destination_margin,
                     origin_posterior_json,
                     origin_margin,
+                    posterior_source,
                     bbox_length,
                     bbox_center_y)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                            ?, ?, ?, ?, ?,
-                           ?, ?, ?, ?, ?, ?, ?, ?)""",
+                           ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     self.video_id,
                     camera_id,
@@ -1494,6 +1501,7 @@ class ProcessingPipeline:
                     kwargs.get("destination_margin"),
                     kwargs.get("origin_posterior_json"),
                     kwargs.get("origin_margin"),
+                    kwargs.get("posterior_source"),
                     kwargs.get("bbox_length"),
                     kwargs.get("bbox_center_y"),
                 ),
