@@ -204,6 +204,49 @@ Unit tests: veto fires on the straight-track case, curved tracks keep their
 turn candidates. **Per gate discipline the fix re-gates stages 4→5→6 from
 scratch** (the fill-arm-confound pattern: diagnose → pin → rerun).
 
+## STAGE-6 SWEEP, RUN 2 (2026-07-15, post-veto-fix): FAIL — the verdict is structural
+
+Re-gate chain under the fixed build: stage-4 re-fit 609/650 (bars 902/1124,
+held), stage-5 re-held-out 720/813 vs ctrl 1054/1284 (BEATS CTRL both,
+freeze held). The sweep:
+
+| cam | baseline (same-cut) | arm | verdict |
+|---|---|---|---|
+| 2 | 9.1% | **3.5%** | PASS −5.6 (EB 24→17, NB 14→3.4) |
+| 1 | 4.3% | 4.4% | holds; EB 199%→21% (veto proven); SB 2.4→5.4 drift |
+| 4 | 3.6% | 6.6% | **TRIPWIRE TRIPPED** (+3.0); watch cell (34→33) GREW 111→149 |
+| 5 | 2.5% | 12.5% | **FAIL** (+10.0) |
+| 3 | — | — | not run (chain stopped once the verdict was determined) |
+
+**The structural finding (the sweep's real deliverable):** the posterior
+half's additions are UNCONSERVED. It wins exactly where the live chain
+under-counts (every cam2 cell; cam5 SB-thru −417 under → +31 near-exact)
+and double-counts where live is already at truth (cam4 35→33: live 6693 ≈
+Mio 6698 → arm 7162; cam5 SB-right 352→990 vs Mio 273, NB-left 736→1227 vs
+760). Two compounding causes:
+1. **The rescue treats every evidenced drop as a missed vehicle.** On cam2
+   the drop pool was genuinely missed traffic (phase-0's 288); on
+   full-recall cameras it is fragments of already-counted vehicles —
+   rescuing them double-counts (no persisted rescue marker exists yet to
+   attribute exactly; instrumentation gap noted).
+2. **The census cannot police the additions:** its truncated-evidence
+   allocation (by full-journey mix) OVER-expects turn cells on cameras
+   with fat unevidenced pools (cam5's inflated turn cells sailed through
+   the merge) and UNDER-expects truncation-dominated cells (cam2
+   SB-right) — the same weak component in both directions.
+Blind corroboration: the evidence-coverage ratio predicts the failure —
+cam2 (80% evidenced) wins; cam1/4/5 (36–60%) lose. The posterior misfires
+precisely where it has the most work and the least signal.
+
+**Disposition: the posterior half as a blanket five-camera default FAILS
+the blind sweep and stays OFF (both flags default OFF, as built). The
+filter+fill freeze is unaffected. cam2's result stands as evidence of the
+mechanism's value where recall is broken (9.1→3.5, the corridor's worst
+camera to under-bar), not as a shippable config.** Next mechanism
+iteration, if pursued: a CONSERVATION design — additions budgeted against
+an expectation the truncated-allocation census cannot currently provide —
+which is its own plan-doc + ablation cycle, not a patch on this freeze.
+
 ## Risks named
 
 - **Popularity snap:** supports-weighted posteriors could funnel unevidenced
