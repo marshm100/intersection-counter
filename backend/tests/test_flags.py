@@ -251,17 +251,21 @@ def _mk_multileg_site(pid, name="U"):
 
 
 def _add_ev(pid, cid, lid, *, det=0.9, traj=0.9, dest_conf=0.9, posterior=None,
-            vclass="car", movement="through", ts=10.0, rejected=0, edited=0):
+            vclass="car", movement="through", ts=10.0, rejected=0, edited=0,
+            origin_posterior=None, origin_margin=None):
     conn = get_connection(pid)
     with conn:
         eid = conn.execute(
             "INSERT INTO vehicle_events (camera_id, vehicle_track_id, origin_leg_id, "
             "destination_leg_id, movement, trajectory_data, trajectory_confidence, "
             "vehicle_class, detection_confidence, destination_confidence, "
-            "destination_posterior_json, timestamp_video, frame_number, rejected, "
-            "manually_edited) VALUES (?, 0, ?, ?, ?, '[[1,2]]', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "destination_posterior_json, origin_posterior_json, origin_margin, "
+            "timestamp_video, frame_number, rejected, "
+            "manually_edited) VALUES (?, 0, ?, ?, ?, '[[1,2]]', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (cid, lid, lid, movement, traj, vclass, det, dest_conf,
-             json.dumps(posterior) if posterior else None, ts, int(ts * 10),
+             json.dumps(posterior) if posterior else None,
+             json.dumps(origin_posterior) if origin_posterior else None,
+             origin_margin, ts, int(ts * 10),
              rejected, edited)).lastrowid
     conn.close()
     return eid
@@ -319,6 +323,43 @@ class TestUncertainFeeder:
         f = feed_uncertain_events(pid, iid)[0]
         assert f["evidence"]["traj_corroborates"] is True
         assert "weak track" in f["reason"]
+
+    def test_ambiguous_origin_flags_with_batch_key(self, usite):
+        """Partial-evidence posterior (plan_posterior_half_2026-07-15): an
+        origin_margin below the floor is a STANDALONE trigger with its own
+        subtype; NULL origin_margin (evidenced/legacy) never trips."""
+        pid, iid, cid, legs = usite
+        _add_ev(pid, cid, legs["S"],
+                origin_posterior={str(legs["S"]): 0.52, str(legs["E"]): 0.48},
+                origin_margin=0.04)
+        flags = feed_uncertain_events(pid, iid)
+        assert len(flags) == 1
+        f = flags[0]
+        assert f["subtype"] == "ambiguous_origin"
+        assert "no entry evidence" in f["reason"]
+        assert f["batch_key"] == f"orig|{cid}|E-S|through"
+        assert f["evidence"]["origin_margin"] == pytest.approx(0.04)
+        assert {t["cardinal"] for t in f["evidence"]["origin_top2"]} == {"S", "E"}
+
+    def test_origin_margin_above_floor_not_flagged(self, usite):
+        pid, iid, cid, legs = usite
+        _add_ev(pid, cid, legs["S"], origin_margin=0.6,
+                origin_posterior={str(legs["S"]): 0.8, str(legs["E"]): 0.2})
+        assert feed_uncertain_events(pid, iid) == []
+
+    def test_origin_primary_beats_dest(self, usite):
+        """Attribution priority: origin ambiguity corrupts two approach totals
+        so it outranks destination ambiguity as the primary subtype."""
+        pid, iid, cid, legs = usite
+        _add_ev(pid, cid, legs["S"],
+                posterior={str(legs["N"]): 0.46, str(legs["E"]): 0.41},
+                origin_posterior={str(legs["S"]): 0.52, str(legs["E"]): 0.48},
+                origin_margin=0.04)
+        flags = feed_uncertain_events(pid, iid)
+        assert len(flags) == 1
+        f = flags[0]
+        assert f["subtype"] == "ambiguous_origin"
+        assert set(f["evidence"]["signals"]) == {"ambiguous_origin", "ambiguous_dest"}
 
     def test_combined_signals_one_flag_existence_first(self, usite):
         pid, iid, cid, legs = usite

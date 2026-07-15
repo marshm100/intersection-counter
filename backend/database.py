@@ -201,6 +201,12 @@ CREATE TABLE IF NOT EXISTS vehicle_events (
     -- so the review flag feeder can filter ambiguous-movement events in SQL
     -- instead of parsing every posterior in Python. See services/posterior.py.
     destination_margin              REAL,
+    -- Partial-evidence posterior (item-8 mechanism 1, posterior half): the
+    -- ORIGIN posterior for tracks with no entry-gate evidence, counted at the
+    -- posterior max. Margin below ORIGIN_POSTERIOR_MARGIN_FLOOR feeds the
+    -- origin_ambiguous flag subtype. NULL everywhere else (incl. legacy).
+    origin_posterior_json           TEXT,
+    origin_margin                   REAL,
     -- §3-D articulated: the vehicle's max bbox length + center-y at that max, for
     -- the view-invariant size test (semi vs box truck). See services/articulated.py.
     bbox_length                     REAL,
@@ -419,6 +425,13 @@ def get_connection(project_id: str) -> sqlite3.Connection:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN bbox_length REAL")
     if "bbox_center_y" not in ev_cols:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN bbox_center_y REAL")
+    # 2026-07-15: partial-evidence posterior (posterior half) — origin
+    # posterior + margin for unevidenced tracks. Nullable, no backfill:
+    # legacy rows and evidenced tracks simply have NULL (never flagged).
+    if "origin_posterior_json" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN origin_posterior_json TEXT")
+    if "origin_margin" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN origin_margin REAL")
     # One-time backfill, guarded by an O(1) sentinel — the NULL-margin probe is a
     # full scan, so we must NOT run it on every connection. New events get their
     # margin at write time; any stray NULL is still caught by the feeder's

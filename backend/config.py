@@ -321,6 +321,28 @@ SPEED_TIEBREAK_MIN_SEP = 1.5            # px/step: only fire when the two paths'
 ORIGIN_EVIDENCE_GATE_ENABLED = _os.environ.get(
     "ORIGIN_EVIDENCE_GATE_ENABLED", "") in ("1", "true", "on")
 
+# --- Partial-evidence posterior (item-8 mechanism 1, posterior half) ---------
+# docs/plan_posterior_half_2026-07-15.md. When the evidence cannot decide a
+# single cell, build an explicit posterior over the feasible cells from corpus
+# supports x shape residual, count at the posterior max, and record the
+# posterior + margin so the flag queue surfaces the near-ties. Three branches:
+# unevidenced-origin posterior, evidenced-truncated destination tie-break, and
+# the evidenced insufficient-data rescue (the no-drop principle). Requires
+# ORIGIN_EVIDENCE_GATE_ENABLED (evidence comes from the same gate pass).
+# OFF by default until the stage-4 fit + stage-5 held-out + stage-6 sweep.
+ORIGIN_POSTERIOR_ENABLED = _os.environ.get(
+    "ORIGIN_POSTERIOR_ENABLED", "") in ("1", "true", "on")
+# The two fit-then-frozen constants (stage 4 fits them on cam2 study_0700
+# ONLY; env overrides exist for that sweep and nothing else):
+# margin floor — an origin posterior whose top-2 margin falls below this is
+# flagged origin_ambiguous (Feeder-1 subtype). Unitless probability margin.
+ORIGIN_POSTERIOR_MARGIN_FLOOR = float(_os.environ.get(
+    "ORIGIN_POSTERIOR_MARGIN_FLOOR", "0.25"))
+# tie band — candidates whose joint-scorer cost sits within this RATIO of the
+# winner's cost are "tied" (their separating geometry lies past the track's
+# death point); tied cells re-pick by corpus-support proportions. Unitless.
+DEST_TIE_BAND = float(_os.environ.get("DEST_TIE_BAND", "0.15"))
+
 # Pipeline-level grace period before considering a tracker-missing vehicle
 # "lost" and finalizing it. YOLO detection can flicker (detect, miss, detect)
 # on consecutive frames; without a grace window every flicker fragments a

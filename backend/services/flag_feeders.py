@@ -51,6 +51,11 @@ TRAJ_CONF_CORROB = 0.5
 # vehicle_class is never 'unknown' and the event row stores no bbox geometry, so
 # the medium/articulated class signal needs the FHWA work (MASTER_PLAN §3-D) and
 # is intentionally NOT emitted here.
+# Origin ambiguity (partial-evidence posterior, plan_posterior_half_2026-07-15):
+# origin_margin is written ONLY when the unevidenced-origin posterior counted
+# the event (NULL = evidenced or legacy; never trips). The floor is the frozen
+# ORIGIN_POSTERIOR_MARGIN_FLOOR — one constant, one source of truth.
+from backend.config import ORIGIN_POSTERIOR_MARGIN_FLOOR as ORIGIN_MARGIN_FLOOR
 
 
 def _posterior_top2(posterior_json: str | None) -> tuple[float, list[tuple[int, float]]]:
@@ -109,13 +114,18 @@ def feed_uncertain_events(project_id: str, intersection_id: int) -> list[dict]:
         rows = conn.execute(
             f"SELECT event_id, camera_id, origin_leg_id, movement, detection_confidence, "
             f"trajectory_confidence, destination_confidence, destination_posterior_json, "
+            f"origin_posterior_json, origin_margin, "
             f"vehicle_class, timestamp_video FROM vehicle_events "
             f"WHERE camera_id IN ({ph}) AND rejected = 0 AND manually_edited = 0 "
             f"AND (detection_confidence < ? OR destination_margin < ? "
-            f"     OR destination_margin IS NULL) "
+            f"     OR destination_margin IS NULL "
+            # origin_margin is NULL unless the unevidenced-origin posterior
+            # counted this event — NULL must NOT trip (unlike the
+            # destination_margin correctness net above).
+            f"     OR (origin_margin IS NOT NULL AND origin_margin < ?)) "
             f"AND event_id NOT IN (SELECT event_id FROM review_flags "
             f"  WHERE event_id IS NOT NULL AND status IN ('accepted','dismissed','resolved'))",
-            (*cams, DET_CONF_FLOOR, DEST_MARGIN_FLOOR)).fetchall()
+            (*cams, DET_CONF_FLOOR, DEST_MARGIN_FLOOR, ORIGIN_MARGIN_FLOOR)).fetchall()
     finally:
         conn.close()
 
@@ -125,11 +135,16 @@ def feed_uncertain_events(project_id: str, intersection_id: int) -> list[dict]:
         traj = r["trajectory_confidence"]
         margin, top2 = _posterior_top2(r["destination_posterior_json"])
 
+        o_margin = r["origin_margin"]
+        o_margin_trip = o_margin is not None and o_margin < ORIGIN_MARGIN_FLOOR
         signals: list[str] = []
         severity = 0.0
         if det is not None and det < DET_CONF_FLOOR:
             signals.append("low_det_conf")
             severity += (DET_CONF_FLOOR - det) / DET_CONF_FLOOR
+        if o_margin_trip:
+            signals.append("ambiguous_origin")
+            severity += (ORIGIN_MARGIN_FLOOR - o_margin) / ORIGIN_MARGIN_FLOOR
         if margin < DEST_MARGIN_FLOOR:
             signals.append("ambiguous_dest")
             severity += (DEST_MARGIN_FLOOR - margin) / DEST_MARGIN_FLOOR
@@ -140,18 +155,28 @@ def feed_uncertain_events(project_id: str, intersection_id: int) -> list[dict]:
         if traj_low:
             severity += 0.25  # corroborating bump only
 
-        primary = "low_det_conf" if "low_det_conf" in signals else "ambiguous_dest"
+        # Existence-first (phantom beats attribution), then origin before
+        # destination — an ambiguous origin corrupts TWO approach totals.
+        primary = ("low_det_conf" if "low_det_conf" in signals
+                   else "ambiguous_origin" if "ambiguous_origin" in signals
+                   else "ambiguous_dest")
         ocard, _olabel = legs.get(r["origin_leg_id"], ("", ""))
         approach = bound_approach(ocard)
         top2_ev = [{"leg_id": lid, "label": legs.get(lid, ("", ""))[1],
                     "cardinal": legs.get(lid, ("", ""))[0], "p": round(p, 3)}
                    for lid, p in top2]
+        o_margin_calc, o_top2 = _posterior_top2(r["origin_posterior_json"])
+        o_top2_ev = [{"leg_id": lid, "label": legs.get(lid, ("", ""))[1],
+                      "cardinal": legs.get(lid, ("", ""))[0], "p": round(p, 3)}
+                     for lid, p in o_top2]
         evidence = {
             "detection_confidence": det,
             "trajectory_confidence": traj,
             "destination_confidence": r["destination_confidence"],
             "destination_margin": round(margin, 3),
             "top2": top2_ev,
+            "origin_margin": (round(o_margin, 3) if o_margin is not None else None),
+            "origin_top2": o_top2_ev,
             "vehicle_class": r["vehicle_class"],
             "signals": signals,
             "traj_corroborates": traj_low,
@@ -167,9 +192,22 @@ def feed_uncertain_events(project_id: str, intersection_id: int) -> list[dict]:
         if primary == "low_det_conf":
             reason = (f"detection confidence {det:.2f} < {DET_CONF_FLOOR:.2f} "
                       f"— possible phantom")
+            if "ambiguous_origin" in signals:
+                reason += "; origin also uncertain"
             if "ambiguous_dest" in signals:
                 reason += "; destination also uncertain"
             batch_key = f"lowdet|{r['camera_id']}|{approach}-{r['movement']}"
+        elif primary == "ambiguous_origin":
+            if len(o_top2_ev) == 2:
+                reason = (f"origin near-tie, no entry evidence "
+                          f"({o_top2_ev[0]['label']} {o_top2_ev[0]['p']:.2f} vs "
+                          f"{o_top2_ev[1]['label']} {o_top2_ev[1]['p']:.2f}) "
+                          f"— counted at the posterior max")
+                c1, c2 = sorted([o_top2_ev[0]["cardinal"], o_top2_ev[1]["cardinal"]])
+                batch_key = f"orig|{r['camera_id']}|{c1}-{c2}|{r['movement']}"
+            else:
+                reason = "origin uncertain (no entry evidence)"
+                batch_key = f"orig|{r['camera_id']}|?|{r['movement']}"
         else:
             if len(top2_ev) == 2:
                 reason = (f"destination near-tie ({top2_ev[0]['label']} "

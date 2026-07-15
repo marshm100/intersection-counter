@@ -221,5 +221,11 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         "origin_evidenced": int(getattr(pipe, "n_origin_evidenced", 0)),
         "origin_unevidenced": int(getattr(pipe, "n_origin_unevidenced", 0)),
         "origin_corrected": int(getattr(pipe, "n_origin_corrected", 0)),
+        # Posterior-half counters (plan_posterior_half_2026-07-15 stage-4
+        # instrumentation: branch applications + flag-bound origin near-ties).
+        "posterior_origin": int(getattr(pipe, "n_posterior_origin", 0)),
+        "posterior_dest": int(getattr(pipe, "n_posterior_dest", 0)),
+        "posterior_rescued": int(getattr(pipe, "n_posterior_rescued", 0)),
+        "origin_ambiguous": int(getattr(pipe, "n_origin_ambiguous", 0)),
         "out_db": str(out_db),
     }

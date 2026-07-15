@@ -41,6 +41,9 @@ from backend.config import (
     TRACK_FINALIZE_GAP_FRAMES,
     TRAJECTORY_MIN_DISTANCE_PX,
     ORIGIN_EVIDENCE_GATE_ENABLED,
+    ORIGIN_POSTERIOR_ENABLED,
+    ORIGIN_POSTERIOR_MARGIN_FLOOR,
+    DEST_TIE_BAND,
     USE_JOINT_PARTIAL_FRECHET_SCORER,
 )
 from backend.services.checkpoint import CheckpointManager
@@ -50,7 +53,8 @@ from backend.services.origin_detector import (
     closest_zone, crossing_direction, did_cross_line,
     score_origin_by_polyline, tripwire_from_point,
 )
-from backend.services.posterior import margin_from_json
+from backend.services.posterior import margin_from_json, posterior_margin
+from backend.services import partial_evidence
 from backend.services.preprocessor import AdaptivePreprocessor
 from backend.services.track_filter import track_quality
 from backend.services.tracker import VehicleTracker
@@ -240,6 +244,13 @@ class ProcessingPipeline:
         self.n_origin_evidenced: int = 0
         self.n_origin_unevidenced: int = 0
         self.n_origin_corrected: int = 0
+        # Partial-evidence posterior (mechanism 1, posterior half —
+        # plan_posterior_half_2026-07-15): branch applications + how many
+        # origin posteriors fell below the ambiguity floor (flag-bound).
+        self.n_posterior_origin: int = 0     # branch 1: unevidenced origin
+        self.n_posterior_dest: int = 0       # branch 2: truncated dest tie
+        self.n_posterior_rescued: int = 0    # evidenced insufficient-rescue
+        self.n_origin_ambiguous: int = 0     # origin margin < floor
         # Inline track stitching (Phase 1.5, calibration_params["track_stitch"]):
         # new tracker IDs remapped onto a coasting prior track (ID-switch repair).
         self._stitch_alias: dict[int, int] = {}
@@ -989,9 +1000,15 @@ class ProcessingPipeline:
         # No evidence -> current behavior, counted (the posterior half gates
         # separately per plan_origin_evidence_gate_2026-07-14).
         candidate_paths = self._paths
-        gate_dest = gate_tag = None
+        gate_origin = gate_dest = gate_tag = None
+        # Branch-1 event columns (partial-evidence posterior); None unless the
+        # unevidenced-origin posterior fires for this track.
+        origin_post_json = None
+        origin_margin_val = None
+        dest_tie_marg = None
         if ORIGIN_EVIDENCE_GATE_ENABLED and self._paths:
             evidenced, gate_dest, gate_tag = self._gate_evidence(vehicle)
+            gate_origin = evidenced
             if evidenced is not None:
                 self.n_origin_evidenced += 1
                 if evidenced != origin_leg_id:
@@ -1052,6 +1069,10 @@ class ProcessingPipeline:
                     else bool(self._calibration_params.get("speed_tiebreak"))),
                 speed_tiebreak_decisive=SPEED_TIEBREAK_DECISIVE,
                 speed_tiebreak_min_sep=SPEED_TIEBREAK_MIN_SEP,
+                # Partial-evidence posterior consumes the admitted candidate
+                # set; byte-identical result dict when the flag is off.
+                return_candidates=(ORIGIN_POSTERIOR_ENABLED
+                                   and ORIGIN_EVIDENCE_GATE_ENABLED),
             )
             if joint.get("entry_tiebreak_applied"):
                 self.n_entry_tiebreak += 1
@@ -1073,6 +1094,75 @@ class ProcessingPipeline:
                 if near is not None and near != joint["origin_leg_id"]:
                     joint = {**joint, "destination_leg_id": None}
                     self.n_origin_rewrite_gated += 1
+
+            # --- Partial-evidence posterior (mechanism 1, posterior half) ---
+            # plan_posterior_half_2026-07-15. Branch 1: an UNEVIDENCED track
+            # may not hard-claim whichever admitted path composite-scores
+            # best (the residual flip channel) — its origin gets an explicit
+            # posterior over the admitted candidates' origins, weighted by
+            # corpus-support proportions x shape residual; exit-gate evidence
+            # filters candidates to the evidenced destination first. Counted
+            # at the posterior max; the posterior + margin are persisted so
+            # Feeder-1 queues near-ties (origin_ambiguous).
+            if (ORIGIN_POSTERIOR_ENABLED and ORIGIN_EVIDENCE_GATE_ENABLED
+                    and gate_tag is not None):
+                cands = joint.get("candidates") or []
+                if gate_origin is None and cands:
+                    pool = cands
+                    if gate_tag == "exit_only" and gate_dest is not None:
+                        exit_pool = [
+                            c for c in cands
+                            if c["path"].get("destination_leg_id") == gate_dest]
+                        # An exit graze that matches no admitted path must not
+                        # starve the posterior — fall back to the full set.
+                        pool = exit_pool or cands
+                    marg, best_by = partial_evidence.origin_posterior(pool)
+                    if marg:
+                        o_star = max(marg, key=marg.get)
+                        win = best_by[o_star]
+                        joint = {
+                            **joint,
+                            "origin_leg_id": win["path"].get("origin_leg_id"),
+                            "destination_leg_id": win["path"].get("destination_leg_id"),
+                            "movement_label": win["path"].get("movement_label"),
+                            "path_id": win["path"].get("path_id"),
+                            "distance": win["cost"],
+                            "coverage": win["coverage"],
+                        }
+                        origin_post_json = json.dumps(
+                            {str(l): round(p, 4) for l, p in marg.items()})
+                        origin_margin_val = posterior_margin(marg)
+                        self.n_posterior_origin += 1
+                        if origin_margin_val < ORIGIN_POSTERIOR_MARGIN_FLOOR:
+                            self.n_origin_ambiguous += 1
+                # Branch 2: an EVIDENCED track that died before its exit
+                # (entry_only) whose admitted candidates tie on cost — the
+                # separating geometry lies past the death point, so shape
+                # cannot rank them (the 217-track EB right-snap). Tied cells
+                # re-pick by corpus-support proportions; the destination
+                # posterior + margin flow through the existing columns.
+                elif (gate_origin is not None and gate_tag == "entry_only"
+                        and joint.get("destination_leg_id") is not None
+                        and len(cands) >= 2):
+                    tied = partial_evidence.tied_candidates(
+                        cands, joint["distance"], DEST_TIE_BAND)
+                    if len({c["path"].get("destination_leg_id")
+                            for c in tied}) >= 2:
+                        marg, best_by = partial_evidence.destination_posterior(tied)
+                        if marg:
+                            d_star = max(marg, key=marg.get)
+                            win = best_by[d_star]
+                            joint = {
+                                **joint,
+                                "origin_leg_id": win["path"].get("origin_leg_id"),
+                                "destination_leg_id": win["path"].get("destination_leg_id"),
+                                "movement_label": win["path"].get("movement_label"),
+                                "path_id": win["path"].get("path_id"),
+                                "distance": win["cost"],
+                                "coverage": win["coverage"],
+                            }
+                            dest_tie_marg = marg
+                            self.n_posterior_dest += 1
 
             if joint.get("destination_leg_id") is not None:
                 polyline_dest = joint
@@ -1114,8 +1204,11 @@ class ProcessingPipeline:
             dest_result = {
                 "destination_leg_id": destination_leg_id,
                 "confidence": max(0.0, 1.0 - polyline_dest["distance"] / 100.0),
-                "posterior": {destination_leg_id: 1.0},
-                "via": "polyline",
+                # Branch-2 tie posterior when it fired (its small margin is
+                # what queues the event); the usual peaked form otherwise.
+                "posterior": (dest_tie_marg if dest_tie_marg
+                              else {destination_leg_id: 1.0}),
+                "via": ("polyline+tie_posterior" if dest_tie_marg else "polyline"),
                 "polyline_path_id": polyline_dest.get("path_id"),
             }
         else:
@@ -1137,8 +1230,70 @@ class ProcessingPipeline:
         # Fall through to insufficient_data path if derivation couldn't
         # produce a turn label (no origin leg found, no destination, etc.).
         if movement == "insufficient_data":
-            self.n_insufficient_data += 1
-            return
+            # --- Rescue (posterior half, the no-drop principle) -------------
+            # An EVIDENCED track the whole chain failed to place would be
+            # silently dropped here — phase-0's "box-complete, NO event"
+            # pool (288) and the de-flip drops (39 genuine NB-lefts on 1100).
+            # full journey -> count hard at the evidenced cell; entry-only ->
+            # supports posterior over the evidenced origin's cells (no shape
+            # signal exists; the honest small margin queues it). Unevidenced
+            # tracks stay dropped — no evidence + no geometry = counting by
+            # popularity, the named posterior risk.
+            rescued = False
+            if (ORIGIN_POSTERIOR_ENABLED and ORIGIN_EVIDENCE_GATE_ENABLED
+                    and gate_origin is not None and self._paths):
+                if gate_tag == "full" and gate_dest is not None:
+                    cell_paths = [
+                        p for p in self._paths
+                        if p.get("origin_leg_id") == gate_origin
+                        and p.get("destination_leg_id") == gate_dest]
+                    mv = None
+                    if cell_paths:
+                        winp = max(cell_paths,
+                                   key=lambda p: p.get("supporting_count") or 0)
+                        mv = winp.get("movement_label")
+                    else:
+                        dleg = next((lg for lg in self.legs
+                                     if lg["leg_id"] == gate_dest), None)
+                        if origin_leg and dleg:
+                            mv = derive_movement(origin_leg, dleg,
+                                                 all_legs=self.legs)
+                    if mv and mv != "insufficient_data":
+                        destination_leg_id = gate_dest
+                        destination_leg = next(
+                            (lg for lg in self.legs
+                             if lg["leg_id"] == gate_dest), None)
+                        movement = mv
+                        dest_result = {
+                            "destination_leg_id": gate_dest, "confidence": 1.0,
+                            "posterior": {gate_dest: 1.0}, "via": "gate_rescue",
+                        }
+                        rescued = True
+                elif gate_tag == "entry_only":
+                    origin_paths = [p for p in self._paths
+                                    if p.get("origin_leg_id") == gate_origin]
+                    marg, best_by = partial_evidence.supports_posterior(origin_paths)
+                    if marg:
+                        d_star = max(marg, key=marg.get)
+                        winp = best_by[d_star]
+                        mv = winp.get("movement_label")
+                        if mv and mv != "insufficient_data":
+                            destination_leg_id = d_star
+                            destination_leg = next(
+                                (lg for lg in self.legs
+                                 if lg["leg_id"] == d_star), None)
+                            movement = mv
+                            dest_result = {
+                                "destination_leg_id": d_star,
+                                "confidence": marg[d_star],
+                                "posterior": marg, "via": "supports_rescue",
+                            }
+                            rescued = True
+            if rescued:
+                self.n_posterior_rescued += 1
+            else:
+                self.n_insufficient_data += 1
+                return
 
         avg_conf = (
             sum(vehicle["confidences"]) / len(vehicle["confidences"])
@@ -1222,6 +1377,10 @@ class ProcessingPipeline:
             destination_confidence=dest_result.get("confidence"),
             destination_posterior_json=posterior_json,
             destination_margin=destination_margin,
+            # Partial-evidence posterior (branch 1): the origin posterior +
+            # its near-tie margin; NULL for every other event (legacy shape).
+            origin_posterior_json=origin_post_json,
+            origin_margin=origin_margin_val,
             # §3-D: the vehicle's max bbox length + center-y, for the articulated
             # size test (exact from the tracker -> no cache re-linking needed).
             bbox_length=vehicle.get("max_bbox_length"),
@@ -1274,11 +1433,13 @@ class ProcessingPipeline:
                     destination_confidence,
                     destination_posterior_json,
                     destination_margin,
+                    origin_posterior_json,
+                    origin_margin,
                     bbox_length,
                     bbox_center_y)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                            ?, ?, ?, ?, ?,
-                           ?, ?, ?, ?, ?, ?)""",
+                           ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     self.video_id,
                     camera_id,
@@ -1304,6 +1465,8 @@ class ProcessingPipeline:
                     kwargs.get("destination_confidence"),
                     kwargs.get("destination_posterior_json"),
                     kwargs.get("destination_margin"),
+                    kwargs.get("origin_posterior_json"),
+                    kwargs.get("origin_margin"),
                     kwargs.get("bbox_length"),
                     kwargs.get("bbox_center_y"),
                 ),

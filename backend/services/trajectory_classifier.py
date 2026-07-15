@@ -675,6 +675,7 @@ def score_path_joint(
     speed_tiebreak: bool = False,
     speed_tiebreak_decisive: float = 1.0,
     speed_tiebreak_min_sep: float = 1.5,
+    return_candidates: bool = False,
 ) -> dict:
     """Joint origin+destination+movement scorer via partial Fréchet.
 
@@ -697,6 +698,13 @@ def score_path_joint(
       {'origin_leg_id', 'destination_leg_id', 'movement_label', 'path_id',
        'distance', 'coverage', 'considered', 'via'} — all *_id None when no
       path clears the thresholds.
+
+    return_candidates=True additionally returns 'candidates': every path that
+    cleared ALL admission gates (coverage, turn tail/coverage, max_cost) as
+    [{'path', 'cost', 'coverage', 'composite'}]. This is the partial-evidence
+    posterior's candidate set (docs/plan_posterior_half_2026-07-15.md) — the
+    posterior reuses the scorer's own admission, no separate geometry
+    constants. Default False keeps the result dict byte-identical to before.
     """
     empty = {
         "origin_leg_id": None, "destination_leg_id": None,
@@ -705,6 +713,8 @@ def score_path_joint(
         "considered": 0, "via": "joint_partial_frechet",
         "entry_tiebreak_applied": False, "speed_tiebreak_applied": False,
     }
+    if return_candidates:
+        empty = {**empty, "candidates": []}
     if not paths or len(trajectory) < 4:
         return empty
 
@@ -875,13 +885,24 @@ def score_path_joint(
                     best_cov = winner["coverage"]
                     speed_applied = True
 
-    if best is None or best_cost > max_cost:
-        return {**empty,
-                "distance": best_cost if best is not None else float("inf"),
-                "coverage": best_cov,
-                "considered": len(paths)}
+    # Admitted candidates for the partial-evidence posterior: cleared the
+    # coverage + turn gates above AND the max_cost admission (applied here to
+    # each candidate, not just the composite winner).
+    admitted = ([{"path": c["path"], "cost": c["cost"],
+                  "coverage": c["coverage"], "composite": c["composite"]}
+                 for c in cands if c["cost"] <= max_cost]
+                if return_candidates else None)
 
-    return {
+    if best is None or best_cost > max_cost:
+        out = {**empty,
+               "distance": best_cost if best is not None else float("inf"),
+               "coverage": best_cov,
+               "considered": len(paths)}
+        if return_candidates:
+            out["candidates"] = admitted
+        return out
+
+    out = {
         "origin_leg_id": best.get("origin_leg_id"),
         "destination_leg_id": best.get("destination_leg_id"),
         "movement_label": best.get("movement_label"),
@@ -893,6 +914,9 @@ def score_path_joint(
         "entry_tiebreak_applied": entry_applied,
         "speed_tiebreak_applied": speed_applied,
     }
+    if return_candidates:
+        out["candidates"] = admitted
+    return out
 
 
 # ---------------------------------------------------------------------------
