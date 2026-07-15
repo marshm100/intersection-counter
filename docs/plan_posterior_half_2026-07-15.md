@@ -150,6 +150,28 @@ Four arms on cam2 study_0700 (replay + census merge; scripts `stage4_arm.py`
 (both the config defaults; no fit-window tuning was needed). No re-tuning
 past this line.
 
+## STAGE-5 VERDICT (2026-07-15): PASS — both held-out windows beat control
+
+Frozen constants, full chain (gated+posterior replay, fill candidate, census
+merge), zero re-tuning (`stage5_heldout.py`, session scratchpad):
+
+- **study_1100: ctrl 1054 → 688 (−35%).** NB-left 105→328 (recall 0.73),
+  SB-thru 922→1052 (Mio 1064), EB-thru 47→223, EB-right 495→286,
+  EB-left 151→372. Counters: 722 branch-1 posteriors, 491 rescues, 10 flags.
+- **study_1600: ctrl 1284 → 812 (−37%)** — the window the filter half alone
+  made WORSE (1406). NB-left 164→375 (recall 0.89), EB-thru 109→421 (0.93
+  of Mio 454 — the dead cell lives), EB-right 835→470, SB-thru 1979→2046.
+  Counters: 1400 posteriors, 499 rescues, 27 flags.
+- Residuals, named honestly: SB-right counts its truth (192/242 vs Mio
+  388/341) — the exposed truncation deficit, a capability-track wall, not
+  an attribution error. EB-right now UNDERSHOOTS on 1600 (470 vs 699,
+  |err| 136→229 in that cell) — the redistribution over-corrects there;
+  NB-thru/WB-right drift up slightly on both windows. All inside an
+  aggregate that beats control by a third.
+
+The posterior half holds its freeze. Next: the stage-6 five-camera blind
+sweep (tripwires cam3 / cam4-live; cam4's (34→33) mid-block watch cell).
+
 ## Risks named
 
 - **Popularity snap:** supports-weighted posteriors could funnel unevidenced
