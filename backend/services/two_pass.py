@@ -37,6 +37,7 @@ import numpy as np
 
 _CELL_RE = re.compile(r"L(\d+)->L(\d+)")
 
+from backend.config import ORIGIN_POSTERIOR_ENABLED
 from backend.database import get_connection, get_db_path
 from backend.services.detection_cache import compute_video_content_hash, parquet_path
 from backend.services.flag_feeders import rebuild_flags
@@ -248,6 +249,39 @@ def _dump_tracks_pointlists(rows: np.ndarray) -> list[list[tuple]]:
     for r in rows:
         tracks.setdefault(int(r[0]), []).append((float(r[2]), float(r[3])))
     return list(tracks.values())
+
+
+def census_expecteds(project_id: str, camera_id: int, rows: np.ndarray,
+                     fps: float) -> dict:
+    """Gate-evidence merge expecteds (posterior half stage 3,
+    plan_posterior_half_2026-07-15): per-cell observed n from the dump's own
+    entry/exit-gate crossings instead of the bank builder's flip-prone shape
+    assignment. Gates = operator mouths + the APPLIED bank's tangents — the
+    same pinned geometry the pipeline's evidence gate uses. Shared by
+    run_pass2 and the ablation harness (one source of truth)."""
+    from backend.database import list_paths_for_camera
+    from backend.services.entry_gates import build_gates, cell_census
+    conn = get_connection(project_id)
+    mouths, heads = {}, {}
+    for lid, oz, rh in conn.execute(
+            "SELECT leg_id, origin_zone, reference_heading FROM legs "
+            "WHERE camera_id = ?", (camera_id,)):
+        if oz:
+            z = json.loads(oz)
+            mouths[lid] = tuple(z[0])
+            heads[lid] = rh
+    conn.close()
+    if not mouths:
+        return {}
+    gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
+                        heads)
+    if not gates:
+        return {}
+    tracks: dict[int, list] = {}
+    for r in rows:
+        tracks.setdefault(int(r[0]), []).append(
+            (float(r[1]), float(r[2]), float(r[3])))
+    return cell_census(tracks.values(), gates, fps)
 
 
 def run_pass1(project_id: str, camera_id: int, *, variant: str,
@@ -718,19 +752,25 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         out=str(workdir / f"twopass_bank_cam{camera_id}_{variant}.json"),
         start_hms=start_hms, minutes=window_seconds / 60.0,
         tracks=_dump_tracks_pointlists(rows))
-    # Scale-1 merge expecteds = per-cell observed n from the corpus QA (any
-    # admission status — a rejected path's traffic still counts toward the
-    # gate's expectation), falling back to admitted-path supports. The A4a
-    # harness recipe, productized.
+    # Scale-1 merge expecteds. Posterior half ON: per-cell observed n from
+    # GATE EVIDENCE over the dump (census_expecteds — the bank builder's own
+    # shape assignment is flip-prone and starved stolen cells; measured 17/14
+    # genuine box-full EB-lefts merge-rejected per held-out window). Flag
+    # OFF: the legacy corpus-QA derivation, byte-identical (any admission
+    # status — a rejected path's traffic still counts toward the gate's
+    # expectation — falling back to admitted-path supports; the A4a recipe).
     expected: dict[tuple, float] = {}
-    for cell in bank_res.get("qa", {}).get("cells", []):
-        m = _CELL_RE.match(cell.get("cell", ""))
-        if m and "n" in cell:
-            key = (int(m.group(1)), int(m.group(2)))
-            expected[key] = max(expected.get(key, 0.0), float(cell["n"]))
-    for p in bank_res["paths"]:
-        key = (p["origin_leg_id"], p["destination_leg_id"])
-        expected.setdefault(key, float(p.get("supporting_count", 0)))
+    if ORIGIN_POSTERIOR_ENABLED:
+        expected = census_expecteds(project_id, camera_id, rows, fps)
+    if not expected:
+        for cell in bank_res.get("qa", {}).get("cells", []):
+            m = _CELL_RE.match(cell.get("cell", ""))
+            if m and "n" in cell:
+                key = (int(m.group(1)), int(m.group(2)))
+                expected[key] = max(expected.get(key, 0.0), float(cell["n"]))
+        for p in bank_res["paths"]:
+            key = (p["origin_leg_id"], p["destination_leg_id"])
+            expected.setdefault(key, float(p.get("supporting_count", 0)))
 
     # --- 2+3. replay-classify (APPLIED bank), then the turn merge ------------
     # Variant in the name: a study day runs one pass-2 per trim window and the

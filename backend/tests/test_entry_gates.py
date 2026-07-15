@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from backend.services.entry_gates import (
-    JITTER_S, _seg_cross, build_gates, classify,
+    JITTER_S, _seg_cross, build_gates, cell_census, classify,
 )
 
 # A square box: 4 legs at the side midpoints, one straight N-S channel.
@@ -70,6 +70,41 @@ def test_queue_creep_not_uturn(gates):
              + [(27.0, 50.0, -5.0)])
     o, d, *_rest, tag = classify(track, gates, fps=10.0)
     assert tag == "entry_only" and o == 1
+
+
+class TestCellCensus:
+    """Gate-evidence merge expecteds (posterior half stage 3): full journeys
+    count 1.0 at their cell; entry-/exit-only evidence distributes over the
+    full census's OWN proportions; no-crossing carries nothing."""
+
+    FULL_13 = [(float(f), 50.0, -10.0 + 12.0 * f) for f in range(12)]
+    ENTRY_1 = [(float(f), 50.0, -10.0 + 12.0 * f) for f in range(6)]
+    # born mid-box, exits S gate outward
+    EXIT_3 = [(float(f), 50.0, 60.0 + 12.0 * f) for f in range(6)]
+    NO_X = [(float(f), 45.0 + f, 50.0) for f in range(5)]
+    # enters N gate, turns, exits E gate
+    FULL_12 = [(0.0, 50.0, -5.0), (1.0, 50.0, 30.0), (2.0, 50.0, 50.0),
+               (3.0, 70.0, 50.0), (4.0, 105.0, 50.0)]
+
+    def test_full_journeys_count_at_cell(self, gates):
+        census = cell_census([self.FULL_13, self.FULL_13], gates, fps=10.0)
+        assert census == {(1, 3): pytest.approx(2.0)}
+
+    def test_truncated_evidence_allocated_by_own_mix(self, gates):
+        census = cell_census(
+            [self.FULL_13, self.FULL_13, self.FULL_12,
+             self.ENTRY_1, self.ENTRY_1, self.EXIT_3, self.NO_X],
+            gates, fps=10.0)
+        # origin-1 mix is 2:1 -> each entry-only splits 2/3 vs 1/3;
+        # the exit-only lands wholly on (1,3), the only *->3 cell.
+        assert census[(1, 3)] == pytest.approx(2.0 + 2 * (2.0 / 3.0) + 1.0)
+        assert census[(1, 2)] == pytest.approx(1.0 + 2 * (1.0 / 3.0))
+
+    def test_no_evidence_contributes_nothing(self, gates):
+        assert cell_census([self.NO_X], gates, fps=10.0) == {}
+
+    def test_short_tracks_skipped(self, gates):
+        assert cell_census([self.FULL_13[:3]], gates, fps=10.0) == {}
 
 
 CORRIDOR = Path("data/projects/97a7849a/project.db")

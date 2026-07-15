@@ -218,3 +218,53 @@ def classify(track, gates, fps, lanes=None):
     if dest:
         return None, dest[1], dest[0], None, None, dest[3], "exit_only"
     return None, None, None, None, None, None, "no_crossing"
+
+
+def cell_census(tracks, gates, fps, min_points: int = 5):
+    """Per-cell observed n from GATE EVIDENCE alone — the merge-expecteds
+    source when the partial-evidence posterior is on
+    (docs/plan_posterior_half_2026-07-15.md stage 3).
+
+    The legacy expecteds came from the corpus bank builder's own shape
+    assignment, i.e. from FLIP-prone matching — which starved cells whose
+    traffic was being stolen (measured: 17/14 genuine box-full EB-lefts per
+    held-out window merge-rejected). This census is de-flipped by
+    construction and stays GT-free and scale-1 (corpus-window observed n):
+
+      - box-FULL journeys count 1.0 at their (origin, dest) cell;
+      - entry-only tracks distribute over their origin's cells by the full
+        census's own proportions;
+      - exit-only tracks distribute over their destination's cells likewise;
+      - no-crossing tracks carry no evidence and are ignored.
+
+    Truncated evidence is allocated by the census's OWN full-journey mix —
+    never by bank supports or the posterior's output (the circularity
+    guard). tracks: iterables of (frame, x, y). Returns {(o, d): float}.
+    """
+    full: dict = {}
+    entry_only: dict = {}
+    exit_only: dict = {}
+    for pts in tracks:
+        if len(pts) < min_points:
+            continue
+        o, d, *_rest, tag = classify(pts, gates, fps)
+        if tag == "full":
+            full[(o, d)] = full.get((o, d), 0) + 1
+        elif tag == "entry_only":
+            entry_only[o] = entry_only.get(o, 0) + 1
+        elif tag == "exit_only":
+            exit_only[d] = exit_only.get(d, 0) + 1
+    expected = {cell: float(n) for cell, n in full.items()}
+    for o, n in entry_only.items():
+        cells = {c: v for c, v in full.items() if c[0] == o}
+        tot = float(sum(cells.values()))
+        if tot > 0:
+            for c, v in cells.items():
+                expected[c] += n * v / tot
+    for d, n in exit_only.items():
+        cells = {c: v for c, v in full.items() if c[1] == d}
+        tot = float(sum(cells.values()))
+        if tot > 0:
+            for c, v in cells.items():
+                expected[c] += n * v / tot
+    return expected
