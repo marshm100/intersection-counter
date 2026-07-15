@@ -114,6 +114,42 @@ cells byte-stable when the flag is off.
    through the product flow (per-window backups) and flip BOTH flag defaults
    in one dedicated commit. FAIL → per-half retirement entries.
 
+## STAGE-4 VERDICT (2026-07-15): PASS — constants frozen
+
+Four arms on cam2 study_0700 (replay + census merge; scripts `stage4_arm.py`
+/ `stage4_drive.py`, session scratchpad; DBs in `ic_scratch_97a7849a`):
+
+- **ctrl regression pin (flags off): STRICT PASS** — bit-identical to the
+  product control's PRE-merge state on all 8 watch cells (the stage-2
+  "legacy unchanged" claim, proven on the corpus; the recorded 1124 was the
+  post-merge control, 1166 is its unmerged equivalent).
+- **Posterior arm (all bands identical): watch |err| 591 unmerged / 633
+  merged** vs ctrl 1166/1124 and the frozen filter+fill's 902 unmerged.
+  Every success criterion met: NB-left 146→**347** (recall 0.84 — criterion
+  was ≥209; the de-flip drop pool recovered), SB-thru 1082→1267, EB-thru
+  23→148 (past Mio 119), EB-right 494→304, EB-left 288 (vs 229), no drop
+  ballooning (insufficient 2736→**2412**; 375 rescued, 780 branch-1
+  posteriors), flags 23 events → ~5 batch cards (flood-control PASS).
+- **Branch 2 is structurally INERT** (posterior_dest = 0 at band 0.10 /
+  0.15 / 0.25): the joint scorer matches polyline SUFFIXES, so a
+  pre-divergence death cannot produce tied costs — the thru path's suffix
+  is forced to align to its far end and its cost blows past any band. The
+  EB-thru recovery came from branch 1 + the rescue instead. The band stays
+  as a dormant guard at its default; it influenced nothing on the fit
+  window (the cleanest possible freeze).
+- **Census limitation, named:** cells whose traffic is truncation-dominated
+  are under-expected (SB-right 180 vs Mio 379; EB-thru 4.9) because
+  truncated evidence is allocated by the full-journey mix those cells
+  barely have — so the merge over-rejects SB-right (319→230). Merged 633
+  still beats ctrl-merged 1124 by 44%. Candidate refinement (NOT tuned now;
+  the freeze line is here): allocate entry-only evidence by the posterior
+  arm's own counted mix instead of the full-journey mix — recorded for the
+  held-out read, not applied.
+
+**FROZEN: ORIGIN_POSTERIOR_MARGIN_FLOOR = 0.25, DEST_TIE_BAND = 0.15**
+(both the config defaults; no fit-window tuning was needed). No re-tuning
+past this line.
+
 ## Risks named
 
 - **Popularity snap:** supports-weighted posteriors could funnel unevidenced
