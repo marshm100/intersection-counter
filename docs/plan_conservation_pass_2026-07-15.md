@@ -60,6 +60,48 @@ baselines (the run-2 failures are the cells to watch: cam4 35→33 ≈ 6693,
 cam5 turn cells ≈ live); cam3 3.2 tripwire. FAIL → the posterior half
 retires for real (two structural iterations is the budget).
 
+## RUN-3 VERDICT (2026-07-15): FAIL — RETIREMENT (the budget is spent)
+
+Stage-4 held (609 conserved / 654 merged; 285 duplicates removed at the same
+score — strictly cleaner composition). Stage-5 held (680 / 1019, both BEAT
+CTRL). The sweep:
+
+| cam | baseline | run 2 (no cons.) | run 3 (conserved) |
+|---|---|---|---|
+| 2 | 9.1% | **3.5%** | 7.5% |
+| 1 | 4.3% | 4.4% | 5.4% |
+| 4 | 3.6% | 6.6% | 6.1% (watch cell 141 vs 111) |
+| 5 | 2.5% | 12.5% | 3.6% |
+| 3 | 3.2% | not run | not run (verdict sealed first) |
+
+**The finding: chain arbitration is a single dial with failure modes on
+opposite ends.** "Legacy always beats additive" fixed cam5 (+10.0 → +1.1;
+1,319 duplicate rejections, 96% against legacy chains) and most of cam4 —
+but on cam2 it rejects the posterior's CORRECT event whenever the chain's
+legacy event is itself a misattributed flip, giving back most of the −5.8
+win. The residual cam4 overshoot (+2.5) is additions in chains legacy never
+counted (the mid-block class the B3 stitch windows cannot link).
+
+**Disposition: the posterior half RETIRES as a blind five-camera default,
+per the two-iteration budget.** Flags stay OFF; the code, tests, and
+markers remain (revival-ready). What three sweeps established:
+- The mechanism family is REAL: cam2 9.1→3.3–3.5% (run 2) is the corridor's
+  hardest camera passing the 5% bar — where evidence coverage is high (80%),
+  the posterior is decisively correct.
+- It is NOT blind-deployable where evidence coverage is low (36–60%):
+  the posterior's inputs (shape admission, census, chain arbitration)
+  degrade together exactly where the unevidenced workload is largest.
+- **Named iteration-4 candidate (not run; future cycle):** evidence-ranked
+  chain arbitration — keep the chain's best-EVIDENCED event (gate-evidenced
+  beats unevidenced legacy; full-rescue beats flip-suspect legacy) instead
+  of legacy-always-wins. It targets both residuals at once and needs no new
+  constants, but it edits counted LEGACY events (a bigger blast radius) —
+  it must open its own plan doc with its own budget.
+- The evidence-coverage ratio (n_evidenced/n_tracks, GT-free and
+  camera-intrinsic) cleanly predicts where the mechanism helps — a
+  legitimate future activation precondition IF validated at a held-out
+  site, never fit to the corridor.
+
 ## Risks
 
 - Chaining at replay scale (all dump tracks) is O(n log n) with small

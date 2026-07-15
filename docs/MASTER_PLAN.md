@@ -525,6 +525,20 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    split — the §2b coverage-aware matcher direction inherits these; any mechanism gets the
    full gate discipline. The §3-D fine-tune (articulated first, held-out-site gate — scoped
    in `detector_derisk_spike_2026-07-08`) is the parallel capability track.
+   **STATUS 2026-07-15 — mechanism ① fully adjudicated over three blind sweeps**
+   (`plan_origin_evidence_gate` → `plan_posterior_half` → `plan_conservation_pass`, all
+   dated docs): the origin-evidence gate + partial-evidence posterior is PROVEN where
+   entry-evidence coverage is high — cam2 (80% evidenced) went 9.1% → 3.3–3.5%
+   per-approach MAE, the corridor's hardest camera passing the 5% bar, NB-left recall
+   0.23→0.73–0.89, EB-thru resurrected from ~0.2 to ~0.9 of truth — but is NOT
+   blind-deployable at low-evidence cameras (cam1/4/5, 36–60% evidenced: additions
+   double-count at full-recall cells; two structural fixes landed — the per-candidate
+   turn veto and the fragment-chain conservation pass — each resolving one failure class
+   and surfacing the next). **RETIRED as a default per the two-iteration budget; flags
+   OFF; code+tests remain revival-ready.** Named future candidates: evidence-ranked chain
+   arbitration (iteration 4, own plan+budget), evidence-coverage activation precondition
+   (needs a held-out SITE gate). SB-right's "1.07 fix" is now known to be cancellation —
+   its true recall deficit (~0.12–0.16 trackable) is a capability-track wall.
 9. **D-low-light** + **E deliverables (L/M/A Excel, PDF)** + **F2/F3 calibration studio** —
    unchanged from prior sequencing.
 
