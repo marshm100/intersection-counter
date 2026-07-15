@@ -206,3 +206,58 @@ mechanism is wrong.
 autopsy (bucket the frozen arm's (27→28) events + find where Mio's
 missing SB-rights went, both windows). The aggregate-flat/worse result
 stands recorded; no constants were touched.
+
+## SB-RIGHT AUTOPSY (2026-07-15): EXPOSED — the gate is truth-improving
+
+Method = the EB-left autopsy join, run on both held-out windows: every
+(27→28,'right') event in both arms bucketed by the PINNED box-clip verdict
+of its dump track; the vanished ctrl events cross-tabbed (verdict × frozen
+disposition); whole-dump census of box-full 27→28 journeys. Read-only on
+existing artifacts, no constants (scripts `sbright_autopsy.py` /
+`sbthru_check.py`, session scratchpad; numbers below are the deliverable).
+
+| | study_1100 | study_1600 |
+|---|---|---|
+| Mio SB-right | 388 | 341 |
+| ctrl counted / of which OTHER cells' vehicles¹ | 400 / 224 (56%) | 430 / 214 (50%) |
+| frozen counted / other-cells' | 188 / 7 (4%) | 241 / 10 (4%) |
+| box-full 27→28 journeys in the dump (trackable genuine pool) | 63 | 40 |
+| genuine pool counted SB-right, ctrl → frozen | 17→18 | 7→7 |
+
+¹ box-full journeys of other cells, or entry evidence at another leg.
+
+- **Induced-error check NEGATIVE** (the decisive row): the gate steals ZERO
+  genuine SB-rights — the box-full 27→28 pool is counted identically in
+  both arms. The 400→188 / 430→241 collapse is contamination leaving:
+  93/57 box-full NB-LEFTS (29→28), **52/56 box-full EB-LEFTS (28→27)** —
+  independent corroboration of the EB-left recovery verdict from the
+  receiving side — 62/71 truncated entry-28 EB tracks, 11/12 WB (26→28).
+- **Where Miovision's SB-rights actually are:** only 63/40 complete box
+  journeys exist in the dumps (16%/12% of Mio). The control's near-Mio
+  totals were CANCELLATION, exactly as the held-out verdict hypothesized —
+  a masked recall deficit (truncation/tracking, Wall-A's never-journeyed
+  family), partially filled by the evidenced-truncated pool (entry-only-27:
+  114/123 counted via shape) plus unevidenced leakage (44/96 events).
+- **The 1600 aggregate worsening decomposes into the SAME exposure**
+  (measured, `sbthru_check.py`): ctrl SB-thru carried 279 truncated
+  entry-28 EB tracks (phase-0's 454-flip class); the gate de-flips them
+  into origin 28, where **217 snap to 28→29:right** — that single flow is
+  the SB-thru −195 AND the EB-right 835→951 — because within-origin
+  destination allocation for pre-divergence deaths is still coverage-blind
+  (the named item-② pool). Meanwhile genuine box-full 27→29 SB-thrus
+  counted in-cell went UP: 118→179 / 102→183.
+- **Merge caution now measured:** 17/14 genuine box-full EB-lefts per
+  window are REJECTED(merge) in the frozen arm — the corpus merge
+  expecteds were discovered from flipped tracks (the phase-0 caution);
+  re-discover on the de-flipped corpus before the sweep.
+
+**DECISION: freeze STANDS; verdict EXPOSED.** The five-cam sweep stays
+postponed — not because the mechanism is suspect (verified truth-improving
+on all three windows) but because the filter half alone scores
+mid-mechanism: it strips fake counts whose replacements are precisely the
+POSTERIOR half's + item-②'s workload (unevidenced-origin posterior;
+pre-divergence destination allocation — one "partial-evidence posterior"
+design problem). Sweeping now would grade a half-landed mechanism on
+cancellation-flattered baselines. **Next: the posterior half + truncated-
+destination allocation, merge-expecteds re-discovery on de-flipped tracks,
+THEN the five-camera sweep.**
