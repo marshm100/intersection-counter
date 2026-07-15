@@ -904,21 +904,25 @@ class ProcessingPipeline:
                 if mouths else {}
         return self._entry_gates
 
-    def _origin_evidence(self, vehicle: dict) -> int | None:
-        """The leg whose entry gate this track crossed INWARD, else None.
+    def _gate_evidence(self, vehicle: dict) -> tuple[int | None, int | None, str | None]:
+        """Entry-gate evidence for a finalized track: (origin, dest, tag).
+        origin = the leg whose gate the track crossed INWARD (None when
+        unevidenced), dest = the leg crossed outward last, tag one of
+        'full' / 'entry_only' / 'exit_only' / 'no_crossing'. One classify
+        call — the posterior half consumes dest/tag, the filter half origin.
         Frames are approximated as start_frame + index (coasted gaps shift
         jitter windows by at most the gap — immaterial at 2 s granularity)."""
         from backend.services.entry_gates import classify as gate_classify
         gates = self._ensure_entry_gates()
         if not gates:
-            return None
+            return None, None, None
         f0 = vehicle.get("start_frame") or 0
         pts = [(float(f0 + i), float(p[0]), float(p[1]))
                for i, p in enumerate(vehicle["trajectory"])]
         if len(pts) < 2:
-            return None
-        origin, _d, _fo, _fd, _op, _dp, _tag = gate_classify(pts, gates, self.fps)
-        return origin
+            return None, None, None
+        origin, dest, _fo, _fd, _op, _dp, tag = gate_classify(pts, gates, self.fps)
+        return origin, dest, tag
 
     def _finalize_vehicle_data(self, track_id: int, vehicle: dict, frame_number: int):
         """Finalize a vehicle dict (from active_vehicles or recently_lost)."""
@@ -985,8 +989,9 @@ class ProcessingPipeline:
         # No evidence -> current behavior, counted (the posterior half gates
         # separately per plan_origin_evidence_gate_2026-07-14).
         candidate_paths = self._paths
+        gate_dest = gate_tag = None
         if ORIGIN_EVIDENCE_GATE_ENABLED and self._paths:
-            evidenced = self._origin_evidence(vehicle)
+            evidenced, gate_dest, gate_tag = self._gate_evidence(vehicle)
             if evidenced is not None:
                 self.n_origin_evidenced += 1
                 if evidenced != origin_leg_id:
