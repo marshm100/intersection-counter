@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fine-tune Labeler</title>
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; background: #111827; color: #e5e7eb;
+         display: flex; height: 100vh; overflow: hidden; }
+  #side { width: 270px; padding: 14px; background: #1f2937; overflow-y: auto; flex-shrink: 0; }
+  #main { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+  canvas { background: #000; cursor: crosshair; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  .meta { font-size: 12px; color: #9ca3af; margin-bottom: 10px; word-break: break-all; }
+  .bar { height: 8px; background: #374151; border-radius: 4px; margin: 6px 0 14px; }
+  .bar > div { height: 100%; background: #10b981; border-radius: 4px; }
+  .legend div { font-size: 12px; margin: 3px 0; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px;
+        vertical-align: -2px; margin-right: 6px; }
+  .keys { font-size: 11.5px; color: #9ca3af; line-height: 1.7; margin-top: 12px; }
+  .keys b { color: #e5e7eb; font-family: monospace; background: #374151;
+            padding: 0 5px; border-radius: 3px; }
+  #toast { position: absolute; top: 10px; right: 10px; background: #065f46; color: #fff;
+           padding: 5px 12px; border-radius: 5px; font-size: 12px; opacity: 0;
+           transition: opacity .3s; }
+</style>
+</head>
+<body>
+<div id="side">
+  <h2>Fine-tune Labeler</h2>
+  <div class="meta" id="imgname">loading&hellip;</div>
+  <div style="font-size:12px" id="progress"></div>
+  <div class="bar"><div id="barfill" style="width:0%"></div></div>
+  <div class="legend">
+    <div><span class="sw" style="background:#10b981"></span>0 &mdash; vehicle</div>
+    <div><span class="sw" style="background:#f59e0b"></span>1 &mdash; articulated</div>
+  </div>
+  <div class="keys">
+    <b>click</b> select box<br>
+    <b>A</b> toggle vehicle&harr;articulated<br>
+    <b>X</b>/<b>Del</b> delete selected<br>
+    <b>drag</b> draw a missed vehicle<br>
+    <b>N</b>/<b>&rarr;</b> save + next &nbsp; <b>P</b>/<b>&larr;</b> back<br>
+    <b>R</b> revert this image<br><br>
+    Review rules: fix/delete bad boxes, add missed vehicles (dim distant ones
+    matter most), promote tractor-trailers to articulated. Box trucks and
+    buses stay vehicle.
+  </div>
+</div>
+<div id="main"><canvas id="cv"></canvas><div id="toast"></div></div>
+<script>
+const DS = new URLSearchParams(location.search).get('ds') || 'finetune_v1';
+let items = [], idx = 0, boxes = [], orig = [], sel = -1, img = new Image();
+let drag = null, scale = 1, ox = 0, oy = 0;
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+
+async function init() {
+  const m = await (await fetch(`/api/labeler/${DS}/manifest`)).json();
+  items = m.items;
+  idx = Math.max(0, items.findIndex(it => !it.reviewed));
+  if (idx === -1) idx = 0;
+  load();
+}
+function load() {
+  const it = items[idx];
+  boxes = it.boxes.map(b => b.slice());
+  orig = it.boxes.map(b => b.slice());
+  sel = -1;
+  img = new Image();
+  img.onload = draw;
+  img.src = `/api/labeler/${DS}/image/${it.split}/${it.name}`;
+  document.getElementById('imgname').textContent = `${idx + 1}/${items.length}  ${it.name}`;
+  const done = items.filter(i => i.reviewed).length;
+  document.getElementById('progress').textContent = `${done} of ${items.length} reviewed`;
+  document.getElementById('barfill').style.width = (100 * done / items.length) + '%';
+}
+function draw() {
+  const maxW = window.innerWidth - 300, maxH = window.innerHeight - 20;
+  scale = Math.min(maxW / img.width, maxH / img.height, 2.2);
+  cv.width = img.width * scale; cv.height = img.height * scale;
+  ctx.drawImage(img, 0, 0, cv.width, cv.height);
+  boxes.forEach((b, i) => {
+    const [cls, cx, cy, w, h] = b;
+    const x = (cx - w / 2) * cv.width, y = (cy - h / 2) * cv.height;
+    ctx.lineWidth = i === sel ? 3 : 1.5;
+    ctx.strokeStyle = cls === 1 ? '#f59e0b' : '#10b981';
+    ctx.strokeRect(x, y, w * cv.width, h * cv.height);
+    if (i === sel) { ctx.setLineDash([5, 4]); ctx.strokeStyle = '#fff';
+      ctx.strokeRect(x - 2, y - 2, w * cv.width + 4, h * cv.height + 4); ctx.setLineDash([]); }
+  });
+  if (drag) { ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(drag.x0, drag.y0, drag.x1 - drag.x0, drag.y1 - drag.y0); }
+}
+function hit(px, py) {
+  let best = -1, bestA = 1e9;
+  boxes.forEach((b, i) => {
+    const [, cx, cy, w, h] = b;
+    if (Math.abs(px / cv.width - cx) <= w / 2 && Math.abs(py / cv.height - cy) <= h / 2) {
+      const a = w * h; if (a < bestA) { bestA = a; best = i; }
+    }
+  });
+  return best;
+}
+cv.addEventListener('mousedown', e => {
+  const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  const h = hit(x, y);
+  if (h >= 0) { sel = h; draw(); }
+  else drag = { x0: x, y0: y, x1: x, y1: y };
+});
+cv.addEventListener('mousemove', e => {
+  if (!drag) return;
+  const r = cv.getBoundingClientRect();
+  drag.x1 = e.clientX - r.left; drag.y1 = e.clientY - r.top; draw();
+});
+cv.addEventListener('mouseup', () => {
+  if (!drag) return;
+  const w = Math.abs(drag.x1 - drag.x0) / cv.width, h = Math.abs(drag.y1 - drag.y0) / cv.height;
+  if (w > 0.004 && h > 0.004) {
+    boxes.push([0, (drag.x0 + drag.x1) / 2 / cv.width, (drag.y0 + drag.y1) / 2 / cv.height, w, h]);
+    sel = boxes.length - 1;
+  }
+  drag = null; draw();
+});
+async function save(goto) {
+  const it = items[idx];
+  await fetch(`/api/labeler/${DS}/labels`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ split: it.split, name: it.name, boxes: boxes, reviewed: true }),
+  });
+  it.reviewed = true; it.boxes = boxes.map(b => b.slice());
+  const t = document.getElementById('toast');
+  t.textContent = 'saved'; t.style.opacity = 1; setTimeout(() => t.style.opacity = 0, 600);
+  if (goto !== 0) { idx = Math.min(Math.max(idx + goto, 0), items.length - 1); load(); }
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'a' || e.key === 'A') {
+    if (sel >= 0) { boxes[sel][0] = boxes[sel][0] === 1 ? 0 : 1; draw(); }
+  } else if (e.key === 'x' || e.key === 'X' || e.key === 'Delete') {
+    if (sel >= 0) { boxes.splice(sel, 1); sel = -1; draw(); }
+  } else if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowRight') {
+    e.preventDefault(); save(1);
+  } else if (e.key === 'p' || e.key === 'P' || e.key === 'ArrowLeft') {
+    e.preventDefault(); save(-1);
+  } else if (e.key === 'r' || e.key === 'R') {
+    boxes = orig.map(b => b.slice()); sel = -1; draw();
+  }
+});
+window.addEventListener('resize', draw);
+init();
+</script>
+</body>
+</html>

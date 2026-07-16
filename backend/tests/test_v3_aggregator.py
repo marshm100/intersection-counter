@@ -449,3 +449,47 @@ class TestIntersectionExportEndpoints:
                        f"/export/report.pdf?override=true")
         assert r.status_code == 200
         assert r.headers["content-type"] == "application/pdf"
+
+
+class TestLabelerEndpoints:
+    """Fine-tune labeler backend (plan_detector_finetune): manifest ordering,
+    label save round-trip, traversal guard."""
+
+    @pytest.fixture()
+    def dataset(self, tmp_path, monkeypatch):
+        from backend.routers import labeler as mod
+        root = tmp_path / "ftds"
+        for sub in ("images/train", "images/val", "labels/train", "labels/val"):
+            (root / sub).mkdir(parents=True)
+        import numpy as np, cv2 as _cv2
+        _cv2.imwrite(str(root / "images/train/a.jpg"),
+                     np.zeros((48, 64, 3), dtype=np.uint8))
+        _cv2.imwrite(str(root / "images/train/b.jpg"),
+                     np.zeros((48, 64, 3), dtype=np.uint8))
+        (root / "labels/train/a.txt").write_text("0 0.5 0.5 0.10 0.2\n")
+        (root / "labels/train/b.txt").write_text("0 0.5 0.5 0.40 0.2\n")
+        monkeypatch.setattr(mod, "_DATA_ROOT", tmp_path.resolve())
+        return "ftds"
+
+    def test_manifest_truck_first_order(self, dataset):
+        m = client.get(f"/api/labeler/{dataset}/manifest").json()
+        assert [it["name"] for it in m["items"]] == ["b.jpg", "a.jpg"]  # widest first
+        assert m["total"] == 2 and m["reviewed_count"] == 0
+
+    def test_save_roundtrip_and_reviewed(self, dataset):
+        r = client.post(f"/api/labeler/{dataset}/labels", json={
+            "split": "train", "name": "a.jpg",
+            "boxes": [[1, 0.5, 0.5, 0.1, 0.2], [0, 0.2, 0.2, 0.05, 0.05]]})
+        assert r.status_code == 200 and r.json()["boxes"] == 2
+        m = client.get(f"/api/labeler/{dataset}/manifest").json()
+        a = next(it for it in m["items"] if it["name"] == "a.jpg")
+        assert a["reviewed"] is True
+        assert [b[0] for b in a["boxes"]] == [1, 0]
+
+    def test_bad_class_rejected(self, dataset):
+        r = client.post(f"/api/labeler/{dataset}/labels", json={
+            "split": "train", "name": "a.jpg", "boxes": [[7, .5, .5, .1, .1]]})
+        assert r.status_code == 422
+
+    def test_traversal_guarded(self, dataset):
+        assert client.get("/api/labeler/..%2f..%2fetc/manifest").status_code == 404
