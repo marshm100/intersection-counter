@@ -287,3 +287,69 @@ class TestExportLoaderV3:
                                  intersection_id=s["iid"])
         wb = openpyxl.load_workbook(out)
         assert "TMC Summary" in wb.sheetnames
+
+
+class TestMiovisionWorkbook:
+    """Stage 2b: the Miovision-parity workbook structure pins."""
+
+    def _mk(self, s, tmp_path):
+        from backend.services.excel_export import generate_miovision_xlsx
+        # AM-peak-hour traffic: through + left on North; NO right all day
+        for k in range(8):
+            _insert_event(s["pid"], video_id=s["vid_a"], camera_id=s["cam_a"],
+                          trim_id=None, leg_id=s["leg_a"],
+                          movement="through" if k % 2 else "left",
+                          timestamp_video=float(k))
+        return generate_miovision_xlsx(s["pid"], tmp_path / "mio.xlsx",
+                                       s["iid"])
+
+    def test_sheet_inventory_and_headers(self, two_cam_intersection, tmp_path):
+        s = two_cam_intersection
+        out = self._mk(s, tmp_path)
+        wb = openpyxl.load_workbook(out)
+        assert wb.sheetnames[0] == "Contents"
+        assert wb.sheetnames[1].endswith(") Summary")
+        assert wb.sheetnames[2:] == ["TMV Table", "TMV Data", "Raw Events"]
+        for name in wb.sheetnames[:4]:
+            ws = wb[name]
+            assert ws["B1"].value == "Study Name"
+            assert ws["B2"].value == "Start Date"
+            assert ws["B3"].value == "End Date"
+            assert ws["B4"].value == "Site Code"
+
+    def test_geometry_aware_letters(self, two_cam_intersection, tmp_path):
+        s = two_cam_intersection
+        out = self._mk(s, tmp_path)
+        wb = openpyxl.load_workbook(out)
+        ws = wb[wb.sheetnames[1]]
+        # letters row: observed movements (L, T) + U always; R absent
+        letters = [ws.cell(9, c).value for c in range(4, 10)
+                   if ws.cell(9, c).value]
+        assert letters[:3] == ["L", "T", "U"]
+        assert "R" not in letters
+        assert letters[3:5] == ["I", "O"]
+
+    def test_no_formulas_anywhere(self, two_cam_intersection, tmp_path):
+        s = two_cam_intersection
+        out = self._mk(s, tmp_path)
+        wb = openpyxl.load_workbook(out)
+        for name in wb.sheetnames:
+            for row in wb[name].iter_rows():
+                for cell in row:
+                    assert not (isinstance(cell.value, str)
+                                and cell.value.startswith("=")), \
+                        f"formula at {name}!{cell.coordinate}"
+
+    def test_tmv_data_long_format(self, two_cam_intersection, tmp_path):
+        s = two_cam_intersection
+        out = self._mk(s, tmp_path)
+        wb = openpyxl.load_workbook(out)
+        ws = wb["TMV Data"]
+        hdr = [ws.cell(8, c).value for c in range(2, 7)]
+        assert hdr == ["Interval", "Approach", "Movement", "Class", "Volume"]
+        # deduped: 8 inserted events on one camera -> 2 (approach, movement)
+        # aggregate rows in the 08:00 interval
+        rows = [[ws.cell(r, c).value for c in range(2, 7)]
+                for r in range(9, 12) if ws.cell(r, 2).value]
+        assert all(v[0].startswith("2026-05-14 08:00") for v in rows)
+        assert sum(v[4] for v in rows) == 8

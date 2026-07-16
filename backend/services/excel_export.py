@@ -226,9 +226,15 @@ def _load_export_data_v3(project_id: str, intersection_id: int) -> dict:
             sorted(seen.items(), key=lambda kv: kv[1])]
     leg_id_by_key = {(label, card): idx for (label, card), idx in seen.items()}
 
+    # destination leg -> cardinal (for the exits frame: Miovision's "O"
+    # column = vehicles LEAVING via that road)
+    dest_card = {lg["leg_id"]: (lg.get("cardinal_direction") or "").upper()
+                 for cam_legs in legs_by_camera.values() for lg in cam_legs}
+
     tmc: dict = {lid: {"label": label, "through": 0, "left": 0, "right": 0,
                        "u_turn": 0, "total": 0} for lid, label, _c, _s in legs}
     tmv: dict = defaultdict(int)
+    exits: dict = defaultdict(int)
     class_totals = {g: 0 for g in CLASS_GROUP_ORDER}
     events = []
     wallclocks = []
@@ -274,6 +280,9 @@ def _load_export_data_v3(project_id: str, intersection_id: int) -> dict:
         interval = wc.replace(minute=(wc.minute // 15) * 15, second=0,
                               microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
         tmv[(interval, _approach_name(key[1]), mvl, grp)] += 1
+        dcard = dest_card.get(row.get("destination_leg_id"))
+        if dcard:
+            exits[(interval, _approach_name(dcard), grp)] += 1
 
     time_series = []
     if wallclocks:
@@ -295,15 +304,20 @@ def _load_export_data_v3(project_id: str, intersection_id: int) -> dict:
                                       else datetime.now().strftime("%Y-%m-%d")))
     peaks = [("Peak 1 (AM)", _peak_analysis(tmv, 7, 9)),
              ("Peak 2 (PM)", _peak_analysis(tmv, 16, 18))]
+    fmt = "%A, %B %d, %Y  %I:%M %p"
+    study_start = min(wallclocks).strftime(fmt) if wallclocks else ""
+    study_end = max(wallclocks).strftime(fmt) if wallclocks else ""
 
     return {"project_name": inter.get("name") or project_id,
             "video_start_time": video_start_time, "interval_minutes": 15,
             "legs": legs, "events": events,
             "leg_order": [lg[0] for lg in legs],
             "leg_labels": {lg[0]: lg[1] for lg in legs}, "tmc": tmc,
-            "time_series": time_series, "tmv": tmv,
+            "time_series": time_series, "tmv": tmv, "exits": exits,
             "class_totals": class_totals, "date_str": date_str,
-            "peaks": peaks, "n_unstamped": n_unstamped}
+            "peaks": peaks, "n_unstamped": n_unstamped,
+            "study_start": study_start, "study_end": study_end,
+            "site_code": ""}
 
 
 def generate_tmc_excel(project_id: str, output_path: Path,
@@ -513,3 +527,290 @@ def _format_time(timestamp_video: float, video_start_time: str) -> str:
     if h > 0:
         return f"{h:02d}:{m:02d}"
     return f"{m:02d}:{total_sec % 60:02d}"
+
+
+# --- Miovision-format workbook (plan_deliverables_E stage 2b) ----------------
+
+def _hr12(h: int) -> str:
+    return f"{(h - 1) % 12 + 1}:00 {'AM' if h % 24 < 12 else 'PM'}"
+
+
+def _approach_letters(tmv: dict) -> dict:
+    """{approach: [movement letters]} — geometry-aware: the letters observed
+    for that approach across the FULL day, plus U always (Miovision lists the
+    U column with zeros; a movement with zero volume all day is treated as
+    geometrically absent, which reproduces the example's T-junction sets)."""
+    seen: dict = defaultdict(set)
+    for (_i, a, mv, _c) in tmv:
+        seen[a].add(mv)
+    return {a: [m for m in _MV_ORDER if m in (s | {"U"})]
+            for a, s in seen.items()}
+
+
+def _peak_block_data(tmv: dict, exits: dict, start_hour: int, end_hour: int,
+                     approaches: list, letters: dict) -> Optional[dict]:
+    """Everything one Summary peak block needs: per approach x movement x
+    class volumes, per-approach In/Out (Out = exits via that road), PHFs per
+    column, and the intersection grand column — all over the peak hour that
+    _peak_analysis selects."""
+    pk = _peak_analysis(tmv, start_hour, end_hour)
+    if pk is None:
+        return None
+    win = [pk["start"] + timedelta(minutes=15 * k) for k in range(4)]
+    win_iso = [w.strftime("%Y-%m-%d %H:%M:%S") for w in win]
+
+    def _phf(subs):
+        m = max(subs) if subs else 0
+        return round(sum(subs) / (4 * m), 2) if m else 0.0
+
+    data: dict = {}
+    for a in approaches:
+        cols = {}
+        for m in letters.get(a, []):
+            per_cls = {cls: sum(tmv.get((w, a, m, cls), 0) for w in win_iso)
+                       for cls in CLASS_GROUP_ORDER}
+            subs = [sum(tmv.get((w, a, m, cls), 0) for cls in CLASS_GROUP_ORDER)
+                    for w in win_iso]
+            cols[m] = {"cls": per_cls, "total": sum(subs), "phf": _phf(subs)}
+        i_subs = [sum(tmv.get((w, a, m, cls), 0)
+                      for m in letters.get(a, []) for cls in CLASS_GROUP_ORDER)
+                  for w in win_iso]
+        o_subs = [sum(exits.get((w, a, cls), 0) for cls in CLASS_GROUP_ORDER)
+                  for w in win_iso]
+        data[a] = {
+            "cols": cols,
+            "I": {"cls": {cls: sum(cols[m]["cls"][cls] for m in cols)
+                          for cls in CLASS_GROUP_ORDER},
+                  "total": sum(i_subs), "phf": _phf(i_subs)},
+            "O": {"cls": {cls: sum(exits.get((w, a, cls), 0) for w in win_iso)
+                          for cls in CLASS_GROUP_ORDER},
+                  "total": sum(o_subs), "phf": _phf(o_subs)},
+        }
+    grand_subs = [sum(tmv.get((w, a, m, cls), 0) for a in approaches
+                      for m in letters.get(a, []) for cls in CLASS_GROUP_ORDER)
+                  for w in win_iso]
+    grand_cls = {cls: sum(data[a]["cols"][m]["cls"][cls]
+                          for a in approaches for m in data[a]["cols"])
+                 for cls in CLASS_GROUP_ORDER}
+    return {"start": pk["start"], "end": pk["end"],
+            "period": (start_hour, end_hour), "data": data,
+            "grand": {"cls": grand_cls, "total": sum(grand_subs),
+                      "phf": _phf(grand_subs)}}
+
+
+def _sheet_header(ws, d, title: Optional[str] = None) -> int:
+    """The Study Name / Start / End / Site Code block every example sheet
+    carries. Returns the first free row after the block (+ title row)."""
+    for r, (label, value) in enumerate(
+            [("Study Name", d["project_name"]), ("Start Date", d["study_start"]),
+             ("End Date", d["study_end"]), ("Site Code", d["site_code"])], start=1):
+        c = ws.cell(row=r, column=2, value=label)
+        c.font = Font(bold=True)
+        ws.cell(row=r, column=3, value=str(value))
+    if title:
+        t = ws.cell(row=6, column=2, value=title)
+        t.font = Font(bold=True)
+        return 8
+    return 6
+
+
+def _write_peak_block(ws, row: int, label_lines: list, blk: Optional[dict],
+                      approaches: list, letters: dict) -> int:
+    """One Summary peak block (approach column groups; class rows with %,
+    Total, PHF, Approach %). Returns the next free row."""
+    col = 4
+    spans = {}
+    for a in approaches:
+        n = len(letters.get(a, [])) + 2          # movement letters + I + O
+        spans[a] = (col, col + n - 1)
+        ws.merge_cells(start_row=row, start_column=col,
+                       end_row=row, end_column=col + n - 1)
+        h = ws.cell(row=row, column=col, value=a)
+        h.font = Font(bold=True)
+        col += n
+    total_col = col
+    hdr = row + 1
+    ws.cell(row=hdr, column=2, value="Time Period").font = Font(bold=True)
+    ws.cell(row=hdr, column=3, value="Class.").font = Font(bold=True)
+    colmap = []                                  # (approach, letter|I|O, col)
+    for a in approaches:
+        c0, _c1 = spans[a]
+        for k, m in enumerate(letters.get(a, []) + ["I", "O"]):
+            ws.cell(row=hdr, column=c0 + k, value=m).font = Font(bold=True)
+            colmap.append((a, m, c0 + k))
+    ws.cell(row=hdr, column=total_col, value="Total").font = Font(bold=True)
+
+    if blk is None:
+        ws.cell(row=hdr + 1, column=2, value=label_lines[0])
+        ws.cell(row=hdr + 1, column=3, value="no data in period")
+        return hdr + 3
+
+    def _cell_val(a, m, cls):
+        if m in ("I", "O"):
+            return int(blk["data"][a][m]["cls"][cls])
+        return int(blk["data"][a]["cols"][m]["cls"][cls])
+
+    def _col_total(a, m):
+        if m in ("I", "O"):
+            return int(blk["data"][a][m]["total"])
+        return int(blk["data"][a]["cols"][m]["total"])
+
+    def _col_phf(a, m):
+        if m in ("I", "O"):
+            return float(blk["data"][a][m]["phf"])
+        return float(blk["data"][a]["cols"][m]["phf"])
+
+    r = hdr + 1
+    rows_spec = []
+    for cls in CLASS_GROUP_ORDER:
+        rows_spec.append((cls, "cls"))
+        rows_spec.append(("%", cls))
+    rows_spec += [("Total", None), ("PHF", None), ("Approach %", None)]
+    p0, p1 = blk["period"]
+    start_lbl = blk["start"].strftime("%I:%M %p").lstrip("0")
+    end_lbl = blk["end"].strftime("%I:%M %p").lstrip("0")
+    left = [label_lines[0], "Specified Period",
+            f"{_hr12(p0)} - {_hr12(p1)}", "One Hour Peak",
+            f"{start_lbl} - {end_lbl}"]
+    for i, (name, mode) in enumerate(rows_spec):
+        if i < len(left):
+            ws.cell(row=r, column=2, value=left[i])
+        ws.cell(row=r, column=3, value=name).font = (
+            Font(bold=True) if name in ("Total", "PHF") else Font())
+        for a, m, c in colmap:
+            if mode == "cls":
+                ws.cell(row=r, column=c, value=_cell_val(a, m, name))
+            elif mode is not None:                       # % row for class mode
+                tot = _col_total(a, m)
+                ws.cell(row=r, column=c,
+                        value=(round(_cell_val(a, m, mode) / tot, 3)
+                               if tot else 0))
+            elif name == "Total":
+                ws.cell(row=r, column=c, value=_col_total(a, m))
+            elif name == "PHF":
+                ws.cell(row=r, column=c, value=_col_phf(a, m))
+            elif name == "Approach %" and m == "I":
+                g = int(blk["grand"]["total"])
+                ws.cell(row=r, column=c,
+                        value=(round(blk["data"][a]["I"]["total"] / g, 3)
+                               if g else 0))
+        if mode == "cls":
+            ws.cell(row=r, column=total_col,
+                    value=int(blk["grand"]["cls"][name]))
+        elif name == "Total":
+            ws.cell(row=r, column=total_col, value=int(blk["grand"]["total"]))
+        elif name == "PHF":
+            ws.cell(row=r, column=total_col, value=float(blk["grand"]["phf"]))
+        r += 1
+    return r + 1
+
+
+def generate_miovision_xlsx(project_id: str, output_path: Path,
+                            intersection_id: int) -> Path:
+    """The Miovision-parity deliverable workbook for one v3 intersection-day:
+    Contents / Summary / TMV Table / TMV Data (+ Raw Events QA sheet).
+    Layout per the stage-1 parity audit. Integers and literals only — no
+    formulas (CLAUDE.md hard constraint)."""
+    d = _load_export_data_v3(project_id, intersection_id)
+    tmv, exits = d["tmv"], d["exits"]
+    letters = _approach_letters(tmv)
+    approaches = [a for a in _APPROACH_ORDER if a in letters]
+    wb = openpyxl.Workbook()
+
+    # ---- Contents ----
+    ws = wb.active
+    ws.title = "Contents"
+    _sheet_header(ws, d)
+    ws.cell(row=7, column=2, value="Overview").font = Font(bold=True)
+    ws.cell(row=8, column=3, value=(
+        "This report contains turning movement volume (TMV) data for the "
+        "study intersection, produced from video by the intersection counter."))
+    ws.cell(row=11, column=2, value="Content").font = Font(bold=True)
+    for r, (name, desc) in enumerate([
+            ("Summary", "Contains a TMV summary of the AM and PM peak hours"),
+            ("TMV Table", "Contains a pivot table of the road volumes"),
+            ("TMV Data", "Contains measured TMV data at 15-minute intervals"),
+            ("Raw Events", "QA sheet: every counted vehicle event")], start=12):
+        ws.cell(row=r, column=3, value=name)
+        ws.cell(row=r, column=4, value=desc)
+    ws.cell(row=17, column=2, value="Traffic Study").font = Font(bold=True)
+    ws.cell(row=18, column=3, value="Start Date")
+    ws.cell(row=18, column=4, value=d["study_start"])
+    ws.cell(row=19, column=3, value="End Date")
+    ws.cell(row=19, column=4, value=d["study_end"])
+    ws.cell(row=20, column=3, value="Classification Categories")
+    ws.cell(row=20, column=4, value=", ".join(CLASS_GROUP_ORDER))
+    blocks = [("Peak 1 (AM)",
+               _peak_block_data(tmv, exits, 7, 9, approaches, letters)),
+              ("Peak 2 (PM)",
+               _peak_block_data(tmv, exits, 16, 18, approaches, letters))]
+    r = 21
+    for name, blk in blocks:
+        if blk:
+            s_lbl = blk["start"].strftime("%I:%M %p").lstrip("0")
+            e_lbl = blk["end"].strftime("%I:%M %p").lstrip("0")
+            ws.cell(row=r, column=3, value=f"{d['date_str']} {name}")
+            ws.cell(row=r, column=4, value=f"{s_lbl} - {e_lbl}")
+            r += 1
+
+    # ---- Summary ----
+    ws = wb.create_sheet(f"({d['date_str'].replace('-', '_')}) Summary")
+    row = _sheet_header(ws, d, "Report Summary")
+    for name, blk in blocks:
+        row = _write_peak_block(ws, row, [name.split(" (")[0]], blk,
+                                approaches, letters)
+        row += 1
+
+    # ---- TMV Table (Road Volumes pivot, full day) ----
+    ws = wb.create_sheet("TMV Table")
+    row = _sheet_header(ws, d, "Road Volumes")
+    day: dict = defaultdict(int)
+    day_exits: dict = defaultdict(int)
+    for (_i, a, m, _c), v in tmv.items():
+        day[(a, m)] += v
+    for (_i, a, _c), v in exits.items():
+        day_exits[a] += v
+    hdr_cells = ["Approach"] + list(_MV_ORDER) + ["Total In", "Total Out"]
+    for k, h in enumerate(hdr_cells):
+        ws.cell(row=row, column=2 + k, value=h).font = Font(bold=True)
+    r = row + 1
+    for a in approaches:
+        ws.cell(row=r, column=2, value=a)
+        for k, m in enumerate(_MV_ORDER):
+            ws.cell(row=r, column=3 + k, value=int(day.get((a, m), 0)))
+        ws.cell(row=r, column=3 + len(_MV_ORDER),
+                value=int(sum(day.get((a, m), 0) for m in _MV_ORDER)))
+        ws.cell(row=r, column=4 + len(_MV_ORDER),
+                value=int(day_exits.get(a, 0)))
+        r += 1
+
+    # ---- TMV Data (long format, 15-min) ----
+    ws = wb.create_sheet("TMV Data")
+    row = _sheet_header(ws, d, "Turning Movement Volume Data")
+    for k, h in enumerate(["Interval", "Approach", "Movement", "Class",
+                           "Volume"]):
+        ws.cell(row=row, column=2 + k, value=h).font = Font(bold=True)
+    r = row + 1
+    for (interval, a, m, cls) in sorted(tmv):
+        ws.cell(row=r, column=2, value=interval)
+        ws.cell(row=r, column=3, value=a)
+        ws.cell(row=r, column=4, value=m)
+        ws.cell(row=r, column=5, value=cls)
+        ws.cell(row=r, column=6, value=int(tmv[(interval, a, m, cls)]))
+        r += 1
+
+    # ---- Raw Events (QA) ----
+    ws = wb.create_sheet("Raw Events")
+    for k, h in enumerate(["event_id", "track_id", "origin_leg_id", "movement",
+                           "vehicle_class", "fhwa_class", "det_conf",
+                           "traj_conf", "timestamp_video", "frame"]):
+        ws.cell(row=1, column=1 + k, value=h).font = Font(bold=True)
+    for r, evt in enumerate(d["events"], start=2):
+        for k in range(10):
+            v = evt[k]
+            ws.cell(row=r, column=1 + k,
+                    value=(round(float(v), 3) if isinstance(v, float) else v))
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(str(output_path))
+    return output_path
