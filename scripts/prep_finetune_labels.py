@@ -47,9 +47,27 @@ def _video_row(project: str, cam: int):
     return v
 
 
-def sample_frames(df: pd.DataFrame, n: int, seed: int) -> list[int]:
-    """50% truck-heavy frames (by truckish-box count), 50% uniform-in-time."""
+def sample_frames(df: pd.DataFrame, n: int, seed: int,
+                  mode: str = "mixed", min_gap: int = 250) -> list[int]:
+    """mixed: 50% truck-heavy frames (by truckish-box count), 50%
+    uniform-in-time. semis: rank frames by the WIDEST truckish box (long
+    vehicles are wide boxes) and take the top n with a minimum frame gap so
+    one slow semi does not fill the whole quota with near-duplicates."""
     rng = random.Random(seed)
+    if mode == "semis":
+        tr = df[df.class_id.isin(TRUCKISH)].copy()
+        if tr.empty:
+            return []
+        tr["w"] = tr.bbox_x2 - tr.bbox_x1
+        widest = tr.groupby("frame_idx")["w"].max().sort_values(ascending=False)
+        picked: list[int] = []
+        for f in widest.index:
+            if all(abs(int(f) - q) >= min_gap for q in picked):
+                picked.append(int(f))
+            if len(picked) >= n:
+                break
+        rng.shuffle(picked)
+        return picked
     per_frame = df.groupby("frame_idx")["class_id"].apply(
         lambda s: int((s.isin(TRUCKISH)).sum()))
     frames = sorted(per_frame.index)
@@ -73,7 +91,16 @@ def main() -> int:
     ap.add_argument("--per-spec", type=int, default=60)
     ap.add_argument("--val-frac", type=float, default=0.15)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--mode", choices=("mixed", "semis"), default="mixed",
+                    help="semis: top frames by widest truckish box (the "
+                         "articulated-mining pass)")
+    ap.add_argument("--exclude-dataset", default=None,
+                    help="skip frames whose image stem already exists there")
     args = ap.parse_args()
+    seen_stems = set()
+    if args.exclude_dataset:
+        for q in Path(args.exclude_dataset).glob("images/*/*.jpg"):
+            seen_stems.add(q.stem)
 
     out = Path(args.out)
     for sub in ("images/train", "images/val", "labels/train", "labels/val"):
@@ -92,7 +119,7 @@ def main() -> int:
             print(f"[skip] {spec}: no detection cache at {pq}")
             continue
         df = pd.read_parquet(pq)
-        frames = sample_frames(df, args.per_spec, args.seed)
+        frames = sample_frames(df, args.per_spec, args.seed, mode=args.mode)
         cap = cv2.VideoCapture(v[0])
         W = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         H = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
@@ -104,6 +131,8 @@ def main() -> int:
                 continue
             split = "val" if rng.random() < args.val_frac else "train"
             stem = f"{project[:8]}_c{cam}_{variant}_{int(fidx)}"
+            if stem in seen_stems:
+                continue
             cv2.imwrite(str(out / f"images/{split}/{stem}.jpg"), img,
                         [cv2.IMWRITE_JPEG_QUALITY, 92])
             rows = df[df.frame_idx == fidx]
