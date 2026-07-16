@@ -234,6 +234,7 @@ def _load_export_data_v3(project_id: str, intersection_id: int) -> dict:
     tmc: dict = {lid: {"label": label, "through": 0, "left": 0, "right": 0,
                        "u_turn": 0, "total": 0} for lid, label, _c, _s in legs}
     tmv: dict = defaultdict(int)
+    tmv_minute: dict = defaultdict(int)   # class-combined, for the PDF pages
     exits: dict = defaultdict(int)
     class_totals = {g: 0 for g in CLASS_GROUP_ORDER}
     events = []
@@ -280,6 +281,9 @@ def _load_export_data_v3(project_id: str, intersection_id: int) -> dict:
         interval = wc.replace(minute=(wc.minute // 15) * 15, second=0,
                               microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
         tmv[(interval, _approach_name(key[1]), mvl, grp)] += 1
+        tmv_minute[(wc.replace(second=0, microsecond=0)
+                    .strftime("%Y-%m-%d %H:%M:%S"),
+                    _approach_name(key[1]), mvl)] += 1
         dcard = dest_card.get(row.get("destination_leg_id"))
         if dcard:
             exits[(interval, _approach_name(dcard), grp)] += 1
@@ -314,10 +318,14 @@ def _load_export_data_v3(project_id: str, intersection_id: int) -> dict:
             "leg_order": [lg[0] for lg in legs],
             "leg_labels": {lg[0]: lg[1] for lg in legs}, "tmc": tmc,
             "time_series": time_series, "tmv": tmv, "exits": exits,
+            "tmv_minute": tmv_minute,
             "class_totals": class_totals, "date_str": date_str,
             "peaks": peaks, "n_unstamped": n_unstamped,
             "study_start": study_start, "study_end": study_end,
-            "site_code": ""}
+            "site_code": "",
+            # approach -> road label (for the PDF column groups)
+            "road_by_approach": {
+                _approach_name(card): label for _lid, label, card, _s in legs}}
 
 
 def generate_tmc_excel(project_id: str, output_path: Path,

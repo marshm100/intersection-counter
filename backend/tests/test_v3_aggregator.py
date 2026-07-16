@@ -353,3 +353,54 @@ class TestMiovisionWorkbook:
                 for r in range(9, 12) if ws.cell(r, 2).value]
         assert all(v[0].startswith("2026-05-14 08:00") for v in rows)
         assert sum(v[4] for v in rows) == 8
+
+
+class TestPdfReportV3:
+    """Stage 2c: the rebuilt PDF — per-minute pages, grouped columns,
+    letterhead config semantics."""
+
+    def _mk(self, s, tmp_path, monkeypatch=None, letterhead=None):
+        from backend.services import pdf_report
+        if monkeypatch is not None:
+            monkeypatch.setattr(pdf_report, "REPORT_LETTERHEAD", letterhead or {
+                "name": "", "address_lines": [], "contact": "", "tagline": ""})
+        for k in range(6):
+            _insert_event(s["pid"], video_id=s["vid_a"], camera_id=s["cam_a"],
+                          trim_id=None, leg_id=s["leg_a"], movement="through",
+                          timestamp_video=float(k * 30))
+        return pdf_report.generate_report_pdf(s["pid"], tmp_path / "r.pdf",
+                                              intersection_id=s["iid"])
+
+    def test_pages_and_layout(self, two_cam_intersection, tmp_path, monkeypatch):
+        from pypdf import PdfReader
+        s = two_cam_intersection
+        out = self._mk(s, tmp_path, monkeypatch)
+        r = PdfReader(str(out))
+        # per-minute page + 15-min page + summary
+        assert len(r.pages) == 3
+        t0 = r.pages[0].extract_text() or ""
+        assert "Turning Movement Data" in t0
+        assert "App. Total" in t0 and "Int." in t0
+        assert "North" in t0                       # the road label
+        assert "Page No: 1" in t0
+        t1 = r.pages[1].extract_text() or ""
+        assert "15 Minute Intervals" in t1
+        assert "Page No: 2" in t1
+
+    def test_letterhead_omitted_when_unset(self, two_cam_intersection,
+                                           tmp_path, monkeypatch):
+        from pypdf import PdfReader
+        s = two_cam_intersection
+        out = self._mk(s, tmp_path, monkeypatch)
+        t = PdfReader(str(out)).pages[0].extract_text() or ""
+        assert "Count Name:" in t
+
+    def test_letterhead_rendered_when_set(self, two_cam_intersection,
+                                          tmp_path, monkeypatch):
+        from pypdf import PdfReader
+        s = two_cam_intersection
+        out = self._mk(s, tmp_path, monkeypatch, letterhead={
+            "name": "Acme Traffic", "address_lines": ["1 Main St"],
+            "contact": "555-0100", "tagline": "Counting responsibly."})
+        t = PdfReader(str(out)).pages[0].extract_text() or ""
+        assert "Acme Traffic" in t and "1 Main St" in t

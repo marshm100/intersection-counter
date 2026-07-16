@@ -343,6 +343,18 @@ ORIGIN_POSTERIOR_MARGIN_FLOOR = float(_os.environ.get(
 # death point); tied cells re-pick by corpus-support proportions. Unitless.
 DEST_TIE_BAND = float(_os.environ.get("DEST_TIE_BAND", "0.15"))
 
+# --- Report letterhead (§3-E deliverables, 2026-07-16) -----------------------
+# The operating firm's block on the PDF report (the example deliverable
+# carries the operator's OWN brand). Empty name = the block is omitted —
+# never render placeholder branding. Set once per install (env or here).
+REPORT_LETTERHEAD = {
+    "name": _os.environ.get("REPORT_FIRM_NAME", ""),
+    "address_lines": [ln for ln in _os.environ.get(
+        "REPORT_FIRM_ADDRESS", "").split("|") if ln],
+    "contact": _os.environ.get("REPORT_FIRM_CONTACT", ""),
+    "tagline": _os.environ.get("REPORT_FIRM_TAGLINE", ""),
+}
+
 # Pipeline-level grace period before considering a tracker-missing vehicle
 # "lost" and finalizing it. YOLO detection can flicker (detect, miss, detect)
 # on consecutive frames; without a grace window every flicker fragments a
