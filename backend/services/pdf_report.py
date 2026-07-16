@@ -123,9 +123,14 @@ def _tmc_pages(pdf, d):
         plt.close(fig)
 
 
-def generate_report_pdf(project_id: str, output_path: Path) -> Path:
-    """Render the turning-movement PDF report to output_path. Returns the path."""
-    d = _load_export_data(project_id)
+def generate_report_pdf(project_id: str, output_path: Path,
+                        intersection_id: int | None = None) -> Path:
+    """Render the turning-movement PDF report to output_path. Returns the path.
+    intersection_id given -> the v3 intersection-day frame (merged, deduped);
+    omitted -> the legacy whole-project frame."""
+    from backend.services.excel_export import _load_export_data_v3
+    d = (_load_export_data_v3(project_id, intersection_id)
+         if intersection_id is not None else _load_export_data(project_id))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with PdfPages(str(output_path)) as pdf:
         _summary_page(pdf, d)

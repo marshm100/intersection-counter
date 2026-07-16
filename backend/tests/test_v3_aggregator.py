@@ -218,3 +218,72 @@ class TestExcelExport:
         )
         # Body should be a real xlsx (zip starts with PK)
         assert r.content[:2] == b"PK"
+
+
+class TestExportLoaderV3:
+    """Stage 2a (plan_deliverables_E_2026-07-16): the shared v3 export frame —
+    deduped, rejected-excluded, per-event wall-clock, no epoch fallback."""
+
+    def test_dedup_and_leg_merge(self, two_cam_intersection):
+        s = two_cam_intersection
+        from backend.services.excel_export import _load_export_data_v3
+        # the same physical vehicle seen by both cameras in the overlap
+        _insert_event(s["pid"], video_id=s["vid_a"], camera_id=s["cam_a"],
+                      trim_id=None, leg_id=s["leg_a"], movement="through",
+                      timestamp_video=1.0)
+        _insert_event(s["pid"], video_id=s["vid_b"], camera_id=s["cam_b"],
+                      trim_id=None, leg_id=s["leg_b"], movement="through",
+                      timestamp_video=1.0)
+        d = _load_export_data_v3(s["pid"], s["iid"])
+        # one merged "North" leg row, not one per camera
+        assert [lg[1] for lg in d["legs"]].count("North") == 1
+        north = next(v for v in d["tmc"].values() if v["label"] == "North")
+        assert north["through"] == 1          # deduped to one vehicle
+        assert len(d["events"]) == 1
+
+    def test_rejected_excluded(self, two_cam_intersection):
+        s = two_cam_intersection
+        from backend.services.excel_export import _load_export_data_v3
+        _insert_event(s["pid"], video_id=s["vid_a"], camera_id=s["cam_a"],
+                      trim_id=None, leg_id=s["leg_a"], movement="left",
+                      timestamp_video=1.0, rejected=1)
+        d = _load_export_data_v3(s["pid"], s["iid"])
+        assert len(d["events"]) == 0
+        assert all(v["total"] == 0 for v in d["tmc"].values())
+
+    def test_no_epoch_intervals(self, two_cam_intersection):
+        s = two_cam_intersection
+        from backend.services.excel_export import _load_export_data_v3
+        _insert_event(s["pid"], video_id=s["vid_a"], camera_id=s["cam_a"],
+                      trim_id=None, leg_id=s["leg_a"], movement="through",
+                      timestamp_video=61.0)
+        d = _load_export_data_v3(s["pid"], s["iid"])
+        assert d["n_unstamped"] == 0
+        assert d["tmv"], "event must reach the tmv frame"
+        for (interval, _a, _m, _c) in d["tmv"]:
+            assert interval.startswith("2026-05-14 08:"), interval
+
+    def test_unstamped_counted_not_binned(self, two_cam_intersection):
+        s = two_cam_intersection
+        from backend.services.excel_export import _load_export_data_v3
+        # no video row -> no wall-clock: counted in tmc, EXCLUDED from tmv
+        _insert_event(s["pid"], video_id=None, camera_id=s["cam_a"],
+                      trim_id=None, leg_id=s["leg_a"], movement="through",
+                      timestamp_video=5.0)
+        d = _load_export_data_v3(s["pid"], s["iid"])
+        assert d["n_unstamped"] == 1
+        assert len(d["events"]) == 1
+        assert not d["tmv"]
+        north = next(v for v in d["tmc"].values() if v["label"] == "North")
+        assert north["through"] == 1
+
+    def test_generate_excel_v3_frame(self, two_cam_intersection, tmp_path):
+        s = two_cam_intersection
+        from backend.services.excel_export import generate_tmc_excel
+        _insert_event(s["pid"], video_id=s["vid_a"], camera_id=s["cam_a"],
+                      trim_id=None, leg_id=s["leg_a"], movement="through",
+                      timestamp_video=1.0)
+        out = generate_tmc_excel(s["pid"], tmp_path / "v3.xlsx",
+                                 intersection_id=s["iid"])
+        wb = openpyxl.load_workbook(out)
+        assert "TMC Summary" in wb.sheetnames

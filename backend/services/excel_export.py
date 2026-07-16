@@ -126,7 +126,10 @@ def _load_export_data(project_id: str) -> dict:
             "SELECT event_id, vehicle_track_id, origin_leg_id, movement, vehicle_class, "
             "fhwa_class, detection_confidence, trajectory_confidence, "
             "timestamp_video, frame_number, manually_edited "
-            "FROM vehicle_events ORDER BY timestamp_video"
+            # merge-rejected fragments must never reach a deliverable
+            # (stage-2a audit fix — the legacy query predated the turn merge)
+            "FROM vehicle_events WHERE COALESCE(rejected, 0) = 0 "
+            "ORDER BY timestamp_video"
         ).fetchall()
     finally:
         conn.close()
@@ -178,10 +181,139 @@ def _load_export_data(project_id: str) -> dict:
             "date_str": date_str, "peaks": peaks}
 
 
-def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
+def _load_export_data_v3(project_id: str, intersection_id: int) -> dict:
+    """v3 intersection-day export frame (plan_deliverables_E stage 2a).
+
+    Same keys as _load_export_data so BOTH artifact builders consume either
+    frame — but built the v3 way: events scoped to ONE intersection's
+    cameras, cross-camera dedup applied, rejected excluded, and wall-clock
+    derived from EACH event's own video row. Events with no video start are
+    excluded from the time-keyed frames (tmv/time_series/peaks) and counted
+    in n_unstamped — never binned to an epoch fallback (the audit's
+    year-2000 finding)."""
+    from backend.database import get_intersection, list_cameras
+    from backend.services.dedup import deduplicate
+    from backend.services.v3_aggregator import (
+        _camera_coverages_for_intersection, _load_events_for_dedup,
+        _load_legs_by_camera)
+
+    inter = get_intersection(project_id, intersection_id)
+    if inter is None:
+        raise ValueError(f"intersection {intersection_id} not found")
+    cameras = list_cameras(project_id, intersection_id)
+    camera_ids = [c["camera_id"] for c in cameras]
+
+    coverages = _camera_coverages_for_intersection(project_id, intersection_id)
+    events_for_dedup, raw_by_id = _load_events_for_dedup(project_id, camera_ids)
+    kept_results, _dup_ids = deduplicate(events_for_dedup, coverages)
+    kept_ids = {r.event_id for r in kept_results}
+    # _load_events_for_dedup drops unstamped rows from the dedup input (no
+    # wall-clock to compare) but keeps them in raw_by_id — they are still
+    # real counted events for the count matrices.
+    dedup_considered = {e.event_id for e in events_for_dedup}
+    kept_rows = [row for eid, row in sorted(raw_by_id.items())
+                 if eid in kept_ids or eid not in dedup_considered]
+
+    # Legs merged across cameras by (label, cardinal) — one row per road,
+    # not one per camera view of it (the audit's duplicate-leg finding).
+    legs_by_camera = _load_legs_by_camera(project_id, camera_ids)
+    seen: dict = {}
+    for cam_legs in legs_by_camera.values():
+        for lg in cam_legs:
+            key = (lg["label"], (lg.get("cardinal_direction") or "").upper())
+            seen.setdefault(key, len(seen))
+    legs = [(idx, label, card, idx) for (label, card), idx in
+            sorted(seen.items(), key=lambda kv: kv[1])]
+    leg_id_by_key = {(label, card): idx for (label, card), idx in seen.items()}
+
+    tmc: dict = {lid: {"label": label, "through": 0, "left": 0, "right": 0,
+                       "u_turn": 0, "total": 0} for lid, label, _c, _s in legs}
+    tmv: dict = defaultdict(int)
+    class_totals = {g: 0 for g in CLASS_GROUP_ORDER}
+    events = []
+    wallclocks = []
+    n_unstamped = 0
+    for row in kept_rows:
+        key = (row.get("leg_label") or f"Leg {row['origin_leg_id']}",
+               (row.get("cardinal_direction") or "").upper())
+        lid = leg_id_by_key.setdefault(key, len(leg_id_by_key))
+        if lid not in tmc:
+            tmc[lid] = {"label": key[0], "through": 0, "left": 0, "right": 0,
+                        "u_turn": 0, "total": 0}
+            legs.append((lid, key[0], key[1], lid))
+        mv = row.get("movement")
+        if mv in ("through", "left", "right", "u_turn"):
+            tmc[lid][mv] += 1
+        tmc[lid]["total"] += 1
+        grp = fhwa_to_class_group(row.get("fhwa_class"))
+        class_totals[grp] += 1
+        events.append((row["event_id"], row["vehicle_track_id"],
+                       row["origin_leg_id"], row.get("movement"),
+                       row.get("vehicle_class"), row.get("fhwa_class"),
+                       row.get("detection_confidence"),
+                       row.get("trajectory_confidence"),
+                       row.get("timestamp_video"), row.get("frame_number"),
+                       0))
+        # wall-clock from THIS event's video row; unstamped -> excluded from
+        # the time-keyed frames, counted.
+        vstart = row.get("video_start")
+        wc = None
+        if vstart:
+            try:
+                wc = (datetime.fromisoformat(vstart)
+                      + timedelta(seconds=float(row.get("timestamp_video") or 0)))
+            except (ValueError, TypeError):
+                wc = None
+        if wc is None:
+            n_unstamped += 1
+            continue
+        wallclocks.append(wc)
+        mvl = _MV_LETTER.get(mv)
+        if mvl is None:
+            continue
+        interval = wc.replace(minute=(wc.minute // 15) * 15, second=0,
+                              microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+        tmv[(interval, _approach_name(key[1]), mvl, grp)] += 1
+
+    time_series = []
+    if wallclocks:
+        interval_sec = 15 * 60
+        t0 = min(wallclocks)
+        t0 = t0.replace(minute=(t0.minute // 15) * 15, second=0, microsecond=0)
+        t_max = max(wallclocks)
+        t = t0
+        while t <= t_max:
+            end = t + timedelta(seconds=interval_sec)
+            time_series.append(
+                {"label": t.strftime("%H:%M"),
+                 "vehicles": int(sum(1 for w in wallclocks if t <= w < end))})
+            t = end
+
+    video_start_time = min((row.get("video_start") for row in kept_rows
+                            if row.get("video_start")), default="")
+    date_str = (inter.get("date") or (video_start_time[:10] if video_start_time
+                                      else datetime.now().strftime("%Y-%m-%d")))
+    peaks = [("Peak 1 (AM)", _peak_analysis(tmv, 7, 9)),
+             ("Peak 2 (PM)", _peak_analysis(tmv, 16, 18))]
+
+    return {"project_name": inter.get("name") or project_id,
+            "video_start_time": video_start_time, "interval_minutes": 15,
+            "legs": legs, "events": events,
+            "leg_order": [lg[0] for lg in legs],
+            "leg_labels": {lg[0]: lg[1] for lg in legs}, "tmc": tmc,
+            "time_series": time_series, "tmv": tmv,
+            "class_totals": class_totals, "date_str": date_str,
+            "peaks": peaks, "n_unstamped": n_unstamped}
+
+
+def generate_tmc_excel(project_id: str, output_path: Path,
+                       intersection_id: int | None = None) -> Path:
     """
     Queries vehicle_events, builds TMC matrix, writes xlsx.
     Returns the path to the written file.
+
+    intersection_id given -> the v3 frame (one intersection-day, merged +
+    cross-camera-deduped); omitted -> the legacy whole-project frame.
 
     Sheet 1 "TMC Summary"  — header rows + TMC matrix with column totals.
     Sheet 2 "Time Series"  — 15-min interval rows (vehicles only — pedestrians out of scope for v2).
@@ -189,7 +321,8 @@ def generate_tmc_excel(project_id: str, output_path: Path) -> Path:
 
     All cell values are hard-coded integers (int()), no formulas.
     """
-    d = _load_export_data(project_id)
+    d = (_load_export_data_v3(project_id, intersection_id)
+         if intersection_id is not None else _load_export_data(project_id))
     project_name = d["project_name"]
     video_start_time = d["video_start_time"]
     legs = d["legs"]
