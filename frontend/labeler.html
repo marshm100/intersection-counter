@@ -41,9 +41,12 @@
     <b>drag</b> draw a missed vehicle<br>
     <b>N</b>/<b>&rarr;</b> save + next &nbsp; <b>P</b>/<b>&larr;</b> back<br>
     <b>R</b> revert this image<br><br>
-    Review rules: fix/delete bad boxes, add missed vehicles (dim distant ones
-    matter most), promote tractor-trailers to articulated. Box trucks and
-    buses stay vehicle.
+    <b>Articulated = a cab pulling a SEPARATE trailer</b> (18-wheeler /
+    semi &mdash; you can see the hinge/gap, and the trailer has its own
+    wheels). If the cargo box, bed, crane, or bus body is built onto the
+    SAME chassis as the cab &mdash; box truck, U-Haul, dump truck, bucket
+    truck, school bus, RV &mdash; it stays <i>vehicle</i>. A tractor
+    driving with no trailer also stays <i>vehicle</i>.
   </div>
 </div>
 <div id="main"><canvas id="cv"></canvas><div id="toast"></div></div>
@@ -56,8 +59,14 @@ const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 async function init() {
   const m = await (await fetch(`/api/labeler/${DS}/manifest`)).json();
   items = m.items;
-  idx = Math.max(0, items.findIndex(it => !it.reviewed));
-  if (idx === -1) idx = 0;
+  // ?only=art — focused re-review of frames that carry articulated labels
+  if (new URLSearchParams(location.search).get('only') === 'art') {
+    items = items.filter(it => it.boxes.some(b => b[0] === 1));
+    idx = 0;
+  } else {
+    idx = Math.max(0, items.findIndex(it => !it.reviewed));
+    if (idx === -1) idx = 0;
+  }
   load();
 }
 function load() {
