@@ -32,21 +32,22 @@
   <div class="bar"><div id="barfill" style="width:0%"></div></div>
   <div class="legend">
     <div><span class="sw" style="background:#10b981"></span>0 &mdash; vehicle</div>
-    <div><span class="sw" style="background:#f59e0b"></span>1 &mdash; articulated</div>
+    <div><span class="sw" style="background:#f59e0b"></span>1 &mdash; articulated (semi)</div>
+    <div><span class="sw" style="background:#60a5fa"></span>2 &mdash; long single-unit</div>
   </div>
   <div class="keys">
     <b>click</b> select box<br>
-    <b>A</b> toggle vehicle&harr;articulated<br>
+    <b>A</b> articulated (semi) &harr; vehicle<br>
+    <b>L</b> long single-unit &harr; vehicle<br>
     <b>X</b>/<b>Del</b> delete selected<br>
     <b>drag</b> draw a missed vehicle<br>
     <b>N</b>/<b>&rarr;</b> save + next &nbsp; <b>P</b>/<b>&larr;</b> back<br>
     <b>R</b> revert this image<br><br>
-    <b>Articulated = a cab pulling a SEPARATE trailer</b> (18-wheeler /
-    semi &mdash; you can see the hinge/gap, and the trailer has its own
-    wheels). If the cargo box, bed, crane, or bus body is built onto the
-    SAME chassis as the cab &mdash; box truck, U-Haul, dump truck, bucket
-    truck, school bus, RV &mdash; it stays <i>vehicle</i>. A tractor
-    driving with no trailer also stays <i>vehicle</i>.
+    <b>Articulated (A, orange)</b> = a cab pulling a SEPARATE trailer
+    (18-wheeler; visible hinge, trailer has its own wheels).<br>
+    <b>Long single-unit (L, blue)</b> = inherently ~2+ car lengths on ONE
+    chassis: box truck, U-Haul, dump truck, bucket truck, school bus, RV.<br>
+    Everything else (incl. pickup+trailer, bobtail tractor) = vehicle.
   </div>
 </div>
 <div id="main"><canvas id="cv"></canvas><div id="toast"></div></div>
@@ -61,7 +62,7 @@ async function init() {
   items = m.items;
   // ?only=art — focused re-review of frames that carry articulated labels
   if (new URLSearchParams(location.search).get('only') === 'art') {
-    items = items.filter(it => it.boxes.some(b => b[0] === 1));
+    items = items.filter(it => it.boxes.some(b => b[0] >= 1));
     idx = 0;
   } else {
     idx = Math.max(0, items.findIndex(it => !it.reviewed));
@@ -91,7 +92,7 @@ function draw() {
     const [cls, cx, cy, w, h] = b;
     const x = (cx - w / 2) * cv.width, y = (cy - h / 2) * cv.height;
     ctx.lineWidth = i === sel ? 3 : 1.5;
-    ctx.strokeStyle = cls === 1 ? '#f59e0b' : '#10b981';
+    ctx.strokeStyle = cls === 1 ? '#f59e0b' : (cls === 2 ? '#60a5fa' : '#10b981');
     ctx.strokeRect(x, y, w * cv.width, h * cv.height);
     if (i === sel) { ctx.setLineDash([5, 4]); ctx.strokeStyle = '#fff';
       ctx.strokeRect(x - 2, y - 2, w * cv.width + 4, h * cv.height + 4); ctx.setLineDash([]); }
@@ -143,6 +144,8 @@ async function save(goto) {
 document.addEventListener('keydown', e => {
   if (e.key === 'a' || e.key === 'A') {
     if (sel >= 0) { boxes[sel][0] = boxes[sel][0] === 1 ? 0 : 1; draw(); }
+  } else if (e.key === 'l' || e.key === 'L') {
+    if (sel >= 0) { boxes[sel][0] = boxes[sel][0] === 2 ? 0 : 2; draw(); }
   } else if (e.key === 'x' || e.key === 'X' || e.key === 'Delete') {
     if (sel >= 0) { boxes.splice(sel, 1); sel = -1; draw(); }
   } else if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowRight') {

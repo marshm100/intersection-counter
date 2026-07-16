@@ -108,8 +108,8 @@ def labeler_save(ds: str, payload: LabelPayload):
         if len(b) != 5:
             raise HTTPException(status_code=422, detail="bad box")
         cls = int(b[0])
-        if cls not in (0, 1):
-            raise HTTPException(status_code=422, detail="class must be 0 or 1")
+        if cls not in (0, 1, 2):
+            raise HTTPException(status_code=422, detail="class must be 0, 1 or 2")
         cx, cy, w, h = (max(0.0, min(1.0, float(v))) for v in b[1:])
         if w <= 0 or h <= 0:
             continue

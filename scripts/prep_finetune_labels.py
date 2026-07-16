@@ -33,7 +33,7 @@ from backend.services.detection_cache import (  # noqa: E402
 )
 
 TRUCKISH = (5, 7)          # bus/truck class ids — the articulated candidates
-NAMES = {0: "vehicle", 1: "articulated"}
+NAMES = {0: "vehicle", 1: "articulated", 2: "long_single"}
 
 
 def _video_row(project: str, cam: int):
@@ -127,7 +127,7 @@ def main() -> int:
     (out / "dataset.yaml").write_text(
         f"path: {out.resolve().as_posix()}\n"
         "train: images/train\nval: images/val\n"
-        f"names:\n  0: {NAMES[0]}\n  1: {NAMES[1]}\n")
+        f"names:\n  0: {NAMES[0]}\n  1: {NAMES[1]}\n  2: {NAMES[2]}\n")
     (out / "README.md").write_text(
         "# Fine-tune labeling set\n\n"
         "Proposal boxes are prefilled as class 0 (vehicle) from the detection\n"
