@@ -51,6 +51,42 @@ County, TX/Cam 1 FM51-CORD4699/405051_*.xlsx` + the `.pdf` beside it.
    labels; NEVER a runtime GT dependency (the example file is a FORMAT
    reference only).
 
+## STAGE-1 AUDIT RESULT (2026-07-16) — the gap table
+
+Generated ours from the corridor project (`audit_ours.xlsx/pdf`, scratchpad)
+and diffed against the example (4 sheets / 13 PDF pages).
+
+**Excel:**
+
+| aspect | example | ours | verdict |
+|---|---|---|---|
+| sheets | Contents, "(date) Summary", TMV Table, TMV Data | Contents, Summary, TMC Summary, Time Series, TMV Data, Raw Events | rename/merge; TMV Table ("Road Volumes" pivot) MISSING; our extras (Raw Events, Time Series) keep as QA sheets |
+| Summary layout | approaches as COLUMN GROUPS w/ leg-specific movement letters (T-junction: SB=L/T/U, WB=L/R/U, NB=T/R/U) + In/Out cols + Total; class ROWS Lights/%/Mediums/%/Articulated/%/Total/PHF/Approach %; TWO peak blocks (AM+PM) | long-format rows (Approach x Mvt), classes as columns, PHF col | REBUILD the Summary sheet layout: transposed, geometry-aware columns, % rows, I/O, two peak blocks |
+| sheet headers | Study Name / Start / End / Site Code block on EVERY sheet (+ Contents has Overview, Classification Categories, peak listings) | Study Name + Date only | extend header block |
+| TMV Data | long rows Interval/Approach/Movement/Class/Volume @15 min | SAME columns ✓ | structure matches; fix interval granularity + timestamps (below) |
+| leg names | road names ("SB FM 51") | present in TMC Summary | carry into Summary column groups |
+
+**PDF:** the example is 13 pages: OPERATOR-FIRM letterhead (Deshazo block —
+our client's OWN brand, so a configurable letterhead IS in scope, revising
+the plan's "no branding" line), then per-approach grouped columns with road
+names + App. Total + Int. Total at PER-MINUTE rows, then 15-min pages. Ours
+is 4 pages of long-format tables. REBUILD: letterhead config (name/address/
+tagline), grouped-column layout, per-minute + 15-min page sets.
+
+**Data-level findings (the v3-unification case, proven):** project-level
+export on the corridor MIXES all five cameras (duplicate "SB N Belt Line
+Rd" rows, "Leg 1/2/3" placeholders from unlabeled legs), Time Series is
+junk at project scope, and TMV Data shows year-2000 intervals (events
+missing timestamp_real fall back to epoch — must derive from
+video_start_time or be excluded with a warning). Stage 2's shared v3
+loader (aggregated, deduped, one intersection-day) fixes the data layer;
+the format work above sits on top of it.
+
+**Re-scoped build order:** 2a v3 loader + data fixes → 2b Summary sheet
+rebuild + TMV Table + headers → 2c PDF rebuild (letterhead config,
+grouped columns, minute+15-min pages) → 3 endpoint/card wiring + gate →
+4 end-to-end verify + structure regression test.
+
 ## Out of scope
 
 Report branding/logos; multi-intersection combined reports; any accuracy
