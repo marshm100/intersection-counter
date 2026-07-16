@@ -53,6 +53,34 @@ startable the moment labels/GPU are allocated; nothing else blocks on it.
 
 ## Prerequisites to allocate (the actual blockers)
 
-Labeling time (est. 2–4 operator-hours with pre-extracted proposals) and a
-GPU budget (Colab Pro session or local). Everything else — extraction
-scripts, replay scoring, held-out discipline — exists.
+Labeling time (est. 2–4 operator-hours with pre-extracted proposals).
+Everything else — extraction scripts, replay scoring, held-out discipline —
+exists.
+
+## REVISED 2026-07-16 — local CPU training, chunked (user decision)
+
+Compute is NOT a blocker. The Iris Xe cannot train (no practical PyTorch
+backend for an 11th-gen iGPU; OpenVINO is inference-only), but the CPU can:
+a SCOPED job (freeze the backbone, imgsz 640, two-class head, a few hundred
+images) lands at ~8–24 h total — run as **chunked sessions of 5–10 epochs**
+so the laptop stays usable and any interruption costs at most one chunk.
+
+- **Chunking = sequential warm-start runs** (`scripts/finetune_detector.py`):
+  chunk k trains E epochs from the previous chunk's `last.pt`, with a global
+  LR decay across chunks (lr0 x gamma^k) standing in for the one-run cosine
+  schedule. Deliberately chosen over ultralytics' `resume=True` single-run
+  interrupt flow: warm-start chunks are deterministic and restartable after
+  ANY kind of death (sleep, kill, crash) with no "run already complete"
+  edge cases. A manifest JSON tracks cumulative epochs per run dir.
+- **Label prep** (`scripts/prep_finetune_labels.py`): stratified frames from
+  the detection caches (truck-heavy frames prioritized 50/50 with
+  uniform-in-time), proposal boxes prefilled as class 0 `vehicle` in YOLO
+  txt format — the operator's job is accept/fix boxes and PROMOTE semis to
+  class 1 `articulated` (everything prefills 0 so the prefill cannot bias
+  the articulated labels). Any YOLO-format labeling tool works on the
+  emitted dataset directory.
+- Training defaults: base yolo26s.pt, imgsz 640, freeze=10, epochs-total 40
+  in 8-epoch chunks. The GATE is unchanged (held-out SITE, three parts) —
+  chunked local training changes logistics, not the discipline. After a
+  PASS, export via `scripts/export_yolo_openvino.py` so inference stays on
+  the iGPU.
