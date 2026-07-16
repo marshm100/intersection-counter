@@ -120,6 +120,31 @@ closes when all three walls have a verdict; it does NOT require all three
 to be wins. Corridor-level goal: the failing cams' honest per-approach MAE
 moves toward ≤5% with zero regression on the passing ones.
 
+## CLOSURE (2026-07-16) — all three walls have verdicts; item 8 CLOSED
+
+Mechanism ① ran the full discipline three times (plan docs:
+`plan_origin_evidence_gate_2026-07-14`, `plan_posterior_half_2026-07-15`,
+`plan_conservation_pass_2026-07-15`). Verdicts:
+
+- **Wall A (cam2 NB-left 0.32): CHARACTERIZED, mechanism proven, not
+  shipped.** The attribution-reachable pool (steals + drops) is recoverable
+  — measured recall 0.73–0.89 under the posterior on held-out windows — but
+  the mechanism is not blind-deployable at low-evidence cameras and retired
+  per its budget. The 585 never-journeyed route to the capability track.
+- **Wall B (EB thru/right): CHARACTERIZED with a measured ceiling.** Shape
+  matching is dead for EB-thru full journeys (~3% complete); the posterior
+  resurrected the cell to ~0.9 of truth on cam2 (same retirement). The
+  approach total stays fixed by two-pass.
+- **Wall C (cam4 mid-block): CHARACTERIZED.** The 71-event class is real;
+  the anchor move (retired) and the posterior (made it worse: watch cell
+  111→141–149) both failed it. Mechanism ② (mid-block birth gate) remains
+  the untried candidate — deliberately NOT run: cam4's live table passes
+  the product bar and the residual is +31 events.
+- Cross-cutting corrections now on the books: SB-right's 1.07 was
+  CANCELLATION (true trackable recall 0.12–0.16 — capability class); the
+  per-approach residual corridor-wide is dominated by capability-class
+  recall, not attribution. The accuracy lever moves to §3-D.
+
 ## Ops rails
 
 Long ablation sets run detached with logs + resume; no `.py` edits while a
