@@ -170,13 +170,18 @@ class VehicleDetector:
         return self._parse_results(results[0])
 
     def detect_batch(self, frames: list[np.ndarray]) -> list[list[dict]]:
-        """Run detection on multiple frames using true batch inference.
+        """Run detection on multiple frames.
 
-        Passes all frames to the model in a single call for GPU-parallel
-        processing, then parses each result individually.
+        CUDA/CPU torch backends get true batch inference (one model call).
+        The OpenVINO export is STATIC batch-1 (static shapes are what make
+        the iGPU fast — see export_yolo_openvino.py), so an N-frame tensor
+        trips the intel_gpu plugin's shape check; there is no GPU batching
+        to be had from that export, and per-frame calls are exactly as fast.
         """
         if not frames:
             return []
+        if str(self._device).startswith("intel"):
+            return [self.detect(f) for f in frames]
         results = self.model(
             frames,
             conf=self.confidence,
