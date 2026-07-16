@@ -130,9 +130,15 @@ def _intersection_gate(project_id: str, intersection_id: int) -> dict:
                   if i["intersection_id"] == intersection_id), None)
     if entry is None:
         raise HTTPException(status_code=404, detail="Intersection not found")
+    reasons = list(entry["notes"])
+    # a QA-fail block carries no per-intersection note (the project gate
+    # only lists it in the project-level reasons) — name it here so the
+    # card dialog never shows an empty reason list (E-4 verify finding)
+    if entry["blocked"] and entry["overall"] == "fail":
+        reasons.append("QA acceptance gate: FAIL")
     return {"project_id": project_id, "intersection_id": intersection_id,
             "overall": entry["overall"], "blocking": bool(entry["blocked"]),
-            "blocking_reasons": entry["notes"], "items": entry["items"],
+            "blocking_reasons": reasons, "items": entry["items"],
             "name": entry["name"]}
 
 

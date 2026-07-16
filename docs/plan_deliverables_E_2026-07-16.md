@@ -87,6 +87,32 @@ rebuild + TMV Table + headers → 2c PDF rebuild (letterhead config,
 grouped columns, minute+15-min pages) → 3 endpoint/card wiring + gate →
 4 end-to-end verify + structure regression test.
 
+## STAGES 2–4: SHIPPED (2026-07-16)
+
+- **2a** shared v3 frame (`_load_export_data_v3`): deduped intersection-day,
+  per-event wall-clock, unstamped counted never epoch-binned, legs merged by
+  road, exits + per-minute frames; legacy loader's missing rejected filter
+  fixed. **2b** `generate_miovision_xlsx`: Contents / Summary (geometry-aware
+  approach column groups, I/O, class+% rows, PHF, Approach %, dual peaks) /
+  TMV Table / TMV Data / Raw Events QA — no-formulas test-pinned.
+  **2c** PDF rebuilt: REPORT_LETTERHEAD config (empty = omitted), per-minute
+  + 15-min Turning Movement Data pages with road-named column groups and
+  App./Int. totals, peak summary. **3** per-intersection-day endpoints
+  (gate / tmc.xlsx / report.pdf; blocking from the project gate's own
+  entries; 409 + explicit draft override) + card Excel/PDF buttons.
+- **4 VERIFY (live drive, corridor project):** cards render the buttons,
+  the gate dialog fires, override downloads BOTH artifacts through the real
+  endpoints; the downloaded workbook's TMV grand total (13,856) exactly
+  matches the deduped DB frame. Screenshot:
+  `screenshots/e3_intersection_export_buttons_2026-07-16.png`. Fix from the
+  drive: a QA-fail block now names its reason (the dialog showed an empty
+  list). 16 structure/endpoint tests pin the formats.
+
+Residual polish (not blocking): Summary %-rows render as fractions (example
+formats as percents); TMV Table pivot approximates the example's unreadable
+cached layout; per-minute PDF pages could group hours like the example's
+page breaks. Revisit only if the operator asks.
+
 ## Out of scope
 
 Report branding/logos; multi-intersection combined reports; any accuracy
