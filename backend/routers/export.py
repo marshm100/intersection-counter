@@ -119,6 +119,95 @@ def export_download(project_id: str, override: bool = False):
     )
 
 
+# --- Intersection-day deliverables (§3-E stage 3, plan_deliverables_E) ------
+
+def _intersection_gate(project_id: str, intersection_id: int) -> dict:
+    """The §3-A gate scoped to ONE intersection-day: the project gate's own
+    per-intersection entry decides blocking (same acceptance/bank/
+    classification logic, no duplicated policy)."""
+    gate = export_gate(project_id)
+    entry = next((i for i in gate["intersections"]
+                  if i["intersection_id"] == intersection_id), None)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Intersection not found")
+    return {"project_id": project_id, "intersection_id": intersection_id,
+            "overall": entry["overall"], "blocking": bool(entry["blocked"]),
+            "blocking_reasons": entry["notes"], "items": entry["items"],
+            "name": entry["name"]}
+
+
+def _deliverable_name(project_id: str, intersection_id: int, ext: str) -> str:
+    conn = get_connection(project_id)
+    try:
+        row = conn.execute(
+            "SELECT name, date FROM intersections WHERE intersection_id = ?",
+            (intersection_id,)).fetchone()
+    finally:
+        conn.close()
+    name, date = (row or (f"intersection{intersection_id}", ""))
+    safe = "".join(c if c.isalnum() or c in " ._-" else "_" for c in
+                   f"{name}_{date or datetime.now().strftime('%Y-%m-%d')}").strip()
+    return f"TMC_{safe}.{ext}"
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/export/gate")
+def intersection_export_gate(project_id: str, intersection_id: int):
+    return _intersection_gate(project_id, intersection_id)
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/export/tmc.xlsx")
+def intersection_export_xlsx(project_id: str, intersection_id: int,
+                             override: bool = False):
+    """The Miovision-parity workbook for one intersection-day (merged,
+    cross-camera-deduped). Gated per intersection; 409 unless override."""
+    gate = _intersection_gate(project_id, intersection_id)
+    if gate["blocking"] and not override:
+        raise HTTPException(status_code=409, detail={
+            "message": "Export withheld — the QA gate is not satisfied.",
+            "overall": gate["overall"],
+            "blocking_reasons": gate["blocking_reasons"]})
+    from backend.services.excel_export import generate_miovision_xlsx
+    filename = _deliverable_name(project_id, intersection_id, "xlsx")
+    output_path = Path(tempfile.gettempdir()) / filename
+    try:
+        generate_miovision_xlsx(project_id, output_path, intersection_id)
+    except Exception as exc:
+        logger.error("Intersection export failed (%s/%s): %s",
+                     project_id, intersection_id, exc)
+        raise HTTPException(status_code=500,
+                            detail="Export failed. See server logs.") from exc
+    return FileResponse(
+        path=str(output_path),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/export/report.pdf")
+def intersection_export_pdf(project_id: str, intersection_id: int,
+                            override: bool = False):
+    """The Miovision-style PDF for one intersection-day. Gated identically."""
+    gate = _intersection_gate(project_id, intersection_id)
+    if gate["blocking"] and not override:
+        raise HTTPException(status_code=409, detail={
+            "message": "Export withheld — the QA gate is not satisfied.",
+            "overall": gate["overall"],
+            "blocking_reasons": gate["blocking_reasons"]})
+    filename = _deliverable_name(project_id, intersection_id, "pdf")
+    output_path = Path(tempfile.gettempdir()) / filename
+    try:
+        generate_report_pdf(project_id, output_path,
+                            intersection_id=intersection_id)
+    except Exception as exc:
+        logger.error("Intersection PDF failed (%s/%s): %s",
+                     project_id, intersection_id, exc)
+        raise HTTPException(status_code=500,
+                            detail="PDF report failed. See server logs.") from exc
+    return FileResponse(
+        path=str(output_path), media_type="application/pdf", filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
 @router.get("/projects/{project_id}/export/report.pdf")
 def export_report_pdf(project_id: str, override: bool = False):
     """Generate and stream the Miovision-style PDF report (letterhead + peak-hour

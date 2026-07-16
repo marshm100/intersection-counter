@@ -348,11 +348,35 @@ async function _renderIntersectionsTab(host) {
                 </div>
                 <div class="intersection-card-actions">
                     <button onclick="v3OpenIntersection(${i.intersection_id})">Open</button>
+                    <button onclick="v3ExportIntersection(${i.intersection_id}, 'tmc.xlsx')" title="Miovision-format TMC workbook">Excel</button>
+                    <button onclick="v3ExportIntersection(${i.intersection_id}, 'report.pdf')" title="Turning-movement PDF report">PDF</button>
                 </div>
             </div>`;
     }
     html += '</div>';
     host.innerHTML = html;
+}
+
+async function v3ExportIntersection(iid, kind) {
+    // Deliverable download for one intersection-day (plan_deliverables_E
+    // stage 3). The §3-A gate is checked first; a blocked gate offers an
+    // explicit DRAFT override rather than silently failing the download.
+    const pid = AppState.currentProject;
+    const base = `/api/projects/${pid}/intersections/${iid}/export/`;
+    let url = base + kind;
+    try {
+        const g = await API.get(base + 'gate');
+        if (g.blocking) {
+            const reasons = (g.blocking_reasons || []).join('\n');
+            if (!confirm(`Export withheld — the QA gate is not satisfied:\n` +
+                         `${reasons}\n\nDownload a DRAFT anyway?`)) return;
+            url += '?override=true';
+        }
+    } catch (e) {
+        alert('Could not check the export gate.');
+        return;
+    }
+    window.location.href = url;
 }
 
 async function v3OpenIntersection(iid) {

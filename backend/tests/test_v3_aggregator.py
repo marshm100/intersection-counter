@@ -404,3 +404,48 @@ class TestPdfReportV3:
             "contact": "555-0100", "tagline": "Counting responsibly."})
         t = PdfReader(str(out)).pages[0].extract_text() or ""
         assert "Acme Traffic" in t and "1 Main St" in t
+
+
+class TestIntersectionExportEndpoints:
+    """Stage 3: per-intersection-day deliverable endpoints + gate."""
+
+    def test_gate_scoped_to_intersection(self, two_cam_intersection):
+        s = two_cam_intersection
+        r = client.get(f"/api/projects/{s['pid']}/intersections/{s['iid']}"
+                       f"/export/gate")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["intersection_id"] == s["iid"]
+        assert "blocking" in body and "blocking_reasons" in body
+
+    def test_gate_unknown_intersection_404(self, two_cam_intersection):
+        s = two_cam_intersection
+        r = client.get(f"/api/projects/{s['pid']}/intersections/99999"
+                       f"/export/gate")
+        assert r.status_code == 404
+
+    def test_blocked_download_409_then_override(self, two_cam_intersection):
+        s = two_cam_intersection
+        # fresh fixture: no bank, no classification -> gate blocks
+        _insert_event(s["pid"], video_id=s["vid_a"], camera_id=s["cam_a"],
+                      trim_id=None, leg_id=s["leg_a"], movement="through",
+                      timestamp_video=1.0)
+        base = (f"/api/projects/{s['pid']}/intersections/{s['iid']}"
+                f"/export/tmc.xlsx")
+        r = client.get(base)
+        assert r.status_code == 409
+        assert "blocking_reasons" in r.json()["detail"]
+        r2 = client.get(base + "?override=true")
+        assert r2.status_code == 200
+        assert r2.headers["content-type"].startswith(
+            "application/vnd.openxmlformats")
+
+    def test_pdf_download_with_override(self, two_cam_intersection):
+        s = two_cam_intersection
+        _insert_event(s["pid"], video_id=s["vid_a"], camera_id=s["cam_a"],
+                      trim_id=None, leg_id=s["leg_a"], movement="through",
+                      timestamp_video=1.0)
+        r = client.get(f"/api/projects/{s['pid']}/intersections/{s['iid']}"
+                       f"/export/report.pdf?override=true")
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "application/pdf"
