@@ -84,3 +84,31 @@ so the laptop stays usable and any interruption costs at most one chunk.
   chunked local training changes logistics, not the discipline. After a
   PASS, export via `scripts/export_yolo_openvino.py` so inference stays on
   the iGPU.
+
+## RUN 1 RESULTS (2026-07-16 overnight) — trained; gate part 1 POSITIVE
+
+- **Dataset v1**: 430 corridor frames (FM51 fully held out), human-labeled
+  in the in-app labeler: 4,734 vehicle / 208 articulated / 139 long_single
+  boxes after the semi-mining top-up (`--mode semis` tripled the semi
+  class). Lesson paid for: verify the page build AND the persisted counts
+  around every labeling handoff (one pass was lost to a stale page).
+- **Training**: 64 epochs in 9 warm-start chunks (~10 min/chunk early,
+  ~40 min on the doubled set) entirely on the laptop CPU. Best checkpoint
+  = chunk 6 (56 epochs): overall mAP50 0.64, vehicle 0.76, articulated
+  0.60 (P 0.79), long_single 0.54 on the enlarged val split. Extension to
+  64 declined -> stopped per policy; 80-epoch cap never needed.
+- **Gate part 1 (FM51 detection A/B, `fm51_detect_ab.py`, 1,800 sampled
+  frames, both peaks): the fine-tuned model detects MORE in EVERY
+  interval — +25–45% detections/frame — including the documented PM-miss
+  window (16:45: 0.75→1.04/frame; 17:30: 0.91→1.13)**, on a site it never
+  trained on. The far-field top-third split registered zero for BOTH
+  models — the band is mis-calibrated for FM51's geometry (road sits low
+  in frame); re-cut per-camera before reading that metric.
+- **Open question for parts 2–3**: cross-site articulated transfer looks
+  thin at frame level (7 art / 42 long glimpses across the windows vs
+  Mio's 102 articulated day-total) — sparse 0.1 fps sampling can't settle
+  it; the TRACK-level full-chain comparison decides. If it confirms weak
+  transfer, the fix is a third site's semis in train (FM51 stays held
+  out), not more corridor epochs.
+- **NOT promoted**: the model ships nowhere until the full-chain gate
+  passes; weights at `runs/detect/runs/finetune_v1/chunk6/weights/last.pt`.
