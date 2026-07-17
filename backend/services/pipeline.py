@@ -824,6 +824,14 @@ class ProcessingPipeline:
         # v3 calibration stores a single origin point per leg; we synthesize a
         # perpendicular tripwire through it on the fly so the line-crossing
         # logic still works. Legacy v2 zones (2-point lines) pass through unchanged.
+        # INCREMENTAL (2026-07-17): attempts run on every detection frame, so
+        # every segment before `tripwire_scanned` was already checked against
+        # ALL legs by a prior attempt and found enter-free (an enter would
+        # have assigned origin and ended the attempts) — rescanning them is
+        # outcome-identical and made long-lived unassigned tracks quadratic
+        # (a stationary clutter track turned cam4 study_1100's replay from
+        # ~minutes into 43 min). Scan only the segments added since.
+        scan_from = max(1, int(vehicle.get("tripwire_scanned", 1)))
         for leg in self.legs:
             zone = leg.get("origin_zone")
             if not zone:
@@ -841,7 +849,7 @@ class ProcessingPipeline:
                 line_end = tuple(zone[1])
             else:
                 continue
-            for i in range(1, len(traj)):
+            for i in range(scan_from, len(traj)):
                 if did_cross_line(traj[i - 1], traj[i], line_start, line_end):
                     direction = crossing_direction(
                         traj[i - 1], traj[i], line_start, line_end,
@@ -853,6 +861,7 @@ class ProcessingPipeline:
                         vehicle["origin_frame"] = frame_number
                         self.n_crossed_enter += 1
                         return
+        vehicle["tripwire_scanned"] = len(traj)
 
         # --- Fallback: heading-based matching ---
         # Use the FULL trajectory so far, not just the first 2 points: a

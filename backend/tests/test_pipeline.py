@@ -190,6 +190,23 @@ class TestPipelineInit:
         assert p._paths[0]["origin_leg_id"] == 1
         assert p.n_origin_via_polyline == 0   # counter starts at 0
 
+    def test_tripwire_incremental_scan_catches_late_crossing(self, pipeline_env):
+        """The incremental tripwire scan (2026-07-17 quadratic fix) must not
+        lose segments: a track that lingers short of the line for many
+        attempts and then crosses is assigned on the crossing segment.
+        Geometry keeps total displacement under TRAJECTORY_MIN_DISTANCE_PX so
+        the heading fallback stays silent — only the tripwire can assign."""
+        p = _make_pipeline(pipeline_env)
+        # leg 1 origin_zone is the line y=800 spanning x 300..700 (heading 0).
+        for f in range(10):
+            p._process_vehicle(42, _make_detection(500, 830 + (f % 2)), f)
+        v = p.active_vehicles[42]
+        assert v["origin_leg_id"] is None          # linger: nothing assigned
+        assert v["tripwire_scanned"] == len(v["trajectory"])
+        p._process_vehicle(42, _make_detection(500, 790), 10)   # crosses y=800
+        assert v["origin_leg_id"] == 1
+        assert v["origin_frame"] == 10
+
     def test_assign_origin_polyline_tier_fires(self, pipeline_env):
         """When a trajectory matches a path's entry segment, the polyline
         tier assigns origin and bumps the counter (without using the
