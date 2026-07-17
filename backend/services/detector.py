@@ -12,6 +12,7 @@ os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
 from ultralytics import YOLO  # noqa: E402
 
 from backend.config import (
+    NATIVE_ARTICULATED_CLASS_ID,
     VEHICLE_CLASSES,
     YOLO_CONFIDENCE_THRESHOLD,
     YOLO_IMGSZ,
@@ -35,14 +36,19 @@ class VehicleDetector:
     mutating module-level constants.
     """
 
-    RELEVANT_CLASSES = sorted(VEHICLE_CLASSES.keys())
+    # The COCO class filter for STOCK models. The native articulated id is
+    # ours, not COCO's (8 = boat there) — it must never reach a coco-scheme
+    # model's `classes=` request.
+    RELEVANT_CLASSES = sorted(k for k in VEHICLE_CLASSES
+                              if k != NATIVE_ARTICULATED_CLASS_ID)
 
     # Fine-tuned two-class-head scheme (plan_detector_finetune, promoted
-    # 2026-07-17): model emits 0 vehicle / 1 articulated / 2 long_single;
-    # mapped to COCO ids downstream EXACTLY as the FM51 full-chain gate
-    # validated (articulated/long -> truck keeps the size post-pass live;
-    # native articulated wiring is the next integration).
-    _FT_CLASS_MAP = {0: 2, 1: 7, 2: 7}
+    # 2026-07-17): model emits 0 vehicle / 1 articulated / 2 long_single.
+    # 0/2 keep EXACTLY the mapping the FM51 full-chain gate validated
+    # (long_single -> COCO truck + aspect subclassification); class 1 rides
+    # its own id end-to-end (plan_articulated_native_2026-07-17) so the
+    # L/M/A deliverable gets the model's semi call, not the size heuristic.
+    _FT_CLASS_MAP = {0: 2, 1: NATIVE_ARTICULATED_CLASS_ID, 2: 7}
 
     def __init__(
         self,

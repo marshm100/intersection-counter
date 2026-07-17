@@ -19,6 +19,8 @@ from backend.config import (
     CHECKPOINT_INTERVAL_SECONDS,
     ENTRY_TIEBREAK_COLLINEAR_PX,
     ENTRY_TIEBREAK_DECISIVE_PX,
+    NATIVE_ARTICULATED_CLASS_ID,
+    NATIVE_ARTICULATED_MIN_FRAMES,
     ENTRY_TIEBREAK_ENABLED,
     ENTRY_TIEBREAK_EXIT_PX,
     ENTRY_TIEBREAK_MIN_ENTRY_SEP_PX,
@@ -744,6 +746,11 @@ class ProcessingPipeline:
                 # size test (the vehicle's fullest-visible extent). Updated below.
                 "max_bbox_length": 0.0,
                 "bbox_center_y_at_max": None,
+                # Native articulated votes (plan_articulated_native): class-at-
+                # birth under-calls semis whose far-field births resolve as
+                # plain vehicle, so every class-8 detection votes. Counted here,
+                # decided at finalize against NATIVE_ARTICULATED_MIN_FRAMES.
+                "n_native_articulated": 0,
             }
             self.n_tracks_total += 1
 
@@ -757,6 +764,9 @@ class ProcessingPipeline:
         if _len > vehicle.get("max_bbox_length", 0.0):
             vehicle["max_bbox_length"] = _len
             vehicle["bbox_center_y_at_max"] = center[1]
+        if detection["class_id"] == NATIVE_ARTICULATED_CLASS_ID:
+            vehicle["n_native_articulated"] = (
+                vehicle.get("n_native_articulated", 0) + 1)
 
         if vehicle["origin_leg_id"] is None:
             n_pts = len(vehicle["trajectory"])
@@ -1336,8 +1346,19 @@ class ProcessingPipeline:
             else 0
         )
 
+        # Native articulated decision (plan_articulated_native_2026-07-17):
+        # enough class-8 votes -> articulated regardless of birth class; a
+        # born-8 track WITHOUT the vote floor demotes to plain truck (a
+        # 1-frame flicker never flips a class). Coco-scheme runs have no 8s
+        # anywhere, so this is a no-op for them by construction.
+        effective_class_id = vehicle["class_id"]
+        if (vehicle.get("n_native_articulated", 0)
+                >= NATIVE_ARTICULATED_MIN_FRAMES):
+            effective_class_id = NATIVE_ARTICULATED_CLASS_ID
+        elif effective_class_id == NATIVE_ARTICULATED_CLASS_ID:
+            effective_class_id = 7
         vehicle_class = classify_vehicle(
-            vehicle["class_id"],
+            effective_class_id,
             vehicle["bbox_width"],
             vehicle["bbox_height"],
             vehicle["bbox_area"],

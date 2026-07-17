@@ -557,6 +557,17 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    conservation feeders surveil the class meanwhile. Remaining §3-D:
    native articulated-class wiring into the L/M/A deliverable (replacing
    the ~70% size heuristic — the model now carries the signal).
+   **STATUS 2026-07-17 (later):** origin-grab **phase 0 DONE**
+   (`phase0_origin_grab_2026-07-17.md`): the mid-block signature is
+   `d_main<25 AND d_mouth>60` (born ON the crossing road, off the claimed
+   mouth) — 94%/86% capture at FM51/cam4, constants frozen for phase 1;
+   the grabs ride the tier-0 polyline match, so the claim-veto's fallback
+   lands the true origin naturally. **Native articulated wiring is COMMITTED
+   behind its held-out gate** (`plan_articulated_native_2026-07-17`): class
+   1 → id 8 end-to-end (cache/dump/replay untouched), vote floor 2 frames,
+   size pass skipped for finetune-scheme runs; FM51 re-detect gate
+   (`fm51_native_artic_gate.py`) scores Articulated vs Miovision's
+   same-window count — FAIL reverts the one-line class map.
 
 Each is a self-contained phase; ship and validate before the next.
 

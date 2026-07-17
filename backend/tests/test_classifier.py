@@ -56,6 +56,14 @@ class TestClassifyVehicle:
         assert r["simplified_class"] is None
         assert r["fhwa_class"] is None
 
+    def test_native_articulated_direct(self):
+        # id 8 = the fine-tuned head's native articulated class
+        # (plan_articulated_native_2026-07-17) — FHWA 9 regardless of bbox
+        # geometry, no aspect subclassification.
+        r = classify_vehicle(8, 40, 35, 1400, 0.6)
+        assert r["simplified_class"] == "multi_unit_truck"
+        assert r["fhwa_class"] == 9
+
 
 # ---------------------------------------------------------------------------
 # TestHelperFunctions

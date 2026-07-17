@@ -1060,7 +1060,10 @@ def _run_v3_pipeline(
         # §3-D: re-bucket single-unit trucks to articulated by view-invariant size
         # (blind, from each camera's now-flushed detection cache). Only on a
         # completed run; best-effort so it never masks the real processing outcome.
-        if _run_ok:
+        # SKIPPED for finetune-scheme runs (plan_articulated_native_2026-07-17):
+        # the model's native class-8 votes own articulated there, and running
+        # the size pass on top would double-mechanism the same trucks.
+        if _run_ok and mode_cfg.get("yolo_class_scheme", "coco") != "finetune_v1":
             from backend.services.articulated import reclassify_articulated
             for _cam in _cams_processed:
                 try:

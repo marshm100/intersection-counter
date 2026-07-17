@@ -122,13 +122,20 @@ class TestDetectOnSyntheticScene:
 
 class TestClassMapping:
     def test_vehicle_class_names(self):
-        assert VEHICLE_CLASSES == {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
+        assert VEHICLE_CLASSES == {2: "car", 3: "motorcycle", 5: "bus",
+                                   7: "truck", 8: "articulated_truck"}
+
+    def test_relevant_classes_exclude_native_articulated(self):
+        # The stock-model COCO filter must never request id 8 (boat in COCO).
+        from backend.services.detector import VehicleDetector
+        assert VehicleDetector.RELEVANT_CLASSES == [2, 3, 5, 7]
 
 
 class TestFinetuneClassScheme:
-    """The promoted two-class-head mapping (plan_detector_finetune,
-    2026-07-17): ft classes 0/1/2 -> COCO 2/7/7, exactly as the FM51
-    full-chain gate validated."""
+    """The promoted two-class-head mapping, native-articulated revision
+    (plan_articulated_native_2026-07-17): ft classes 0/1/2 -> 2/8/7 —
+    0/2 exactly as the FM51 full-chain gate validated, 1 on its own
+    native id so the semi signal survives to the L/M/A columns."""
 
     def test_parse_maps_ft_classes(self):
         import numpy as np
@@ -145,9 +152,10 @@ class TestFinetuneClassScheme:
         boxes.cls.cpu.return_value.numpy.return_value = np.array([0, 1, 2])
         results = MagicMock(); results.boxes = boxes
         out = det._parse_results(results)
-        assert [d["class_id"] for d in out] == [2, 7, 7]
+        assert [d["class_id"] for d in out] == [2, 8, 7]
         assert all(d["is_vehicle"] for d in out)
-        assert out[1]["class_name"] == "truck"
+        assert out[1]["class_name"] == "articulated_truck"
+        assert out[2]["class_name"] == "truck"
 
     def test_coco_scheme_unchanged(self):
         import numpy as np

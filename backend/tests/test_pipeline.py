@@ -590,6 +590,65 @@ class TestVehicleEventWriting:
         assert len(events) == 1
         assert events[0]["movement"] in ("through", "left", "right", "u_turn", "uturn")
 
+    def test_native_articulated_votes_promote(self, pipeline_env):
+        """plan_articulated_native: >= NATIVE_ARTICULATED_MIN_FRAMES class-8
+        detections make the track articulated (FHWA 9) even when it was BORN
+        as a plain vehicle — far-field semis detect as class 0/2 before the
+        trailer resolves, so class-at-birth alone would under-call them."""
+        p = _make_pipeline(pipeline_env)
+        p.active_vehicles[7] = {
+            "origin_leg_id": 1,
+            "reference_heading": 0.0,
+            "origin_frame": 5,
+            "trajectory": [(500, 780 - i * 20) for i in range(20)],
+            "confidences": [0.9] * 20,
+            "last_center": (500, 400),
+            "class_id": 2,
+            "class_name": "car",
+            "bbox_width": 100.0,
+            "bbox_height": 60.0,
+            "bbox_area": 6000.0,
+            "n_native_articulated": 2,
+        }
+        p._finalize_vehicle(7, frame_number=25)
+        events = _get_vehicle_events(pipeline_env["db_path"])
+        assert len(events) == 1
+        assert events[0]["vehicle_class"] == "multi_unit_truck"
+        assert events[0]["fhwa_class"] == 9
+
+    def test_native_articulated_flicker_demotes(self, pipeline_env):
+        """A single class-8 frame (below the vote floor) never flips the
+        class: a born-8 track demotes to the validated COCO-truck path."""
+        p = _make_pipeline(pipeline_env)
+        p.active_vehicles[8] = {
+            "origin_leg_id": 1,
+            "reference_heading": 0.0,
+            "origin_frame": 5,
+            "trajectory": [(500, 780 - i * 20) for i in range(20)],
+            "confidences": [0.9] * 20,
+            "last_center": (500, 400),
+            "class_id": 8,
+            "class_name": "articulated_truck",
+            "bbox_width": 100.0,
+            "bbox_height": 60.0,
+            "bbox_area": 6000.0,
+            "n_native_articulated": 1,
+        }
+        p._finalize_vehicle(8, frame_number=25)
+        events = _get_vehicle_events(pipeline_env["db_path"])
+        assert len(events) == 1
+        # aspect 100/60 = 1.67 -> the truck branch's single_unit bucket
+        assert events[0]["vehicle_class"] == "single_unit_truck"
+        assert events[0]["fhwa_class"] == 5
+
+    def test_native_articulated_votes_accumulate(self, pipeline_env):
+        """_process_vehicle counts class-8 detections on the track."""
+        p = _make_pipeline(pipeline_env)
+        p._process_vehicle(11, _make_detection(500, 780, class_id=2), 1)
+        p._process_vehicle(11, _make_detection(500, 760, class_id=8), 2)
+        p._process_vehicle(11, _make_detection(500, 740, class_id=8), 3)
+        assert p.active_vehicles[11]["n_native_articulated"] == 2
+
     def test_classifier_factors_persisted(self, pipeline_env):
         """Phase A instrumentation for bug #5: the classifier's decision
         factors (net_heading_change, cumulative_curvature, straightness,

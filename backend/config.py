@@ -130,7 +130,13 @@ def get_processing_mode_config(mode: str | None) -> dict:
     return PROCESSING_MODES[DEFAULT_PROCESSING_MODE]
 
 # Classification mapping (pedestrians out of scope for v2 per PRD)
-VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
+# 8 = the fine-tuned head's NATIVE articulated class (plan_articulated_native
+# 2026-07-17). COCO 8 is "boat", which no code path ever requests, so the id
+# is free in every cache/dump this app has written; it must stay OUT of the
+# stock-model class filter (detector.RELEVANT_CLASSES excludes it).
+NATIVE_ARTICULATED_CLASS_ID = 8
+VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck",
+                   NATIVE_ARTICULATED_CLASS_ID: "articulated_truck"}
 
 # Trajectory classification thresholds (degrees)
 TRAJECTORY_THROUGH_MAX_ANGLE = 25
@@ -386,6 +392,15 @@ TRACK_FINALIZE_GAP_FRAMES = 60   # 2s @ 30fps
 ARTICULATED_LEN_RATIO = 2.0      # truck length > this x local-car-median -> articulated
 ARTICULATED_BAND_PX = 40         # image-row band (px) for the local car-size baseline
 ARTICULATED_MIN_CARS_PER_BAND = 20  # a band needs this many cars for a trustworthy median
+
+# Native articulated votes (plan_articulated_native_2026-07-17): a track is
+# articulated when >= this many of its detections carry the fine-tuned head's
+# native class (NATIVE_ARTICULATED_CLASS_ID). 2 mirrors the size pass's
+# _MIN_MATCHED_FRAMES=2 — by construction, not fit: one flickered frame never
+# flips a class, two independent frames is the established evidence floor.
+# Class-at-birth alone would systematically under-call semis (far-field births
+# detect as plain vehicle before the trailer resolves), hence votes.
+NATIVE_ARTICULATED_MIN_FRAMES = 2
 
 # --- Bank-gated through filter (FM51 audit #4, 2026-07-06) ------------------
 # A "through" movement is only legitimate between OPPOSING legs; a through from a
