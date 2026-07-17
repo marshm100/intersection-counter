@@ -541,6 +541,22 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    its true recall deficit (~0.12–0.16 trackable) is a capability-track wall.
 9. **D-low-light** + **E deliverables (L/M/A Excel, PDF)** + **F2/F3 calibration studio** —
    unchanged from prior sequencing.
+   **STATUS 2026-07-17:** E is DONE (plan_deliverables_E: Miovision-parity
+   workbook + letterhead PDF + per-intersection-day gated exports, verified
+   live). **§3-D detector fine-tune is DONE AND PROMOTED** (plan_detector_
+   finetune): corridor-trained two-class head, 430 operator-labeled frames,
+   64 CPU epochs in resumable chunks; **held-out FM51 full-chain gate: total
+   −9.1%→+1.1%, interval MAE 8.8%→2.5% PASS, the PM low-light miss CLOSED,
+   NB −19.2%→+4.6%** — promoted into the Balanced profile (yolo26s_ft1@640,
+   class-mapped; fallback = revert the profile). D-low-light is thereby
+   substantially addressed at its original target. Known residual shipped
+   with eyes open (operator option C): far-field side-leg origin grab
+   (FM51 side road +73 veh, SB −6.5%) — owned by the NEW CYCLE
+   `plan_origin_grab_cycle_2026-07-17` (mechanism ② finally has its data;
+   evidence-gate geometry QA as the second candidate); flag-queue
+   conservation feeders surveil the class meanwhile. Remaining §3-D:
+   native articulated-class wiring into the L/M/A deliverable (replacing
+   the ~70% size heuristic — the model now carries the signal).
 
 Each is a self-contained phase; ship and validate before the next.
 
