@@ -39,6 +39,17 @@ claimed mouth along/across the road axis, birth bearing vs the main road.
 Deliverable: the numeric boundary between genuine side-leg entries and
 main-road grabs (the mid-block signature measured, not assumed).
 
+**DONE 2026-07-17 — `phase0_origin_grab_2026-07-17.md`.** The signature is
+`d_main < 25 AND d_mouth > 60` (born ON the crossing road, away from the
+claimed mouth's throat): 94%/93% of FM51's certain/near-certain grabs, 86%
+of cam4's watch-cell claims, 24% of the mostly-genuine group. `s_in` alone
+is site-dependent (fails at cam4's driveway geometry) — the plan's
+"beyond-the-mouth" phrasing generalizes as the composite rule. Bonus
+finding: the grabs ride the TIER-0 POLYLINE match, not anchor proximity
+(their births are nearest the MAIN-ROAD anchor already), so the veto's
+fallback lands the correct origin naturally. Constants D_MAIN=25/M=60
+frozen there for phase 1.
+
 ## Phase 1 — one mechanism (candidates, evidence-ordered)
 
 1. **Beyond-the-mouth origin gate** (item-8 mechanism ②, now with its
