@@ -65,6 +65,43 @@ replay → score:
 PASS → ship (already promoted profile simply gains the native column).
 FAIL → the map reverts to {0:2,1:7,2:7} (one-line), findings doc.
 
+## VERDICT (2026-07-17, gate run complete — runs/finetune_v1/fm51_native_artic.json)
+
+**No-regression: PASS, exact.** Native total 3507 (+1.1%), interval MAE
+2.5%, through-gate kills 45/50 per window — byte-identical to the promoted
+ftv1 baseline once its pre-kill JSON rows are adjusted (3602 − 95 kills).
+
+**Articulated bar: FAIL — and the fail is the DETECTOR HEAD, not the
+chain.** Ours 22 vs Miovision 102 (the XML covers exactly the audited 4 h,
+so 102 is the true window bar). Decomposition: 2,287 class-8 detections
+(conf p50 ~0.20) concentrate on 41 tracks (~55 frames each — sustained,
+confident calls on the semis it DOES know), 40 pass the 2-frame vote floor,
+22 survive to events. Vehicle-level recognition ≈ 0.40; the plumbing loses
+little.
+
+**The planned FAIL action (revert the map) is measured STRICTLY WORSE and
+was NOT taken.** The size pass promotes only from single_unit_truck events,
+and the ft chain yields 18 across both windows (aspect buries class-7s in
+pickup_van_suv; ordinary trucks are class 0 BY TRAINING DESIGN) — the old
+~95 belonged to the retired coco chain's truck-event abundance. The
+promotion itself silently regressed the future articulated path; class
+columns were never scored at that gate. Native 22 > revert's ≤18, so the
+wiring SHIPS with the residual documented. Revert lever unchanged
+(one-line map) if the operator overrules.
+
+**Also surfaced, pre-existing:** Mediums 7 vs 92 — the ft scheme cannot
+produce Mediums except via long_single (class 2), and those get
+aspect-buried too. A class-taxonomy gap, not a wiring bug (0/2 behavior is
+byte-identical to the promoted baseline).
+
+**Route forward (the accuracy lever, per §0):** articulated + single-unit
+truck LABELS in the fine-tune lane (corridor labeler; FM51 stays held out)
+— the head needs to learn the other ~60 semis and a truck class for
+Mediums; re-run this gate script unchanged as the next fine-tune's class
+gate. Until then FM51-class sites under Balanced under-call Articulated
+(~22/102) and Mediums (~7/92) — known, documented, surveilled by the L/M/A
+columns any operator reads.
+
 ## Non-goals
 
 - Long_single (class 2) native wiring — a separate cycle with its own

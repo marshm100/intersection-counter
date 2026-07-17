@@ -562,12 +562,18 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    `d_main<25 AND d_mouth>60` (born ON the crossing road, off the claimed
    mouth) — 94%/86% capture at FM51/cam4, constants frozen for phase 1;
    the grabs ride the tier-0 polyline match, so the claim-veto's fallback
-   lands the true origin naturally. **Native articulated wiring is COMMITTED
-   behind its held-out gate** (`plan_articulated_native_2026-07-17`): class
-   1 → id 8 end-to-end (cache/dump/replay untouched), vote floor 2 frames,
-   size pass skipped for finetune-scheme runs; FM51 re-detect gate
-   (`fm51_native_artic_gate.py`) scores Articulated vs Miovision's
-   same-window count — FAIL reverts the one-line class map.
+   lands the true origin naturally. **Native articulated wiring SHIPPED;
+   its gate ran same day** (`plan_articulated_native_2026-07-17` VERDICT):
+   no-regression PASS (byte-exact +1.1%/2.5% vs the promoted baseline);
+   Articulated bar FAILED — the HEAD recognizes only ~41/102 held-out
+   semis (22 reach events) — but the planned revert measured STRICTLY
+   WORSE (the ft chain gives the size pass only ≤18 candidates; the old
+   ~95 belonged to the retired coco chain — a silent class regression at
+   promotion that gate never scored). Native stays as least-bad; Mediums
+   7/92 exposed as a ft-scheme taxonomy gap (ordinary trucks = class 0 by
+   design). ROUTE: articulated + single-unit-truck labels in the
+   fine-tune lane; re-run `fm51_native_artic_gate.py` unchanged as that
+   cycle's class gate.
 
 Each is a self-contained phase; ship and validate before the next.
 

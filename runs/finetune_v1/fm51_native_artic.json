@@ -1,0 +1,133 @@
+{
+ "rows": [
+  {
+   "interval": "2026-04-30T07:00:00",
+   "mio": 195,
+   "ftv1": 209,
+   "native": 202,
+   "err_pct": 3.6
+  },
+  {
+   "interval": "2026-04-30T07:15:00",
+   "mio": 208,
+   "ftv1": 215,
+   "native": 209,
+   "err_pct": 0.5
+  },
+  {
+   "interval": "2026-04-30T07:30:00",
+   "mio": 231,
+   "ftv1": 243,
+   "native": 235,
+   "err_pct": 1.7
+  },
+  {
+   "interval": "2026-04-30T07:45:00",
+   "mio": 210,
+   "ftv1": 216,
+   "native": 210,
+   "err_pct": 0.0
+  },
+  {
+   "interval": "2026-04-30T08:00:00",
+   "mio": 181,
+   "ftv1": 192,
+   "native": 186,
+   "err_pct": 2.8
+  },
+  {
+   "interval": "2026-04-30T08:15:00",
+   "mio": 185,
+   "ftv1": 184,
+   "native": 181,
+   "err_pct": -2.2
+  },
+  {
+   "interval": "2026-04-30T08:30:00",
+   "mio": 163,
+   "ftv1": 163,
+   "native": 158,
+   "err_pct": -3.1
+  },
+  {
+   "interval": "2026-04-30T08:45:00",
+   "mio": 152,
+   "ftv1": 164,
+   "native": 160,
+   "err_pct": 5.3
+  },
+  {
+   "interval": "2026-04-30T16:00:00",
+   "mio": 267,
+   "ftv1": 285,
+   "native": 281,
+   "err_pct": 5.2
+  },
+  {
+   "interval": "2026-04-30T16:15:00",
+   "mio": 265,
+   "ftv1": 288,
+   "native": 280,
+   "err_pct": 5.7
+  },
+  {
+   "interval": "2026-04-30T16:30:00",
+   "mio": 238,
+   "ftv1": 247,
+   "native": 237,
+   "err_pct": -0.4
+  },
+  {
+   "interval": "2026-04-30T16:45:00",
+   "mio": 221,
+   "ftv1": 222,
+   "native": 219,
+   "err_pct": -0.9
+  },
+  {
+   "interval": "2026-04-30T17:00:00",
+   "mio": 262,
+   "ftv1": 261,
+   "native": 255,
+   "err_pct": -2.7
+  },
+  {
+   "interval": "2026-04-30T17:15:00",
+   "mio": 255,
+   "ftv1": 257,
+   "native": 252,
+   "err_pct": -1.2
+  },
+  {
+   "interval": "2026-04-30T17:30:00",
+   "mio": 226,
+   "ftv1": 232,
+   "native": 224,
+   "err_pct": -0.9
+  },
+  {
+   "interval": "2026-04-30T17:45:00",
+   "mio": 210,
+   "ftv1": 224,
+   "native": 218,
+   "err_pct": 3.8
+  }
+ ],
+ "totals": {
+  "mio": 3469,
+  "ftv1_baseline": 3602,
+  "native": 3507
+ },
+ "classes": {
+  "mio": {
+   "Lights": 3275,
+   "Mediums": 92,
+   "Articulated Trucks": 102
+  },
+  "ours": {
+   "Lights": 3478,
+   "Mediums": 7,
+   "Articulated Trucks": 22
+  }
+ }
+}
