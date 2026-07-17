@@ -72,19 +72,23 @@ PROCESSING_MODES = {
         "description": "Best accuracy. Large model at 1280 px, every frame. On CPU this is ~60× slower than real-time and is only practical for short clips; for full-day footage use Balanced or Fast.",
     },
     "balanced": {
-        # Small model at a moderate input size — better recall for small/distant
-        # vehicles than Fast's 640, but no detection_skip so ByteTrack's Kalman
-        # filter has fresh velocity every step (no skip-frame mismatch that
-        # drops fast vehicles).
-        "yolo_model": "yolo26s.pt",
-        "yolo_imgsz": 960,
+        # PROMOTED 2026-07-17 (plan_detector_finetune, FM51 full-chain gate:
+        # total -9.1% -> +1.1%, interval MAE 8.8% -> 2.5% PASS, PM miss
+        # closed, on the held-out site): the corridor-fine-tuned two-class
+        # head at its VALIDATED imgsz. Fallback = the previous stock pair
+        # (yolo26s.pt @ 960, class_scheme coco). Known residual, tracked in
+        # the plan doc: far-field side-leg origin grab at T-stems (the
+        # origin-grab cycle owns it).
+        "yolo_model": "yolo26s_ft1.pt",
+        "yolo_imgsz": 640,
+        "yolo_class_scheme": "finetune_v1",
         "yolo_confidence": 0.10,
         "detection_skip": 1,
         # Detection every frame, so strict ByteTrack defaults are appropriate.
         "tracker_match_threshold": 0.8,
         "tracker_activation_threshold": 0.25,
         "label": "Balanced",
-        "description": "Recommended for full-day clips. Small model at 960 px detecting every frame; fast vehicles track reliably (no skip-frame Kalman mismatch). ~3-5× slower than Fast on CPU; full-day footage usually fits in an overnight run.",
+        "description": "Recommended for full-day clips. Fine-tuned site-trained model at 640 px detecting every frame (FM51-validated: interval error 8.8%→2.5%); fast vehicles track reliably (no skip-frame Kalman mismatch). Full-day footage usually fits in an overnight run.",
     },
     "fast": {
         "yolo_model": "yolo26s.pt",

@@ -37,17 +37,28 @@ class VehicleDetector:
 
     RELEVANT_CLASSES = sorted(VEHICLE_CLASSES.keys())
 
+    # Fine-tuned two-class-head scheme (plan_detector_finetune, promoted
+    # 2026-07-17): model emits 0 vehicle / 1 articulated / 2 long_single;
+    # mapped to COCO ids downstream EXACTLY as the FM51 full-chain gate
+    # validated (articulated/long -> truck keeps the size post-pass live;
+    # native articulated wiring is the next integration).
+    _FT_CLASS_MAP = {0: 2, 1: 7, 2: 7}
+
     def __init__(
         self,
         model_path: str | None = None,
         imgsz: int | None = None,
         confidence: float | None = None,
+        class_scheme: str = "coco",
     ):
         """Load the YOLO model.
 
         Defaults pull from config (accurate mode); the v3 orchestrator
         passes per-mode overrides. Model auto-downloads on first use.
+        class_scheme: "coco" (stock models) or "finetune_v1" (the promoted
+        fine-tuned head; detections are class-mapped to COCO ids).
         """
+        self.class_scheme = class_scheme
         mp = model_path or YOLO_MODEL
         self.imgsz = imgsz if imgsz is not None else YOLO_IMGSZ
         self.confidence = (
@@ -135,6 +146,8 @@ class VehicleDetector:
         for i in range(len(cls_ids)):
             x1, y1, x2, y2 = xyxy[i]
             class_id = int(cls_ids[i])
+            if self.class_scheme == "finetune_v1":
+                class_id = self._FT_CLASS_MAP.get(class_id, 2)
             w = float(x2 - x1)
             h = float(y2 - y1)
             detections.append({
@@ -163,7 +176,9 @@ class VehicleDetector:
             conf=self.confidence,
             iou=YOLO_IOU_THRESHOLD,
             imgsz=self.imgsz,
-            classes=self.RELEVANT_CLASSES,
+            classes=(list(self._FT_CLASS_MAP)
+                     if self.class_scheme == "finetune_v1"
+                     else self.RELEVANT_CLASSES),
             device=self._device,
             verbose=False,
         )
@@ -187,7 +202,9 @@ class VehicleDetector:
             conf=self.confidence,
             iou=YOLO_IOU_THRESHOLD,
             imgsz=self.imgsz,
-            classes=self.RELEVANT_CLASSES,
+            classes=(list(self._FT_CLASS_MAP)
+                     if self.class_scheme == "finetune_v1"
+                     else self.RELEVANT_CLASSES),
             device=self._device,
             verbose=False,
         )

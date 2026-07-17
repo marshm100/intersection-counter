@@ -684,7 +684,9 @@ def _pass1_ingest(project_id, video, chash, hash_method, pq, out, meta, fps,
     from backend.services.detector import VehicleDetector
     detector = VehicleDetector(model_path=cfg["yolo_model"],
                                imgsz=cfg["yolo_imgsz"],
-                               confidence=cfg["yolo_confidence"])
+                               confidence=cfg["yolo_confidence"],
+                               class_scheme=cfg.get("yolo_class_scheme",
+                                                    "coco"))
     cap = cv2.VideoCapture(video["path"])
     try:
         decode_from = max(0, resume_from)

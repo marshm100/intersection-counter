@@ -135,6 +135,7 @@ class ProcessingPipeline:
         video_id: int | None = None,
         # Per-mode detector overrides. None = use config defaults (accurate).
         yolo_model: str | None = None,
+        yolo_class_scheme: str = "coco",
         yolo_imgsz: int | None = None,
         yolo_confidence: float | None = None,
         # Detect on every Nth frame. detection_skip=1 = current behavior
@@ -182,6 +183,7 @@ class ProcessingPipeline:
         # config.py when these are None, so accurate mode keeps current
         # behavior even without passing the args.
         self._yolo_model = yolo_model
+        self._yolo_class_scheme = yolo_class_scheme
         self._yolo_imgsz = yolo_imgsz
         self._yolo_confidence = yolo_confidence
         self.detection_skip = max(1, int(detection_skip))
@@ -291,6 +293,7 @@ class ProcessingPipeline:
                 model_path=self._yolo_model,
                 imgsz=self._yolo_imgsz,
                 confidence=self._yolo_confidence,
+                class_scheme=self._yolo_class_scheme,
             )
         return self._detector
 

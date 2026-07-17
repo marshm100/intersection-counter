@@ -924,6 +924,7 @@ def _run_v3_pipeline(
                 fps=seg.fps,
                 video_id=seg.video_id,
                 yolo_model=mode_cfg["yolo_model"],
+                yolo_class_scheme=mode_cfg.get("yolo_class_scheme", "coco"),
                 yolo_imgsz=mode_cfg["yolo_imgsz"],
                 yolo_confidence=mode_cfg["yolo_confidence"],
                 detection_skip=mode_cfg["detection_skip"],
