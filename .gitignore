@@ -47,3 +47,4 @@ evaluations/*.log
 # Transient diagnostic dumps
 kernel.errors.txt
 *.errors.txt
+runs/detect/
