@@ -33,7 +33,12 @@ from backend.services.detection_cache import (  # noqa: E402
 )
 
 TRUCKISH = (5, 7)          # bus/truck class ids — the articulated candidates
-NAMES = {0: "vehicle", 1: "articulated", 2: "long_single"}
+# Class 3 "medium" added for round v2 (plan_articulated_native VERDICT →
+# labeling route): buses + single-unit trucks that are NOT ~2+ car lengths
+# (bobtail, delivery/service trucks) — the Miovision Mediums bucket the v1
+# taxonomy folded into class 0. v1 datasets predate it (their yaml lists
+# 0–2; retraining across both sets must handle that — see the round doc).
+NAMES = {0: "vehicle", 1: "articulated", 2: "long_single", 3: "medium"}
 
 
 def _video_row(project: str, cam: int):
@@ -156,7 +161,7 @@ def main() -> int:
     (out / "dataset.yaml").write_text(
         f"path: {out.resolve().as_posix()}\n"
         "train: images/train\nval: images/val\n"
-        f"names:\n  0: {NAMES[0]}\n  1: {NAMES[1]}\n  2: {NAMES[2]}\n")
+        "names:\n" + "".join(f"  {k}: {v}\n" for k, v in sorted(NAMES.items())))
     (out / "README.md").write_text(
         "# Fine-tune labeling set\n\n"
         "Proposal boxes are prefilled as class 0 (vehicle) from the detection\n"

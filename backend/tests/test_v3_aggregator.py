@@ -491,5 +491,11 @@ class TestLabelerEndpoints:
             "split": "train", "name": "a.jpg", "boxes": [[7, .5, .5, .1, .1]]})
         assert r.status_code == 422
 
+    def test_medium_class_accepted(self, dataset):
+        # round-v2 taxonomy: 3 = medium (bus / non-long single-unit truck)
+        r = client.post(f"/api/labeler/{dataset}/labels", json={
+            "split": "train", "name": "b.jpg", "boxes": [[3, .5, .5, .1, .1]]})
+        assert r.status_code == 200 and r.json()["boxes"] == 1
+
     def test_traversal_guarded(self, dataset):
         assert client.get("/api/labeler/..%2f..%2fetc/manifest").status_code == 404
