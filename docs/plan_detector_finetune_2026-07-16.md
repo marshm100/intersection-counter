@@ -135,3 +135,38 @@ events and Miovision per 15-min interval (`runs/finetune_v1/fm51_fullchain.json`
   wiring the native articulated class into the deliverable (post-promotion
   integration), and the model-file/config swap through the product flow.
   Promotion is the OPERATOR's call on this table, per plan.
+
+## PRE-PROMOTION CHECKS (2026-07-17): the complete decision table
+
+Parity fix first: the replay DBs lacked the `through_gate` post-pass the
+shipped events received — applied (95 impossible T-stem throughs killed).
+
+| cut | old chain | new chain (parity) |
+|---|---|---|
+| TOTAL (4 audited hours) | −9.1% | **+1.1%** |
+| mean abs err / 15-min | 8.8% | **2.5% PASS** (max 5.7%) |
+| PM 16:30–18:00 | −12…−20% | −0.4…+3.8% |
+| SB FM 51 (1,741) | −0.3% | −6.5% |
+| NB FM 51 (1,668) | −19.2% | **+4.6%** |
+| WB Co Rd 4699 (60) | +20% (72) | +122% (133) |
+| abs approach-level misplacement | ~338 veh | ~263 veh |
+
+**The overshoot mechanism, isolated:** the new detector's earlier far-field
+births near the T-stem get their ORIGIN grabbed by the side leg — S-through
+2→97 (impossible movements, killed by the gate), S-left 3→54, S-right
+67→76 — draining SB (−114). One mechanism, both regressions.
+
+**Countermeasure test (negative, valuable):** replaying the same dumps with
+ORIGIN_EVIDENCE_GATE_ENABLED changed almost nothing (side +117%, SB −5.2%) —
+FM51's entry-gate geometry is BLIND to the traffic (evidence coverage
+5.5% AM / 1.9% PM vs cam2's 80%). Third data point confirming: the evidence
+gate requires per-camera gate-geometry QA (n_evidenced/n_tracks is the
+blind health check) before it means anything at a site.
+
+**The trade, stated plainly:** the new chain is better on total (+1.1% vs
+−9.1%), interval MAE (2.5% vs 8.8%, PASS), the PM window (fixed), NB
+(fixed), and total absolute misplacement (263 vs 338) — and worse on SB
+(−6.5% vs −0.3%) and the small side road (+73 vs +12 vehicles). Options:
+(A) promote + let the flag queue surveil the side-leg cells; (B) hold for a
+targeted far-field origin-grab fix (mid-block-birth class); (C) promote
+detector + open the origin-grab fix as the next gate cycle. Operator's call.
