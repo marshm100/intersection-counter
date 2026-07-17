@@ -1,0 +1,293 @@
+{
+ "camera": 4,
+ "variant": "balanced_960_skip1",
+ "fps": 10.0,
+ "n_detections_vehicle": 85879,
+ "n_matched": 80673,
+ "birth_dead_band_dets": 34260,
+ "matched_speed_median_px_per_frame": 18.58,
+ "n_orphan_clusters_vehicle_like": 14,
+ "n_birth_gate": 2,
+ "clusters": [
+  {
+   "n_dets": 312,
+   "frame_start": 267393,
+   "frame_end": 267501,
+   "span_frames": 109,
+   "conf_max": 0.9111328125,
+   "conf_mean": 0.7803849440354568,
+   "px_per_frame_median": 169.1,
+   "net_travel_px": 224.5,
+   "start_xy": [
+    274,
+    300
+   ],
+   "end_xy": [
+    50,
+    289
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:25:39"
+  },
+  {
+   "n_dets": 7,
+   "frame_start": 258633,
+   "frame_end": 258637,
+   "span_frames": 5,
+   "conf_max": 0.9326171875,
+   "conf_mean": 0.6733049665178571,
+   "px_per_frame_median": 67.8,
+   "net_travel_px": 328.3,
+   "start_xy": [
+    65,
+    431
+   ],
+   "end_xy": [
+    390,
+    389
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:11:03"
+  },
+  {
+   "n_dets": 12,
+   "frame_start": 264239,
+   "frame_end": 264245,
+   "span_frames": 7,
+   "conf_max": 0.9150390625,
+   "conf_mean": 0.5044453938802084,
+   "px_per_frame_median": 53.0,
+   "net_travel_px": 394.7,
+   "start_xy": [
+    21,
+    423
+   ],
+   "end_xy": [
+    414,
+    378
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:20:23"
+  },
+  {
+   "n_dets": 935,
+   "frame_start": 255207,
+   "frame_end": 255487,
+   "span_frames": 281,
+   "conf_max": 0.72021484375,
+   "conf_mean": 0.1940996955422794,
+   "px_per_frame_median": 27.0,
+   "net_travel_px": 103.8,
+   "start_xy": [
+    71,
+    289
+   ],
+   "end_xy": [
+    18,
+    378
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:05:20"
+  },
+  {
+   "n_dets": 11,
+   "frame_start": 258664,
+   "frame_end": 258668,
+   "span_frames": 5,
+   "conf_max": 0.71875,
+   "conf_mean": 0.2639437588778409,
+   "px_per_frame_median": 18.5,
+   "net_travel_px": 356.9,
+   "start_xy": [
+    91,
+    430
+   ],
+   "end_xy": [
+    442,
+    362
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:11:06"
+  },
+  {
+   "n_dets": 17,
+   "frame_start": 252207,
+   "frame_end": 252224,
+   "span_frames": 18,
+   "conf_max": 0.927734375,
+   "conf_mean": 0.7417746151194853,
+   "px_per_frame_median": 12.7,
+   "net_travel_px": 505.8,
+   "start_xy": [
+    95,
+    440
+   ],
+   "end_xy": [
+    583,
+    308
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:00:20"
+  },
+  {
+   "n_dets": 16,
+   "frame_start": 258355,
+   "frame_end": 258371,
+   "span_frames": 17,
+   "conf_max": 0.66552734375,
+   "conf_mean": 0.3586921691894531,
+   "px_per_frame_median": 4.6,
+   "net_travel_px": 518.0,
+   "start_xy": [
+    523,
+    292
+   ],
+   "end_xy": [
+    27,
+    440
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:10:35"
+  },
+  {
+   "n_dets": 69,
+   "frame_start": 260760,
+   "frame_end": 260811,
+   "span_frames": 52,
+   "conf_max": 0.75927734375,
+   "conf_mean": 0.2598487743432971,
+   "px_per_frame_median": 4.3,
+   "net_travel_px": 236.3,
+   "start_xy": [
+    560,
+    284
+   ],
+   "end_xy": [
+    325,
+    302
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:14:36"
+  },
+  {
+   "n_dets": 147,
+   "frame_start": 269296,
+   "frame_end": 269374,
+   "span_frames": 79,
+   "conf_max": 0.85107421875,
+   "conf_mean": 0.42644308700042516,
+   "px_per_frame_median": 1.6,
+   "net_travel_px": 233.7,
+   "start_xy": [
+    301,
+    304
+   ],
+   "end_xy": [
+    68,
+    291
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:28:49"
+  },
+  {
+   "n_dets": 32,
+   "frame_start": 262219,
+   "frame_end": 262258,
+   "span_frames": 40,
+   "conf_max": 0.486328125,
+   "conf_mean": 0.19512557983398438,
+   "px_per_frame_median": 0.4,
+   "net_travel_px": 633.4,
+   "start_xy": [
+    632,
+    288
+   ],
+   "end_xy": [
+    18,
+    444
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:17:01"
+  },
+  {
+   "n_dets": 7,
+   "frame_start": 262615,
+   "frame_end": 262621,
+   "span_frames": 7,
+   "conf_max": 0.325927734375,
+   "conf_mean": 0.2025146484375,
+   "px_per_frame_median": 0.4,
+   "net_travel_px": 114.7,
+   "start_xy": [
+    72,
+    283
+   ],
+   "end_xy": [
+    11,
+    380
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:17:41"
+  },
+  {
+   "n_dets": 63,
+   "frame_start": 256146,
+   "frame_end": 256218,
+   "span_frames": 73,
+   "conf_max": 0.7646484375,
+   "conf_mean": 0.17211429656498015,
+   "px_per_frame_median": 0.2,
+   "net_travel_px": 186.1,
+   "start_xy": [
+    448,
+    297
+   ],
+   "end_xy": [
+    633,
+    273
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:06:54"
+  },
+  {
+   "n_dets": 32,
+   "frame_start": 269536,
+   "frame_end": 269586,
+   "span_frames": 51,
+   "conf_max": 0.24951171875,
+   "conf_mean": 0.14705467224121094,
+   "px_per_frame_median": 0.2,
+   "net_travel_px": 106.1,
+   "start_xy": [
+    71,
+    289
+   ],
+   "end_xy": [
+    6,
+    372
+   ],
+   "verdict": "birth_gate",
+   "t_video_hms": "07:29:13"
+  },
+  {
+   "n_dets": 14,
+   "frame_start": 259855,
+   "frame_end": 259872,
+   "span_frames": 18,
+   "conf_max": 0.1475830078125,
+   "conf_mean": 0.11798967633928571,
+   "px_per_frame_median": 0.0,
+   "net_travel_px": 109.9,
+   "start_xy": [
+    636,
+    273
+   ],
+   "end_xy": [
+    567,
+    359
+   ],
+   "verdict": "birth_gate",
+   "t_video_hms": "07:13:05"
+  }
+ ]
+}

@@ -79,6 +79,97 @@ class TestPreflight:
         assert "no video coverage" in body["errors"][0].lower()
 
 
+def _add_leg(pid, camera_id, label, cardinal, order, heading=0.0):
+    from backend.database import get_connection
+    conn = get_connection(pid)
+    try:
+        cur = conn.execute(
+            "INSERT INTO legs (camera_id, label, cardinal_direction, sort_order, "
+            "origin_zone, reference_heading) VALUES (?,?,?,?,?,?)",
+            (camera_id, label, cardinal, order, "[[10,10]]", heading))
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def _add_path(pid, camera_id, ol=1, dl=2):
+    from backend.database import get_connection
+    conn = get_connection(pid)
+    try:
+        conn.execute(
+            "INSERT INTO intersection_paths (camera_id, origin_leg_id, "
+            "destination_leg_id, polyline, movement_label, supporting_count, "
+            "source, created_at) VALUES (?,?,?,?,?,?,?,?)",
+            (camera_id, ol, dl, "[[0,0],[1,1]]", "through", 5, "test",
+             "2026-01-01T00:00:00"))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+class TestPreflightWarnings:
+    """#9 pre-process guard: the Confirm dialog must surface bad cardinals /
+    missing bank BEFORE a run burns CPU on ~0 attributed events."""
+
+    def _cam_ids(self, pid, iid):
+        from backend.database import list_cameras
+        return [c["camera_id"] for c in list_cameras(pid, iid)]
+
+    def test_warns_when_camera_has_no_legs(self, configured_intersection):
+        pid, iid = configured_intersection  # 2 cameras, neither calibrated
+        body = client.post(
+            f"/api/projects/{pid}/intersections/{iid}/processing/preflight").json()
+        assert body["ok"] is True  # warnings never block
+        assert len(body["warnings"]) == 2
+        assert all("no legs" in w for w in body["warnings"])
+
+    def test_diagonal_cardinal_is_valid_but_missing_bank_still_warns(self, configured_intersection):
+        pid, iid = configured_intersection
+        cam = self._cam_ids(pid, iid)[0]
+        # A diagonal cardinal (SE) is legitimate for a skewed intersection — it
+        # must NOT warn. Only the missing bank should.
+        _add_leg(pid, cam, "North", "N", 0)
+        _add_leg(pid, cam, "East", "E", 1)
+        _add_leg(pid, cam, "Ramp", "SE", 2)
+        body = client.post(
+            f"/api/projects/{pid}/intersections/{iid}/processing/preflight").json()
+        warns = body["warnings"]
+        assert not any("cardinal" in w and "'SE'" in w for w in warns)
+        assert any("no path bank" in w for w in warns)
+
+    def test_warns_unrecognized_cardinal(self, configured_intersection):
+        pid, iid = configured_intersection
+        cam = self._cam_ids(pid, iid)[0]
+        _add_leg(pid, cam, "Junk", "XY", 0)
+        body = client.post(
+            f"/api/projects/{pid}/intersections/{iid}/processing/preflight").json()
+        assert any("unrecognized cardinal" in w and "'XY'" in w for w in body["warnings"])
+
+    def test_warns_duplicate_cardinal(self, configured_intersection):
+        pid, iid = configured_intersection
+        cam = self._cam_ids(pid, iid)[0]
+        _add_leg(pid, cam, "North", "N", 0)
+        _add_leg(pid, cam, "AlsoNorth", "N", 1)
+        body = client.post(
+            f"/api/projects/{pid}/intersections/{iid}/processing/preflight").json()
+        assert any("share" in w and "'N'" in w for w in body["warnings"])
+
+    def test_clean_camera_emits_no_warnings(self, configured_intersection):
+        pid, iid = configured_intersection
+        cams = self._cam_ids(pid, iid)
+        # Fully calibrate BOTH cameras (distinct primaries) + give each a bank,
+        # so a healthy project shows zero warnings.
+        for cam in cams:
+            _add_leg(pid, cam, "North", "N", 0)
+            _add_leg(pid, cam, "South", "S", 1)
+            _add_path(pid, cam)
+        body = client.post(
+            f"/api/projects/{pid}/intersections/{iid}/processing/preflight").json()
+        assert body["ok"] is True
+        assert body["warnings"] == []
+
+
 class TestStartGuard:
     def test_start_refuses_on_coverage_error(self, configured_intersection):
         pid, iid = configured_intersection
@@ -456,3 +547,103 @@ class TestReprocess:
         assert after == 0
         assert not CheckpointManager(str(get_db_path(pid))).has_checkpoint()
         assert get_v3_run_state(pid, iid) is None
+
+
+class TestConcurrencyCap:
+    """MAX_CONCURRENT_PIPELINES enforced across intersection-days: at capacity a
+    start is held 'queued' (no thread), and promoted when a slot frees."""
+
+    def _fill(self, rm, n):
+        keys = []
+        with rm._v3_jobs_lock:
+            for i in range(n):
+                k = (f"_capfill_{i}", 999)
+                rm._v3_jobs[k] = {"status": "running", "_started": True}
+                keys.append(k)
+        return keys
+
+    def _drop(self, rm, *keys):
+        with rm._v3_jobs_lock:
+            for k in keys:
+                rm._v3_jobs.pop(k, None)
+
+    def test_start_queues_when_at_capacity(self, configured_intersection):
+        import backend.routers.intersections as rm
+        from backend.config import MAX_CONCURRENT_PIPELINES
+        from backend.database import clear_v3_run_state
+        pid, iid = configured_intersection
+        fill = self._fill(rm, MAX_CONCURRENT_PIPELINES)
+        try:
+            r = client.post(f"/api/projects/{pid}/intersections/{iid}/processing/start")
+            assert r.status_code == 200, r.text
+            assert r.json().get("queued_for_slot") is True
+            with rm._v3_jobs_lock:
+                job = rm._v3_jobs[(pid, iid)]
+                assert job["status"] == "queued"
+                assert job["_started"] is False  # no thread spawned
+        finally:
+            self._drop(rm, *fill, (pid, iid))
+            clear_v3_run_state(pid, iid)
+
+    def test_promote_starts_queued_when_slot_frees(self, configured_intersection, monkeypatch):
+        import time
+        import backend.routers.intersections as rm
+        captured = []
+        def stub(p, i, segs, **k):
+            with rm._v3_jobs_lock:
+                if (p, i) in rm._v3_jobs:
+                    rm._v3_jobs[(p, i)]["status"] = "running"
+            captured.append((p, i))
+        monkeypatch.setattr(rm, "_run_v3_pipeline", stub)
+        pid, iid = configured_intersection
+        # Isolate the shared in-memory job map so the active count is exactly the
+        # one running slot below (other tests may leave residue in _v3_jobs).
+        with rm._v3_jobs_lock:
+            saved = dict(rm._v3_jobs)
+            rm._v3_jobs.clear()
+            rm._v3_jobs[("_one", 999)] = {"status": "running", "_started": True}  # 1/2 slots
+            rm._v3_jobs[(pid, iid)] = {"status": "queued", "_started": False, "_segments": ["seg"]}
+        try:
+            rm._v3_promote_queued()
+            time.sleep(0.2)
+            assert (pid, iid) in captured
+            with rm._v3_jobs_lock:
+                assert rm._v3_jobs[(pid, iid)]["_started"] is True
+        finally:
+            with rm._v3_jobs_lock:
+                rm._v3_jobs.clear()
+                rm._v3_jobs.update(saved)
+
+    def test_promote_is_noop_when_full(self, configured_intersection, monkeypatch):
+        import backend.routers.intersections as rm
+        from backend.config import MAX_CONCURRENT_PIPELINES
+        captured = []
+        monkeypatch.setattr(rm, "_run_v3_pipeline", lambda *a, **k: captured.append(a))
+        pid, iid = configured_intersection
+        fill = self._fill(rm, MAX_CONCURRENT_PIPELINES)
+        with rm._v3_jobs_lock:
+            rm._v3_jobs[(pid, iid)] = {"status": "queued", "_started": False, "_segments": ["seg"]}
+        try:
+            rm._v3_promote_queued()
+            assert captured == []
+            with rm._v3_jobs_lock:
+                assert rm._v3_jobs[(pid, iid)]["_started"] is False
+        finally:
+            self._drop(rm, *fill, (pid, iid))
+
+    def test_cancel_drops_a_queued_job(self, configured_intersection):
+        import backend.routers.intersections as rm
+        from backend.database import set_v3_run_state, clear_v3_run_state
+        pid, iid = configured_intersection
+        with rm._v3_jobs_lock:
+            rm._v3_jobs[(pid, iid)] = {"status": "queued", "_started": False, "_segments": ["seg"]}
+        set_v3_run_state(pid, iid, "queued")
+        try:
+            r = client.post(f"/api/projects/{pid}/intersections/{iid}/processing/cancel")
+            assert r.status_code == 200
+            assert r.json()["status"] == "cancelled"
+            with rm._v3_jobs_lock:
+                assert rm._v3_jobs[(pid, iid)]["status"] == "cancelled"
+        finally:
+            self._drop(rm, (pid, iid))
+            clear_v3_run_state(pid, iid)

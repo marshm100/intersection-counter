@@ -27,7 +27,9 @@ from pathlib import Path
 
 # --- Per-intersection config --------------------------------------------
 PROJECT_DB = Path("data/projects/97a7849a/project.db")
-MANUAL_CSV = Path("docs/historic data/405051_0035_20260512_000002_NBeltLineRd-NorthwestDr_1401964_05-12-2026.csv")
+# Per-camera Miovision files now live under "Sunnyvale, TX/camN .../" subfolders
+# (all 5 corridor intersections present 2026-05-29). cam1 default below.
+MANUAL_CSV = Path("docs/historic data/Sunnyvale, TX/cam1 405051 N Belt Line Rd & Northwest Dr/405051_0035_20260512_000002_NBeltLineRd-NorthwestDr_1401964_05-12-2026.csv")
 
 # Video recording started at this wall-clock time (read from videos table)
 # Used to convert manual-count bucket labels (7:00 AM) → footage-second offsets.
@@ -40,11 +42,15 @@ VIDEO_START = datetime(2026, 5, 12, 0, 0, 2)
 #   L23 origin (143, 357) -- lower-left            -- NB Belt Line entrance
 #   L24 origin (541, 357) -- lower-right           -- Private Driveway entrance
 #   L25 origin (227, 227) -- upper-middle-left     -- Northwest Dr entrance
+# Corrected 2026-05-29: the cam1 leg approach-labels were 180°-rotated (verified
+# against the Miovision per-minute OD geometry — see memory
+# project_leg_labels_swapped). Our legs are physically at the OPPOSITE approach
+# vs their original (S/N/W/E) cardinal labels: L22 is NB, L23 SB, L24 EB, L25 WB.
 LEG_TO_APPROACH = {
-    22: "SB N Belt Line Rd",
-    23: "NB N Belt Line Rd",
-    24: "WB Private Driveway",
-    25: "EB Northwest Dr",
+    22: "NB N Belt Line Rd",
+    23: "SB N Belt Line Rd",
+    24: "EB Northwest Dr",
+    25: "WB Private Driveway",
 }
 
 # CSV column layout: 8 approach blocks of 9 columns each (HardR, Right,

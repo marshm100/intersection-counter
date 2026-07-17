@@ -1,0 +1,24 @@
+**Both defects are resolved. The two flagged failure modes (partial-apply window on 113-event data; unverified/incomplete WAL/OneDrive backup that could silently lose rows or collide) are eliminated.**
+
+### 1. Atomic mutation (yes)
+- All writes (leg UPDATEs, `DELETE FROM intersection_paths`, path INSERTs, conditional calibration_suggestions INSERT/UPDATE) + the vehicle_events preservation guard live inside a single `with conn:` block (script:198-248) on the *one* connection obtained after backup.
+- `with conn:` gives the standard sqlite3 transaction (implicit BEGIN on first DML, COMMIT on normal exit, ROLLBACK on any exception).
+- The guard (`event_count_after != event_count_before` → RuntimeError) is the *last* statement before the `with` exits; any mismatch forces full rollback of legs + paths + suggestion. No other code path writes.
+- All helper functions that would have opened separate connections (`list_paths_for_camera`, `upsert_path`, `clear_paths_for_camera`, the old PUT paths) are deliberately bypassed; only reads for preflight use separate conns.
+- Success prints and captured variables (`n_cleared`, counts) are only reached after successful commit. Crash mid-DML, mid-guard, or in get_connection schema setup before the `with` leaves the DB unchanged (WAL recovery rolls back the uncommitted txn).
+
+### 2. _backup_db (yes)
+- Called (194) *before* the apply connection is opened and before any mutation DML.
+- Collision-safe name: `project_{utcstamp_with_μs}.db`; `if bak.exists(): raise` before any write attempt (81-83).
+- On a fresh conn from `get_connection` (which forces WAL): busy_timeout + `PRAGMA wal_checkpoint(TRUNCATE)` + `VACUUM INTO ?` (87-89).
+- Post-close verification on a *direct* `sqlite3.connect(bak)` (not get_connection): `integrity_check == 'ok'` AND `_count_events(...) == expected_events` (the exact pre-apply count using the same predicate). Any failure raises RuntimeError and aborts before the apply conn is touched (93-106).
+- Only on full success does it return the path and execution continues to the txn.
+
+### Remaining (minor) correctness/atomicity/backup holes
+- No cross-process locking (only a stdout warning + busy_timeout). Concurrent writer between verified backup and our `with` (or during the short txn) can still produce a mixed state; the event-count guard will catch *event* changes and roll back, but leg/path drift is possible. (Acceptable for a manual one-off engineer tool; matches the documented usage model.)
+- Backup name collision window is theoretically racy (exists check → later VACUUM INTO); a same-μs concurrent run or a zero-byte/partial file left from a prior killed VACUUM would cause the next run with that exact stamp to abort early. Negligible in practice; next run gets a fresh stamp.
+- No retention or size management for `backups/`. (Not a safety issue.)
+- Live DB is never explicitly checkpointed after the apply txn (irrelevant to the mutation atomicity or backup story).
+- Verification and guard are count-only (plus integrity_check). They would not detect silent content mutation that preserves row count (defense-in-depth against future bugs in this narrow script, not against the original defects).
+
+The three tests (preservation, idempotency, dry-run) plus the preflight + guard + verified-backup path cover the high-stakes cases. No other writes or early exits bypass the txn/backup contract. The original two defects are gone.

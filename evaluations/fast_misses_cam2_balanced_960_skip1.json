@@ -1,0 +1,73 @@
+{
+ "camera": 2,
+ "variant": "balanced_960_skip1",
+ "fps": 25.0,
+ "n_detections_vehicle": 580094,
+ "n_matched": 571630,
+ "birth_dead_band_dets": 193384,
+ "matched_speed_median_px_per_frame": 11.72,
+ "n_orphan_clusters_vehicle_like": 3,
+ "n_birth_gate": 1,
+ "clusters": [
+  {
+   "n_dets": 159,
+   "frame_start": 633674,
+   "frame_end": 633765,
+   "span_frames": 92,
+   "conf_max": 0.95263671875,
+   "conf_mean": 0.6287381154186321,
+   "px_per_frame_median": 105.0,
+   "net_travel_px": 317.4,
+   "start_xy": [
+    3,
+    228
+   ],
+   "end_xy": [
+    312,
+    154
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:02:26"
+  },
+  {
+   "n_dets": 136,
+   "frame_start": 645640,
+   "frame_end": 645779,
+   "span_frames": 140,
+   "conf_max": 0.28955078125,
+   "conf_mean": 0.19292449951171875,
+   "px_per_frame_median": 0.1,
+   "net_travel_px": 128.5,
+   "start_xy": [
+    527,
+    115
+   ],
+   "end_xy": [
+    634,
+    186
+   ],
+   "verdict": "assoc_or_filtered",
+   "t_video_hms": "07:10:25"
+  },
+  {
+   "n_dets": 14,
+   "frame_start": 667732,
+   "frame_end": 667752,
+   "span_frames": 21,
+   "conf_max": 0.236572265625,
+   "conf_mean": 0.17498779296875,
+   "px_per_frame_median": 0.1,
+   "net_travel_px": 323.8,
+   "start_xy": [
+    23,
+    438
+   ],
+   "end_xy": [
+    24,
+    115
+   ],
+   "verdict": "birth_gate",
+   "t_video_hms": "07:25:09"
+  }
+ ]
+}

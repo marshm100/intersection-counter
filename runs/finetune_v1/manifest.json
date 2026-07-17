@@ -1,0 +1,117 @@
+{
+ "chunks": [
+  {
+   "chunk": 0,
+   "epochs": 8,
+   "lr0": 0.005,
+   "weights_in": "yolo26s.pt",
+   "last": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk0\\weights\\last.pt",
+   "metrics": {
+    "metrics/precision(B)": 0.6424,
+    "metrics/recall(B)": 0.4048,
+    "metrics/mAP50(B)": 0.4045,
+    "metrics/mAP50-95(B)": 0.2344,
+    "fitness": 0.2344
+   }
+  },
+  {
+   "chunk": 1,
+   "epochs": 8,
+   "lr0": 0.003,
+   "weights_in": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk0\\weights\\last.pt",
+   "last": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk1\\weights\\last.pt",
+   "metrics": {
+    "metrics/precision(B)": 0.5911,
+    "metrics/recall(B)": 0.4681,
+    "metrics/mAP50(B)": 0.516,
+    "metrics/mAP50-95(B)": 0.2916,
+    "fitness": 0.2916
+   }
+  },
+  {
+   "chunk": 2,
+   "epochs": 8,
+   "lr0": 0.0018,
+   "weights_in": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk1\\weights\\last.pt",
+   "last": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk2\\weights\\last.pt",
+   "metrics": {
+    "metrics/precision(B)": 0.3925,
+    "metrics/recall(B)": 0.4757,
+    "metrics/mAP50(B)": 0.5383,
+    "metrics/mAP50-95(B)": 0.316,
+    "fitness": 0.316
+   }
+  },
+  {
+   "chunk": 3,
+   "epochs": 8,
+   "lr0": 0.0010799999999999998,
+   "weights_in": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk2\\weights\\last.pt",
+   "last": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk3\\weights\\last.pt",
+   "metrics": {
+    "metrics/precision(B)": 0.8293,
+    "metrics/recall(B)": 0.5085,
+    "metrics/mAP50(B)": 0.6633,
+    "metrics/mAP50-95(B)": 0.3518,
+    "fitness": 0.3518
+   }
+  },
+  {
+   "chunk": 4,
+   "epochs": 8,
+   "lr0": 0.000648,
+   "weights_in": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk3\\weights\\last.pt",
+   "last": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk4\\weights\\last.pt",
+   "metrics": {
+    "metrics/precision(B)": 0.6163,
+    "metrics/recall(B)": 0.5429,
+    "metrics/mAP50(B)": 0.6051,
+    "metrics/mAP50-95(B)": 0.3599,
+    "fitness": 0.3599
+   }
+  },
+  {
+   "chunk": 5,
+   "epochs": 8,
+   "lr0": 0.0003887999999999999,
+   "weights_in": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk4\\weights\\last.pt",
+   "last": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk5\\weights\\last.pt",
+   "metrics": {
+    "metrics/precision(B)": 0.6474,
+    "metrics/recall(B)": 0.5773,
+    "metrics/mAP50(B)": 0.6129,
+    "metrics/mAP50-95(B)": 0.3642,
+    "fitness": 0.3642
+   }
+  },
+  {
+   "chunk": 6,
+   "epochs": 8,
+   "lr0": 0.00023327999999999996,
+   "weights_in": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk5\\weights\\last.pt",
+   "last": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk6\\weights\\last.pt",
+   "metrics": {
+    "metrics/precision(B)": 0.8089,
+    "metrics/recall(B)": 0.5331,
+    "metrics/mAP50(B)": 0.6365,
+    "metrics/mAP50-95(B)": 0.3707,
+    "fitness": 0.3707
+   }
+  },
+  {
+   "chunk": 7,
+   "epochs": 8,
+   "lr0": 0.00013996799999999997,
+   "weights_in": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk6\\weights\\last.pt",
+   "last": "C:\\Users\\onkar\\Documents\\intersection-counter\\runs\\detect\\runs\\finetune_v1\\chunk7\\weights\\last.pt",
+   "metrics": {
+    "metrics/precision(B)": 0.763,
+    "metrics/recall(B)": 0.5477,
+    "metrics/mAP50(B)": 0.6162,
+    "metrics/mAP50-95(B)": 0.36,
+    "fitness": 0.36
+   }
+  }
+ ],
+ "epochs_done": 64
+}

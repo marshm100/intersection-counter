@@ -9,9 +9,54 @@ from fastapi.testclient import TestClient
 
 from backend.app import app
 from backend.database import get_connection, set_project_info
-from backend.services.excel_export import generate_tmc_excel
+from backend.services.excel_export import generate_tmc_excel, _peak_analysis
+from backend.services.pdf_report import generate_report_pdf
 
 client = TestClient(app)
+
+
+def test_pdf_report_generates():
+    pid = _create_project("pdf-unit")
+    _seed_data(pid)
+    try:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            out = Path(tmpdir) / "report.pdf"
+            generate_report_pdf(pid, out)
+            assert out.exists()
+            with open(out, "rb") as f:
+                assert f.read(5) == b"%PDF-"          # a real PDF
+            assert out.stat().st_size > 1000
+    finally:
+        _delete_project(pid)
+
+
+def test_export_report_pdf_endpoint():
+    pid = _create_project("pdf-api")
+    _seed_data(pid)
+    try:
+        r = client.get(f"/api/projects/{pid}/export/report.pdf")
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "application/pdf"
+        assert r.content[:5] == b"%PDF-"
+    finally:
+        _delete_project(pid)
+
+
+def test_peak_analysis_finds_hour_and_phf():
+    """Peak 1-hour window = the highest-volume rolling hour; PHF = hour/(4*max15)."""
+    tmv = {}
+    # 07:00-07:45 heavy+flat (400 total, 100 each -> PHF 1.0); 08:00-08:45 light.
+    for i, m in enumerate((0, 15, 30, 45)):
+        tmv[(f"2026-01-01 07:{m:02d}:00", "Northbound", "T", "Lights")] = 100
+        tmv[(f"2026-01-01 08:{m:02d}:00", "Northbound", "T", "Lights")] = 10
+    pk = _peak_analysis(tmv, 7, 9)
+    assert pk is not None
+    assert pk["start"].strftime("%H:%M") == "07:00"
+    assert pk["grand"]["Total"] == 400
+    assert pk["grand"]["PHF"] == 1.0
+    assert pk["cols"][("Northbound", "T")]["Lights"] == 400
+    # nothing in the PM period -> None
+    assert _peak_analysis(tmv, 16, 18) is None
 
 
 def _create_project(name: str = "export-test") -> str:
@@ -88,7 +133,8 @@ def test_excel_sheet_names():
             generate_tmc_excel(pid, out)
             wb = openpyxl.load_workbook(str(out))
             try:
-                assert wb.sheetnames == ["TMC Summary", "Time Series", "Raw Events"]
+                assert wb.sheetnames == ["Contents", "Summary", "TMC Summary",
+                                         "Time Series", "TMV Data", "Raw Events"]
             finally:
                 wb.close()
     finally:
@@ -173,6 +219,33 @@ def test_excel_tmc_counts_correct():
         _delete_project(pid)
 
 
+def test_excel_tmv_data_sheet_class_aware():
+    """The Miovision-format TMV Data sheet: Interval|Approach|Movement|Class|Volume,
+    with the truck (fhwa 9) bucketed Articulated and a bound-direction approach."""
+    pid = _create_project("excel-tmv")
+    _seed_data(pid)
+    try:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            out = Path(tmpdir) / "tmc.xlsx"
+            generate_tmc_excel(pid, out)
+            wb = openpyxl.load_workbook(str(out))
+            try:
+                ws = wb["TMV Data"]
+                rows = list(ws.iter_rows(values_only=True))
+                assert rows[0] == ("Interval", "Approach", "Movement", "Class", "Volume")
+                body = rows[1:]
+                classes = {r[3] for r in body}
+                assert "Lights" in classes and "Articulated Trucks" in classes
+                # the fhwa=9 truck was a North-leg (position N -> Southbound) right turn
+                artic = [r for r in body if r[3] == "Articulated Trucks"]
+                assert artic and artic[0][1] == "Southbound" and artic[0][2] == "R"
+                assert sum(r[4] for r in body) == 5     # all 5 events represented
+            finally:
+                wb.close()
+    finally:
+        _delete_project(pid)
+
+
 def test_excel_no_events_still_creates_file():
     pid = _create_project("excel-empty")
     try:
@@ -204,6 +277,8 @@ def test_export_preview_endpoint():
         assert "total_vehicles" in data
         assert data["total_vehicles"] == 5
         assert data["leg_count"] == 2
+        # L/M/A class summary (Miovision parity): 4 unclassified->Lights, 1 fhwa9->Articulated
+        assert data["class_summary"] == {"Lights": 4, "Mediums": 0, "Articulated Trucks": 1}
     finally:
         _delete_project(pid)
 

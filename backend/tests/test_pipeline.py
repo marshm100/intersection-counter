@@ -889,3 +889,196 @@ class TestFatalErrorHandling:
         with patch('backend.services.pipeline.cv2.VideoCapture', return_value=mock_cap):
             with pytest.raises(RuntimeError, match="consecutive"):
                 p.process_video(frame_skip=1)
+
+
+# ---------------------------------------------------------------------------
+# Detection cache: retrack-from-cache seam + write-through (Attribution v2 Step 1)
+# ---------------------------------------------------------------------------
+
+def test_process_cached_replays_schedule_with_empty_fill(pipeline_env, tmp_path):
+    """process_cached must drive _ingest_detections on the full detection-frame
+    schedule, supplying [] for frames the cache has no rows for (so the tracker
+    Kalman cadence matches a live run)."""
+    from backend.services.detection_cache import (
+        DetectionCacheReader, DetectionCacheWriter,
+    )
+    pipe = _make_pipeline(pipeline_env)
+    calls = []
+    pipe._ingest_detections = lambda dets, fn: calls.append((fn, len(dets)))
+
+    path = tmp_path / "c.parquet"
+    w = DetectionCacheWriter(pq_path=path)
+    w.add(0, [_make_detection(100, 100), _make_detection(200, 200)])
+    w.add(2, [_make_detection(150, 150)])   # frame 1 absent
+    w.add(5, [_make_detection(300, 300)])   # frames 3,4 absent
+    w.close()
+
+    pipe.process_cached(DetectionCacheReader(path), 0, 6, detection_skip=1)
+    assert calls == [(0, 2), (1, 0), (2, 1), (3, 0), (4, 0), (5, 1)]
+
+
+def test_process_cached_respects_detection_skip(pipeline_env, tmp_path):
+    from backend.services.detection_cache import (
+        DetectionCacheReader, DetectionCacheWriter,
+    )
+    pipe = _make_pipeline(pipeline_env)
+    calls = []
+    pipe._ingest_detections = lambda dets, fn: calls.append(fn)
+
+    path = tmp_path / "c.parquet"
+    w = DetectionCacheWriter(pq_path=path)
+    for fi in (0, 2, 4):
+        w.add(fi, [_make_detection(100, 100)])
+    w.close()
+
+    pipe.process_cached(DetectionCacheReader(path), 0, 6, detection_skip=2)
+    assert calls == [0, 2, 4]   # only frames where frame % 2 == 0
+
+
+def test_write_through_persists_detections(pipeline_env, tmp_path):
+    """When a cache writer is attached, _process_single_frame persists each
+    frame's detections without altering tracking behaviour."""
+    from backend.services.detection_cache import (
+        DetectionCacheReader, DetectionCacheWriter,
+    )
+    pipe = _make_pipeline(pipeline_env)
+    # Stub the heavy collaborators so no YOLO loads and no video is decoded.
+    pipe._preprocessor = MagicMock()
+    pipe._preprocessor.preprocess.side_effect = lambda f: f
+    pipe._detector = MagicMock()
+    pipe._detector.detect.return_value = [_make_detection(120, 130)]
+    pipe._ingest_detections = lambda dets, fn: None   # isolate write-through
+
+    path = tmp_path / "c.parquet"
+    writer = DetectionCacheWriter(pq_path=path)
+    pipe._detection_cache_writer = writer
+    pipe._process_single_frame(np.zeros((480, 640, 3), dtype=np.uint8), 7)
+    writer.close()
+
+    frames = dict(DetectionCacheReader(path).iter_frames())
+    assert list(frames.keys()) == [7]
+    assert frames[7][0]["center"] == [120.0, 130.0]
+
+
+# ---------------------------------------------------------------------------
+# Step 0 detection audit instrumentation (Attribution v2 P2.C)
+# ---------------------------------------------------------------------------
+
+def _track(tid, x, y, w=50, h=60, area=None):
+    x1, y1, x2, y2 = x - w / 2, y - h / 2, x + w / 2, y + h / 2
+    return {"track_id": tid, "bbox": [x1, y1, x2, y2], "center": [float(x), float(y)],
+            "bbox_area": float(area if area is not None else w * h)}
+
+
+def test_audit_distinguishes_real_hits_from_coasted(pipeline_env):
+    pipe = _make_pipeline(pipeline_env)
+    pipe._audit_mode = True
+    det = _make_detection(120, 130, w=50, h=60)        # input YOLO box
+    trk = _track(1, 120, 130, w=50, h=60)              # output track at same place
+
+    pipe._audit_update([det], [trk], 0)                # real hit
+    pipe._audit_update([], [trk], 1)                   # coasted (no detections)
+    pipe._audit_update([], [trk], 2)                   # coasted again -> gap grows
+    pipe._audit_update([det], [trk], 3)               # real hit again (gap resets)
+
+    rec = pipe._audit_tracks[1]
+    assert rec["real_yolo_hits"] == 2
+    assert rec["n_output_frames"] == 4
+    assert rec["max_coasted_gap"] == 2
+    assert rec["first_real_hit_frame"] == 0
+
+
+def test_audit_no_match_when_iou_too_low(pipeline_env):
+    pipe = _make_pipeline(pipeline_env)
+    pipe._audit_mode = True
+    det = _make_detection(120, 130, w=50, h=60)
+    far = _track(1, 600, 400, w=50, h=60)              # output track nowhere near det
+    pipe._audit_update([det], [far], 0)
+    assert pipe._audit_tracks[1]["real_yolo_hits"] == 0   # emitted box didn't belong to it
+
+
+def test_audit_emit_records_dropped_tracks(pipeline_env):
+    pipe = _make_pipeline(pipeline_env)
+    pipe._audit_mode = True
+    trk = _track(7, 120, 130)
+    pipe._audit_update([], [trk], 0)                   # coasted only -> never a real hit
+    # A track dropped with no origin must still produce an audit record.
+    pipe._audit_emit(7, {"trajectory": [[120, 130]], "origin_leg_id": None})
+    assert len(pipe._audit_records) == 1
+    r = pipe._audit_records[0]
+    assert r["track_id"] == 7 and r["real_yolo_hits"] == 0
+    assert r["origin_assigned"] is False and r["final_points"] == 1
+
+
+def test_audit_report_classify():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "audit_rep", os.path.join(os.path.dirname(__file__), "..", "..",
+                                  "scripts", "audit_detection_vs_association.py"))
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    assert m.classify({"real_yolo_hits": 0, "final_points": 5, "max_coasted_gap": 0,
+                       "origin_assigned": True}) == "never_emitted"
+    assert m.classify({"real_yolo_hits": 5, "final_points": 1, "max_coasted_gap": 0,
+                       "origin_assigned": True}) == "emitted_fragmented"
+    assert m.classify({"real_yolo_hits": 5, "final_points": 30, "max_coasted_gap": 0,
+                       "origin_assigned": True}) == "ok"
+
+
+class TestPerCameraKnobs:
+    """Per-camera detection/tracking knobs flow through the pipeline:
+    NMS from calibration, tracker buffers via VehicleTracker's explicit params
+    (not backend_kwargs), with explicit constructor args taking precedence."""
+
+    def _pipeline(self, env, **kw):
+        from backend.services.pipeline import ProcessingPipeline
+        return ProcessingPipeline(
+            project_id="test", db_path=env["db_path"],
+            video_path=env["video_path"], legs=env["legs"], fps=30.0, **kw,
+        )
+
+    def test_nms_threshold_honored_from_calibration(self, pipeline_env, monkeypatch):
+        import backend.services.pipeline as plmod
+        captured = {}
+        monkeypatch.setattr(plmod, "_class_agnostic_nms",
+                            lambda dets, iou: (captured.__setitem__("iou", iou), dets)[1])
+        p = self._pipeline(pipeline_env, calibration_params={"pre_track_nms_iou": 0.5})
+        p._ingest_detections([_make_detection(400, 400), _make_detection(420, 410)], 1)
+        assert captured.get("iou") == 0.5
+
+    def test_nms_off_by_default(self, pipeline_env, monkeypatch):
+        import backend.services.pipeline as plmod
+        captured = {"called": False}
+        def _spy(dets, iou):
+            captured["called"] = True
+            return dets
+        monkeypatch.setattr(plmod, "_class_agnostic_nms", _spy)
+        # No calibration override and global PRE_TRACK_NMS_IOU defaults to None.
+        p = self._pipeline(pipeline_env)
+        p._ingest_detections([_make_detection(400, 400), _make_detection(420, 410)], 1)
+        assert captured["called"] is False
+
+    def test_tracker_knobs_from_calibration(self, pipeline_env):
+        p = self._pipeline(pipeline_env, calibration_params={
+            "tracker_lost_buffer": 60, "tracker_match_threshold": 0.7,
+            "tracker_activation_threshold": 0.4})
+        init = p.tracker._backend._init_kwargs
+        assert init["track_buffer"] == 60
+        assert init["match_thresh"] == 0.7
+        assert init["track_thresh"] == 0.4
+
+    def test_calibration_override_beats_explicit(self, pipeline_env):
+        # A per-camera calibration OVERRIDE wins over an explicit arg, because
+        # callers pass the MODE DEFAULT as the explicit arg and a real per-camera
+        # tune must beat it. (A sweep that needs to force a value injects it into
+        # calibration_params, which is exactly this winning path.)
+        p = self._pipeline(pipeline_env, tracker_match_threshold=0.8,
+                           calibration_params={"tracker_match_threshold": 0.9})
+        assert p.tracker._backend._init_kwargs["match_thresh"] == 0.9
+
+    def test_explicit_used_when_no_calibration_override(self, pipeline_env):
+        # No per-camera override (key absent / None) -> the explicit arg (mode
+        # default or a deliberate sweep value like retrack_to_db's activation) drives.
+        p = self._pipeline(pipeline_env, tracker_match_threshold=0.65,
+                           calibration_params={"tracker_match_threshold": None})
+        assert p.tracker._backend._init_kwargs["match_thresh"] == 0.65

@@ -1,0 +1,171 @@
+{
+  "metric": {
+    "total_manual": 13557.3,
+    "total_ours": 9777,
+    "sum_abs_delta": 12822.7,
+    "agg_err_pct": 94.58
+  },
+  "cells": [
+    {
+      "leg_id": 22,
+      "approach": "SB N Belt Line Rd",
+      "movement": "thru",
+      "manual": 5687.4,
+      "ours": 896,
+      "delta": -4791.4,
+      "abs_delta": 4791.4,
+      "pct_err": 84.2459276338327
+    },
+    {
+      "leg_id": 23,
+      "approach": "NB N Belt Line Rd",
+      "movement": "thru",
+      "manual": 5508.6,
+      "ours": 3419,
+      "delta": -2089.6,
+      "abs_delta": 2089.6,
+      "pct_err": 37.933768749665674
+    },
+    {
+      "leg_id": 25,
+      "approach": "EB Northwest Dr",
+      "movement": "left",
+      "manual": 270.9,
+      "ours": 1724,
+      "delta": 1453.1,
+      "abs_delta": 1453.1,
+      "pct_err": 536.4862154134187
+    },
+    {
+      "leg_id": 22,
+      "approach": "SB N Belt Line Rd",
+      "movement": "right",
+      "manual": 329.9,
+      "ours": 1348,
+      "delta": 1018.1,
+      "abs_delta": 1018.1,
+      "pct_err": 308.56518588166824
+    },
+    {
+      "leg_id": 22,
+      "approach": "SB N Belt Line Rd",
+      "movement": "left",
+      "manual": 3.0,
+      "ours": 1010,
+      "delta": 1007.0,
+      "abs_delta": 1007.0,
+      "pct_err": 33566.66666666667
+    },
+    {
+      "leg_id": 23,
+      "approach": "NB N Belt Line Rd",
+      "movement": "left",
+      "manual": 787.6,
+      "ours": 36,
+      "delta": -751.6,
+      "abs_delta": 751.6,
+      "pct_err": 95.4293078984663
+    },
+    {
+      "leg_id": 25,
+      "approach": "EB Northwest Dr",
+      "movement": "right",
+      "manual": 894.9,
+      "ours": 263,
+      "delta": -631.9,
+      "abs_delta": 631.9,
+      "pct_err": 70.61186178263206
+    },
+    {
+      "leg_id": 24,
+      "approach": "WB Private Driveway",
+      "movement": "right",
+      "manual": 3.0,
+      "ours": 526,
+      "delta": 523.0,
+      "abs_delta": 523.0,
+      "pct_err": 17433.333333333336
+    },
+    {
+      "leg_id": 23,
+      "approach": "NB N Belt Line Rd",
+      "movement": "right",
+      "manual": 7.0,
+      "ours": 258,
+      "delta": 251.0,
+      "abs_delta": 251.0,
+      "pct_err": 3589.9899883992553
+    },
+    {
+      "leg_id": 24,
+      "approach": "WB Private Driveway",
+      "movement": "left",
+      "manual": 18.0,
+      "ours": 269,
+      "delta": 251.0,
+      "abs_delta": 251.0,
+      "pct_err": 1394.4444444444446
+    },
+    {
+      "leg_id": 25,
+      "approach": "EB Northwest Dr",
+      "movement": "uturn",
+      "manual": 22.0,
+      "ours": 0,
+      "delta": -22.0,
+      "abs_delta": 22.0,
+      "pct_err": 100.0
+    },
+    {
+      "leg_id": 24,
+      "approach": "WB Private Driveway",
+      "movement": "thru",
+      "manual": 7.0,
+      "ours": 24,
+      "delta": 17.0,
+      "abs_delta": 17.0,
+      "pct_err": 242.85714285714283
+    },
+    {
+      "leg_id": 23,
+      "approach": "NB N Belt Line Rd",
+      "movement": "uturn",
+      "manual": 7.0,
+      "ours": 1,
+      "delta": -6.0,
+      "abs_delta": 6.0,
+      "pct_err": 85.71428571428571
+    },
+    {
+      "leg_id": 25,
+      "approach": "EB Northwest Dr",
+      "movement": "thru",
+      "manual": 8.0,
+      "ours": 2,
+      "delta": -6.0,
+      "abs_delta": 6.0,
+      "pct_err": 75.0
+    },
+    {
+      "leg_id": 22,
+      "approach": "SB N Belt Line Rd",
+      "movement": "uturn",
+      "manual": 3.0,
+      "ours": 0,
+      "delta": -3.0,
+      "abs_delta": 3.0,
+      "pct_err": 100.0
+    },
+    {
+      "leg_id": 24,
+      "approach": "WB Private Driveway",
+      "movement": "uturn",
+      "manual": 0.0,
+      "ours": 1,
+      "delta": 1.0,
+      "abs_delta": 1.0,
+      "pct_err": Infinity
+    }
+  ],
+  "n_buckets": 24
+}

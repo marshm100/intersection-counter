@@ -1,0 +1,137 @@
+{
+ "rows": [
+  {
+   "interval": "2026-04-30T07:00:00",
+   "mio": 195,
+   "old": 183,
+   "new": 209,
+   "old_err_pct": -6.2,
+   "new_err_pct": 7.2
+  },
+  {
+   "interval": "2026-04-30T07:15:00",
+   "mio": 208,
+   "old": 201,
+   "new": 215,
+   "old_err_pct": -3.4,
+   "new_err_pct": 3.4
+  },
+  {
+   "interval": "2026-04-30T07:30:00",
+   "mio": 231,
+   "old": 222,
+   "new": 243,
+   "old_err_pct": -3.9,
+   "new_err_pct": 5.2
+  },
+  {
+   "interval": "2026-04-30T07:45:00",
+   "mio": 210,
+   "old": 189,
+   "new": 216,
+   "old_err_pct": -10.0,
+   "new_err_pct": 2.9
+  },
+  {
+   "interval": "2026-04-30T08:00:00",
+   "mio": 181,
+   "old": 176,
+   "new": 192,
+   "old_err_pct": -2.8,
+   "new_err_pct": 6.1
+  },
+  {
+   "interval": "2026-04-30T08:15:00",
+   "mio": 185,
+   "old": 161,
+   "new": 184,
+   "old_err_pct": -13.0,
+   "new_err_pct": -0.5
+  },
+  {
+   "interval": "2026-04-30T08:30:00",
+   "mio": 163,
+   "old": 149,
+   "new": 163,
+   "old_err_pct": -8.6,
+   "new_err_pct": 0.0
+  },
+  {
+   "interval": "2026-04-30T08:45:00",
+   "mio": 152,
+   "old": 150,
+   "new": 164,
+   "old_err_pct": -1.3,
+   "new_err_pct": 7.9
+  },
+  {
+   "interval": "2026-04-30T16:00:00",
+   "mio": 267,
+   "old": 266,
+   "new": 285,
+   "old_err_pct": -0.4,
+   "new_err_pct": 6.7
+  },
+  {
+   "interval": "2026-04-30T16:15:00",
+   "mio": 265,
+   "old": 257,
+   "new": 288,
+   "old_err_pct": -3.0,
+   "new_err_pct": 8.7
+  },
+  {
+   "interval": "2026-04-30T16:30:00",
+   "mio": 238,
+   "old": 215,
+   "new": 247,
+   "old_err_pct": -9.7,
+   "new_err_pct": 3.8
+  },
+  {
+   "interval": "2026-04-30T16:45:00",
+   "mio": 221,
+   "old": 179,
+   "new": 222,
+   "old_err_pct": -19.0,
+   "new_err_pct": 0.5
+  },
+  {
+   "interval": "2026-04-30T17:00:00",
+   "mio": 262,
+   "old": 217,
+   "new": 261,
+   "old_err_pct": -17.2,
+   "new_err_pct": -0.4
+  },
+  {
+   "interval": "2026-04-30T17:15:00",
+   "mio": 255,
+   "old": 204,
+   "new": 257,
+   "old_err_pct": -20.0,
+   "new_err_pct": 0.8
+  },
+  {
+   "interval": "2026-04-30T17:30:00",
+   "mio": 226,
+   "old": 197,
+   "new": 232,
+   "old_err_pct": -12.8,
+   "new_err_pct": 2.7
+  },
+  {
+   "interval": "2026-04-30T17:45:00",
+   "mio": 210,
+   "old": 189,
+   "new": 224,
+   "old_err_pct": -10.0,
+   "new_err_pct": 6.7
+  }
+ ],
+ "totals": {
+  "mio": 3469,
+  "old": 3155,
+  "new": 3602
+ }
+}

@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from backend.config import PROJECTS_DIR
+from backend.services.posterior import margin_from_json
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS project_info (
@@ -36,6 +37,14 @@ CREATE TABLE IF NOT EXISTS cameras (
     label           TEXT NOT NULL,
     sort_order      INTEGER NOT NULL,
     created_at      TEXT NOT NULL,
+    -- v3.calibration: per-CAMERA detection/tracking knobs (override or NULL=fall
+    -- back to backend/config.py). These are camera+resolution artifacts (e.g. the
+    -- detector double-boxing one vehicle, the tracker duplicating IDs), distinct
+    -- from the per-INTERSECTION classification tunables on the intersections table.
+    calib_pre_track_nms_iou             REAL,    -- class-agnostic pre-track NMS IoU
+    calib_tracker_lost_buffer           INTEGER, -- frames a lost track survives
+    calib_tracker_match_threshold       REAL,    -- IoU match threshold
+    calib_tracker_activation_threshold  REAL,    -- detection conf to start a track
     FOREIGN KEY (intersection_id) REFERENCES intersections(intersection_id),
     UNIQUE(intersection_id, label)
 );
@@ -103,6 +112,8 @@ CREATE TABLE IF NOT EXISTS intersection_paths (
     polyline             TEXT    NOT NULL,                  -- JSON [[x,y], ...]
     movement_label       TEXT    NOT NULL,                  -- through|left|right|u_turn
     supporting_count     INTEGER NOT NULL DEFAULT 0,
+    expected_speed       REAL,                              -- median px/step of supporting tracks (speed-tiebreak signature; NULL = unset)
+    sample_window_seconds REAL,                             -- duration of the sample supporting_count was observed over (scales the turn-merge volume gate; NULL = unknown/legacy)
     source               TEXT    NOT NULL DEFAULT 'manual', -- manual|auto
     last_observed_at     TEXT,
     created_at           TEXT    NOT NULL,
@@ -110,6 +121,44 @@ CREATE TABLE IF NOT EXISTS intersection_paths (
     FOREIGN KEY (origin_leg_id)      REFERENCES legs(leg_id),
     FOREIGN KEY (destination_leg_id) REFERENCES legs(leg_id),
     UNIQUE(camera_id, origin_leg_id, destination_leg_id)
+);
+
+-- Operator-drawn movement channels (Phase 2.1 — implementation_plan_architecture
+-- 2026-06-11). A channel is a tapered corridor (entry -> apex -> exit quadratic,
+-- per-mouth widths) declaring that a movement EXISTS and where it runs. The
+-- GT-free bank builder (scripts/build_bank_gtfree.py) uses channels two ways:
+-- corridor-claiming tracks before anchor binning (the only reliable fix for
+-- anchor-on-through-path geometries, e.g. cam1/cam5), and as hand-drawn
+-- fallback polylines for movements the bootstrap window never collected.
+CREATE TABLE IF NOT EXISTS channels (
+    channel_id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id            INTEGER NOT NULL,
+    origin_leg_id        INTEGER NOT NULL,
+    destination_leg_id   INTEGER NOT NULL,
+    movement             TEXT    NOT NULL,        -- through|left|right|u_turn
+    entry_pt             TEXT    NOT NULL,        -- JSON [x,y]
+    apex_pt              TEXT    NOT NULL,        -- JSON [x,y] (curve passes through it)
+    exit_pt              TEXT    NOT NULL,        -- JSON [x,y]
+    width_in             REAL    NOT NULL DEFAULT 40,
+    width_out            REAL    NOT NULL DEFAULT 40,
+    created_at           TEXT    NOT NULL,
+    FOREIGN KEY (camera_id)          REFERENCES cameras(camera_id),
+    FOREIGN KEY (origin_leg_id)      REFERENCES legs(leg_id),
+    FOREIGN KEY (destination_leg_id) REFERENCES legs(leg_id)
+);
+
+-- Manual spot counts (Phase 4): an engineer hand-counts a short random window
+-- from the raw video; the comparison against system counts (with CIs) is the
+-- zero-ground-truth accuracy estimate feeding the acceptance gate.
+CREATE TABLE IF NOT EXISTS spot_counts (
+    spot_id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id            INTEGER NOT NULL,
+    start_seconds        REAL    NOT NULL,
+    duration_seconds     REAL    NOT NULL,
+    manual_counts        TEXT    NOT NULL,    -- JSON {"N through": 123, ...}
+    notes                TEXT    NOT NULL DEFAULT '',
+    created_at           TEXT    NOT NULL,
+    FOREIGN KEY (camera_id) REFERENCES cameras(camera_id)
 );
 
 CREATE TABLE IF NOT EXISTS vehicle_events (
@@ -148,6 +197,24 @@ CREATE TABLE IF NOT EXISTS vehicle_events (
     destination_leg_id              INTEGER,
     destination_confidence          REAL,
     destination_posterior_json      TEXT,
+    -- Precomputed near-tie margin P(top)-P(2nd) of the posterior (1.0 = peaked),
+    -- so the review flag feeder can filter ambiguous-movement events in SQL
+    -- instead of parsing every posterior in Python. See services/posterior.py.
+    destination_margin              REAL,
+    -- Partial-evidence posterior (item-8 mechanism 1, posterior half): the
+    -- ORIGIN posterior for tracks with no entry-gate evidence, counted at the
+    -- posterior max. Margin below ORIGIN_POSTERIOR_MARGIN_FLOOR feeds the
+    -- origin_ambiguous flag subtype. NULL everywhere else (incl. legacy).
+    origin_posterior_json           TEXT,
+    origin_margin                   REAL,
+    -- Which posterior branch produced this event (conservation-pass join key
+    -- + run-2 instrumentation): 'branch1' / 'rescue_full' / 'rescue_supports'
+    -- / 'dest_tie'. NULL = the legacy chain (non-additive).
+    posterior_source                TEXT,
+    -- §3-D articulated: the vehicle's max bbox length + center-y at that max, for
+    -- the view-invariant size test (semi vs box truck). See services/articulated.py.
+    bbox_length                     REAL,
+    bbox_center_y                   REAL,
     FOREIGN KEY (origin_leg_id) REFERENCES legs(leg_id),
     FOREIGN KEY (video_id) REFERENCES videos(video_id),
     FOREIGN KEY (camera_id) REFERENCES cameras(camera_id),
@@ -204,6 +271,41 @@ CREATE TABLE IF NOT EXISTS calibration_suggestions (
     job_metadata    TEXT,                                -- sample window, n_trajectories, etc
     FOREIGN KEY (camera_id) REFERENCES cameras(camera_id)
 );
+
+-- Phase B review flag queue (MASTER_PLAN §3-B). Two feeders write here:
+--   kind='uncertain_event' — event-anchored, low confidence / ambiguous class —
+--                            "what the system is unsure about".
+--   kind='suspected_gap'   — an interval+approach the run looks to UNDER-count,
+--                            from the blind coverage/conservation diagnostic —
+--                            "what it MISSED" (an undetected vehicle emits no
+--                            event, so a confidence queue alone can never see it).
+-- `impact` (estimated affected vehicles) drives worklist ordering. Rebuild is
+-- idempotent: it clears status='open' rows and re-derives, keeping worked history.
+-- `event_id` is deliberately NOT a foreign key: apply_bank.py deletes/rebuilds
+-- vehicle_events on every re-bank, and an enforced child->parent FK would crash
+-- that delete or cascade away resolved-flag history. Enrichment LEFT-JOINs and
+-- tolerates a vanished event (it is skipped and auto-cleared on next rebuild).
+CREATE TABLE IF NOT EXISTS review_flags (
+    flag_id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    intersection_id        INTEGER NOT NULL,
+    camera_id              INTEGER,
+    kind                   TEXT NOT NULL,                 -- uncertain_event | suspected_gap
+    subtype                TEXT NOT NULL,                 -- low_traj_conf | ambiguous_dest | coverage_sag | ...
+    event_id               INTEGER,                       -- nullable; NO FK (see note above)
+    interval_start_seconds REAL,                          -- nullable; gap window (video time)
+    interval_end_seconds   REAL,
+    approach               TEXT,                          -- bound-approach label, e.g. 'NB'
+    movement               TEXT,                          -- through|left|right|u_turn
+    impact                 REAL NOT NULL DEFAULT 1,
+    reason                 TEXT NOT NULL DEFAULT '',       -- human "why flagged"
+    evidence_json          TEXT,                           -- JSON: baseline/observed/posterior
+    batch_key              TEXT,                           -- groups identically-resolvable flags
+    status                 TEXT NOT NULL DEFAULT 'open',   -- open|accepted|dismissed|resolved
+    created_at             TEXT NOT NULL,
+    resolved_at            TEXT,
+    FOREIGN KEY (intersection_id) REFERENCES intersections(intersection_id),
+    FOREIGN KEY (camera_id)       REFERENCES cameras(camera_id)
+);
 """
 
 # Indexes are kept out of SCHEMA because they reference columns added by the
@@ -213,7 +315,34 @@ INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_events_video  ON vehicle_events(video_id);
 CREATE INDEX IF NOT EXISTS idx_events_camera ON vehicle_events(camera_id);
 CREATE INDEX IF NOT EXISTS idx_events_trim   ON vehicle_events(trim_id);
+-- Covering index for the conservation/acceptance aggregations
+-- (_cardinal_volumes GROUP BY origin/dest over a camera set). The DB lives on a
+-- OneDrive-synced path where scattered table-row reads are pathologically slow
+-- (~26s/intersection cold); this index makes the grouped query index-only
+-- (USING COVERING INDEX), cutting the export/QA gate from ~100s to seconds.
+-- video_id is appended so coverage_qa._binned_io (the flag-rebuild corridor-gap
+-- scan, which JOINs videos for recording_start) is ALSO index-only — else its
+-- GROUP BY drags in every row's trajectory_data blob (the >2-min rebuild hang).
+-- New name (not IF-NOT-EXISTS on the old one) so the one-time widen is idempotent.
+DROP INDEX IF EXISTS idx_events_cardinal;
+CREATE INDEX IF NOT EXISTS idx_events_cardinal_v ON vehicle_events(camera_id, rejected, destination_leg_id, origin_leg_id, timestamp_video, video_id);
+-- Covering index for the export/preview TMC aggregation (GROUP BY origin_leg_id,
+-- movement[, fhwa_class]). Without it a full-table scan drags in every row's large
+-- trajectory_data blob (~50s cold on the OneDrive DB); index-only here. Includes
+-- fhwa_class so the L/M/A class breakdown (Phase 3E) is index-only too. Supersedes
+-- the earlier 2-col idx_events_origin_movement (dropped).
+DROP INDEX IF EXISTS idx_events_origin_movement;
+CREATE INDEX IF NOT EXISTS idx_events_tmv ON vehicle_events(origin_leg_id, movement, fhwa_class);
+-- feed_uncertain_events seeks only the events that could trip a standalone flag
+-- (low detection confidence OR small destination margin), within the active,
+-- non-edited set. The precomputed destination_margin lets that filter run on the
+-- index (no per-event posterior parse, no 30k-row Python materialize); the OR is
+-- evaluated index-only within each camera's (rejected=0, manually_edited=0)
+-- partition, and only the few candidates read their full rows.
+CREATE INDEX IF NOT EXISTS idx_events_uncertain ON vehicle_events(camera_id, rejected, manually_edited, detection_confidence, destination_margin);
 CREATE INDEX IF NOT EXISTS idx_paths_camera  ON intersection_paths(camera_id);
+CREATE INDEX IF NOT EXISTS idx_flags_isect_status ON review_flags(intersection_id, status);
+CREATE INDEX IF NOT EXISTS idx_flags_event        ON review_flags(event_id);
 """
 
 
@@ -229,6 +358,22 @@ def get_db_path(project_id: str) -> Path:
     return get_project_dir(project_id) / "project.db"
 
 
+def _backfill_destination_margin(conn: sqlite3.Connection) -> None:
+    """Populate destination_margin for events that lack it. On the initial
+    migration this is every legacy event (one-time; heavy on the OneDrive DB but
+    bounded); in steady state it is zero, because the pipeline sets the margin at
+    write time. Targets only NULL rows so a stray writer that forgot the column
+    triggers a cheap incremental fix, not a full re-scan."""
+    rows = conn.execute(
+        "SELECT event_id, destination_posterior_json FROM vehicle_events "
+        "WHERE destination_margin IS NULL").fetchall()
+    if not rows:
+        return
+    conn.executemany(
+        "UPDATE vehicle_events SET destination_margin = ? WHERE event_id = ?",
+        [(margin_from_json(pj), eid) for eid, pj in rows])
+
+
 def get_connection(project_id: str) -> sqlite3.Connection:
     """Open a connection to a project's database.
     Creates DB and all 6 tables if they don't exist.
@@ -239,6 +384,10 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    # Wait up to 5s for a write lock instead of failing instantly with
+    # "database is locked" — matters under WAL when connections churn rapidly
+    # (and on OneDrive-backed paths that briefly hold file locks).
+    conn.execute("PRAGMA busy_timeout=5000")
     conn.executescript(SCHEMA)
 
     # Migrations for existing DBs created under earlier schemas.
@@ -272,6 +421,41 @@ def get_connection(project_id: str) -> sqlite3.Connection:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_confidence REAL")
     if "destination_posterior_json" not in ev_cols:
         conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_posterior_json TEXT")
+    if "destination_margin" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN destination_margin REAL")
+    # 2026-07-06: per-vehicle max bbox length + its center-y, for the §3-D
+    # articulated size test (exact from the tracker -> no cache re-linking).
+    if "bbox_length" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN bbox_length REAL")
+    if "bbox_center_y" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN bbox_center_y REAL")
+    # 2026-07-15: partial-evidence posterior (posterior half) — origin
+    # posterior + margin for unevidenced tracks. Nullable, no backfill:
+    # legacy rows and evidenced tracks simply have NULL (never flagged).
+    if "origin_posterior_json" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN origin_posterior_json TEXT")
+    if "origin_margin" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN origin_margin REAL")
+    if "posterior_source" not in ev_cols:
+        conn.execute("ALTER TABLE vehicle_events ADD COLUMN posterior_source TEXT")
+    # One-time backfill, guarded by an O(1) sentinel — the NULL-margin probe is a
+    # full scan, so we must NOT run it on every connection. New events get their
+    # margin at write time; any stray NULL is still caught by the feeder's
+    # `destination_margin IS NULL` net, so a single backfill is sufficient.
+    if conn.execute("SELECT value FROM project_info WHERE key = "
+                    "'destination_margin_backfilled'").fetchone() is None:
+        _backfill_destination_margin(conn)
+        conn.execute("INSERT OR REPLACE INTO project_info (key, value) "
+                     "VALUES ('destination_margin_backfilled', '1')")
+
+    # Detection cache (Attribution v2 / Step 1): a stable content hash per video
+    # keys the per-(camera, hash) Parquet detection cache. Nullable; computed
+    # lazily on first cache write. See backend/services/detection_cache.py.
+    vid_cols = [r[1] for r in conn.execute("PRAGMA table_info(videos)").fetchall()]
+    if "content_hash" not in vid_cols:
+        conn.execute("ALTER TABLE videos ADD COLUMN content_hash TEXT DEFAULT NULL")
+    if "content_hash_method" not in vid_cols:
+        conn.execute("ALTER TABLE videos ADD COLUMN content_hash_method TEXT DEFAULT NULL")
 
     cp_cols = [r[1] for r in conn.execute("PRAGMA table_info(checkpoint)").fetchall()]
     if "current_video_id" not in cp_cols:
@@ -308,6 +492,50 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     leg_cols = [r[1] for r in conn.execute("PRAGMA table_info(legs)").fetchall()]
     if "camera_id" not in leg_cols:
         conn.execute("ALTER TABLE legs ADD COLUMN camera_id INTEGER DEFAULT NULL")
+
+    # v3.calibration: per-camera detection/tracking knobs (NULL = use config.py).
+    cam_cols = [r[1] for r in conn.execute("PRAGMA table_info(cameras)").fetchall()]
+    if "calib_pre_track_nms_iou" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_pre_track_nms_iou REAL")
+    if "calib_tracker_lost_buffer" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_tracker_lost_buffer INTEGER")
+    if "calib_tracker_match_threshold" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_tracker_match_threshold REAL")
+    if "calib_tracker_activation_threshold" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_tracker_activation_threshold REAL")
+    # Phase 1 tracker knobs (docs/implementation_plan_architecture_2026-06-11.md):
+    # buffered-IoU box inflation, finalize-time track-quality gate, and the
+    # BoT-SORT birth threshold (distinct from activation/track_high).
+    if "calib_bbox_buffer_scale" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_bbox_buffer_scale REAL")
+    if "calib_track_quality_filter" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_track_quality_filter INTEGER")
+    if "calib_new_track_thresh" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_new_track_thresh REAL")
+    # Phase 2.3: per-camera joint-scorer cost metric (NULL = config default).
+    if "calib_cost_metric" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_cost_metric TEXT")
+    # 2026-07-02: per-camera speed-tiebreak opt-in (NULL = config default, 0 off, 1 on).
+    if "calib_speed_tiebreak" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_speed_tiebreak INTEGER")
+    # 2026-07-10 (two-pass stage 3): per-camera pass-1 tracking recipe.
+    # NULL = 'bytetrack' (live default). 'botsort' / 'botsort+reid' where the
+    # A2 tier-2 context showed the live table depends on it (cam1 ReID
+    # recovers -529 NB-thru; cam2's live table is a BoT product).
+    if "calib_pass1_backend" not in cam_cols:
+        conn.execute("ALTER TABLE cameras ADD COLUMN calib_pass1_backend TEXT")
+
+    # 2026-07-02: per-path pixel-speed signature (median step of supporting
+    # tracks) feeding the shared-exit collinear speed-tiebreak; NULL = unset.
+    ip_cols = [r[1] for r in conn.execute("PRAGMA table_info(intersection_paths)").fetchall()]
+    if "expected_speed" not in ip_cols:
+        conn.execute("ALTER TABLE intersection_paths ADD COLUMN expected_speed REAL")
+    # 2026-07-10 (A4a): duration the supporting_count sample covered — scales
+    # the turn-merge volume gate to the counting window. NULL = unknown; the
+    # merge falls back to 1800 s (the corridor banks were 30-min samples) with
+    # a logged warning. Corpus-built banks (§3-A) write the corpus window.
+    if "sample_window_seconds" not in ip_cols:
+        conn.execute("ALTER TABLE intersection_paths ADD COLUMN sample_window_seconds REAL")
 
     # Indexes after migrations so legacy DBs that gained columns above
     # can be indexed on them now that they exist.
@@ -690,8 +918,148 @@ def get_calibration_params(project_id: str, intersection_id: int) -> dict:
             for k in defaults}
 
 
+# Per-camera detection/tracking knob keys. Stored as calib_<key> columns on the
+# cameras table; resolved against backend/config.py defaults. Kept distinct from
+# the per-intersection classification tunables above (different table, different
+# concern: these are camera+resolution artifacts).
+_CAMERA_CALIB_KEYS = (
+    "pre_track_nms_iou",
+    "tracker_lost_buffer",
+    "tracker_match_threshold",
+    "tracker_activation_threshold",
+    "bbox_buffer_scale",
+    "track_quality_filter",
+    "new_track_thresh",
+    "cost_metric",
+)
+
+
+def get_camera_calibration_params(project_id: str, camera_id: int) -> dict:
+    """Effective tunables for one camera's pipeline run: the per-INTERSECTION
+    classification tunables (from get_calibration_params, resolved to override-
+    or-default) MERGED with the per-CAMERA detection/tracking knobs.
+
+    NOTE the deliberate asymmetry: the per-camera knobs are returned as the RAW
+    OVERRIDE — the configured value, or **None when unset** — NOT resolved to a
+    config default. This is what feeds the pipeline's precedence chain
+    (per-camera override > explicit/mode arg > config default): returning a
+    resolved default here would make an unset knob indistinguishable from a real
+    override and clobber a deliberate explicit/sweep value. Use
+    resolve_camera_knob_defaults() for a display-friendly resolved view.
+
+    Raises ValueError if the camera doesn't exist.
+    """
+    cam = get_camera(project_id, camera_id)
+    if cam is None:
+        raise ValueError(f"camera {camera_id} not found in {project_id}")
+    params = get_calibration_params(project_id, cam["intersection_id"])
+
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT calib_pre_track_nms_iou, calib_tracker_lost_buffer, "
+            "calib_tracker_match_threshold, calib_tracker_activation_threshold, "
+            "calib_bbox_buffer_scale, calib_track_quality_filter, "
+            "calib_new_track_thresh, calib_cost_metric, calib_speed_tiebreak, "
+            "calib_pass1_backend "
+            "FROM cameras WHERE camera_id = ?",
+            (camera_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    params["pre_track_nms_iou"] = row["calib_pre_track_nms_iou"]
+    params["tracker_lost_buffer"] = row["calib_tracker_lost_buffer"]
+    params["tracker_match_threshold"] = row["calib_tracker_match_threshold"]
+    params["tracker_activation_threshold"] = row["calib_tracker_activation_threshold"]
+    params["bbox_buffer_scale"] = row["calib_bbox_buffer_scale"]
+    params["track_quality_filter"] = row["calib_track_quality_filter"]
+    params["new_track_thresh"] = row["calib_new_track_thresh"]
+    params["cost_metric"] = row["calib_cost_metric"]
+    # None when unset -> pipeline resolves to the config default; 0/1 = explicit.
+    params["speed_tiebreak"] = row["calib_speed_tiebreak"]
+    # None -> 'bytetrack' at the pass-1 job (two-pass stage 3).
+    params["pass1_backend"] = row["calib_pass1_backend"]
+    return params
+
+
+def resolve_camera_knob_defaults(knobs: dict) -> dict:
+    """Resolve the per-camera knobs (raw overrides, None when unset) to their
+    effective values against backend/config.py — for display in the calibration
+    UI. The pipeline does NOT use this; it needs the raw overrides for its
+    precedence chain. NMS resolves to the global PRE_TRACK_NMS_IOU (may be None).
+    """
+    from backend.config import (
+        JOINT_SCORER_COST_METRIC, PRE_TRACK_NMS_IOU, TRACKER_LOST_BUFFER,
+        TRACKER_MATCH_THRESHOLD, TRACKER_ACTIVATION_THRESHOLD,
+    )
+    defaults = {
+        "pre_track_nms_iou": PRE_TRACK_NMS_IOU,
+        "tracker_lost_buffer": TRACKER_LOST_BUFFER,
+        "tracker_match_threshold": TRACKER_MATCH_THRESHOLD,
+        "tracker_activation_threshold": TRACKER_ACTIVATION_THRESHOLD,
+        # Phase 1 knobs: defaults = feature off / library default.
+        "bbox_buffer_scale": 1.0,
+        "track_quality_filter": 0,
+        "new_track_thresh": 0.3,   # BoT-SORT wrapper default (tracker.py)
+        "cost_metric": JOINT_SCORER_COST_METRIC,
+    }
+    return {k: (knobs[k] if knobs.get(k) is not None else defaults[k]) for k in defaults}
+
+
+def update_camera_calibration(
+    project_id: str,
+    camera_id: int,
+    *,
+    calib_pre_track_nms_iou: float | None | _ClearToDefault = None,
+    calib_tracker_lost_buffer: int | None | _ClearToDefault = None,
+    calib_tracker_match_threshold: float | None | _ClearToDefault = None,
+    calib_tracker_activation_threshold: float | None | _ClearToDefault = None,
+    calib_bbox_buffer_scale: float | None | _ClearToDefault = None,
+    calib_track_quality_filter: int | None | _ClearToDefault = None,
+    calib_new_track_thresh: float | None | _ClearToDefault = None,
+    calib_cost_metric: str | None | _ClearToDefault = None,
+    calib_speed_tiebreak: int | None | _ClearToDefault = None,
+) -> None:
+    """Update a camera's per-camera detection/tracking knobs. Each arg is
+    three-state (mirrors update_intersection):
+      - default (None): don't touch this column
+      - CLEAR_TO_DEFAULT: set the column to NULL (revert to config default)
+      - value: set the column to that value
+    """
+    sets, params = [], []
+    for col, val, cast in (
+        ("calib_pre_track_nms_iou", calib_pre_track_nms_iou, float),
+        ("calib_tracker_lost_buffer", calib_tracker_lost_buffer, int),
+        ("calib_tracker_match_threshold", calib_tracker_match_threshold, float),
+        ("calib_tracker_activation_threshold", calib_tracker_activation_threshold, float),
+        ("calib_bbox_buffer_scale", calib_bbox_buffer_scale, float),
+        ("calib_track_quality_filter", calib_track_quality_filter, int),
+        ("calib_new_track_thresh", calib_new_track_thresh, float),
+        ("calib_cost_metric", calib_cost_metric, str),
+        ("calib_speed_tiebreak", calib_speed_tiebreak, int),
+    ):
+        if val is None:
+            continue  # don't touch
+        sets.append(f"{col} = ?")
+        params.append(None if isinstance(val, _ClearToDefault) else cast(val))
+    if not sets:
+        return
+    params.append(camera_id)
+    conn = get_connection(project_id)
+    try:
+        conn.execute(
+            f"UPDATE cameras SET {', '.join(sets)} WHERE camera_id = ?",
+            params,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def remove_intersection(project_id: str, intersection_id: int) -> None:
-    """Cascade-delete: trims, cameras, legs (via camera FK), and unlink videos."""
+    """Cascade-delete: trims, cameras, legs (via camera FK), review flags, and
+    unlink videos."""
     conn = get_connection(project_id)
     try:
         with conn:
@@ -702,6 +1070,7 @@ def remove_intersection(project_id: str, intersection_id: int) -> None:
             for cid in cam_ids:
                 conn.execute("DELETE FROM legs WHERE camera_id = ?", (cid,))
                 conn.execute("UPDATE videos SET camera_id = NULL WHERE camera_id = ?", (cid,))
+            conn.execute("DELETE FROM review_flags WHERE intersection_id = ?", (intersection_id,))
             conn.execute("DELETE FROM cameras WHERE intersection_id = ?", (intersection_id,))
             conn.execute("DELETE FROM trims WHERE intersection_id = ?", (intersection_id,))
             conn.execute("DELETE FROM intersections WHERE intersection_id = ?", (intersection_id,))
@@ -798,12 +1167,13 @@ def update_camera(
 
 
 def remove_camera(project_id: str, camera_id: int) -> None:
-    """Cascade-delete: legs, unlink videos."""
+    """Cascade-delete: legs, review flags, unlink videos."""
     conn = get_connection(project_id)
     try:
         with conn:
             conn.execute("DELETE FROM legs WHERE camera_id = ?", (camera_id,))
             conn.execute("UPDATE videos SET camera_id = NULL WHERE camera_id = ?", (camera_id,))
+            conn.execute("DELETE FROM review_flags WHERE camera_id = ?", (camera_id,))
             conn.execute("DELETE FROM cameras WHERE camera_id = ?", (camera_id,))
     finally:
         conn.close()
@@ -1008,7 +1378,7 @@ def heal_v3_running_to_interrupted(project_id: str) -> list[int]:
 
 _PATH_FIELDS = (
     "path_id", "camera_id", "origin_leg_id", "destination_leg_id",
-    "polyline", "movement_label", "supporting_count", "source",
+    "polyline", "movement_label", "supporting_count", "expected_speed", "source",
     "last_observed_at", "created_at",
 )
 
@@ -1110,6 +1480,64 @@ def clear_paths_for_camera(project_id: str, camera_id: int) -> int:
         return cur.rowcount
     finally:
         conn.close()
+
+
+# -- Operator-drawn channels (Phase 2.1) --------------------------------------
+
+def _row_to_channel(row: sqlite3.Row) -> dict:
+    return {
+        "channel_id": row["channel_id"],
+        "camera_id": row["camera_id"],
+        "origin_leg_id": row["origin_leg_id"],
+        "destination_leg_id": row["destination_leg_id"],
+        "movement": row["movement"],
+        "entry": json.loads(row["entry_pt"]),
+        "apex": json.loads(row["apex_pt"]),
+        "exit": json.loads(row["exit_pt"]),
+        "width_in": row["width_in"],
+        "width_out": row["width_out"],
+        "created_at": row["created_at"],
+    }
+
+
+def list_channels_for_camera(project_id: str, camera_id: int) -> list[dict]:
+    """All operator-drawn channels for a camera."""
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM channels WHERE camera_id = ? "
+            "ORDER BY origin_leg_id, destination_leg_id, channel_id",
+            (camera_id,),
+        ).fetchall()
+        return [_row_to_channel(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def replace_channels_for_camera(project_id: str, camera_id: int,
+                                channels: list[dict]) -> list[dict]:
+    """Full replace of a camera's channels (the editor saves the whole set).
+    Touches ONLY the channels table — never events or paths."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_connection(project_id)
+    try:
+        with conn:
+            conn.execute("DELETE FROM channels WHERE camera_id = ?", (camera_id,))
+            for ch in channels:
+                conn.execute(
+                    """INSERT INTO channels
+                       (camera_id, origin_leg_id, destination_leg_id, movement,
+                        entry_pt, apex_pt, exit_pt, width_in, width_out, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (camera_id, ch["origin_leg_id"], ch["destination_leg_id"],
+                     ch["movement"], json.dumps(ch["entry"]), json.dumps(ch["apex"]),
+                     json.dumps(ch["exit"]), float(ch.get("width_in", 40)),
+                     float(ch.get("width_out", 40)), now),
+                )
+    finally:
+        conn.close()
+    return list_channels_for_camera(project_id, camera_id)
 
 
 # -- v3: auto-calibration suggestions ----------------------------------------
@@ -1227,31 +1655,42 @@ def ensure_default_intersection_for_legacy(project_id: str) -> int | None:
     created (or already existed for legacy data); None if there's nothing
     to migrate.
     """
+    # Once a project has been initialized under v3 (via save-labels or a prior
+    # bootstrap), never auto-create a default intersection again — otherwise
+    # deleting an intersection (which unlinks its videos) would resurrect a
+    # phantom 'Main intersection' on the next list.
+    if get_project_info(project_id, "v3_initialized"):
+        return None
+
     conn = get_connection(project_id)
     try:
-        # If there are no videos at all, nothing to migrate.
         n_videos = conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
-        if n_videos == 0:
-            return None
-
-        # If every video already has a camera_id, we're already on v3.
-        n_unlinked = conn.execute(
-            "SELECT COUNT(*) FROM videos WHERE camera_id IS NULL"
-        ).fetchone()[0]
-        if n_unlinked == 0:
-            return None
-
-        # Pick a date: earliest recording_start_time or recording_start_datetime
-        # among unlinked videos, falling back to today.
-        date_row = conn.execute(
-            """SELECT COALESCE(MIN(recording_start_datetime),
-                               MIN(recording_start_time),
-                               MIN(creation_time))
-               FROM videos WHERE camera_id IS NULL"""
-        ).fetchone()
-        date_str = (date_row[0] or datetime.now().isoformat())[:10]
+        n_unlinked = (
+            conn.execute(
+                "SELECT COUNT(*) FROM videos WHERE camera_id IS NULL"
+            ).fetchone()[0]
+            if n_videos else 0
+        )
+        date_str = None
+        if n_videos and n_unlinked:
+            # Earliest recording time among unlinked videos; fall back to today.
+            date_row = conn.execute(
+                """SELECT COALESCE(MIN(recording_start_datetime),
+                                   MIN(recording_start_time),
+                                   MIN(creation_time))
+                   FROM videos WHERE camera_id IS NULL"""
+            ).fetchone()
+            date_str = (date_row[0] or datetime.now().isoformat())[:10]
     finally:
         conn.close()
+
+    if n_videos == 0:
+        return None
+    if n_unlinked == 0:
+        # Already linked by a v3 path — mark initialized so a later unlink
+        # (e.g. an intersection delete) can't trigger a phantom bootstrap.
+        set_project_info(project_id, "v3_initialized", "1")
+        return None
 
     iid = upsert_intersection(project_id, "Main intersection", date_str, leg_count=4)
     cid = upsert_camera(project_id, iid, "Camera 1")
@@ -1304,4 +1743,267 @@ def ensure_default_intersection_for_legacy(project_id: str) -> int | None:
             except Exception:
                 pass
 
+    set_project_info(project_id, "v3_initialized", "1")
     return iid
+
+
+# -- Phase B: review flag queue ----------------------------------------------
+#
+# The two-feeder blind-QA queue (MASTER_PLAN §3-B). insert_flag() takes the same
+# kwargs the feeders build, so a feeder can return a list of dicts and the
+# orchestrator just does insert_flag(**f). evidence_json is eager-parsed back to
+# a dict on read (the same convention as intersection_paths.polyline).
+
+_FLAG_FIELDS = (
+    "flag_id", "intersection_id", "camera_id", "kind", "subtype", "event_id",
+    "interval_start_seconds", "interval_end_seconds", "approach", "movement",
+    "impact", "reason", "evidence_json", "batch_key", "status",
+    "created_at", "resolved_at",
+)
+
+_FLAG_TERMINAL_STATUSES = ("accepted", "dismissed", "resolved")
+_FLAG_STATUSES = ("open",) + _FLAG_TERMINAL_STATUSES
+
+
+def _row_to_flag(row: sqlite3.Row) -> dict:
+    out = {k: row[k] for k in _FLAG_FIELDS}
+    raw = out.pop("evidence_json")
+    if isinstance(raw, str):
+        try:
+            out["evidence"] = json.loads(raw)
+        except (TypeError, ValueError):
+            out["evidence"] = {}
+    else:
+        out["evidence"] = raw or {}
+    return out
+
+
+def insert_flag(
+    project_id: str,
+    *,
+    intersection_id: int,
+    kind: str,
+    subtype: str,
+    camera_id: int | None = None,
+    event_id: int | None = None,
+    interval_start_seconds: float | None = None,
+    interval_end_seconds: float | None = None,
+    approach: str | None = None,
+    movement: str | None = None,
+    impact: float = 1.0,
+    reason: str = "",
+    evidence: dict | None = None,
+    batch_key: str | None = None,
+    status: str = "open",
+) -> int:
+    """Insert one review flag. Returns flag_id."""
+    now = datetime.now(timezone.utc).isoformat()
+    ev = json.dumps(evidence) if evidence is not None else None
+    conn = get_connection(project_id)
+    try:
+        cur = conn.execute(
+            """INSERT INTO review_flags
+               (intersection_id, camera_id, kind, subtype, event_id,
+                interval_start_seconds, interval_end_seconds, approach, movement,
+                impact, reason, evidence_json, batch_key, status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (intersection_id, camera_id, kind, subtype, event_id,
+             interval_start_seconds, interval_end_seconds, approach, movement,
+             float(impact), reason, ev, batch_key, status, now),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def insert_flags(project_id: str, intersection_id: int, flags: list[dict]) -> int:
+    """Batch-insert review flags in ONE transaction. rebuild_flags inserts
+    hundreds at once; per-flag insert_flag() opens + commits + closes a connection
+    each time, and on the OneDrive-backed DB each commit is a slow fsync/sync
+    (533 flags took ~16 min). One connection + executemany + one commit collapses
+    that to a single sync. Each dict uses the insert_flag(...) keyword names (minus
+    project_id/intersection_id). Returns the number inserted."""
+    if not flags:
+        return 0
+    now = datetime.now(timezone.utc).isoformat()
+    rows = []
+    for f in flags:
+        ev = f.get("evidence")
+        rows.append((
+            intersection_id, f.get("camera_id"), f["kind"], f["subtype"], f.get("event_id"),
+            f.get("interval_start_seconds"), f.get("interval_end_seconds"),
+            f.get("approach"), f.get("movement"), float(f.get("impact", 1.0)),
+            f.get("reason", ""), json.dumps(ev) if ev is not None else None,
+            f.get("batch_key"), f.get("status", "open"), now))
+    conn = get_connection(project_id)
+    try:
+        conn.executemany(
+            """INSERT INTO review_flags
+               (intersection_id, camera_id, kind, subtype, event_id,
+                interval_start_seconds, interval_end_seconds, approach, movement,
+                impact, reason, evidence_json, batch_key, status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            rows)
+        conn.commit()
+        return len(rows)
+    finally:
+        conn.close()
+
+
+def list_flags(
+    project_id: str,
+    intersection_id: int,
+    *,
+    status: str | None = "open",
+    kind: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> list[dict]:
+    """Flags for an intersection, impact-DESC then oldest-first. status=None or
+    'all' returns every status; otherwise filter to that one status."""
+    where = ["intersection_id = ?"]
+    params: list = [intersection_id]
+    if status not in (None, "all"):
+        where.append("status = ?"); params.append(status)
+    if kind is not None:
+        where.append("kind = ?"); params.append(kind)
+    sql = (f"SELECT * FROM review_flags WHERE {' AND '.join(where)} "
+           "ORDER BY impact DESC, created_at ASC, flag_id ASC")
+    if limit is not None:
+        sql += " LIMIT ? OFFSET ?"; params += [int(limit), int(offset)]
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(sql, params).fetchall()
+        return [_row_to_flag(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_flag(project_id: str, flag_id: int) -> dict | None:
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM review_flags WHERE flag_id = ?", (flag_id,),
+        ).fetchone()
+        return _row_to_flag(row) if row else None
+    finally:
+        conn.close()
+
+
+def update_flag_status(project_id: str, flag_id: int, status: str) -> None:
+    """Set a flag's status; stamps resolved_at when terminal, clears it on reopen."""
+    resolved_at = (datetime.now(timezone.utc).isoformat()
+                   if status in _FLAG_TERMINAL_STATUSES else None)
+    conn = get_connection(project_id)
+    try:
+        conn.execute(
+            "UPDATE review_flags SET status = ?, resolved_at = ? WHERE flag_id = ?",
+            (status, resolved_at, flag_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def clear_open_flags(project_id: str, intersection_id: int) -> int:
+    """Delete this intersection's OPEN flags (the idempotent-rebuild primitive).
+    Worked flags (accepted/dismissed/resolved) are kept as history. Returns the
+    number deleted."""
+    conn = get_connection(project_id)
+    try:
+        cur = conn.execute(
+            "DELETE FROM review_flags WHERE intersection_id = ? AND status = 'open'",
+            (intersection_id,),
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def flag_summary(project_id: str, intersection_id: int) -> dict:
+    """Counts by status and (open-only) by kind, plus the open-flag impact total
+    — the remaining-work signal for the acceptance gate / stopping rule."""
+    conn = get_connection(project_id)
+    try:
+        status_rows = conn.execute(
+            "SELECT status, COUNT(*) FROM review_flags WHERE intersection_id = ? "
+            "GROUP BY status", (intersection_id,)).fetchall()
+        kind_rows = conn.execute(
+            "SELECT kind, COUNT(*), COALESCE(SUM(impact), 0) FROM review_flags "
+            "WHERE intersection_id = ? AND status = 'open' GROUP BY kind",
+            (intersection_id,)).fetchall()
+        open_impact = conn.execute(
+            "SELECT COALESCE(SUM(impact), 0) FROM review_flags "
+            "WHERE intersection_id = ? AND status = 'open'",
+            (intersection_id,)).fetchone()[0]
+        # Worklist CARDS: batch-keyed flags collapse to one card per key;
+        # unkeyed flags are one card each (plan_flood_control_2026-07-09).
+        open_cards = conn.execute(
+            "SELECT COUNT(DISTINCT COALESCE(batch_key, 'f' || flag_id)) "
+            "FROM review_flags WHERE intersection_id = ? AND status = 'open'",
+            (intersection_id,)).fetchone()[0]
+    finally:
+        conn.close()
+    by_status = {s: n for s, n in status_rows}
+    return {
+        "intersection_id": intersection_id,
+        "open": by_status.get("open", 0),
+        "accepted": by_status.get("accepted", 0),
+        "dismissed": by_status.get("dismissed", 0),
+        "resolved": by_status.get("resolved", 0),
+        "by_kind": {k: n for k, n, _imp in kind_rows},
+        # Per-kind OPEN impact — the gate needs suspected_gap impact (estimated
+        # missed vehicles) separately from uncertain_event count, since their
+        # units differ and must NOT be summed. See spot_check.acceptance().
+        "open_impact_by_kind": {k: round(float(imp), 1) for k, _n, imp in kind_rows},
+        "open_impact": round(float(open_impact), 1),
+        "open_cards": open_cards,
+    }
+
+
+def batch_resolve_flags(project_id: str, intersection_id: int, batch_key: str,
+                        status: str, movement: str | None = None) -> dict:
+    """Apply a status to ALL open flags sharing a batch_key in an intersection,
+    optionally setting `movement` on their anchored events first (mirrors the
+    single-edit path in routers/review.py: movement + manually_edited=1). Powers
+    the worklist's one-key batch resolve.
+
+    Returns {"affected": n, "changes": [...]} where changes carries each
+    member's PRIOR values (captured in the same transaction, before the
+    UPDATEs) — the worklist's undo stack needs them to revert a batch without
+    leaving events falsely marked operator-edited (plan_C_polish §3b)."""
+    resolved_at = (datetime.now(timezone.utc).isoformat()
+                   if status in _FLAG_TERMINAL_STATUSES else None)
+    conn = get_connection(project_id)
+    try:
+        with conn:
+            rows = conn.execute(
+                "SELECT f.flag_id, f.event_id, e.movement, e.manually_edited "
+                "FROM review_flags f "
+                "LEFT JOIN vehicle_events e ON e.event_id = f.event_id "
+                "WHERE f.intersection_id = ? AND f.batch_key = ? "
+                "AND f.status = 'open'",
+                (intersection_id, batch_key)).fetchall()
+            if not rows:
+                return {"affected": 0, "changes": []}
+            changes = [{"flag_id": r[0], "event_id": r[1],
+                        "prior_movement": r[2], "prior_manually_edited": r[3]}
+                       for r in rows]
+            flag_ids = [r[0] for r in rows]
+            event_ids = [r[1] for r in rows if r[1] is not None]
+            if movement and event_ids:
+                ph = ",".join("?" * len(event_ids))
+                conn.execute(
+                    f"UPDATE vehicle_events SET movement = ?, manually_edited = 1 "
+                    f"WHERE event_id IN ({ph})", [movement, *event_ids])
+            ph = ",".join("?" * len(flag_ids))
+            conn.execute(
+                f"UPDATE review_flags SET status = ?, resolved_at = ? "
+                f"WHERE flag_id IN ({ph})", [status, resolved_at, *flag_ids])
+        return {"affected": len(flag_ids), "changes": changes}
+    finally:
+        conn.close()

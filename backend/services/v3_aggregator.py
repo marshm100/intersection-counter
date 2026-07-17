@@ -255,12 +255,49 @@ def aggregate_intersection_day(project_id: str, intersection_id: int) -> dict:
             "raw_event_count": len(cam_rows),
         })
 
+    # Per-interval breakdown (Phase 4 full-study Excel): wall-clock bins of
+    # DEFAULT_INTERVAL_MINUTES, counts per approach CARDINAL x movement — the
+    # standard TMC interval table. Only bins with events appear, so a
+    # peak-period study (07-09 / 11-13 / 16-18) naturally shows its three
+    # segments without empty midday rows.
+    from backend.config import DEFAULT_INTERVAL_MINUTES
+    bin_sec = DEFAULT_INTERVAL_MINUTES * 60
+    bins: dict[datetime, dict[str, dict[str, int]]] = {}
+    for row in kept_rows:
+        video_start = row.get("video_start")
+        if not video_start:
+            continue
+        try:
+            wall = datetime.fromisoformat(video_start) + timedelta(
+                seconds=float(row["timestamp_video"] or 0))
+        except ValueError:
+            continue
+        day = wall.replace(hour=0, minute=0, second=0, microsecond=0)
+        bin_start = day + timedelta(
+            seconds=int((wall - day).total_seconds() // bin_sec) * bin_sec)
+        card = (row.get("cardinal_direction") or "?").upper()
+        b = bins.setdefault(bin_start, {})
+        cb = b.setdefault(card, {m: 0 for m in MOVEMENTS} | {"other": 0})
+        movement = row.get("movement") or "other"
+        cb[movement if movement in MOVEMENTS else "other"] += 1
+    intervals = []
+    for t in sorted(bins):
+        counts = bins[t]
+        intervals.append({
+            "start": t.isoformat(),
+            "label": t.strftime("%H:%M"),
+            "counts": counts,
+            "total": sum(sum(cb.values()) for cb in counts.values()),
+        })
+
     return {
         "intersection": intersection,
         "tmc_matrix": tmc_matrix,
         "od_matrix": od_matrix,
         "od_destinations": od_destinations,
         "per_camera_breakdown": per_camera_breakdown,
+        "intervals": intervals,
+        "interval_minutes": DEFAULT_INTERVAL_MINUTES,
         "totals": {"vehicles": sum(r["total"] for r in tmc_matrix)},
         "dedup_summary": {
             "merged": len(duplicate_ids),

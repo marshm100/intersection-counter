@@ -1,0 +1,140 @@
+{
+  "global_tiers": {
+    "polyline": 7348,
+    "tripwire": 1503,
+    "heading": 915,
+    "none": 19
+  },
+  "cells": [
+    {
+      "leg_id": 23,
+      "movement": "thru",
+      "polyline": 1840,
+      "tripwire": 1362,
+      "heading": 216,
+      "none": 1,
+      "total": 3419
+    },
+    {
+      "leg_id": 22,
+      "movement": "left",
+      "polyline": 1004,
+      "tripwire": 0,
+      "heading": 6,
+      "none": 2,
+      "total": 1012
+    },
+    {
+      "leg_id": 22,
+      "movement": "thru",
+      "polyline": 897,
+      "tripwire": 2,
+      "heading": 0,
+      "none": 0,
+      "total": 899
+    },
+    {
+      "leg_id": 22,
+      "movement": "right",
+      "polyline": 1348,
+      "tripwire": 0,
+      "heading": 0,
+      "none": 0,
+      "total": 1348
+    },
+    {
+      "leg_id": 25,
+      "movement": "left",
+      "polyline": 1714,
+      "tripwire": 4,
+      "heading": 8,
+      "none": 0,
+      "total": 1726
+    },
+    {
+      "leg_id": 24,
+      "movement": "left",
+      "polyline": 38,
+      "tripwire": 71,
+      "heading": 160,
+      "none": 0,
+      "total": 269
+    },
+    {
+      "leg_id": 24,
+      "movement": "right",
+      "polyline": 84,
+      "tripwire": 11,
+      "heading": 416,
+      "none": 15,
+      "total": 526
+    },
+    {
+      "leg_id": 23,
+      "movement": "right",
+      "polyline": 200,
+      "tripwire": 35,
+      "heading": 23,
+      "none": 0,
+      "total": 258
+    },
+    {
+      "leg_id": 24,
+      "movement": "thru",
+      "polyline": 3,
+      "tripwire": 1,
+      "heading": 20,
+      "none": 0,
+      "total": 24
+    },
+    {
+      "leg_id": 23,
+      "movement": "left",
+      "polyline": 16,
+      "tripwire": 13,
+      "heading": 8,
+      "none": 0,
+      "total": 37
+    },
+    {
+      "leg_id": 25,
+      "movement": "thru",
+      "polyline": 0,
+      "tripwire": 1,
+      "heading": 1,
+      "none": 0,
+      "total": 2
+    },
+    {
+      "leg_id": 25,
+      "movement": "right",
+      "polyline": 204,
+      "tripwire": 2,
+      "heading": 57,
+      "none": 0,
+      "total": 263
+    },
+    {
+      "leg_id": 24,
+      "movement": "uturn",
+      "polyline": 0,
+      "tripwire": 0,
+      "heading": 0,
+      "none": 1,
+      "total": 1
+    },
+    {
+      "leg_id": 23,
+      "movement": "uturn",
+      "polyline": 0,
+      "tripwire": 1,
+      "heading": 0,
+      "none": 0,
+      "total": 1
+    }
+  ],
+  "sanity": {
+    "replay_matches_stored_leg": 8982,
+    "total": 9785
+  }
+}

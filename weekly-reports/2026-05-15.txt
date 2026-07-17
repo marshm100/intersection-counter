@@ -1,0 +1,94 @@
+Weekly Report — Intersection Counter
+Week ending 2026-05-15. Two work days: Thursday May 14 and Friday May 15.
+
+================================================================
+TOP-LINE SUMMARY
+================================================================
+
+Two heavy build days. Thursday we tore out the single-video prototype
+and rebuilt the project around real-world traffic studies — multiple
+cameras per intersection, full-day recordings, time-window selection,
+automatic calibration, and the Excel report that pulls everything
+together. Friday we added a live monitoring dashboard so the engineer
+can watch the AI in real time, fixed a critical accuracy bug that had
+been silently dropping vehicle counts, and tightened up the UI flow
+between screens.
+
+
+================================================================
+THURSDAY MAY 14 — FOUNDATIONS AND REBUILD
+================================================================
+
+This day was the structural rewrite. The previous prototype could
+process one video at a time with one calibration. Real intersection
+studies use 4–5 cameras and 24-hour recordings, so we rebuilt the
+project model around that: every project now contains multiple cameras,
+each camera holds its own video files and its own calibrated approach
+lines, and each intersection-day can have one or more time windows
+("trims") that get processed and merged. The Videos page, the
+Intersections page (where the engineer drills into each leg), the
+Processing page, and the Excel export were all rewritten to fit. We
+also turned on automatic calibration — the system takes a first pass
+at drawing approach lines from a sample of the video and the engineer
+adjusts from there — and added a "Reject" workflow so the engineer
+can drop bad detections during review.
+
+By end of day this was a working end-to-end pipeline: upload →
+calibrate → process → review → Excel. Roughly the scope of one
+Implementation Plan "Phase" per hour for ten phases.
+
+
+================================================================
+FRIDAY MAY 15 — LIVE MONITORING, ACCURACY CRISIS, UI POLISH
+================================================================
+
+Started the day adding a LIVE VIEW of processing. Previously the
+engineer kicked off a run and waited blind for an hour. Now there's a
+dashboard that streams the AI's annotated view at ~30 frames per
+second, with the count table updating every two seconds. Also added a
+working CANCEL button — previously the only "cancel" had to wait hours
+for the current time window to finish; now it stops within a frame.
+
+Then the user noticed the AI was missing obvious vehicles in the live
+view, and the count panel stayed at zero even with cars clearly going
+through. The afternoon was a sustained debugging session that peeled
+through layers: it wasn't the AI's detection, it wasn't the
+calibration, it wasn't the count-display — it was a single bad setting
+in our object tracker that was treating every vehicle as a brand-new
+vehicle on each frame, so trajectories never grew long enough to
+count. Once corrected, counts started accumulating immediately. We
+also fixed several smaller UI issues (Configure button vanishing,
+status page errors, recalibration during active processing).
+
+
+================================================================
+TIME SPENT (APPROXIMATE)
+================================================================
+
+Area                                             Thu      Fri
+-----------------------------------------------  ------   ------
+Multi-camera / multi-intersection rebuild         ~6 h      —
+Auto-calibration + rejection workflow             ~2 h      —
+Live monitoring dashboard                          —       ~2 h
+Counting accuracy diagnosis & fix                  —       ~3 h
+Processing controls (Cancel, Stop)                 —       ~1 h
+UI polish & smaller fixes                          —       ~2 h
+-----------------------------------------------  ------   ------
+Day total                                        ~8 h     ~8 h
+
+Estimates based on first-prompt-to-last-prompt span per day, with
+the conversation log used as a sanity floor.
+
+
+================================================================
+WHERE THE PROJECT STANDS
+================================================================
+
+End-to-end loop works: upload videos → auto-calibrate each camera →
+run AI counting → watch it live → export Excel. With Friday's tracker
+fix, counts now land in the count table instead of being silently
+dropped — that was the big remaining blocker. Remaining work before
+daily use: validation against a real recorded intersection where the
+true counts are known, sensitivity tuning for different camera
+placements, and a few UI polish items on the live view. We're roughly
+two more sessions from a tool the team can use on a live job.

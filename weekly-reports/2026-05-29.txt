@@ -1,0 +1,62 @@
+WEEKLY REPORT — Intersection Counter
+Week of May 23–29, 2026
+
+================================================================
+HEADLINE: We discovered the tool had North/South and East/West
+labeled backwards at our test intersection — which would have put
+the wrong direction counts into the final report — fixed it, and
+roughly halved the remaining counting error (about 40% down to
+about 22%) on that intersection this week.
+================================================================
+
+TOP-LINE SUMMARY
+The whole week was spent on one thing: making the automated vehicle
+counts accurate enough to trust. We brought in a second AI assistant
+to pressure-test our approach, then methodically hunted down what was
+keeping us from matching the professional reference counts. The big
+result was catching a calibration bug that had quietly been mislabeling
+travel directions — a problem that affected both our accuracy
+measurements and the report a traffic engineer would hand to a client.
+
+WHAT GOT DONE, BY DAY
+
+Tue–Wed (May 26–27): Research and planning. We set up a second AI
+assistant to collaborate on the hardest remaining accuracy problems and
+had the two AIs work through better methods together, then turned that
+into a concrete plan. We also began improving how the tool follows each
+vehicle through the intersection and classifies its turn — the core of
+replacing GoodVision/Miovision with our own tool.
+
+Thu (May 28): Calibration — the setup screen that tells the tool where
+each road and approach sits in the camera view. We refined how the tool
+learns each approach's position and direction from the video itself. A
+large part of the day was the computer automatically re-processing video
+to test these changes.
+
+Fri (May 29): The breakthrough day. While cross-checking our counts
+against the professional reference data, we found the directions were
+labeled backwards (and the cross-street legs were swapped). Fixing that
+corrected both our accuracy scores and what would appear in the Excel
+report. We then improved the vehicle-following so it stops over-counting
+cars on the busy road, recovered several turn movements it had been
+missing, and got the tool running on the computer's graphics chip — about
+4x faster — so future test runs take a work session instead of overnight.
+
+TIME SPENT (approximate)
+  Vehicle-counting accuracy (following cars, classifying turns):  ~16 hrs
+  Calibration setup (incl. the direction-labeling fix):           ~6 hrs
+  Research & planning the accuracy approach:                      ~3.5 hrs
+  Speeding up processing (graphics chip):                         ~1.5 hrs
+  (Much of the above was the computer processing video on its own.)
+
+WHERE THE PROJECT STANDS
+The tool runs end-to-end — it watches the video, follows vehicles,
+classifies their movements, and produces an Excel count report — and
+straight-through traffic counts are now solid. The remaining gap is on
+a few hard turn movements at this particular camera (low-resolution,
+sun-glare). We've narrowed the realistic next step to either a smarter
+vehicle-following method or, where the camera simply can't see a turn
+well, flagging those for a quick human check. Net: the engine is
+working and accurate on the common movements; the last stretch is
+squeezing accuracy on the difficult turns before it's ready for
+unattended daily use.

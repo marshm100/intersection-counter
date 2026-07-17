@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>8. The Corridor — intersection-counter walkthrough</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="top">
+  <a class="home" href="index.html">intersection-counter</a>
+  <a href="00-overview.html">0. Overview</a>
+  <a href="01-calibration.html">1. Calibration</a>
+  <a href="02-detection-tracking.html">2. Detect+Track</a>
+  <a href="03-path-bank.html">3. Path Bank</a>
+  <a href="04-origin-attribution.html">4. Origin</a>
+  <a href="05-classification.html">5. Classify</a>
+  <a href="06-aggregation.html">6. Aggregate</a>
+  <a href="07-accuracy.html">7. Accuracy</a>
+  <a href="08-corridor.html" class="current">8. Corridor</a>
+</nav>
+<main>
+  <h1>8. The Corridor</h1>
+  <p class="lede">
+    The Sunnyvale study isn't one intersection — it's five, strung along N Belt Line Rd, one camera
+    each. Everything in pages 1–7 was written once and parameterized by <code>--camera N</code>;
+    this page is how a single-camera pipeline scales to a corridor without per-camera code.
+  </p>
+
+  <h2>Five intersections, one stack</h2>
+  <figure>
+    <svg viewBox="0 0 760 160" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" font-size="12">
+      <!-- arterial line -->
+      <line x1="40" y1="80" x2="720" y2="80" stroke="#5fb3ff" stroke-width="3"/>
+      <text x="40" y="150" fill="#8a96a3" font-size="11">N Belt Line Rd →</text>
+      <!-- vehicles flowing the whole corridor -->
+      <path id="cor-art" d="M24,80 L736,80" fill="none"/>
+      <g fill="#5fc7ff">
+        <rect x="-8" y="-4.5" width="16" height="9" rx="2"><animateMotion dur="7s" begin="0s"    repeatCount="indefinite"><mpath href="#cor-art"/></animateMotion></rect>
+        <rect x="-8" y="-4.5" width="16" height="9" rx="2"><animateMotion dur="7s" begin="-2.3s" repeatCount="indefinite"><mpath href="#cor-art"/></animateMotion></rect>
+        <rect x="-8" y="-4.5" width="16" height="9" rx="2"><animateMotion dur="7s" begin="-4.6s" repeatCount="indefinite"><mpath href="#cor-art"/></animateMotion></rect>
+      </g>
+      <!-- camera-overlap zone (cam1↔cam2): a duplicate the aggregator collapses -->
+      <path id="cor-dup" d="M150,80 L250,80" fill="none"/>
+      <rect x="-8" y="-4.5" width="16" height="9" rx="2" fill="#ff7777" class="wt-blink"><animateMotion dur="3.5s" repeatCount="indefinite"><mpath href="#cor-dup"/></animateMotion></rect>
+      <text x="186" y="26" text-anchor="middle" fill="#ff7777" font-size="9">FOV overlap</text>
+      <text x="186" y="37" text-anchor="middle" fill="#8a96a3" font-size="9">dedup → counted once</text>
+      <!-- 5 intersections -->
+      <g>
+        <circle cx="110" cy="80" r="9" fill="#1a2128" class="wt-breathe" stroke="#7ee787" stroke-width="2"/>
+        <text x="110" y="56" text-anchor="middle" fill="#e8edf2" font-size="11">cam1</text>
+        <text x="110" y="108" text-anchor="middle" fill="#8a96a3" font-size="9">Northwest Dr</text>
+        <text x="110" y="120" text-anchor="middle" fill="#7ee787" font-size="10">7.2%</text>
+
+        <circle cx="262" cy="80" r="9" fill="#1a2128" class="wt-breathe" stroke="#ffb35f" stroke-width="2"/>
+        <text x="262" y="56" text-anchor="middle" fill="#e8edf2" font-size="11">cam2</text>
+        <text x="262" y="108" text-anchor="middle" fill="#8a96a3" font-size="9">E Town East</text>
+        <text x="262" y="120" text-anchor="middle" fill="#ffb35f" font-size="10">16.4%</text>
+
+        <circle cx="414" cy="80" r="9" fill="#1a2128" class="wt-breathe" stroke="#7ee787" stroke-width="2"/>
+        <text x="414" y="56" text-anchor="middle" fill="#e8edf2" font-size="11">cam3</text>
+        <text x="414" y="108" text-anchor="middle" fill="#8a96a3" font-size="9">Bluffview (T)</text>
+        <text x="414" y="120" text-anchor="middle" fill="#7ee787" font-size="10">9.8%</text>
+
+        <circle cx="566" cy="80" r="9" fill="#1a2128" class="wt-breathe" stroke="#7ee787" stroke-width="2"/>
+        <text x="566" y="56" text-anchor="middle" fill="#e8edf2" font-size="11">cam4</text>
+        <text x="566" y="108" text-anchor="middle" fill="#8a96a3" font-size="9">Donut Dr (T)</text>
+        <text x="566" y="120" text-anchor="middle" fill="#7ee787" font-size="10">8.4%</text>
+
+        <circle cx="700" cy="80" r="9" fill="#1a2128" class="wt-breathe" stroke="#7ee787" stroke-width="2"/>
+        <text x="700" y="56" text-anchor="middle" fill="#e8edf2" font-size="11">cam5</text>
+        <text x="700" y="108" text-anchor="middle" fill="#8a96a3" font-size="9">Barnes Bridge</text>
+        <text x="700" y="120" text-anchor="middle" fill="#7ee787" font-size="10">7.7%</text>
+      </g>
+    </svg>
+    <figcaption>Five intersections along one arterial. Net error per camera (07:00 peak, vs Miovision).</figcaption>
+  </figure>
+
+  <table>
+    <thead><tr><th>Cam</th><th>Intersection</th><th>Type</th><th>Net</th><th>Chosen method</th></tr></thead>
+    <tbody>
+      <tr><td>cam1</td><td>Belt Line &amp; Northwest Dr</td><td>4-way</td><td class="mono">7.2%</td><td>BoT-SORT + ReID hybrid</td></tr>
+      <tr><td>cam2</td><td>Belt Line &amp; E Town East Blvd</td><td>4-way (25 fps)</td><td class="mono">16.4%</td><td>ByteTrack hybrid + NMS + recovered movements</td></tr>
+      <tr><td>cam3</td><td>Belt Line &amp; Bluffview Dr</td><td>T</td><td class="mono">9.8%</td><td>BoT-SORT retrack-with-bank</td></tr>
+      <tr><td>cam4</td><td>Belt Line &amp; Sunnyvale Donut Dr</td><td>T</td><td class="mono">8.4%</td><td>ByteTrack hybrid</td></tr>
+      <tr><td>cam5</td><td>Belt Line &amp; Barnes Bridge Rd</td><td>4-way</td><td class="mono">7.7%</td><td>ByteTrack hybrid + EB-right recovery</td></tr>
+    </tbody>
+  </table>
+  <p style="color: var(--muted); font-size: 13px;">
+    Note the methods differ per camera — that's the per-camera-measurement discipline (page 7), not
+    indecision. cam2 (the corridor's hardest, at 25 fps) stays the worst even after every defense.
+  </p>
+
+  <h2>The data-driven leg join</h2>
+  <p>
+    The one thing that must generalize across cameras is the map between <em>our</em> leg IDs and
+    <em>Miovision's</em> approach names — without it we can't compare to ground truth. It's derived,
+    not hand-maintained: <code>od_accuracy.leg_idx(camera)</code> matches each leg's
+    <code>cardinal_direction</code> (N/S/E/W) to the cardinal prefix (NB/SB/EB/WB) of the Miovision
+    approach name.
+  </p>
+  <pre>leg L38 cardinal "E"  ──→  Miovision approach "EB Barnes Bridge Rd"
+leg L39 cardinal "N"  ──→  Miovision approach "NB N Belt Line Rd"</pre>
+  <p>
+    This handles 3-leg T's (9 movements) and 4-ways (16) the same way, with no per-intersection table —
+    so <code>build_bank.py</code>, <code>apply_bank.py</code>, <code>apply_hybrid.py</code>, and
+    <code>od_accuracy.py</code> all take <code>--camera N</code> and just work.
+  </p>
+
+  <div class="callout warn">
+    <strong>Get the cardinals right.</strong> Because the join is by cardinal direction, a mislabeled
+    leg is silent and corrosive: cam1's legs were once 180°-swapped (NB↔SB, EB↔WB), which mismeasured
+    every count and flipped the exported TMC directions until it was caught. The cardinal labels are
+    load-bearing.
+  </div>
+
+  <h2>Stitching the corridor together</h2>
+  <p>
+    Adjacent cameras can see the same vehicle (overlapping fields of view between intersections). The
+    <a href="06-aggregation.html">cross-camera dedup</a> in the aggregator collapses those
+    parallel-overlap duplicates so a car driving the corridor is counted once per intersection it passes
+    through, not twice in the overlap.
+  </p>
+
+  <div class="callout good">
+    <strong>That's the whole system</strong> — from a calibrated still frame to a five-intersection
+    corridor of validated turning-movement counts, running entirely on a local machine. The interesting
+    frontier from here is the same as everywhere in this app: drive the per-camera net error down,
+    one measured change at a time.
+  </div>
+
+  <footer class="page-foot">
+    <a href="07-accuracy.html">← 7. Accuracy &amp; Validation</a>
+    <a href="index.html">Index</a>
+  </footer>
+</main>
+</body>
+</html>

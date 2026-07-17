@@ -348,11 +348,35 @@ async function _renderIntersectionsTab(host) {
                 </div>
                 <div class="intersection-card-actions">
                     <button onclick="v3OpenIntersection(${i.intersection_id})">Open</button>
+                    <button onclick="v3ExportIntersection(${i.intersection_id}, 'tmc.xlsx')" title="Miovision-format TMC workbook">Excel</button>
+                    <button onclick="v3ExportIntersection(${i.intersection_id}, 'report.pdf')" title="Turning-movement PDF report">PDF</button>
                 </div>
             </div>`;
     }
     html += '</div>';
     host.innerHTML = html;
+}
+
+async function v3ExportIntersection(iid, kind) {
+    // Deliverable download for one intersection-day (plan_deliverables_E
+    // stage 3). The §3-A gate is checked first; a blocked gate offers an
+    // explicit DRAFT override rather than silently failing the download.
+    const pid = AppState.currentProject;
+    const base = `/api/projects/${pid}/intersections/${iid}/export/`;
+    let url = base + kind;
+    try {
+        const g = await API.get(base + 'gate');
+        if (g.blocking) {
+            const reasons = (g.blocking_reasons || []).join('\n');
+            if (!confirm(`Export withheld — the QA gate is not satisfied:\n` +
+                         `${reasons}\n\nDownload a DRAFT anyway?`)) return;
+            url += '?override=true';
+        }
+    } catch (e) {
+        alert('Could not check the export gate.');
+        return;
+    }
+    window.location.href = url;
 }
 
 async function v3OpenIntersection(iid) {
@@ -376,6 +400,17 @@ function v3CloseIntersection() {
     _renderIntersectionsTab(document.getElementById('v3-tab-content'));
 }
 
+// Leave the card WITHOUT re-rendering the tab content. The confirm flows
+// navigate to the Processing tab right after closing the card; using
+// v3CloseIntersection there raced its un-awaited intersections render
+// against the processing render over the same host — on a slow fetch the
+// intersections grid landed second and overwrote the chips (both stage-3.4
+// dry-run grid timeouts were this).
+function _v3LeaveIntersection() {
+    _v3OpenIntersectionId = null;
+    _v3IntersectionDetail = null;
+}
+
 async function _renderIntersectionDetail(host) {
     const pid = AppState.currentProject;
     const iid = _v3OpenIntersectionId;
@@ -393,6 +428,7 @@ async function _renderIntersectionDetail(host) {
         { id: 'settings', label: 'Intersection settings' },
         { id: 'cameras',  label: 'Cameras' },
         { id: 'trims',    label: 'Clip trim' },
+        { id: 'qa',       label: 'QA' },
     ];
 
     let html = '';
@@ -407,6 +443,7 @@ async function _renderIntersectionDetail(host) {
     ).join('') + '</div>';
 
     html += `<div id="v3-detail-subcontent"></div>`;
+    html += `<div id="v3-twopass-plan"></div>`;
     html += `<div class="isect-detail-footer">
         <button class="btn-confirm-process" onclick="v3ConfirmProcess()">Confirm &amp; process</button>
         <button class="btn-secondary" onclick="v3CloseIntersection()">Done</button>
@@ -414,6 +451,69 @@ async function _renderIntersectionDetail(host) {
     host.innerHTML = html;
 
     await _renderDetailSubTab();
+    _renderTwoPassPlan();   // fire-and-forget; empty when the flag is off
+}
+
+// --- Two-pass readiness (stage 3.4) -------------------------------------
+//
+// The plan endpoint 404s when TWO_PASS_ENABLED is off — that 404 is the
+// feature probe, so the legacy surface stays bit-for-bit untouched.
+
+function _tpBadge(txt, kind) {
+    const c = ({ ok: ['#166534', '#dcfce7'], warn: ['#92400e', '#fef3c7'],
+                 bad: ['#991b1b', '#fee2e2'], dim: ['#475569', '#f1f5f9'] })[kind]
+              || ['#475569', '#f1f5f9'];
+    return `<span style="display:inline-block;padding:0 7px;border-radius:8px;
+        font-size:11px;font-weight:700;color:${c[0]};background:${c[1]};">${txt}</span>`;
+}
+
+function _tpDumpBadge(w) {
+    const s = (w.dump && w.dump.status) || 'missing';
+    if (s === 'ready') return _tpBadge('pass-1 ready', 'ok');
+    if (s === 'partial') return _tpBadge('pass-1 partial — will resume', 'warn');
+    if (s === 'mismatch') return _tpBadge('dump/trim mismatch', 'bad');
+    return w.cache === 'ready'
+        ? _tpBadge('pass-1 needed (from cache)', 'warn')
+        : _tpBadge('pass-1 needed (detect at ingest)', 'warn');
+}
+
+function _tpPass2Badge(w) {
+    if (w.pass2 === 'current') return _tpBadge('pass-2 current', 'ok');
+    if (w.pass2 === 'stale') return _tpBadge('pass-2 stale — will re-run', 'dim');
+    return _tpBadge('pass-2 pending', 'dim');
+}
+
+async function _renderTwoPassPlan() {
+    const host = document.getElementById('v3-twopass-plan');
+    if (!host) return;
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    let plan;
+    try {
+        plan = await API.get(`/api/projects/${pid}/intersections/${iid}/two-pass/plan`);
+    } catch (e) {
+        return;   // flag off (404) or transient error — show nothing
+    }
+    const wins = plan.windows || [];
+    if (!wins.length) {
+        host.innerHTML = `<p class="helper-text" style="margin:8px 0 0;">
+            Two-pass: no processing windows yet — add the study periods in the
+            Clip trim tab; they become the count windows.</p>`;
+        return;
+    }
+    let html = `<div style="margin:10px 0 0;padding:8px 12px;border:1px solid #e2e8f0;
+        border-radius:6px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:4px;">Two-pass readiness</div>`;
+    for (const w of wins) {
+        html += `<div style="display:flex;gap:8px;align-items:center;font-size:12px;
+            padding:2px 0;">
+            <span style="min-width:220px;">Camera ${w.camera_id} · ${escapeHtml(w.variant)}
+                (${escapeHtml(w.start_wallclock)}–${escapeHtml(w.end_wallclock)})</span>
+            ${_tpDumpBadge(w)} ${_tpPass2Badge(w)}
+        </div>`;
+    }
+    html += `</div>`;
+    host.innerHTML = html;
 }
 
 async function v3SwitchDetailSubTab(tabId) {
@@ -428,7 +528,7 @@ async function v3SwitchDetailSubTab(tabId) {
 }
 
 function _subTabHeader(tabId) {
-    return ({ settings: 'intersection', cameras: 'cameras', trims: 'clip' })[tabId] || tabId;
+    return ({ settings: 'intersection', cameras: 'cameras', trims: 'clip', qa: 'qa' })[tabId] || tabId;
 }
 
 async function _renderDetailSubTab() {
@@ -440,8 +540,287 @@ async function _renderDetailSubTab() {
         await _renderCamerasSubTab(host);
     } else if (_v3DetailSubTab === 'trims') {
         await _renderTrimsSubTab(host);
+    } else if (_v3DetailSubTab === 'qa') {
+        await _renderQaSubTab(host);
     }
 }
+
+// --- Sub-tab: Conservation QA (Phase 3) --------------------------------
+//
+// Zero-ground-truth sanity checks: corridor flow-conservation across the
+// project's intersections (the same vehicles counted twice minutes apart —
+// valid at any window length, the primary new-site check) and
+// reverse-movement balance for THIS intersection (informational at short
+// windows: peak-hour directional imbalance is real traffic, not error).
+
+const _QA_BADGE = {
+    ok:   ['#16a34a', '#dcfce7', 'OK'],
+    warn: ['#b45309', '#fef3c7', 'WARN'],
+    fail: ['#b91c1c', '#fee2e2', 'FAIL'],
+    info: ['#475569', '#f1f5f9', 'INFO'],
+};
+
+function _qaBadge(verdict) {
+    const [fg, bg, label] = _QA_BADGE[verdict] || _QA_BADGE.info;
+    return `<span style="display:inline-block;padding:1px 8px;border-radius:9px;
+        font-size:11px;font-weight:700;color:${fg};background:${bg};">${label}</span>`;
+}
+
+let _qaSpotWindow = null;     // proposed spot window {camera_id, start_seconds, duration_seconds}
+
+const _QA_OVERALL = {
+    ship:   ['#166534', '#dcfce7', 'READY TO EXPORT', 'All checks green.'],
+    review: ['#92400e', '#fef3c7', 'NEEDS REVIEW', 'Resolve the items below, then re-check.'],
+    fail:   ['#991b1b', '#fee2e2', 'CHECKS FAILING', 'A hard failure below needs investigation before export.'],
+};
+
+function _qaFmtHms(totalSec) {
+    const s = Math.round(totalSec);
+    return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
+async function _renderQaSubTab(host) {
+    host.innerHTML = '<p class="empty-message">Running conservation checks…</p>';
+    const iid = _v3OpenIntersectionId;
+    let rb = null, cc = null, gate = null, cams = [], spots = [], err = null;
+    try {
+        rb = await API.get(`/api/projects/${_v3Project.project_id}/intersections/${iid}/qa/conservation`);
+        cc = await API.get(`/api/projects/${_v3Project.project_id}/qa/corridor`);
+        gate = await API.get(`/api/projects/${_v3Project.project_id}/intersections/${iid}/qa/acceptance`);
+        cams = await API.get(`/api/projects/${_v3Project.project_id}/intersections/${iid}/cameras`);
+        if (cams.length) {
+            const r = await API.get(`/api/projects/${_v3Project.project_id}/cameras/${cams[0].camera_id}/qa/spot-counts`);
+            spots = r.spot_counts || [];
+        }
+    } catch (e) { err = e.message || String(e); }
+    if (err) {
+        host.innerHTML = `<p class="empty-message">QA checks failed: ${escapeHtml(err)}</p>`;
+        return;
+    }
+
+    let html = `<div style="max-width:760px;">`;
+
+    // -- acceptance gate banner (Phase 4.2) --
+    const [gfg, gbg, glabel, gsub] = _QA_OVERALL[gate.overall] || _QA_OVERALL.review;
+    const rfItem = (gate.items || []).find(i => i.item === 'review_flags');
+    const openFlags = rfItem ? (rfItem.detail.open || 0) : 0;
+    html += `<div style="padding:10px 14px;border-radius:6px;background:${gbg};margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:14px;font-weight:700;color:${gfg};">${glabel}</div>
+            <button onclick="openWorklist(${iid})" style="font-size:12px;">
+                Review flags${openFlags ? ` (${openFlags})` : ''} &rarr;</button>
+        </div>
+        <div style="font-size:12px;color:${gfg};">${gsub}
+            ${gate.items.map(i => `${escapeHtml(i.item.replace(/_/g, ' '))}: ${i.verdict.toUpperCase()}`).join(' · ')}
+        </div>
+    </div>`;
+
+    // -- corridor consistency (primary) --
+    html += `<h4 style="margin:6px 0 4px;">Corridor flow conservation</h4>
+        <p style="font-size:12px;color:#6b7280;margin:0 0 8px;">
+            Vehicles leaving one intersection toward the next should arrive there.
+            Gaps implicate counting at one end (or heavy mid-block access on that
+            link). Valid at any window length. Bold rows involve this intersection.</p>`;
+    const links = (cc.links || []);
+    if (!links.length) {
+        html += `<p style="font-size:12px;color:#9ca3af;">${escapeHtml(cc.note || 'No links to check.')}</p>`;
+    } else {
+        html += `<table style="width:100%;font-size:12px;border-collapse:collapse;">
+            <tr style="text-align:left;color:#6b7280;">
+                <th style="padding:3px 6px;">Link</th><th>Sent</th><th>Received</th><th>Gap</th><th></th></tr>`;
+        for (const l of links) {
+            const mine = l.link.startsWith(`${iid}->`) || l.link.indexOf(`->${iid} `) >= 0;
+            html += `<tr style="border-top:1px solid #f3f4f6;${mine ? 'font-weight:600;' : ''}">
+                <td style="padding:3px 6px;">${escapeHtml(l.link)}</td>
+                <td>${l.sent}</td><td>${l.received}</td>
+                <td>${(l.gap * 100).toFixed(0)}%</td><td>${_qaBadge(l.verdict)}</td></tr>`;
+        }
+        html += `</table>`;
+    }
+
+    // -- reverse balance (secondary / investigative) --
+    html += `<h4 style="margin:18px 0 4px;">Reverse-movement balance</h4>
+        <p style="font-size:12px;color:#6b7280;margin:0 0 8px;">
+            Over a full day each movement roughly equals its geometric reverse.
+            ${rb.applicable ? '' : `<b>${escapeHtml(rb.note || '')}</b> `}
+            An imbalance is a prompt to review those cells, not proof of error
+            (one-way demand patterns are real).</p>`;
+    if (!(rb.pairs || []).length) {
+        html += `<p style="font-size:12px;color:#9ca3af;">No movement pairs above the volume floor.</p>`;
+    } else {
+        html += `<table style="width:100%;font-size:12px;border-collapse:collapse;">
+            <tr style="text-align:left;color:#6b7280;">
+                <th style="padding:3px 6px;">Movement</th><th>Count</th>
+                <th>Reverse</th><th>Count</th><th>Imbalance</th><th></th></tr>`;
+        for (const p of rb.pairs) {
+            html += `<tr style="border-top:1px solid #f3f4f6;">
+                <td style="padding:3px 6px;">${escapeHtml(p.movement)}</td>
+                <td>${p.cells[0].count}</td>
+                <td>${escapeHtml(p.reverse)}</td>
+                <td>${p.cells[1].count}</td>
+                <td>${(p.imbalance * 100).toFixed(0)}%</td>
+                <td>${_qaBadge(p.verdict)}</td></tr>`;
+        }
+        html += `</table>`;
+    }
+    // -- spot count (Phase 4.1) --
+    const cam = cams[0];
+    html += `<h4 style="margin:18px 0 4px;">Manual spot count</h4>
+        <p style="font-size:12px;color:#6b7280;margin:0 0 8px;">
+            Hand-count a window of the raw video and compare against the system —
+            the zero-ground-truth accuracy estimate. Certifying the &plusmn;10% CI
+            needs roughly <b>850 total vehicles</b> in the window (20&ndash;40 min
+            at a busy site); shorter counts report as "review" with guidance.</p>`;
+    if (!cam) {
+        html += `<p style="font-size:12px;color:#9ca3af;">No cameras on this intersection.</p>`;
+    } else {
+        // Stratified coverage (MASTER_PLAN §5): a multi-segment run (e.g. AM + PM
+        // trims) must be spot-checked in EACH segment — an all-easy-window sample
+        // can't certify a run whose hardest (low-sun) window was bad.
+        const scItem = (gate.items || []).find(i => i.item === 'spot_count');
+        const scDet = scItem && scItem.detail && scItem.detail[0];
+        if (scDet && scDet.segments > 1) {
+            const short = scDet.covered < scDet.segments;
+            html += `<p style="font-size:12px;margin:0 0 8px;color:${short ? '#b45309' : '#059669'};">
+                <b>Coverage: ${scDet.covered}/${scDet.segments} time segments spot-checked.</b>
+                ${short ? escapeHtml(scDet.note) : 'The run’s range of conditions is sampled.'}</p>`;
+        }
+        for (const s of spots.slice(0, 3)) {
+            const rep = s.report;
+            html += `<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 6px;
+                        margin-bottom:3px;border:1px solid #e5e7eb;border-radius:4px;">
+                <span style="flex:1;">${_qaFmtHms(s.start_seconds)} +${Math.round(s.duration_seconds/60)}min
+                    — manual ${rep.total.manual} vs system ${rep.total.system}
+                    <span style="color:#6b7280;">(${escapeHtml(rep.note)})</span></span>
+                ${_qaBadge(rep.verdict === 'pass' ? 'ok' : rep.verdict === 'fail' ? 'fail' : 'warn')}
+            </div>`;
+        }
+        if (_qaSpotWindow && _qaSpotWindow.camera_id === cam.camera_id) {
+            const w = _qaSpotWindow;
+            const cards = [...new Set((_v3IntersectionDetail.legs_by_camera &&
+                _v3IntersectionDetail.legs_by_camera[cam.camera_id] || []).map(l => l.cardinal_direction))];
+            const useCards = cards.length ? cards : ['N', 'S', 'E', 'W'];
+            html += `<div style="margin-top:8px;padding:10px;background:#f0f9ff;border:1px solid #0ea5e9;border-radius:4px;font-size:12px;">
+                <div style="font-weight:600;margin-bottom:4px;">
+                    Count window: ${_qaFmtHms(w.start_seconds)} &ndash; ${_qaFmtHms(w.start_seconds + w.duration_seconds)}
+                    (video time)${w._nseg > 1 ? ` &middot; segment ${w._seg + 1} of ${w._nseg}` : ''}</div>
+                <p style="margin:0 0 8px;color:#0c4a6e;">Watch this window in the source video and
+                    count vehicles per approach &times; movement. Leave cells you did not observe at 0
+                    — only non-zero cells are compared.</p>
+                <table style="font-size:12px;border-collapse:collapse;">
+                    <tr><th style="padding:2px 6px;"></th>
+                        <th>through</th><th>left</th><th>right</th><th>u_turn</th></tr>
+                    ${useCards.map(c => `<tr>
+                        <td style="padding:2px 6px;font-weight:600;">${_v3Bound(c)}B</td>
+                        ${['through','left','right','u_turn'].map(m =>
+                            `<td><input type="number" min="0" value="0" style="width:64px;font-size:12px;"
+                                 id="v3-spot-${escapeHtml(c)}-${m}"></td>`).join('')}
+                    </tr>`).join('')}
+                </table>
+                <div style="margin-top:8px;">
+                    <button onclick="v3QaSaveSpotCount(${cam.camera_id})"
+                        style="font-size:12px;padding:4px 10px;margin-right:6px;background:#0ea5e9;color:white;border:none;border-radius:3px;cursor:pointer;">
+                        Save spot count
+                    </button>
+                    <button onclick="v3QaCancelSpot()"
+                        style="font-size:12px;padding:4px 10px;background:white;color:#6b7280;border:1px solid #d1d5db;border-radius:3px;cursor:pointer;">
+                        Cancel
+                    </button>
+                </div>
+            </div>`;
+        } else {
+            html += `<div style="margin-top:6px;">
+                <button onclick="v3QaProposeSpot(${cam.camera_id}, 30)"
+                    style="font-size:12px;padding:4px 10px;background:white;color:#0ea5e9;border:1px solid #0ea5e9;border-radius:3px;cursor:pointer;">
+                    Propose a 30-min spot window
+                </button>
+            </div>`;
+        }
+    }
+
+    html += `<p style="font-size:11px;color:#9ca3af;margin-top:10px;">
+        Investigate flagged cells in the Review screen (filter by the implicated
+        approach + movement).</p></div>`;
+    host.innerHTML = html;
+}
+
+window.v3QaProposeSpot = async function (cameraId, minutes) {
+    try {
+        // Stratified: fetch one window per processed segment and steer the
+        // operator to the first segment not yet spot-checked (so a multi-trim run
+        // gets the hard PM window sampled, not another easy AM one — §5).
+        const pw = await API.get(
+            `/api/projects/${_v3Project.project_id}/cameras/${cameraId}/qa/spot-windows?minutes=${minutes}`);
+        const windows = pw.windows || [];
+        if (!windows.length) { alert(pw.error || 'No processed footage to sample yet.'); return; }
+        let spots = [];
+        try {
+            const r = await API.get(
+                `/api/projects/${_v3Project.project_id}/cameras/${cameraId}/qa/spot-counts`);
+            spots = r.spot_counts || [];
+        } catch (e) { /* no prior counts */ }
+        const covered = new Set();
+        (pw.processed_segments || []).forEach((seg, i) => {
+            if (spots.some(s => {
+                const m = s.start_seconds + s.duration_seconds / 2;
+                return m >= seg[0] && m < seg[1];
+            })) covered.add(i);
+        });
+        const pick = windows.find(w => !covered.has(w.segment_index)) || windows[0];
+        _qaSpotWindow = {
+            camera_id: cameraId, start_seconds: pick.start_seconds,
+            duration_seconds: pick.duration_seconds,
+            _seg: pick.segment_index, _nseg: pw.n_segments,
+        };
+    } catch (e) {
+        alert('Could not propose a window: ' + (e.message || String(e)));
+        return;
+    }
+    await _renderDetailSubTab();
+};
+
+window.v3QaCancelSpot = async function () {
+    _qaSpotWindow = null;
+    await _renderDetailSubTab();
+};
+
+// Approach (bound) = opposite of the leg's cardinal POSITION
+// (see backend/services/cardinals.py). A SE-corner leg is a NW-bound approach.
+const V3_BOUND_OF = { N: 'S', S: 'N', E: 'W', W: 'E', NE: 'SW', SW: 'NE', NW: 'SE', SE: 'NW' };
+const _v3Bound = c => V3_BOUND_OF[c] || c;
+
+window.v3QaSaveSpotCount = async function (cameraId) {
+    if (!_qaSpotWindow) return;
+    const counts = {};
+    const legs = (_v3IntersectionDetail.legs_by_camera
+        && _v3IntersectionDetail.legs_by_camera[cameraId]) || [];
+    const cards = [...new Set(legs.map(l => l.cardinal_direction))];
+    const useCards = cards.length ? cards : ['N', 'S', 'E', 'W'];
+    for (const c of useCards) {
+        for (const m of ['through', 'left', 'right', 'u_turn']) {
+            const el = document.getElementById(`v3-spot-${c}-${m}`);
+            if (!el) continue;
+            const v = parseInt(el.value, 10) || 0;
+            if (v > 0) counts[`${_v3Bound(c)} ${m}`] = v;  // key by bound approach
+        }
+    }
+    if (!Object.keys(counts).length) {
+        alert('Enter at least one non-zero count.');
+        return;
+    }
+    try {
+        await API.post(
+            `/api/projects/${_v3Project.project_id}/cameras/${cameraId}/qa/spot-counts`,
+            { start_seconds: _qaSpotWindow.start_seconds,
+              duration_seconds: _qaSpotWindow.duration_seconds,
+              manual_counts: counts });
+    } catch (e) {
+        alert('Save failed: ' + (e.message || String(e)));
+        return;
+    }
+    _qaSpotWindow = null;
+    await _renderDetailSubTab();
+};
 
 // --- Sub-tab: Intersection settings -----------------------------------
 
@@ -715,6 +1094,7 @@ async function v3AddTrim() {
         return;
     }
     await _renderTrimsSubTab(document.getElementById('v3-detail-subcontent'));
+    _renderTwoPassPlan();   // trims define the two-pass windows — keep in sync
 }
 
 async function v3PatchTrim(tid, body) {
@@ -727,6 +1107,7 @@ async function v3PatchTrim(tid, body) {
         );
         // Re-render so coverage status updates
         await _renderTrimsSubTab(document.getElementById('v3-detail-subcontent'));
+        _renderTwoPassPlan();
     } catch (e) {
         alert(`Failed to save trim: ${e.message || e}`);
     }
@@ -743,6 +1124,7 @@ async function v3DeleteTrim(tid) {
         return;
     }
     await _renderTrimsSubTab(document.getElementById('v3-detail-subcontent'));
+    _renderTwoPassPlan();
 }
 
 // --- Confirm & process popup ------------------------------------------
@@ -750,6 +1132,18 @@ async function v3DeleteTrim(tid) {
 async function v3ConfirmProcess() {
     const pid = AppState.currentProject;
     const iid = _v3OpenIntersectionId;
+
+    // Two-pass flow (stage 3.4) when the flag is on — the plan endpoint's
+    // 404 is the probe; on it, fall through to the legacy path unchanged.
+    let tpPlan = null;
+    try {
+        tpPlan = await API.get(`/api/projects/${pid}/intersections/${iid}/two-pass/plan`);
+    } catch (e) { tpPlan = null; }
+    if (tpPlan) {
+        await _v3ConfirmProcessTwoPass(pid, iid, tpPlan.windows || []);
+        return;
+    }
+
     let preflight;
     try {
         preflight = await API.post(
@@ -764,11 +1158,16 @@ async function v3ConfirmProcess() {
         alert('Cannot process — please fix these first:\n\n' + preflight.errors.join('\n'));
         return;
     }
+    const warnBlock = (preflight.warnings && preflight.warnings.length)
+        ? '\n⚠ Warnings (you can still proceed):\n' +
+          preflight.warnings.map(w => '  • ' + w).join('\n') + '\n'
+        : '';
     const msg = `Ready to process this intersection.\n\n` +
                 `Segments: ${preflight.segment_count}\n` +
                 `Cameras used: ${preflight.cameras_used.length}\n` +
-                `Trims: ${preflight.trims_used.length}\n\n` +
-                `Start processing now?`;
+                `Trims: ${preflight.trims_used.length}\n` +
+                warnBlock +
+                `\nStart processing now?`;
     if (!window.confirm(msg)) return;
     try {
         await API.post(`/api/projects/${pid}/intersections/${iid}/processing/start`, {});
@@ -777,7 +1176,49 @@ async function v3ConfirmProcess() {
         return;
     }
     alert('Processing started. Switch to the Processing tab to monitor progress.');
-    v3CloseIntersection();
+    _v3LeaveIntersection();
+    await v3SwitchTab('processing');
+}
+
+async function _v3ConfirmProcessTwoPass(pid, iid, wins) {
+    if (!wins.length) {
+        alert('Nothing to process yet — add the study periods in the Clip trim '
+              + 'tab first; they define the count windows.');
+        return;
+    }
+    const mism = wins.filter(w => w.dump && w.dump.status === 'mismatch');
+    if (mism.length) {
+        alert('Cannot process — an existing pass-1 dump does not cover its trim window:\n\n'
+              + mism.map(w => `  • Camera ${w.camera_id} ${w.variant}`).join('\n')
+              + '\n\nDelete the dump or fix the trim, then retry.');
+        return;
+    }
+    const lines = wins.map(w => {
+        const d = (w.dump && w.dump.status) || 'missing';
+        let step;
+        if (d === 'ready') {
+            step = w.pass2 === 'current'
+                ? 'pass 2 — cached result, re-apply (fast)'
+                : 'pass 2 — count from the existing dump (~minutes)';
+        } else if (w.cache === 'ready') {
+            step = 'pass 1 (track from cache) then pass 2';
+        } else {
+            step = 'pass 1 (DETECT + cache + track — can take hours) then pass 2';
+        }
+        return `  • Camera ${w.camera_id} — ${w.start_wallclock}–${w.end_wallclock}: ${step}`;
+    });
+    const msg = 'Two-pass processing plan:\n\n' + lines.join('\n')
+        + '\n\nCounts apply with a backup of the project database; the flag '
+        + 'queue rebuilds after each camera.\n\nStart now?';
+    if (!window.confirm(msg)) return;
+    try {
+        await API.post(`/api/projects/${pid}/intersections/${iid}/two-pass/process`, {});
+    } catch (e) {
+        alert(`Start failed: ${e.message || e}`);
+        return;
+    }
+    alert('Two-pass processing started. Track progress on the Processing tab.');
+    _v3LeaveIntersection();
     await v3SwitchTab('processing');
 }
 
@@ -953,6 +1394,40 @@ function _processingChipHtml(intersection, status) {
             detailHtml = `<div class="chip-detail">${segCount} segments queued</div>`;
             break;
         case 'running': {
+            const tp = (status.two_pass && status.two_pass.status === 'running')
+                ? status.two_pass : null;
+            if (tp) {
+                // Live two-pass subline from the /processing/status merge
+                // (plan_C_polish §2a). Pass-1 has real frame progress; pass-2
+                // is honest at window granularity.
+                const stageLabel = ({
+                    pass1: 'pass 1 — tracking',
+                    pass2: 'pass 2 — counting',
+                    's5-union': 'finalizing QA flags',
+                })[tp.stage] || 'starting';
+                statusBadge = `<span class="chip-badge chip-running chip-running-anim" data-frame="${(tp.progress && tp.progress.frames) ?? tp.window_index ?? 0}"><span class="chip-pulse-dot"></span>Processing…</span>`;
+                const parts = [
+                    `Two-pass · camera ${tp.current_camera ?? '?'} · ${escapeHtml(tp.current_variant || '')}`
+                    + (tp.window_total ? ` (window ${tp.window_index} of ${tp.window_total})` : ''),
+                    stageLabel,
+                ];
+                if (tp.cancel_requested) parts.push('cancelling after the current step…');
+                const p1 = (tp.stage === 'pass1' && tp.progress && tp.progress.total > 0)
+                    ? Math.min(100, 100 * tp.progress.frames / tp.progress.total)
+                    : null;
+                detailHtml = `
+                    <div class="chip-detail">${parts.join(' · ')}</div>` +
+                    (p1 !== null ? `
+                    <div class="chip-progress">
+                        <div class="chip-progress-fill" style="width:${p1}%"></div>
+                    </div>` : '');
+                // No "View live": the legacy preview queue is never fed by a
+                // two-pass job — the button would be a dead-end.
+                actionsHtml = tp.cancel_requested
+                    ? `<button class="btn-secondary" disabled>Cancelling…</button>`
+                    : `<button class="btn-secondary" onclick="v3CancelTwoPass(${intersection.intersection_id})">Cancel</button>`;
+                break;
+            }
             const fp = status.frame_progress || {};
             const etaTxt = _formatEta(fp.eta_seconds);
             const fpsTxt = fp.fps_processing
@@ -964,17 +1439,22 @@ function _processingChipHtml(intersection, status) {
             // changes every poll while running — used by CSS to retrigger
             // a brief flash so the user can SEE liveness, not just trust it.
             statusBadge = `<span class="chip-badge chip-running chip-running-anim" data-frame="${fp.frame_number ?? 0}"><span class="chip-pulse-dot"></span>Processing…</span>`;
-            const subline = [
+            // A two-pass run reports through v3_run_state without segment
+            // fields — "Segment 1 of 0 · ETA NaN" is worse than saying less.
+            // (Reached when a restart wiped the in-memory two-pass job.)
+            const subline = (segCount > 0 ? [
                 `Segment ${currentIdx + 1} of ${segCount}`,
                 etaTxt && `ETA ${etaTxt}`,
                 fpsTxt,
                 vehiclesTxt,
-            ].filter(Boolean).join(' · ');
+            ] : ['Two-pass processing — counts apply per camera window']
+            ).filter(Boolean).join(' · ');
             detailHtml = `
-                <div class="chip-detail">${escapeHtml(subline)}</div>
+                <div class="chip-detail">${escapeHtml(subline)}</div>` +
+                (segCount > 0 ? `
                 <div class="chip-progress">
                     <div class="chip-progress-fill" style="width:${pct}%"></div>
-                </div>`;
+                </div>` : '');
             actionsHtml = `
                 <button onclick="v3ViewLive(${intersection.intersection_id})">View live</button>
                 <button class="btn-secondary" onclick="v3CancelProcessing(${intersection.intersection_id})">Cancel</button>`;
@@ -993,12 +1473,27 @@ function _processingChipHtml(intersection, status) {
                 <button onclick="v3ContinueProcessing(${intersection.intersection_id})">Continue</button>
                 <button class="btn-secondary" onclick="v3ReprocessFromStart(${intersection.intersection_id})">Restart from beginning</button>`;
             break;
-        case 'cancelled':
+        case 'cancelled': {
             statusBadge = '<span class="chip-badge chip-warn">Cancelled</span>';
+            const tpc = status.two_pass;
+            if (tpc && tpc.kind === 'process') {
+                // Applied windows stayed applied; restarting routes through
+                // v3StartProcessing's plan probe (two-pass vs legacy decided
+                // at click time — correct even after a server restart).
+                const done = (typeof tpc.completed_windows === 'number' && tpc.window_total)
+                    ? ` — ${tpc.completed_windows} of ${tpc.window_total} windows applied`
+                    : '';
+                detailHtml = `<div class="chip-detail">${escapeHtml((tpc.detail || 'Cancelled') + done)}.
+                    Applied windows are kept; restart resumes from cached work.</div>`;
+                actionsHtml = `
+                    <button onclick="v3StartProcessing(${intersection.intersection_id})">Restart</button>`;
+                break;
+            }
             actionsHtml = `
                 <button onclick="v3OpenIntersection(${intersection.intersection_id})">Restart</button>
                 <button class="btn-secondary" onclick="v3ReprocessFromStart(${intersection.intersection_id})">Restart from beginning</button>`;
             break;
+        }
         case 'error':
             statusBadge = '<span class="chip-badge chip-error">Error</span>';
             detailHtml = `<div class="chip-detail">${escapeHtml(status.error || '')}</div>`;
@@ -1031,12 +1526,39 @@ async function v3CancelProcessing(iid) {
     }
 }
 
+async function v3CancelTwoPass(iid) {
+    if (!window.confirm('Cancel this two-pass run?\n\nIt stops at the next '
+            + 'checkpoint — the current step finishes first, and camera '
+            + 'windows already applied stay applied (each has its own '
+            + 'backup). Restarting later reuses all completed work.')) return;
+    const pid = AppState.currentProject;
+    try {
+        await API.post(`/api/projects/${pid}/intersections/${iid}/two-pass/cancel`, {});
+    } catch (e) {
+        // 409 = the job finished between chip polls — benign race.
+        alert(`Cancel: ${e.message || e}`);
+    }
+    const host = document.getElementById('v3-processing-chips-host');
+    if (host) await _refreshProcessingChips(host);
+}
+
 async function v3StartProcessing(iid) {
     // Start an already-configured intersection straight from the chip,
     // without bouncing through the configure page. Reuses the same
     // preflight + confirm flow as v3ConfirmProcess so the user still
     // sees segment/camera/trim counts before committing.
     const pid = AppState.currentProject;
+
+    // Same two-pass probe as v3ConfirmProcess (404 = flag off -> legacy).
+    let tpPlan = null;
+    try {
+        tpPlan = await API.get(`/api/projects/${pid}/intersections/${iid}/two-pass/plan`);
+    } catch (e) { tpPlan = null; }
+    if (tpPlan) {
+        await _v3ConfirmProcessTwoPass(pid, iid, tpPlan.windows || []);
+        return;
+    }
+
     let preflight;
     try {
         preflight = await API.post(
@@ -1051,11 +1573,16 @@ async function v3StartProcessing(iid) {
         alert('Cannot process — please fix these first:\n\n' + preflight.errors.join('\n'));
         return;
     }
+    const warnBlock = (preflight.warnings && preflight.warnings.length)
+        ? '\n⚠ Warnings (you can still proceed):\n' +
+          preflight.warnings.map(w => '  • ' + w).join('\n') + '\n'
+        : '';
     const msg = `Ready to process this intersection.\n\n` +
                 `Segments: ${preflight.segment_count}\n` +
                 `Cameras used: ${preflight.cameras_used.length}\n` +
-                `Trims: ${preflight.trims_used.length}\n\n` +
-                `Start processing now?`;
+                `Trims: ${preflight.trims_used.length}\n` +
+                warnBlock +
+                `\nStart processing now?`;
     if (!window.confirm(msg)) return;
     try {
         await API.post(`/api/projects/${pid}/intersections/${iid}/processing/start`, {});

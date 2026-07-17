@@ -18,18 +18,20 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.config import (
-    DEFAULT_PROCESSING_MODE, PROCESSING_MODES, PROJECTS_DIR,
+    DEFAULT_PROCESSING_MODE, MAX_CONCURRENT_PIPELINES, PROCESSING_MODES, PROJECTS_DIR,
     get_processing_mode_config,
 )
 from backend.database import (
     CLEAR_TO_DEFAULT,
-    add_trim, clear_v3_run_state, get_calibration_params, get_camera,
+    add_trim, clear_v3_run_state, ensure_default_intersection_for_legacy,
+    get_camera_calibration_params, get_camera,
     get_connection, get_db_path, get_intersection, get_project_info,
     get_v3_run_state, heal_v3_running_to_interrupted,
     list_cameras, list_intersections, list_paths_for_camera,
     list_trims, list_videos_for_camera,
-    remove_camera, remove_intersection, remove_trim, set_v3_run_state,
-    update_camera, update_intersection, update_trim,
+    remove_camera, remove_intersection, remove_trim,
+    resolve_camera_knob_defaults, set_v3_run_state,
+    update_camera, update_camera_calibration, update_intersection, update_trim,
 )
 from backend.services.coverage import (
     CameraCoverage, Interval, compute_coverage_report,
@@ -49,6 +51,44 @@ import time
 
 _v3_jobs: dict[tuple[str, int], dict] = {}
 _v3_jobs_lock = threading.Lock()
+
+# A job is "in flight" once its pipeline thread has been started and until it
+# reaches a terminal state. Used to enforce MAX_CONCURRENT_PIPELINES ACROSS
+# intersection-days: a start beyond the cap is held as 'queued' (thread NOT
+# spawned) and promoted when a running job finishes. Without this, every
+# intersection-day spawned an unbounded thread — an overload risk on modest
+# hardware. Mirrors the v2 batch-queue cap in routers/processing.py.
+_V3_TERMINAL_STATUSES = {"complete", "error", "cancelled"}
+
+
+def _v3_active_count_locked() -> int:
+    """Count in-flight pipelines. Call while holding _v3_jobs_lock. Counts jobs
+    whose thread was started and that haven't terminated — robust to the brief
+    'queued'->'running' transition window of a just-spawned job."""
+    return sum(
+        1 for j in _v3_jobs.values()
+        if j.get("_started") and j.get("status") not in _V3_TERMINAL_STATUSES
+    )
+
+
+def _v3_promote_queued() -> None:
+    """If a slot is free, start the oldest waiting (queued, unstarted) job.
+    Called when a running job terminates. Spawns the thread OUTSIDE the lock
+    (the pipeline thread re-acquires _v3_jobs_lock immediately)."""
+    spawn = None
+    with _v3_jobs_lock:
+        if _v3_active_count_locked() >= MAX_CONCURRENT_PIPELINES:
+            return
+        for k, j in _v3_jobs.items():
+            if (j.get("status") == "queued" and not j.get("_started")
+                    and j.get("_segments") is not None):
+                j["_started"] = True
+                spawn = (k[0], k[1], j["_segments"])
+                break
+    if spawn is not None:
+        threading.Thread(
+            target=_run_v3_pipeline, args=spawn, daemon=True,
+        ).start()
 
 # Live preview state — mirrors the v2 pattern in routers/processing.py but
 # scoped per (project, intersection) so multiple intersections can run.
@@ -182,6 +222,19 @@ class UpdateIntersectionBody(BaseModel):
 class UpdateCameraBody(BaseModel):
     label: Optional[str] = None
     sort_order: Optional[int] = None
+    # Per-camera detection/tracking knob overrides. Pass null to clear an
+    # override back to the backend/config.py default. These are camera+
+    # resolution artifacts (detector double-boxing, tracker ID duplication),
+    # distinct from the per-intersection classification angles.
+    calib_pre_track_nms_iou: Optional[float] = None
+    calib_tracker_lost_buffer: Optional[int] = None
+    calib_tracker_match_threshold: Optional[float] = None
+    calib_tracker_activation_threshold: Optional[float] = None
+    # Phase 1 tracker knobs (docs/implementation_plan_architecture_2026-06-11.md)
+    calib_bbox_buffer_scale: Optional[float] = None
+    calib_track_quality_filter: Optional[int] = None
+    calib_new_track_thresh: Optional[float] = None
+    calib_cost_metric: Optional[str] = None
 
 
 class TrimBody(BaseModel):
@@ -260,6 +313,11 @@ def _trim_to_interval(date_str: str, trim: dict) -> Interval:
 def get_intersections(project_id: str):
     """List all intersection-day cards in the project."""
     _require_project(project_id)
+    # Lazy v2->v3 migration: the first time a legacy flat-video project is
+    # viewed under v3, auto-create its default intersection/camera/trim and link
+    # existing videos/legs/events. Idempotent and cheap (early-returns once every
+    # video is linked), so it's safe to call on every list.
+    ensure_default_intersection_for_legacy(project_id)
     return list_intersections(project_id)
 
 
@@ -396,11 +454,77 @@ def get_cameras(project_id: str, intersection_id: int):
 def patch_camera(
     project_id: str, intersection_id: int, camera_id: int, body: UpdateCameraBody,
 ):
+    """Rename/reorder a camera, or set its per-camera detection/tracking knob
+    overrides (NMS, tracker buffers). For the calib_* fields, pass null to clear
+    an override back to the config default."""
     _require_project(project_id)
     _require_intersection(project_id, intersection_id)
     _require_camera(project_id, camera_id)
+
+    set_fields = body.model_fields_set
+    # Range-check only the fields being set to a value (None = clear, skip).
+    def _v(field: str):
+        return getattr(body, field) if field in set_fields else None
+    nms = _v("calib_pre_track_nms_iou")
+    if nms is not None and not (0.0 < nms <= 1.0):
+        raise HTTPException(status_code=422,
+            detail="calib_pre_track_nms_iou must be in (0, 1]")
+    lost = _v("calib_tracker_lost_buffer")
+    if lost is not None and not (1 <= lost <= 1000):
+        raise HTTPException(status_code=422,
+            detail="calib_tracker_lost_buffer must be in [1, 1000]")
+    match = _v("calib_tracker_match_threshold")
+    if match is not None and not (0.0 < match <= 1.0):
+        raise HTTPException(status_code=422,
+            detail="calib_tracker_match_threshold must be in (0, 1]")
+    activation = _v("calib_tracker_activation_threshold")
+    if activation is not None and not (0.0 <= activation <= 1.0):
+        raise HTTPException(status_code=422,
+            detail="calib_tracker_activation_threshold must be in [0, 1]")
+    buf = _v("calib_bbox_buffer_scale")
+    if buf is not None and not (1.0 <= buf <= 2.0):
+        raise HTTPException(status_code=422,
+            detail="calib_bbox_buffer_scale must be in [1, 2]")
+    tq = _v("calib_track_quality_filter")
+    if tq is not None and tq not in (0, 1):
+        raise HTTPException(status_code=422,
+            detail="calib_track_quality_filter must be 0 or 1")
+    ntt = _v("calib_new_track_thresh")
+    if ntt is not None and not (0.0 <= ntt <= 1.0):
+        raise HTTPException(status_code=422,
+            detail="calib_new_track_thresh must be in [0, 1]")
+    cm = _v("calib_cost_metric")
+    if cm is not None and cm not in ("dtw_mean", "frechet", "mdh"):
+        raise HTTPException(status_code=422,
+            detail="calib_cost_metric must be one of dtw_mean, frechet, mdh")
+
     update_camera(project_id, camera_id, label=body.label, sort_order=body.sort_order)
-    return get_camera(project_id, camera_id)
+
+    # Three-state translation (mirrors patch_intersection): field unset => don't
+    # touch; field present & null => clear to default; field present & value => set.
+    def _kwarg(field: str):
+        if field not in set_fields:
+            return None
+        v = getattr(body, field)
+        return CLEAR_TO_DEFAULT if v is None else v
+    update_camera_calibration(
+        project_id, camera_id,
+        calib_pre_track_nms_iou=_kwarg("calib_pre_track_nms_iou"),
+        calib_tracker_lost_buffer=_kwarg("calib_tracker_lost_buffer"),
+        calib_tracker_match_threshold=_kwarg("calib_tracker_match_threshold"),
+        calib_tracker_activation_threshold=_kwarg("calib_tracker_activation_threshold"),
+        calib_bbox_buffer_scale=_kwarg("calib_bbox_buffer_scale"),
+        calib_track_quality_filter=_kwarg("calib_track_quality_filter"),
+        calib_new_track_thresh=_kwarg("calib_new_track_thresh"),
+        calib_cost_metric=_kwarg("calib_cost_metric"),
+    )
+    cam = get_camera(project_id, camera_id)
+    # Surface the effective per-camera knobs (resolved override-or-default) so
+    # the UI can render current values without a second call. The getter returns
+    # raw overrides (None when unset); resolve them for display.
+    knobs = get_camera_calibration_params(project_id, camera_id)
+    cam["effective_calibration"] = resolve_camera_knob_defaults(knobs)
+    return cam
 
 
 @router.delete("/projects/{project_id}/intersections/{intersection_id}/cameras/{camera_id}")
@@ -564,6 +688,74 @@ def _plan_for_intersection(project_id: str, intersection: dict):
     )
 
 
+# All eight compass directions are valid leg cardinals — skewed/rural
+# intersections legitimately have diagonal approaches (e.g. a SE leg whose
+# traffic is northwest-bound). Movement naming derives from the leg geometry
+# (build_bank's _cardinal_movement routes diagonals to the heading-based
+# fallback), and the Excel renders whatever the calibration provides.
+_VALID_CARDINALS = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
+
+
+def _preprocess_warnings(
+    project_id: str, intersection_id: int, cameras_used: list[int],
+) -> list[str]:
+    """Non-blocking pre-process checks surfaced in the Confirm dialog (#9).
+
+    The dress rehearsal (docs/dress_rehearsal_findings_2026-06-23.md) started a
+    run with bad leg cardinals AND no path bank; the pipeline burned CPU and
+    produced ~0 attributed events. These checks catch that BEFORE the run.
+
+    Intentionally convention-free and data-grounded: reference_heading is
+    image-space (not comparable to the real-world cardinal), so we don't check
+    heading-vs-cardinal here — the bank builder's QA leg_sanity does that with
+    observed traffic. Each warning maps to a concrete downstream breakage, so a
+    healthy project shows none. Warnings never block; the operator confirms.
+    """
+    labels = {c["camera_id"]: (c.get("label") or f"camera {c['camera_id']}")
+              for c in list_cameras(project_id, intersection_id)}
+    conn = get_connection(project_id)
+    try:
+        conn.row_factory = __import__("sqlite3").Row
+        legs_by_cam = {
+            cid: [dict(r) for r in conn.execute(
+                "SELECT leg_id, label, cardinal_direction FROM legs "
+                "WHERE camera_id = ? ORDER BY sort_order", (cid,)).fetchall()]
+            for cid in cameras_used
+        }
+    finally:
+        conn.close()
+
+    warnings: list[str] = []
+    for cid in cameras_used:
+        cam = labels.get(cid, f"camera {cid}")
+        legs = legs_by_cam.get(cid, [])
+        if not legs:
+            warnings.append(f"{cam}: no legs calibrated — its segments will be "
+                            f"skipped and produce 0 vehicles.")
+            continue
+        seen: dict[str, str] = {}
+        for leg in legs:
+            cd = (leg["cardinal_direction"] or "").strip().upper()
+            name = leg["label"] or f"leg {leg['leg_id']}"
+            if not cd:
+                warnings.append(f"{cam}: leg '{name}' has no cardinal direction set.")
+            elif cd not in _VALID_CARDINALS:
+                warnings.append(f"{cam}: leg '{name}' has an unrecognized cardinal "
+                                f"'{cd}' — expected one of N/NE/E/SE/S/SW/W/NW.")
+            elif cd in seen:
+                warnings.append(f"{cam}: legs '{seen[cd]}' and '{name}' share "
+                                f"cardinal '{cd}' — each approach needs a distinct one.")
+            else:
+                seen[cd] = name
+        # The headline check: with no path bank the pipeline falls back to legacy
+        # heuristics and leaves vehicles largely unattributed (the rehearsal's ~0).
+        if not list_paths_for_camera(project_id, cid):
+            warnings.append(f"{cam}: no path bank — vehicles will be largely "
+                            f"unattributed (~0 movement counts). Build one first "
+                            f"(new-site runbook section 2).")
+    return warnings
+
+
 @router.post("/projects/{project_id}/intersections/{intersection_id}/processing/preflight")
 def processing_preflight(project_id: str, intersection_id: int):
     """Dry-run the orchestrator's planner. Returns the segment plan
@@ -578,6 +770,7 @@ def processing_preflight(project_id: str, intersection_id: int):
     return {
         "errors": plan.errors,
         "ok": len(plan.errors) == 0,
+        "warnings": _preprocess_warnings(project_id, intersection_id, plan.cameras_used),
         "segment_count": len(plan.segments),
         "cameras_used": plan.cameras_used,
         "trims_used": plan.trims_used,
@@ -628,6 +821,54 @@ def _run_v3_pipeline(
     mode_name = get_project_info(project_id, "processing_mode") or DEFAULT_PROCESSING_MODE
     mode_cfg = get_processing_mode_config(mode_name)
 
+    # Persist per-frame detections to a parquet cache as we run, so the bank
+    # bootstrap (scripts/build_bank_gtfree.py) can reuse them without a second
+    # detection pass. Without this the live "Confirm & process" wrote events but
+    # NO cache, and the new-site bank step had nothing to read (dress-rehearsal
+    # finding 2026-06-26). One writer per (camera, video); the variant encodes
+    # the mode so different modes don't clobber each other. Build the bank in
+    # the same mode (or pass build_bank_gtfree --variant) to match.
+    from backend.services.detection_cache import (
+        DetectionCacheWriter, compute_video_content_hash, parquet_path)
+    cache_variant = f"{mode_name}_{mode_cfg['yolo_imgsz']}_skip{mode_cfg['detection_skip']}"
+    _cache_writers: dict = {}
+
+    def _cache_writer_for(seg):
+        conn_ = get_connection(project_id)
+        try:
+            row = conn_.execute(
+                "SELECT path, file_size_bytes, total_frames FROM videos WHERE video_id = ?",
+                (seg.video_id,)).fetchone()
+        finally:
+            conn_.close()
+        if row is None:
+            return None
+        chash, method = compute_video_content_hash(
+            row[0], file_size_bytes=row[1], total_frames=row[2])
+        wkey = (seg.camera_id, chash)
+        w = _cache_writers.get(wkey)
+        if w is None:
+            w = DetectionCacheWriter(
+                pq_path=parquet_path(project_id, seg.camera_id, chash, cache_variant),
+                metadata={"camera_id": seg.camera_id, "content_hash": chash,
+                          "method": method, "model": mode_cfg["yolo_model"],
+                          "imgsz": mode_cfg["yolo_imgsz"],
+                          "confidence": mode_cfg["yolo_confidence"],
+                          "detection_skip": mode_cfg["detection_skip"]})
+            _cache_writers[wkey] = w
+            try:   # persist the hash for fast cache lookups (best-effort)
+                conn_ = get_connection(project_id)
+                with conn_:
+                    conn_.execute("UPDATE videos SET content_hash = ?, "
+                                  "content_hash_method = ? WHERE video_id = ?",
+                                  (chash, method, seg.video_id))
+                conn_.close()
+            except Exception:
+                pass
+        return w
+
+    _cams_processed: set = set()   # cameras to re-classify for articulated post-run
+    _run_ok = False
     try:
         with _v3_jobs_lock:
             _v3_jobs[key]["status"] = "running"
@@ -667,9 +908,10 @@ def _run_v3_pipeline(
                     )
                 continue
 
-            # Per-intersection calibration overrides — resolved to effective
-            # values (override or global default) by get_calibration_params.
-            calib = get_calibration_params(project_id, intersection_id)
+            # Effective per-camera tunables: intersection classification
+            # overrides merged with this camera's detection/tracking knobs
+            # (NMS, tracker buffers), each resolved to override-or-default.
+            calib = get_camera_calibration_params(project_id, seg.camera_id)
             # Per-camera polyline paths. Empty list when this camera hasn't
             # been polyline-calibrated yet; pipeline falls back to legacy
             # tripwire+heading tiers in that case.
@@ -682,6 +924,7 @@ def _run_v3_pipeline(
                 fps=seg.fps,
                 video_id=seg.video_id,
                 yolo_model=mode_cfg["yolo_model"],
+                yolo_class_scheme=mode_cfg.get("yolo_class_scheme", "coco"),
                 yolo_imgsz=mode_cfg["yolo_imgsz"],
                 yolo_confidence=mode_cfg["yolo_confidence"],
                 detection_skip=mode_cfg["detection_skip"],
@@ -695,6 +938,9 @@ def _run_v3_pipeline(
             # its constructor arg.
             pipeline._v3_trim_id = seg.trim_id
             pipeline._v3_camera_id = seg.camera_id
+            cw = _cache_writer_for(seg)
+            if cw is not None:
+                pipeline._detection_cache_writer = cw
 
             # Live preview: push every callback's frame data into the
             # intersection-scoped preview queue so the MJPEG endpoint can
@@ -790,10 +1036,12 @@ def _run_v3_pipeline(
                 conn.commit()
             finally:
                 conn.close()
+            _cams_processed.add(seg.camera_id)
 
         with _v3_jobs_lock:
             _v3_jobs[key]["status"] = "complete"
         set_v3_run_state(project_id, intersection_id, "complete")
+        _run_ok = True
     except Exception as exc:
         with _v3_jobs_lock:
             _v3_jobs[key]["status"] = "error"
@@ -802,10 +1050,30 @@ def _run_v3_pipeline(
             project_id, intersection_id, "error", error_message=str(exc),
         )
     finally:
+        # Flush + close the detection-cache writers (writes each parquet +
+        # metadata sidecar) — on completion, error, OR cancel.
+        for w in _cache_writers.values():
+            try:
+                w.close()
+            except Exception:
+                pass
+        # §3-D: re-bucket single-unit trucks to articulated by view-invariant size
+        # (blind, from each camera's now-flushed detection cache). Only on a
+        # completed run; best-effort so it never masks the real processing outcome.
+        if _run_ok:
+            from backend.services.articulated import reclassify_articulated
+            for _cam in _cams_processed:
+                try:
+                    logger.info("articulated cam %s: %s", _cam,
+                                reclassify_articulated(project_id, _cam, apply=True))
+                except Exception:
+                    logger.exception("articulated reclassify failed, cam %s", _cam)
         # Tear down the live preview worker — keep the last frame stashed
         # briefly so the client's MJPEG stream sees a final frame before
         # the server stops yielding.
         _stop_v3_preview_worker(key)
+        # A slot just freed — start the next intersection-day waiting for one.
+        _v3_promote_queued()
 
 
 @router.post("/projects/{project_id}/intersections/{intersection_id}/processing/start")
@@ -856,6 +1124,10 @@ def processing_start(project_id: str, intersection_id: int):
                 status_code=409,
                 detail="Processing already running for this intersection.",
             )
+        # Enforce MAX_CONCURRENT_PIPELINES across intersection-days: if the cap
+        # is reached, hold this job as 'queued' WITHOUT spawning a thread; it is
+        # promoted when a running job finishes (_v3_promote_queued).
+        at_capacity = _v3_active_count_locked() >= MAX_CONCURRENT_PIPELINES
         _v3_jobs[key] = {
             "status": "queued",
             "segment_count": len(plan.segments),
@@ -866,19 +1138,28 @@ def processing_start(project_id: str, intersection_id: int):
             "error": None,
             "warnings": [],
             "cancel_requested": False,
+            "_segments": plan.segments,
+            "_started": not at_capacity,
         }
     set_v3_run_state(project_id, intersection_id, "queued")
 
-    t = threading.Thread(
+    if at_capacity:
+        return {
+            "status": "queued",
+            "queued_for_slot": True,
+            "segments": len(plan.segments),
+            "max_concurrent": MAX_CONCURRENT_PIPELINES,
+        }
+
+    threading.Thread(
         target=_run_v3_pipeline,
         args=(project_id, intersection_id, plan.segments),
         daemon=True,
-    )
-    t.start()
+    ).start()
     return {"status": "queued", "segments": len(plan.segments)}
 
 
-_JOB_NON_SERIALIZABLE_KEYS = {"pipeline"}
+_JOB_NON_SERIALIZABLE_KEYS = {"pipeline", "_segments"}
 
 
 def _is_intersection_configured(project_id: str, intersection: dict) -> bool:
@@ -927,6 +1208,16 @@ def processing_status(project_id: str, intersection_id: int):
     _require_project(project_id)
     intersection = _require_intersection(project_id, intersection_id)
     configured = _is_intersection_configured(project_id, intersection)
+
+    # Two-pass live detail (plan_C_polish §C): the process job carries
+    # stage/camera/window progress the bare run-state row lacks. Merged as a
+    # `two_pass` key so the chip can render a real subline + route Cancel.
+    try:
+        from backend.routers.two_pass import get_process_job
+        two_pass_job = get_process_job(project_id, intersection_id)
+    except Exception:
+        two_pass_job = None
+
     key = (project_id, intersection_id)
     with _v3_jobs_lock:
         job = _v3_jobs.get(key)
@@ -938,13 +1229,18 @@ def processing_status(project_id: str, intersection_id: int):
             out = {k: v for k, v in job.items() if k not in _JOB_NON_SERIALIZABLE_KEYS}
             out["pipeline_stats"] = _pipeline_live_stats(pipeline)
             out["configured"] = configured
+            if two_pass_job:
+                out["two_pass"] = two_pass_job
             return out
 
     # No in-memory job — check the DB. After a server restart this is the
     # only place the UI can learn that a prior run was interrupted.
     db_state = get_v3_run_state(project_id, intersection_id)
     if db_state is None:
-        return {"status": "idle", "configured": configured}
+        out = {"status": "idle", "configured": configured}
+        if two_pass_job:
+            out["two_pass"] = two_pass_job
+        return out
 
     has_checkpoint = False
     try:
@@ -954,13 +1250,16 @@ def processing_status(project_id: str, intersection_id: int):
     except Exception:
         pass
 
-    return {
+    out = {
         "status": db_state["status"],
         "configured": configured,
         "error": db_state.get("error_message"),
         "has_checkpoint": has_checkpoint,
         "updated_at": db_state.get("updated_at"),
     }
+    if two_pass_job:
+        out["two_pass"] = two_pass_job
+    return out
 
 
 @router.get("/projects/{project_id}/intersections/{intersection_id}/processing/preview-stream")
@@ -1032,10 +1331,21 @@ def processing_cancel(project_id: str, intersection_id: int):
     _require_intersection(project_id, intersection_id)
     key = (project_id, intersection_id)
     pipeline = None
+    cancelled_queued = False
     with _v3_jobs_lock:
-        if key in _v3_jobs and _v3_jobs[key].get("status") == "running":
-            _v3_jobs[key]["cancel_requested"] = True
-            pipeline = _v3_jobs[key].get("pipeline")
+        job = _v3_jobs.get(key)
+        if job and job.get("status") == "running":
+            job["cancel_requested"] = True
+            pipeline = job.get("pipeline")
+        elif job and job.get("status") == "queued" and not job.get("_started"):
+            # Still waiting for a slot — drop it from the queue right away so it
+            # is never promoted, and free its run-state for a fresh start.
+            job["status"] = "cancelled"
+            job["_segments"] = None
+            cancelled_queued = True
+    if cancelled_queued:
+        set_v3_run_state(project_id, intersection_id, "cancelled")
+        return {"status": "cancelled"}
     # Flip is_running on the currently-running pipeline so process_video()
     # exits its while loop within one frame, instead of waiting until the
     # next segment-boundary check.
@@ -1136,6 +1446,17 @@ def processing_resume(project_id: str, intersection_id: int):
                 status_code=409,
                 detail="Processing already running for this intersection.",
             )
+        # Resume is a deliberate single action; rather than queue it (the resume
+        # kwargs make promotion awkward), refuse when at capacity so we never
+        # exceed MAX_CONCURRENT_PIPELINES. The user retries once a slot frees.
+        if _v3_active_count_locked() >= MAX_CONCURRENT_PIPELINES:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"{MAX_CONCURRENT_PIPELINES} intersection-days are already "
+                    "processing. Wait for one to finish, then Continue."
+                ),
+            )
         _v3_jobs[key] = {
             "status": "queued",
             "segment_count": len(plan.segments),
@@ -1146,6 +1467,7 @@ def processing_resume(project_id: str, intersection_id: int):
             "error": None,
             "warnings": [],
             "cancel_requested": False,
+            "_started": True,
         }
     set_v3_run_state(project_id, intersection_id, "queued")
 

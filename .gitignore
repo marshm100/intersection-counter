@@ -22,6 +22,7 @@ __pycache__/
 .claude/settings.local.json
 .claude/current-task.json
 .claude/projects/
+.claude/scheduled_tasks.lock
 
 # Copy artifacts
 requirements - Copy*.txt
@@ -36,3 +37,14 @@ logs/
 # Ad-hoc UI screenshots — debugging artifacts, not deliverables
 screenshots/*
 !screenshots/.gitkeep
+
+# Generated OpenVINO model exports (bulky, regenerated on demand)
+*_openvino_model/
+
+# Sweep/run logs — verbose machine-generated output (tens of MB of convergence
+# warnings), regenerated on demand. The small JSON artifacts beside them ARE kept.
+evaluations/*.log
+# Transient diagnostic dumps
+kernel.errors.txt
+*.errors.txt
+runs/detect/

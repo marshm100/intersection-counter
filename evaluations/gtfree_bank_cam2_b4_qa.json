@@ -1,0 +1,232 @@
+{
+  "camera": 2,
+  "window": "07:00:00+30min",
+  "n_tracks_usable": 1860,
+  "agreement_rate": 0.409,
+  "cells": [
+    {
+      "cell": "L29->L27 through",
+      "n": 717,
+      "share": 0.4431,
+      "straightness": 0.996,
+      "bearing_residuals": [
+        0.8,
+        0.7
+      ],
+      "status": "admitted"
+    },
+    {
+      "cell": "L27->L29 through",
+      "n": 220,
+      "share": 0.136,
+      "straightness": 0.995,
+      "bearing_residuals": [
+        0.1,
+        6.1
+      ],
+      "status": "admitted"
+    },
+    {
+      "cell": "L26->L28 through",
+      "n": 180,
+      "share": 0.1112,
+      "straightness": 0.821,
+      "bearing_residuals": [
+        49.8,
+        11.6
+      ],
+      "status": "admitted"
+    },
+    {
+      "cell": "L28->L29 right",
+      "n": 138,
+      "share": 0.0853,
+      "straightness": 1.0,
+      "bearing_residuals": [
+        2.4,
+        4.9
+      ],
+      "status": "admitted",
+      "warn": "straight_turn"
+    },
+    {
+      "cell": "L29->L28 left",
+      "n": 118,
+      "share": 0.0729,
+      "straightness": 0.999,
+      "bearing_residuals": [
+        1.8,
+        17.9
+      ],
+      "status": "admitted",
+      "warn": "straight_turn"
+    },
+    {
+      "cell": "L26->L27 right",
+      "n": 71,
+      "share": 0.0439,
+      "straightness": 0.991,
+      "bearing_residuals": [
+        4.5,
+        16.1
+      ],
+      "status": "admitted",
+      "warn": "straight_turn"
+    },
+    {
+      "cell": "L28->L27 left",
+      "n": 57,
+      "share": 0.0352,
+      "straightness": 0.892,
+      "bearing_residuals": [
+        3.6,
+        3.5
+      ],
+      "status": "admitted"
+    },
+    {
+      "cell": "L28->L26 through",
+      "n": 43,
+      "share": 0.0266,
+      "straightness": 0.997,
+      "bearing_residuals": [
+        3.1,
+        26.7
+      ],
+      "status": "admitted"
+    },
+    {
+      "cell": "L27->L26 left",
+      "n": 24,
+      "share": 0.0148,
+      "straightness": 0.987,
+      "bearing_residuals": [
+        1.8,
+        27.3
+      ],
+      "status": "admitted",
+      "warn": "straight_turn"
+    },
+    {
+      "cell": "L27->L28 right",
+      "n": 19,
+      "share": 0.0117,
+      "straightness": 0.878,
+      "bearing_residuals": [
+        0.6,
+        24.1
+      ],
+      "status": "admitted"
+    },
+    {
+      "cell": "L26->L29 left",
+      "n": 18,
+      "share": 0.0111,
+      "straightness": 0.692,
+      "bearing_residuals": [
+        11.8,
+        31.3
+      ],
+      "status": "admitted"
+    },
+    {
+      "cell": "L29->L26 right",
+      "n": 13,
+      "share": 0.008,
+      "straightness": 0.347,
+      "bearing_residuals": [
+        3.0,
+        30.0
+      ],
+      "member_spread_px": 176.2,
+      "status": "minor_incoherent_rejected"
+    },
+    {
+      "cell": "L29->L28 left",
+      "n": 118,
+      "status": "dedup_dropped",
+      "kept": "L29->L27"
+    },
+    {
+      "cell": "L26->L28",
+      "status": "warn_through_bends",
+      "signed_delta": 84.9
+    },
+    {
+      "cell": "L26->L26 u_turn",
+      "n": 0,
+      "status": "channel_fallback"
+    },
+    {
+      "cell": "L27->L27 u_turn",
+      "n": 0,
+      "status": "channel_fallback"
+    },
+    {
+      "cell": "L28->L28 u_turn",
+      "n": 0,
+      "status": "channel_fallback"
+    },
+    {
+      "cell": "L29->L26 right",
+      "n": 0,
+      "status": "channel_fallback"
+    },
+    {
+      "cell": "L29->L28 left",
+      "n": 0,
+      "status": "channel_fallback"
+    },
+    {
+      "cell": "L29->L29 u_turn",
+      "n": 0,
+      "status": "channel_fallback"
+    }
+  ],
+  "ambiguous_pairs": [],
+  "leg_sanity": [
+    {
+      "leg_id": 28,
+      "calibrated_heading": 240.6,
+      "observed_entry_bearing": 273.8,
+      "diff_deg": 33.2,
+      "verdict": "ok"
+    },
+    {
+      "leg_id": 29,
+      "calibrated_heading": 114.4,
+      "observed_entry_bearing": 95.4,
+      "diff_deg": 19.0,
+      "verdict": "ok"
+    },
+    {
+      "leg_id": 27,
+      "calibrated_heading": 288.2,
+      "observed_entry_bearing": 291.2,
+      "diff_deg": 3.0,
+      "verdict": "ok"
+    },
+    {
+      "leg_id": 26,
+      "calibrated_heading": 53.8,
+      "observed_entry_bearing": 67.0,
+      "diff_deg": 13.2,
+      "verdict": "ok"
+    }
+  ],
+  "missing_movements": [],
+  "anchor_cells_raw": {
+    "29->27": 717,
+    "27->29": 220,
+    "26->28": 180,
+    "28->29": 138,
+    "29->29": 124,
+    "29->28": 118,
+    "26->27": 71,
+    "28->27": 57,
+    "26->26": 54,
+    "28->26": 43,
+    "28->28": 36,
+    "27->27": 28
+  }
+}

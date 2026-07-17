@@ -220,6 +220,74 @@ class TestCameraCRUD:
         assert len(cams) == 1
 
 
+class TestCameraCalibration:
+    """Per-camera detection/tracking knobs (NMS + tracker buffers)."""
+
+    def _cam_id(self, pid, iid):
+        return client.get(
+            f"/api/projects/{pid}/intersections/{iid}/cameras").json()[0]["camera_id"]
+
+    def test_get_camera_calibration_params_helper(self, project_with_two_cameras):
+        """The getter returns RAW per-camera knob overrides (None when unset, so
+        the pipeline's precedence chain can tell an override from a default); a
+        set knob comes back; classification tunables are merged in (resolved)."""
+        from backend.database import (get_camera_calibration_params,
+                                      resolve_camera_knob_defaults, update_camera_calibration)
+        from backend.config import TRACKER_LOST_BUFFER, TRACKER_MATCH_THRESHOLD
+        pid, iid = project_with_two_cameras
+        cam_id = self._cam_id(pid, iid)
+        eff = get_camera_calibration_params(pid, cam_id)
+        # Unset knobs are None (raw override), NOT the config default.
+        assert eff["pre_track_nms_iou"] is None
+        assert eff["tracker_lost_buffer"] is None
+        assert eff["tracker_match_threshold"] is None
+        # classification tunables ARE resolved (merged in, proves it extends)
+        assert "trajectory_turn_min_angle" in eff
+        # resolve helper turns the raw knobs into display defaults
+        assert resolve_camera_knob_defaults(eff)["tracker_lost_buffer"] == TRACKER_LOST_BUFFER
+        update_camera_calibration(pid, cam_id, calib_pre_track_nms_iou=0.85)
+        eff = get_camera_calibration_params(pid, cam_id)
+        assert eff["pre_track_nms_iou"] == 0.85
+        assert eff["tracker_match_threshold"] is None  # untouched -> still raw None
+        assert resolve_camera_knob_defaults(eff)["tracker_match_threshold"] == TRACKER_MATCH_THRESHOLD
+
+    def test_patch_camera_sets_and_clears_nms(self, project_with_two_cameras):
+        pid, iid = project_with_two_cameras
+        cam_id = self._cam_id(pid, iid)
+        r = client.patch(
+            f"/api/projects/{pid}/intersections/{iid}/cameras/{cam_id}",
+            json={"calib_pre_track_nms_iou": 0.85})
+        assert r.status_code == 200
+        assert r.json()["effective_calibration"]["pre_track_nms_iou"] == 0.85
+        # clear back to default (null)
+        r = client.patch(
+            f"/api/projects/{pid}/intersections/{iid}/cameras/{cam_id}",
+            json={"calib_pre_track_nms_iou": None})
+        assert r.status_code == 200
+        assert r.json()["effective_calibration"]["pre_track_nms_iou"] is None
+
+    def test_patch_camera_rename_preserves_knobs(self, project_with_two_cameras):
+        """Renaming a camera must not wipe its detection/tracking overrides."""
+        pid, iid = project_with_two_cameras
+        cam_id = self._cam_id(pid, iid)
+        client.patch(f"/api/projects/{pid}/intersections/{iid}/cameras/{cam_id}",
+                     json={"calib_pre_track_nms_iou": 0.85})
+        r = client.patch(f"/api/projects/{pid}/intersections/{iid}/cameras/{cam_id}",
+                         json={"label": "Renamed"})
+        assert r.status_code == 200
+        assert r.json()["effective_calibration"]["pre_track_nms_iou"] == 0.85
+
+    def test_patch_camera_rejects_out_of_range(self, project_with_two_cameras):
+        pid, iid = project_with_two_cameras
+        cam_id = self._cam_id(pid, iid)
+        for body in ({"calib_pre_track_nms_iou": 1.5},
+                     {"calib_tracker_lost_buffer": 0},
+                     {"calib_tracker_match_threshold": -0.1}):
+            r = client.patch(
+                f"/api/projects/{pid}/intersections/{iid}/cameras/{cam_id}", json=body)
+            assert r.status_code == 422, body
+
+
 class TestTrimsCRUD:
     def test_add_valid_trim(self, project_with_two_cameras):
         pid, iid = project_with_two_cameras

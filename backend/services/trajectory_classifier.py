@@ -9,6 +9,7 @@ are captured correctly.
 
 import logging
 import math
+from statistics import median
 
 from backend.config import (
     TRAJECTORY_CURVATURE_THRESHOLD,
@@ -17,6 +18,7 @@ from backend.config import (
     TRAJECTORY_THROUGH_MAX_ANGLE,
     TRAJECTORY_TURN_MIN_ANGLE,
     TRAJECTORY_UTURN_MIN_ANGLE,
+    TRAJECTORY_UTURN_MIN_NET_DISPLACEMENT_PX,
 )
 
 logger = logging.getLogger(__name__)
@@ -190,6 +192,21 @@ def classify_trajectory(
     #    and cumulative curvature as tiebreaker for ambiguous cases.
 
     if abs_change >= eff_uturn:
+        # Reject doubling-back tracking artifacts: a real U-turn ends a meaningful
+        # net distance from its entry; an ID-switch/coasting loop ends near its
+        # start despite a large arc. Gate on net (start->end) displacement.
+        sx, sy = trajectory[0][0], trajectory[0][1]
+        ex, ey = trajectory[-1][0], trajectory[-1][1]
+        if math.hypot(ex - sx, ey - sy) < TRAJECTORY_UTURN_MIN_NET_DISPLACEMENT_PX:
+            return {
+                "movement": "insufficient_data",
+                "confidence": 0.0,
+                "net_heading_change": net_change,
+                "cumulative_curvature": curvature,
+                "path_straightness": straightness,
+                "path_distance": path_dist,
+                "num_points": num_points,
+            }
         movement = "uturn"
     elif abs_change <= eff_through:
         movement = "through"
@@ -272,7 +289,7 @@ def score_destination_by_polyline(
     origin_leg_id: int,
     paths: list[dict],
     *,
-    max_avg_distance_px: float = 40.0,
+    max_avg_distance_px: float = 20.0,
 ) -> dict:
     """Pick the (destination_leg, movement) that best matches this trajectory.
 
@@ -318,6 +335,588 @@ def score_destination_by_polyline(
         "path_id": best.get("path_id"),
         "considered": len(candidates),
     }
+
+
+# ---------------------------------------------------------------------------
+# Joint partial-Fréchet path scorer (Attribution v2, 2026-05-27).
+#
+# Supersedes the separate score_origin_by_polyline + score_destination_by_polyline
+# pair for polyline-equipped cameras. Rationale (docs/methodology_research_2026-05-26.md
+# + docs/implementation_plan_accuracy_2026-05-27.md):
+#
+#   At this camera vehicles enter YOLO's FOV mid-turn, so a polyline's ENTRY
+#   tangent reflects turn state, not approach direction — the entry-tangent
+#   assumption baked into score_origin_by_polyline is structurally wrong here.
+#   Instead we match the WHOLE trajectory against the best-aligning SUB-CURVE of
+#   each candidate path (partial Fréchet). A track that starts mid-turn matches a
+#   SUFFIX of the polyline; the uncovered approach portion doesn't contribute to
+#   the cost. Origin is then READ OFF the winning path's stored origin_leg_id —
+#   never estimated from the unreliable entry tangent. Tails are the trustworthy
+#   directional signal here, so a tail-direction prior (exit tangent) breaks ties.
+#
+# Discrete Fréchet is implemented locally (numpy) rather than depending on
+# similaritymeasures/frechetdist — the curves are short, the algorithm is ~30
+# lines, and it avoids new-dependency friction on the CPU/Windows target.
+# ---------------------------------------------------------------------------
+
+
+def _unit(vx: float, vy: float) -> tuple[float, float]:
+    n = math.hypot(vx, vy)
+    if n < 1e-9:
+        return (0.0, 0.0)
+    return (vx / n, vy / n)
+
+
+def _densify_polyline(pts: list, step_px: float) -> list:
+    """Resample a coarse polyline to ~one point every step_px along its arc.
+
+    Hand-drawn polylines have ~9 vertices spanning the whole frame, so raw
+    discrete Fréchet would couple at sparse vertices and overstate distance.
+    Densifying makes discrete Fréchet approximate the continuous metric.
+    """
+    if not pts or len(pts) < 2:
+        return [tuple(p) for p in pts]
+    out: list[tuple[float, float]] = [(float(pts[0][0]), float(pts[0][1]))]
+    for i in range(1, len(pts)):
+        ax, ay = float(pts[i - 1][0]), float(pts[i - 1][1])
+        bx, by = float(pts[i][0]), float(pts[i][1])
+        seg = math.hypot(bx - ax, by - ay)
+        if seg < 1e-9:
+            continue
+        n_steps = max(1, int(seg // step_px))
+        for s in range(1, n_steps + 1):
+            t = s / n_steps
+            out.append((ax + (bx - ax) * t, ay + (by - ay) * t))
+    return out
+
+
+def _resample_to(pts: list, n: int) -> list:
+    """Uniform index-resample a point list down to at most n points.
+
+    Caps the trajectory length so the Fréchet DP stays cheap on long tracks
+    without changing the curve's shape materially.
+    """
+    m = len(pts)
+    if m <= n:
+        return [(float(p[0]), float(p[1])) for p in pts]
+    idx = [round(i * (m - 1) / (n - 1)) for i in range(n)]
+    return [(float(pts[j][0]), float(pts[j][1])) for j in idx]
+
+
+def _discrete_frechet(P: list, Q: list) -> float:
+    """Discrete Fréchet distance between two polylines (lists of (x, y)).
+
+    Standard coupled-walk DP, O(len(P)*len(Q)), computed with a rolling pair of
+    rows so memory is O(len(Q)). Returns inf for empty input.
+    """
+    np_local = _np()
+    n, m = len(P), len(Q)
+    if n == 0 or m == 0:
+        return float("inf")
+    Pa = np_local.asarray(P, dtype=np_local.float64)
+    Qa = np_local.asarray(Q, dtype=np_local.float64)
+    prev = np_local.empty(m, dtype=np_local.float64)
+    curr = np_local.empty(m, dtype=np_local.float64)
+    # Pairwise distances row-by-row to avoid an n*m matrix on long tracks.
+    for i in range(n):
+        d_row = np_local.hypot(Qa[:, 0] - Pa[i, 0], Qa[:, 1] - Pa[i, 1])
+        for j in range(m):
+            if i == 0 and j == 0:
+                curr[j] = d_row[0]
+            elif i == 0:
+                curr[j] = max(curr[j - 1], d_row[j])
+            elif j == 0:
+                curr[j] = max(prev[0], d_row[0])
+            else:
+                curr[j] = max(min(prev[j], prev[j - 1], curr[j - 1]), d_row[j])
+        prev, curr = curr, prev
+    return float(prev[m - 1])
+
+
+def _np():
+    import numpy as np
+    return np
+
+
+def _dtw_mean(P: list, Q: list) -> float:
+    """Mean coupled distance between two polylines via DTW alignment.
+
+    Like _discrete_frechet, DTW finds a monotone coupling that respects point
+    order (so it measures SHAPE, not just spatial overlap the way one-way
+    Hausdorff does). Unlike Fréchet — which reports the single worst coupled
+    distance (a sup norm) — DTW accumulates the SUM along the optimal coupling,
+    which we normalise to a per-step mean. That makes it robust to the tracking
+    jitter that spikes Fréchet on real trajectories: empirically, real
+    best-match Fréchet costs here run ~80 px median (outlier-dominated) while
+    the mean coupled distance lives at the ~20-30 px scale the proven Stage A
+    mean-perpendicular destination scorer operated at.
+
+    Normalised by the actual optimal warping-path length (tracked alongside the
+    cost DP), so the returned value is a true mean coupled distance in pixels.
+    """
+    np_local = _np()
+    n, m = len(P), len(Q)
+    if n == 0 or m == 0:
+        return float("inf")
+    Pa = np_local.asarray(P, dtype=np_local.float64)
+    Qa = np_local.asarray(Q, dtype=np_local.float64)
+    prev = np_local.empty(m, dtype=np_local.float64)
+    curr = np_local.empty(m, dtype=np_local.float64)
+    prev_k = np_local.empty(m, dtype=np_local.int64)   # warping-path length to each cell
+    curr_k = np_local.empty(m, dtype=np_local.int64)
+    for i in range(n):
+        d_row = np_local.hypot(Qa[:, 0] - Pa[i, 0], Qa[:, 1] - Pa[i, 1])
+        for j in range(m):
+            if i == 0 and j == 0:
+                curr[j] = d_row[0]; curr_k[j] = 1
+            elif i == 0:
+                curr[j] = curr[j - 1] + d_row[j]; curr_k[j] = curr_k[j - 1] + 1
+            elif j == 0:
+                curr[j] = prev[0] + d_row[0]; curr_k[j] = prev_k[0] + 1
+            else:
+                up, diag, left = prev[j], prev[j - 1], curr[j - 1]
+                best = min(up, diag, left)
+                curr[j] = d_row[j] + best
+                if best == diag:
+                    curr_k[j] = prev_k[j - 1] + 1
+                elif best == left:
+                    curr_k[j] = curr_k[j - 1] + 1
+                else:
+                    curr_k[j] = prev_k[j] + 1
+        prev, curr = curr, prev
+        prev_k, curr_k = curr_k, prev_k
+    return float(prev[m - 1]) / int(prev_k[m - 1])
+
+
+def _subsequence_dtw(traj: list, poly_dense: list) -> tuple[int, int, float]:
+    """Best free-start / fixed-end alignment of the FULL trajectory to a SUFFIX
+    of poly_dense, in ONE DP pass — the fast equivalent of sweeping every start
+    index and running a full DTW each time.
+
+    Subsequence-DTW: the trajectory's first point may align to ANY polyline point
+    for free (row 0 = raw distances, not cumulative), so a prefix of the polyline
+    is skipped at no cost (the mid-turn-entry case). The match must consume the
+    whole trajectory and end at the polyline's last point (fixed exit). Tracks
+    the optimal warping-path length (for a true mean coupled distance) and the
+    start index it entered at (for the coverage penalty).
+
+    Returns (start_idx, end_idx=m-1, mean_coupled_distance). O(n*m) once, vs the
+    old O(m) full DTWs — ~m× faster, which is the difference between a seconds
+    and a tens-of-minutes replay over the full trajectory set.
+    """
+    np_local = _np()
+    n, m = len(traj), len(poly_dense)
+    if n == 0 or m == 0:
+        return (0, max(0, m - 1), float("inf"))
+    T = np_local.asarray(traj, dtype=np_local.float64)
+    P = np_local.asarray(poly_dense, dtype=np_local.float64)
+    INF = float("inf")
+    prev_c = np_local.empty(m); curr_c = np_local.empty(m)
+    prev_k = np_local.empty(m, dtype=np_local.int64); curr_k = np_local.empty(m, dtype=np_local.int64)
+    prev_s = np_local.empty(m, dtype=np_local.int64); curr_s = np_local.empty(m, dtype=np_local.int64)
+    for i in range(n):
+        d_row = np_local.hypot(P[:, 0] - T[i, 0], P[:, 1] - T[i, 1])
+        for j in range(m):
+            d = d_row[j]
+            if i == 0:
+                # Free start: trajectory[0] may begin at any polyline point.
+                curr_c[j] = d; curr_k[j] = 1; curr_s[j] = j
+            elif j == 0:
+                curr_c[j] = d + prev_c[0]; curr_k[j] = prev_k[0] + 1; curr_s[j] = prev_s[0]
+            else:
+                up, diag, left = prev_c[j], prev_c[j - 1], curr_c[j - 1]
+                best = min(up, diag, left)
+                curr_c[j] = d + best
+                if best == diag:
+                    curr_k[j] = prev_k[j - 1] + 1; curr_s[j] = prev_s[j - 1]
+                elif best == left:
+                    curr_k[j] = curr_k[j - 1] + 1; curr_s[j] = curr_s[j - 1]
+                else:
+                    curr_k[j] = prev_k[j] + 1; curr_s[j] = prev_s[j]
+        prev_c, curr_c = curr_c, prev_c
+        prev_k, curr_k = curr_k, prev_k
+        prev_s, curr_s = curr_s, prev_s
+    end = m - 1
+    total = float(prev_c[end])
+    if total == INF:
+        return (0, end, INF)
+    return (int(prev_s[end]), end, total / int(prev_k[end]))
+
+
+def _mdh_cost(P: list, Q: list) -> float:
+    """Fragmentation-robust matching cost (Phase 2.3): MIN of the two directed
+    mean-of-minimum distances + tail-direction term + exit-proximity term.
+
+    The published basis (arXiv 2111.09171: min directed Hausdorff + angle +
+    end-proximity, purpose-built for broken vision trajectories, 99.8% vs
+    56.9% for symmetric Hausdorff on dense oblique views): a FRAGMENT of a
+    movement lies close to its full reference polyline in ONE direction (every
+    fragment point is near the polyline) even though the reverse direction is
+    large (most of the polyline is far from the fragment) — so taking the MIN
+    tolerates partial coverage without a free-start DP. The tail-direction and
+    exit-proximity terms restore the discrimination the relaxation gives up
+    (they separate a through fragment from a collinear turn's shared prefix).
+    Units: px (degrees weighted in at 0.5 px/deg).
+    """
+    np_local = _np()
+    if len(P) < 2 or len(Q) < 2:
+        return float("inf")
+    Pa = np_local.asarray(P, dtype=np_local.float64)
+    Qa = np_local.asarray(Q, dtype=np_local.float64)
+    diff = Pa[:, None, :] - Qa[None, :, :]
+    dmat = np_local.hypot(diff[..., 0], diff[..., 1])
+    base = min(float(dmat.min(axis=1).mean()), float(dmat.min(axis=0).mean()))
+
+    def _tail_bearing(A):
+        k = min(3, len(A) - 1)
+        v = A[-1] - A[-1 - k]
+        if abs(v[0]) < 1e-9 and abs(v[1]) < 1e-9:
+            return None
+        import math as _m
+        return _m.degrees(_m.atan2(v[0], -v[1])) % 360
+    tb_p, tb_q = _tail_bearing(Pa), _tail_bearing(Qa)
+    ang = 0.0
+    if tb_p is not None and tb_q is not None:
+        ang = abs((tb_p - tb_q + 180) % 360 - 180)
+    end_prox = float(np_local.hypot(*(Pa[-1] - Qa[-1])))
+    return base + 0.5 * ang + 0.25 * end_prox
+
+
+def _min_directed(P: list, Q: list) -> float:
+    """MIN of the two directed mean-of-minimum point distances between two
+    polylines — the ``base`` term of :func:`_mdh_cost` in isolation.
+
+    A small value means the two curves are collinear/overlapping along at least
+    one direction: every point of one curve lies near the other. This is exactly
+    the mdh ambiguity the entry-tiebreak resolves — two paths that merge to a
+    shared exit read as "the same shape" here even though their entries diverge.
+    Kept as a standalone kernel (small duplication of _mdh_cost's base) so the
+    shipped scoring cost is untouched.
+    """
+    np_local = _np()
+    if len(P) < 2 or len(Q) < 2:
+        return float("inf")
+    Pa = np_local.asarray(P, dtype=np_local.float64)
+    Qa = np_local.asarray(Q, dtype=np_local.float64)
+    diff = Pa[:, None, :] - Qa[None, :, :]
+    dmat = np_local.hypot(diff[..., 0], diff[..., 1])
+    return min(float(dmat.min(axis=1).mean()), float(dmat.min(axis=0).mean()))
+
+
+_COST_METRICS = {
+    "dtw_mean": _dtw_mean,
+    "frechet": _discrete_frechet,
+    "mdh": _mdh_cost,
+}
+
+
+def _best_partial_frechet(
+    traj: list, poly_dense: list, *, stride: int = 1, cost_metric: str = "dtw_mean",
+) -> tuple[int, int, float]:
+    """Best matching SUB-CURVE of poly_dense for the full trajectory.
+
+    Sweeps the start index over poly_dense (the matched portion is the
+    suffix poly_dense[start:]), keeping the polyline's exit fixed. This
+    directly targets the mid-turn-entry failure mode: a trajectory that
+    only sees the back half of a movement matches a suffix of the path,
+    and the missing approach prefix is not penalised. Returns
+    (start_idx, end_idx, cost).
+
+    cost_metric selects the per-candidate coupling cost: "dtw_mean" (robust
+    mean coupled distance, the default — see _dtw_mean) or "frechet" (the
+    classic sup-norm discrete Fréchet, kept for comparison/tests).
+    """
+    m = len(poly_dense)
+    if m < 2 or len(traj) < 2:
+        return (0, max(0, m - 1), float("inf"))
+    # Fast single-pass subsequence DP for the (default) mean metric.
+    if cost_metric == "dtw_mean":
+        return _subsequence_dtw(traj, poly_dense)
+    # MDH is partial-overlap-tolerant by construction (min of directed
+    # distances) — no start sweep needed; one full-curve evaluation.
+    if cost_metric == "mdh":
+        return (0, m - 1, _mdh_cost(traj, poly_dense))
+    # Sup-norm Fréchet has no cheap free-start DP form; sweep start indices.
+    cost_fn = _COST_METRICS[cost_metric]
+    best_cost = float("inf")
+    best_start = 0
+    end = m - 1
+    for start in range(0, m - 1, max(1, stride)):
+        sub = poly_dense[start:]
+        if len(sub) < 2:
+            break
+        c = cost_fn(traj, sub)
+        if c < best_cost:
+            best_cost = c
+            best_start = start
+    return (best_start, end, best_cost)
+
+
+def score_path_joint(
+    trajectory: list,
+    paths: list,
+    *,
+    max_cost: float = 35.0,
+    min_coverage_frac: float = 0.28,
+    tail_window: int = 7,
+    tail_weight: float = 0.35,
+    coverage_weight: float = 0.15,
+    densify_step_px: float = 12.0,
+    traj_cap: int = 30,
+    stride: int = 1,
+    cost_metric: str = "dtw_mean",
+    turn_tail_prior_floor: float = 0.85,
+    turn_min_coverage: float = 0.40,
+    entry_tiebreak: bool = False,
+    entry_tiebreak_exit_px: float = 15.0,
+    entry_tiebreak_collinear_px: float = 15.0,
+    entry_tiebreak_min_entry_sep_px: float = 60.0,
+    entry_tiebreak_decisive_px: float = 30.0,
+    speed_tiebreak: bool = False,
+    speed_tiebreak_decisive: float = 1.0,
+    speed_tiebreak_min_sep: float = 1.5,
+    return_candidates: bool = False,
+) -> dict:
+    """Joint origin+destination+movement scorer via partial Fréchet.
+
+    For each candidate path polyline:
+      1. Partial Fréchet — best-aligning sub-curve (suffix) of the polyline vs
+         the full trajectory. The matched cost ignores the polyline's uncovered
+         approach prefix, so mid-turn-entry tracks still match cleanly.
+      2. Coverage — fraction of polyline arc length the matched sub-curve spans.
+         Paths matched only by a tiny fragment are rejected (< min_coverage_frac).
+      3. Tail-direction prior — cosine similarity between the trajectory's tail
+         heading and the matched sub-curve's exit tangent (tails are the
+         trustworthy directional signal at this camera; entries are not).
+      4. Composite score blends shape, tail prior, and coverage; ties broken by
+         supporting_count. A final gate rejects matches whose raw Fréchet cost
+         exceeds max_cost.
+
+    Origin is READ OFF the winning path — never estimated from the entry tangent.
+
+    Returns:
+      {'origin_leg_id', 'destination_leg_id', 'movement_label', 'path_id',
+       'distance', 'coverage', 'considered', 'via'} — all *_id None when no
+      path clears the thresholds.
+
+    return_candidates=True additionally returns 'candidates': every path that
+    cleared ALL admission gates (coverage, turn tail/coverage, max_cost) as
+    [{'path', 'cost', 'coverage', 'composite'}]. This is the partial-evidence
+    posterior's candidate set (docs/plan_posterior_half_2026-07-15.md) — the
+    posterior reuses the scorer's own admission, no separate geometry
+    constants. Default False keeps the result dict byte-identical to before.
+    """
+    empty = {
+        "origin_leg_id": None, "destination_leg_id": None,
+        "movement_label": None, "path_id": None,
+        "distance": float("inf"), "coverage": 0.0,
+        "considered": 0, "via": "joint_partial_frechet",
+        "entry_tiebreak_applied": False, "speed_tiebreak_applied": False,
+    }
+    if return_candidates:
+        empty = {**empty, "candidates": []}
+    if not paths or len(trajectory) < 4:
+        return empty
+
+    traj = _resample_to(trajectory, traj_cap)
+    tw = min(tail_window, len(traj))
+    tail = traj[-tw:]
+    tail_dir = _unit(tail[-1][0] - tail[0][0], tail[-1][1] - tail[0][1])
+
+    # Observed pixel speed = median inter-point step of the RAW (un-resampled)
+    # trajectory. A blind per-approach signature the speed-tiebreak uses to split
+    # collinear shared-exit pairs mdh can't (cam2 SB approaches run ~5 px/step,
+    # EB ~1-2 due to camera foreshortening). Computed on the raw points so
+    # resampling doesn't distort it.
+    _steps = [math.hypot(trajectory[i + 1][0] - trajectory[i][0],
+                         trajectory[i + 1][1] - trajectory[i][1])
+              for i in range(len(trajectory) - 1)]
+    observed_speed = median(_steps) if len(_steps) >= 3 else None
+
+    best_score = -1.0
+    best = None
+    best_cost = float("inf")
+    best_cov = 0.0
+    # Every candidate that clears the coverage + turn gates, kept for the
+    # entry-tiebreak post-step (only consulted when entry_tiebreak + mdh).
+    cands: list = []
+
+    for p in paths:
+        poly = p.get("polyline") or []
+        if len(poly) < 3:
+            continue
+        poly_dense = _densify_polyline(poly, densify_step_px)
+        if len(poly_dense) < 2:
+            continue
+
+        start, end, cost = _best_partial_frechet(
+            traj, poly_dense, stride=stride, cost_metric=cost_metric,
+        )
+        if cost == float("inf"):
+            continue
+
+        poly_len = compute_path_distance(poly_dense)
+        sub_len = compute_path_distance(poly_dense[start:end + 1])
+        coverage = sub_len / poly_len if poly_len > 1e-9 else 0.0
+        if coverage < min_coverage_frac:
+            continue
+
+        # Exit tangent of the matched sub-curve.
+        ex = poly_dense[end]
+        ex_prev = poly_dense[max(start, end - 1)]
+        exit_dir = _unit(ex[0] - ex_prev[0], ex[1] - ex_prev[1])
+        tail_cos = (tail_dir[0] * exit_dir[0] + tail_dir[1] * exit_dir[1])
+        tail_prior = (tail_cos + 1.0) / 2.0  # [0, 1]
+
+        # Strict gate for TURN-labelled paths: a turn may only claim a track
+        # whose tail genuinely aligns with the turn's exit tangent and that
+        # covers enough of the turn arc. Without this, a straight through
+        # trajectory shape-matches a turn polyline's sub-curve and gets
+        # mislabelled (the EB over-attribution: 245 vs manual 36). Through tails
+        # don't align with a turn's exit, so they're rejected here; real turns
+        # pass. See docs/turn_attribution_plan_2026-05-29.md.
+        if (p.get("movement_label") in ("left", "right", "u_turn")
+                and (tail_prior < turn_tail_prior_floor or coverage < turn_min_coverage)):
+            continue
+
+        shape_term = 1.0 / (1.0 + cost / 10.0)  # squash; lower cost -> higher
+        composite = (
+            (1.0 - tail_weight - coverage_weight) * shape_term
+            + tail_weight * tail_prior
+            + coverage_weight * coverage
+        )
+
+        support = p.get("supporting_count", 0)
+        cands.append({
+            "path": p, "composite": composite, "cost": cost, "coverage": coverage,
+            "entry": poly_dense[0], "exit": poly_dense[end], "poly": poly_dense,
+        })
+        if (composite > best_score
+                or (abs(composite - best_score) < 1e-4
+                    and best is not None
+                    and support > best.get("supporting_count", 0))):
+            best_score = composite
+            best = p
+            best_cost = cost
+            best_cov = coverage
+
+    # --- Entry-tiebreak: shared-exit collinear disambiguation (mdh only) -----
+    # mdh's min-directed relaxation makes two paths that MERGE to a shared exit
+    # and run collinear near it read as the same shape, discarding the ENTRY
+    # that actually separates them (cam2 SB-thru vs EB-right, 11 px apart, entries
+    # 171 px apart). When the winner has such a rival AND their entries are well
+    # separated, re-pick by which candidate's entry is closest to the track's
+    # first point. A RELATIVE tiebreak between already-collinear candidates — never
+    # an absolute entry->origin estimate (that regressed cam2 14.4->23.5). Fires
+    # only under mdh, so dtw cameras are byte-identical. See config
+    # ENTRY_TIEBREAK_* + docs/handoff_2026-07-02_session_end.md.
+    entry_applied = False
+    if (entry_tiebreak and cost_metric == "mdh"
+            and best is not None and len(cands) >= 2):
+        def _d(a, b):
+            return math.hypot(a[0] - b[0], a[1] - b[1])
+        top = next((c for c in cands if c["path"] is best), None)
+        top_dest = top["path"].get("destination_leg_id") if top else None
+        if top is not None and top_dest is not None:
+            cluster = [top]
+            for c in cands:
+                if c is top:
+                    continue
+                if c["path"].get("destination_leg_id") != top_dest:
+                    continue  # not the same exit leg
+                if _d(c["exit"], top["exit"]) > entry_tiebreak_exit_px:
+                    continue  # exits not co-located
+                if _min_directed(c["poly"], top["poly"]) > entry_tiebreak_collinear_px:
+                    continue  # not collinear -> shape already separates them
+                if _d(c["entry"], top["entry"]) < entry_tiebreak_min_entry_sep_px:
+                    continue  # entries too close to be a useful discriminator
+                cluster.append(c)
+            if len(cluster) >= 2:
+                traj_entry = traj[0]
+                winner = min(cluster, key=lambda c: _d(c["entry"], traj_entry))
+                if (winner is not top
+                        and _d(top["entry"], traj_entry) - _d(winner["entry"], traj_entry)
+                        >= entry_tiebreak_decisive_px):
+                    best = winner["path"]
+                    best_cost = winner["cost"]
+                    best_cov = winner["coverage"]
+                    entry_applied = True
+
+    # --- Speed-tiebreak: same shared-exit collinear cluster, but split by the
+    # track's PIXEL SPEED vs each candidate path's `expected_speed` signature.
+    # Unlike the (disproven) entry signal, speed is a per-approach signature mdh
+    # doesn't use and that FOV-clipping doesn't corrupt: at cam2 SB approaches run
+    # ~5 px/step, EB ~1-2. Overrides the mdh pick only when the track's speed is
+    # DECISIVELY closer to a collinear rival whose signature differs enough to
+    # discriminate. Inert unless the bank paths carry `expected_speed` (blind:
+    # computed from supporting tracks, not GT). See config SPEED_TIEBREAK_*.
+    speed_applied = False
+    if (speed_tiebreak and cost_metric == "mdh" and observed_speed is not None
+            and best is not None and len(cands) >= 2 and not entry_applied):
+        def _pd(a, b):
+            return math.hypot(a[0] - b[0], a[1] - b[1])
+        top = next((c for c in cands if c["path"] is best), None)
+        top_dest = top["path"].get("destination_leg_id") if top else None
+        top_spd = top["path"].get("expected_speed") if top else None
+        if top is not None and top_dest is not None and top_spd is not None:
+            cluster = [top]
+            for c in cands:
+                if c is top:
+                    continue
+                if c["path"].get("destination_leg_id") != top_dest:
+                    continue  # not the same exit leg
+                if _pd(c["exit"], top["exit"]) > entry_tiebreak_exit_px:
+                    continue  # exits not co-located
+                if _min_directed(c["poly"], top["poly"]) > entry_tiebreak_collinear_px:
+                    continue  # not collinear -> shape already separates them
+                c_spd = c["path"].get("expected_speed")
+                if c_spd is None or abs(c_spd - top_spd) < speed_tiebreak_min_sep:
+                    continue  # no signature, or signatures too close to discriminate
+                cluster.append(c)
+            if len(cluster) >= 2:
+                winner = min(cluster,
+                             key=lambda c: abs(observed_speed - c["path"]["expected_speed"]))
+                if (winner is not top
+                        and abs(observed_speed - top_spd)
+                        - abs(observed_speed - winner["path"]["expected_speed"])
+                        >= speed_tiebreak_decisive):
+                    best = winner["path"]
+                    best_cost = winner["cost"]
+                    best_cov = winner["coverage"]
+                    speed_applied = True
+
+    # Admitted candidates for the partial-evidence posterior: cleared the
+    # coverage + turn gates above AND the max_cost admission (applied here to
+    # each candidate, not just the composite winner).
+    admitted = ([{"path": c["path"], "cost": c["cost"],
+                  "coverage": c["coverage"], "composite": c["composite"]}
+                 for c in cands if c["cost"] <= max_cost]
+                if return_candidates else None)
+
+    if best is None or best_cost > max_cost:
+        out = {**empty,
+               "distance": best_cost if best is not None else float("inf"),
+               "coverage": best_cov,
+               "considered": len(paths)}
+        if return_candidates:
+            out["candidates"] = admitted
+        return out
+
+    out = {
+        "origin_leg_id": best.get("origin_leg_id"),
+        "destination_leg_id": best.get("destination_leg_id"),
+        "movement_label": best.get("movement_label"),
+        "path_id": best.get("path_id"),
+        "distance": best_cost,
+        "coverage": best_cov,
+        "considered": len(paths),
+        "via": "joint_partial_frechet",
+        "entry_tiebreak_applied": entry_applied,
+        "speed_tiebreak_applied": speed_applied,
+    }
+    if return_candidates:
+        out["candidates"] = admitted
+    return out
 
 
 # ---------------------------------------------------------------------------

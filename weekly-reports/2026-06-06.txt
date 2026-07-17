@@ -1,0 +1,65 @@
+Weekly Report — Intersection Counter
+Week of May 31 – June 6, 2026
+
+HEADLINE: All five camera views at our test intersection now run start-to-finish
+for the first time, and counting error on the two worst views was cut by roughly
+two-thirds (from ~29% off to ~8% off the professional reference).
+
+SUMMARY
+This week was about accuracy and coverage. We got the tool working across every
+camera angle at our test intersection — not just one — and then spent most of the
+week closing the gap between our vehicle counts and the counts from the commercial
+tool (Miovision) we're trying to replace. The result is a tool that now produces a
+full intersection's worth of numbers and is meaningfully closer to "trustworthy
+enough to hand to a traffic engineer."
+
+WHAT GOT DONE, BY DAY
+
+Monday — Getting every camera working.
+The intersection is filmed from five different angles, and until now the tool was
+hand-tuned for just one or two. We rebuilt the processing so it can be pointed at
+any camera with a single setting, then ran the remaining cameras overnight. By end
+of day all five were producing counts — a real milestone, since a finished tool has
+to handle the whole intersection, not a single approach. We also confirmed a smarter
+way of telling vehicles apart frame-to-frame, which fixed a long-standing
+over-counting problem on through-movements.
+
+Tuesday — Counting accuracy, part one.
+We tackled a recurring error where the tool would wrongly "snap" turning vehicles
+onto the wrong path, inflating some movements. Fixing it dropped the error on two
+camera views dramatically — one from ~23% to ~8%, and another from ~29% to under
+10% across two stacked corrections the same day. We also
+kicked off an unattended overnight test comparing several detector settings to see
+which produced the cleanest counts.
+
+Wednesday — Counting accuracy, part two.
+We recovered turning movements the tool had been quietly dropping (one right-turn
+went from almost none detected to about 40% of the true count — partial, but a real
+improvement on a movement that was previously invisible) and added a guard so the corrections
+don't overreach and create new errors. Net effect: steady, incremental accuracy
+gains across the harder camera angles.
+
+Thursday — A new calibration idea.
+We prototyped a screen where the engineer can draw the actual lane paths through the
+intersection by hand. This matters because our best current method leans on having
+reference data we won't have at brand-new intersections — letting the engineer sketch
+the lanes is a way to set up a new site from scratch. Early testing was promising.
+
+TIME SPENT (approximate)
+  Counting-accuracy improvements ............... ~15.0 hrs
+  Getting all five cameras running ............. ~4.0 hrs
+  New lane-drawing calibration tool (research) . ~5.5 hrs
+  Overnight testing & housekeeping ............. ~2.0 hrs
+  Total ........................................ ~26.5 hrs
+
+  (Four working days, June 1–4. Excludes an unattended overnight
+   processing run that was checked periodically but ran on its own.)
+
+WHERE THE PROJECT STANDS
+The core engine — process video, track vehicles, classify turns, produce counts —
+is working end-to-end across a full intersection. The active work now is accuracy
+tuning: we're steadily driving our counts toward the commercial tool's, with the
+worst views down to single-digit error. The main work ahead is closing that last
+gap and making setup easy enough to use at intersections we've never seen before.
+
+(Covers June 1–4; no work was logged on May 31, June 5, or June 6.)

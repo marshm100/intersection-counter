@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>4. Origin &amp; Attribution — intersection-counter walkthrough</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="top">
+  <a class="home" href="index.html">intersection-counter</a>
+  <a href="00-overview.html">0. Overview</a>
+  <a href="01-calibration.html">1. Calibration</a>
+  <a href="02-detection-tracking.html">2. Detect+Track</a>
+  <a href="03-path-bank.html">3. Path Bank</a>
+  <a href="04-origin-attribution.html" class="current">4. Origin</a>
+  <a href="05-classification.html">5. Classify</a>
+  <a href="06-aggregation.html">6. Aggregate</a>
+  <a href="07-accuracy.html">7. Accuracy</a>
+  <a href="08-corridor.html">8. Corridor</a>
+</nav>
+<main>
+  <h1>4. Origin &amp; Attribution</h1>
+  <p class="lede">
+    Every track needs an origin leg before its movement can be counted. The current pipeline
+    does this by matching the whole trajectory against the <a href="03-path-bank.html">path bank</a>
+    and reading the origin off the path it fits — a more robust signal than the point-and-angle
+    tiers it replaced.
+  </p>
+
+  <div class="callout warn">
+    <strong>What changed.</strong> The old pipeline assigned origin from three geometric tiers
+    (tripwire → backward-extrapolation → heading). Backward-extrapolation was added 2026-05-20 and
+    <em>removed</em> after measurement: projecting a track backward to a frame edge baked in an
+    edge-leg bias and didn't generalize. It's been superseded by path-bank matching. The early tiers
+    still run — but now mostly as a gate for "is this even an intersection vehicle," with the joint
+    scorer making the real call at finalization.
+  </div>
+
+  <h2>The joint partial-Fréchet scorer</h2>
+  <p>
+    When a track is finalized and the camera has a bank, <code>score_path_joint</code> compares the
+    track against every path and returns the best match. Origin, destination, and movement are then
+    all <strong>read off the winning path</strong> — none is estimated from the track's own (unreliable)
+    entry tangent.
+  </p>
+  <p>
+    The key idea is <strong>partial</strong> matching. A vehicle first detected mid-turn only traces a
+    <em>suffix</em> of its road's polyline; the approach portion was never seen. So we score the track
+    against the best-aligning <em>sub-curve</em> of each path, and the uncovered approach doesn't count
+    against the match.
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 640 320" xmlns="http://www.w3.org/2000/svg" style="background:#0a0e12;border:1px solid #2a323c;">
+      <!-- full bank path (faint), entry->exit -->
+      <path d="M60,250 C140,250 210,245 270,225 C330,205 350,160 360,120 C368,86 372,60 374,44"
+            fill="none" stroke="#5fb3ff" stroke-width="2.5" opacity="0.45"/>
+      <circle cx="60" cy="250" r="7" fill="#5fb3ff" class="wt-pulse"/>
+      <text x="40" y="270" fill="#5fb3ff" font-size="11" opacity="0.8">origin (EB) — read off the path ↑</text>
+      <text x="384" y="44" fill="#5fb3ff" font-size="11" opacity="0.8">exit</text>
+
+      <!-- track = suffix only -->
+      <g fill="#e8edf2">
+        <circle cx="262" cy="228" r="3"/><circle cx="300" cy="216" r="3"/>
+        <circle cx="332" cy="196" r="3"/><circle cx="350" cy="160" r="3"/>
+        <circle cx="360" cy="120" r="3"/><circle cx="368" cy="84" r="3"/>
+      </g>
+      <polyline points="262,228 300,216 332,196 350,160 360,120 368,84" fill="none" stroke="#e8edf2" stroke-width="2"/>
+      <text x="250" y="250" fill="#e8edf2" font-size="11">track (first seen mid-turn)</text>
+      <!-- the vehicle only ever traced this suffix -->
+      <path id="frechet-track" d="M262,228 L300,216 L332,196 L350,160 L360,120 L368,84" fill="none"/>
+      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#e8edf2"><animateMotion dur="3s" repeatCount="indefinite" rotate="auto"><mpath href="#frechet-track"/></animateMotion></rect>
+
+      <!-- matched sub-curve bracket -->
+      <path d="M255,235 C320,212 350,160 372,52" fill="none" stroke="#7ee787" stroke-width="2.5" class="wt-flow"/>
+      <text x="430" y="150" fill="#7ee787" font-size="11">matched sub-curve</text>
+      <text x="430" y="168" fill="#8a96a3" font-size="11">coverage ≈ 0.5 of arc</text>
+
+      <!-- uncovered approach -->
+      <text x="70" y="230" fill="#8a96a3" font-size="11" opacity="0.7">approach never seen →</text>
+      <text x="70" y="246" fill="#8a96a3" font-size="10" opacity="0.7">doesn't count against the match</text>
+    </svg>
+    <figcaption>A track that starts mid-turn matches a suffix of the path. Origin (EB) is read off the path, not the track's entry tangent — which here points the wrong way.</figcaption>
+  </figure>
+
+  <h2>How the match is scored</h2>
+  <p>
+    The cost between a track and a path sub-curve is a <strong>mean coupled distance</strong>
+    (DTW-aligned), in pixels — not classic Fréchet. Fréchet is a sup norm that a single jittery
+    tracking point spikes (best-match Fréchet ran ~82 px median on real tracks); the mean coupled
+    distance runs ~29 px, the scale the geometry actually lives at. A match must clear several bars:
+  </p>
+  <table>
+    <thead><tr><th>Term</th><th>Config</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>cost metric</td><td class="mono">JOINT_SCORER_COST_METRIC = dtw_mean</td><td>robust mean coupled distance, not sup-norm Fréchet</td></tr>
+      <tr><td>max cost</td><td class="mono">JOINT_SCORER_MAX_COST_PX = 35</td><td>reject matches whose mean coupled distance exceeds this</td></tr>
+      <tr><td>min coverage</td><td class="mono">JOINT_SCORER_MIN_COVERAGE_FRAC = 0.28</td><td>the matched sub-curve must cover ≥28% of the path's arc (kept low — mid-turn entries cover little)</td></tr>
+      <tr><td>tail weight</td><td class="mono">JOINT_SCORER_TAIL_WEIGHT = 0.35</td><td>the track's exit direction (last 7 points) breaks ties — tails are the trustworthy directional signal here</td></tr>
+    </tbody>
+  </table>
+
+  <h2>A stricter bar for turns</h2>
+  <div class="callout">
+    A straight through-trajectory can shape-match the early sub-curve of a turn polyline and get
+    mislabeled as a turn. So <strong>turn paths (left/right/u-turn) face an extra gate</strong>:
+    a turn may claim a track only if the track's tail aligns with the turn's exit tangent
+    (<code>tail_prior ≥ 0.85</code>) <em>and</em> it covers enough of the turn arc
+    (<code>coverage ≥ 0.40</code>). A through goes straight, so its tail never aligns with a turn's
+    exit — it's spared.
+  </div>
+
+  <h2>The origin-rewrite gate (snap-magnet defense)</h2>
+  <p>
+    Reading origin off the matched path is powerful but dangerous: a straight "turn" polyline can
+    capture a through track and <em>rewrite</em> its origin to a leg that vehicle never entered from.
+    The worst case measured: a cam4 EB-left path with manual volume 6 attributed <strong>214</strong>
+    events by swallowing the arterial.
+  </p>
+  <div class="callout bad">
+    <strong>The gate:</strong> reject a TURN match that would rewrite origin to a leg that is
+    <em>not</em> the nearest origin-anchor to the track's first point — <strong>but only when the
+    trajectory is itself geometrically straight</strong> (<code>straightness ≥ 0.97</code>). Real
+    turns curve, so a genuine mid-turn entry (the whole reason the joint scorer exists) stays below
+    the straightness floor and is spared. Self-limiting, data-driven, no per-camera flag.
+    Result on replay: cam4 22.7% → 7.0% net, other cameras unharmed.
+  </div>
+
+  <h2>The early tiers (still there, as a gate)</h2>
+  <p>
+    Before finalization, <code>_assign_origin</code> still runs the geometric tiers in order — they
+    give a provisional origin and, more importantly, decide whether a track is a real intersection
+    vehicle at all:
+  </p>
+  <figure>
+    <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" font-size="12">
+      <rect x="40" y="16" width="680" height="62" rx="6" fill="#1a2128" stroke="#7ee787" stroke-width="2"/>
+      <text x="60" y="40" fill="#7ee787" font-weight="700">Tier 0 — polyline entry match</text>
+      <text x="60" y="60" fill="#e8edf2" font-size="12">Score the track's first ~8 points against each path's entry segment (≤30 px, heading within 25°).</text>
+
+      <line x1="380" y1="80" x2="380" y2="100" stroke="#8a96a3" marker-end="url(#a)" class="wt-flow"/><text x="395" y="95" fill="#8a96a3" font-size="11">no match</text>
+
+      <rect x="40" y="104" width="680" height="56" rx="6" fill="#1a2128" stroke="#5fb3ff" stroke-width="2"/>
+      <text x="60" y="128" fill="#5fb3ff" font-weight="700">Tier 1 — tripwire crossing</text>
+      <text x="60" y="146" fill="#e8edf2" font-size="12">Did a segment cross a leg's synthesized tripwire, moving in the entering direction?</text>
+
+      <line x1="380" y1="162" x2="380" y2="182" stroke="#8a96a3" marker-end="url(#a)" class="wt-flow"/><text x="395" y="177" fill="#8a96a3" font-size="11">no crossing</text>
+
+      <rect x="40" y="186" width="680" height="52" rx="6" fill="#1a2128" stroke="#ffb35f" stroke-width="2"/>
+      <text x="60" y="210" fill="#ffb35f" font-weight="700">Tier 2 — heading fallback</text>
+      <text x="60" y="228" fill="#e8edf2" font-size="12">Compare overall motion to each leg's reference heading; nearest within 90°. Direction only — ambiguous between close legs.</text>
+
+      <defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8a96a3"/></marker></defs>
+    </svg>
+    <figcaption>The early tiers: a more-specific-first cascade. For bank-equipped cameras the joint scorer overrides their origin at finalize; without a bank they are the whole answer.</figcaption>
+  </figure>
+
+  <footer class="page-foot">
+    <a href="03-path-bank.html">← 3. The Path Bank</a>
+    <a href="05-classification.html">5. Movement Classification →</a>
+  </footer>
+</main>
+</body>
+</html>

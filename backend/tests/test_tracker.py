@@ -206,3 +206,39 @@ class TestClassMapping:
         assert results[0]["class_name"] == "car"
 
     # Pedestrian class-name test removed: pedestrians out of scope for v2.
+
+
+# ---------------------------------------------------------------------------
+# Backend factory (Attribution v2 P2.D — seam for an OC-SORT backend later)
+# ---------------------------------------------------------------------------
+
+def test_default_backend_is_bytetrack():
+    from backend.services.tracker import ByteTrackBackend, VehicleTracker
+    t = VehicleTracker()
+    assert t.backend_name == "bytetrack"
+    assert isinstance(t._backend, ByteTrackBackend)
+
+
+def test_unknown_backend_raises():
+    import pytest
+    from backend.services.tracker import VehicleTracker, create_tracker_backend
+    with pytest.raises(ValueError, match="Unknown tracker backend"):
+        VehicleTracker(backend="nope")
+    with pytest.raises(ValueError):
+        create_tracker_backend("nope", frame_rate=10)
+
+
+def test_facade_delegates_to_backend():
+    # The public API still works end-to-end through the facade.
+    from backend.services.tracker import VehicleTracker
+    t = VehicleTracker(backend="bytetrack")
+    det = [{
+        "bbox": [100.0, 100.0, 150.0, 160.0], "confidence": 0.9, "class_id": 2,
+    }]
+    for i in range(3):
+        out = t.update(det, frame_number=i)
+    assert all("track_id" in o for o in out)
+    state = t.get_state()
+    assert isinstance(state, bytes)
+    t2 = VehicleTracker()
+    t2.load_state(state)   # cross-instance restore via the facade

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>5. Movement Classification — intersection-counter walkthrough</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="top">
+  <a class="home" href="index.html">intersection-counter</a>
+  <a href="00-overview.html">0. Overview</a>
+  <a href="01-calibration.html">1. Calibration</a>
+  <a href="02-detection-tracking.html">2. Detect+Track</a>
+  <a href="03-path-bank.html">3. Path Bank</a>
+  <a href="04-origin-attribution.html">4. Origin</a>
+  <a href="05-classification.html" class="current">5. Classify</a>
+  <a href="06-aggregation.html">6. Aggregate</a>
+  <a href="07-accuracy.html">7. Accuracy</a>
+  <a href="08-corridor.html">8. Corridor</a>
+</nav>
+<main>
+  <h1>5. Movement Classification</h1>
+  <p class="lede">
+    With a track matched to the bank, its movement is already known — the path carries its own
+    destination leg and label. This page covers that primary route, then the geometric fallback
+    used when no path matches (or the camera has no bank).
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 760 238" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" font-size="12">
+      <defs>
+        <marker id="mvh-thru"  viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7ee787"/></marker>
+        <marker id="mvh-left"  viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5fc7ff"/></marker>
+        <marker id="mvh-right" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#d27bff"/></marker>
+        <marker id="mvh-uturn" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff7b3a"/></marker>
+      </defs>
+      <!-- roads: filled bands (vertical + horizontal arm) per intersection -->
+      <g fill="#161c22">
+        <rect x="76" y="18" width="48" height="184"/>  <rect x="14"  y="86" width="172" height="48"/>
+        <rect x="264" y="18" width="48" height="184"/> <rect x="202" y="86" width="172" height="48"/>
+        <rect x="452" y="18" width="48" height="184"/> <rect x="390" y="86" width="172" height="48"/>
+        <rect x="640" y="18" width="48" height="184"/> <rect x="578" y="86" width="172" height="48"/>
+      </g>
+      <!-- yellow centerlines: the visual cue for "keep right" (opposing flows split) -->
+      <g stroke="#c9a227" stroke-width="1.5" stroke-dasharray="7 7" opacity="0.5">
+        <line x1="100" y1="18" x2="100" y2="202"/> <line x1="14"  y1="110" x2="186" y2="110"/>
+        <line x1="288" y1="18" x2="288" y2="202"/> <line x1="202" y1="110" x2="374" y2="110"/>
+        <line x1="476" y1="18" x2="476" y2="202"/> <line x1="390" y1="110" x2="562" y2="110"/>
+        <line x1="664" y1="18" x2="664" y2="202"/> <line x1="578" y1="110" x2="750" y2="110"/>
+      </g>
+      <!-- movement shapes: every vehicle enters in the RIGHT lane (east half of the south leg).
+           through stays right · right hugs the near corner · left pivots at the center (no corner-cut) -->
+      <path id="mv-thru"  d="M112,202 L112,18"                   fill="none" stroke="#7ee787" stroke-width="2.5" marker-end="url(#mvh-thru)"/>
+      <path id="mv-left"  d="M300,202 C300,152 296,102 202,98"   fill="none" stroke="#5fc7ff" stroke-width="2.5" marker-end="url(#mvh-left)"/>
+      <path id="mv-right" d="M488,202 C488,160 500,122 562,122"  fill="none" stroke="#d27bff" stroke-width="2.5" marker-end="url(#mvh-right)"/>
+      <path id="mv-uturn" d="M676,202 C676,82 652,82 652,202"    fill="none" stroke="#ff7b3a" stroke-width="2.5" marker-end="url(#mvh-uturn)"/>
+      <!-- vehicles tracing each shape -->
+      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#7ee787"><animateMotion dur="3.2s" repeatCount="indefinite" rotate="auto"><mpath href="#mv-thru"/></animateMotion></rect>
+      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#5fc7ff"><animateMotion dur="3.4s" begin="-0.6s" repeatCount="indefinite" rotate="auto"><mpath href="#mv-left"/></animateMotion></rect>
+      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#d27bff"><animateMotion dur="3.0s" begin="-1.2s" repeatCount="indefinite" rotate="auto"><mpath href="#mv-right"/></animateMotion></rect>
+      <rect x="-6" y="-3.5" width="12" height="7" rx="2" fill="#ff7b3a"><animateMotion dur="3.8s" begin="-0.3s" repeatCount="indefinite" rotate="auto"><mpath href="#mv-uturn"/></animateMotion></rect>
+      <!-- labels -->
+      <g text-anchor="middle" font-size="13" font-weight="600">
+        <text x="100" y="226" fill="#7ee787">through</text>
+        <text x="288" y="226" fill="#5fc7ff">left</text>
+        <text x="476" y="226" fill="#d27bff">right</text>
+        <text x="664" y="226" fill="#ff7b3a">U-turn</text>
+      </g>
+    </svg>
+    <figcaption>The four movement labels are just trajectory <em>shapes</em> — no exit zones, no turn matrix. Each vehicle enters in the right-hand lane (right-hand traffic): the <span style="color:#d27bff">right</span> turn hugs the near corner, the <span style="color:#5fc7ff">left</span> pivots at the intersection center rather than cutting across it. The path bank already carries the label; the geometric fallback re-derives it from the same shape.</figcaption>
+  </figure>
+
+  <h2>Primary route: read it off the path</h2>
+  <p>
+    When the joint scorer (page 4) confidently matches a track to a bank path, classification is done:
+    the path's <code>destination_leg_id</code> and <code>movement_label</code> are the answer. No
+    separate destination scoring, no angle math. This is the case for the vast majority of tracks at
+    a calibrated camera, and it's why the path bank is the heart of the pipeline — geometry learned
+    once, reused for every vehicle.
+  </p>
+  <pre>match = score_path_joint(trajectory, bank_paths)
+if match.confident:
+    destination_leg_id = match.path.destination_leg_id
+    movement           = match.path.movement_label      # "left" / "through" / "right" / "u_turn"
+else:
+    # fall back to the geometric scorer below</pre>
+
+  <h2>Fallback: geometric destination scoring</h2>
+  <p>
+    When no path matches — a camera without a bank, or an unusual trajectory — the pipeline falls
+    back to the v2 geometric scorer. First a quality gate, then a destination score.
+  </p>
+
+  <h3>Stage A — quality gate</h3>
+  <p>Trajectories without enough motion to classify reliably are dropped rather than guessed:</p>
+  <pre>num_points       &lt; TRAJECTORY_MIN_POINTS (5)        → insufficient_data
+total path dist  &lt; TRAJECTORY_MIN_DISTANCE_PX (50)  → insufficient_data
+tail moved       &lt; EXIT_DISPLACEMENT_MIN_PX (20)    → no destination assigned</pre>
+
+  <h3>Stage B — destination-leg score</h3>
+  <p>
+    For each leg (including the origin, so U-turns are detectable), build an expected exit direction —
+    the unit vector from the intersection center to that leg's origin — and score the track's exit
+    velocity and exit position against it:
+  </p>
+  <pre>for leg in all_legs:
+    expected_dir   = unit(leg.origin - intersection_center)
+    heading_score  = dot(exit_velocity,        expected_dir)
+    position_score = dot(exit_pos_from_center, expected_dir)
+    raw_score[leg] = 0.7 * heading_score + 0.3 * position_score
+
+posterior       = softmax(raw_score, temperature=4.0)
+destination_leg = argmax(posterior)</pre>
+
+  <h2>From (origin, destination) to a label</h2>
+  <p>
+    Either route ends with an origin and destination leg. <code>derive_movement</code> turns the pair
+    into a label from reference-heading geometry — <strong>no fixed angle buckets, no turn matrix</strong>
+    (a PRD constraint). Same leg = U-turn; otherwise the other legs are ranked by counter-clockwise
+    delta from the origin and the rank gives the label:
+  </p>
+  <table>
+    <thead><tr><th>Other-leg count</th><th>Rank 0</th><th>Rank 1</th><th>Rank 2</th></tr></thead>
+    <tbody>
+      <tr><td>3 (four-leg)</td><td>left</td><td>through</td><td>right</td></tr>
+      <tr><td>2 (T-junction)</td><td colspan="3">leg within 60° of opposite = through; else both are turns</td></tr>
+      <tr><td>1 (degenerate)</td><td colspan="3">left if delta &lt; 180°, else right</td></tr>
+      <tr><td>4+ (5-way)</td><td colspan="3">nearest-canonical (90 / 180 / 270)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Why not fixed angle buckets</h2>
+  <p>
+    A naive "delta ≤ 45° = through, 45–135 = turn, ≥135 = U-turn" rule assumes orthogonal roads.
+    Real intersections aren't: camera 1's legs sit at 262° / 83° / 313° / 173° — no two exactly
+    opposite. Fixed buckets mislabel real destinations there; the rank approach adapts to whatever
+    geometry exists.
+  </p>
+
+  <div class="callout">
+    <strong>Where the bank earns its keep.</strong> The geometric fallback assumes the legs are
+    <em>peer roads</em> — every leg can go through to its opposite, turn to its neighbors. That's false
+    at terminating side streets and skewed junctions, and it produced phantom movements in the v2 data
+    (a side street that physically can't go "through" still got through-labeled). The path bank fixes
+    this structurally: it only contains the movements Miovision confirms exist, so a phantom through
+    has no path to match. See <a href="07-accuracy.html">Accuracy &amp; Validation</a>.
+  </div>
+
+  <h2>What gets written to the event</h2>
+  <pre>vehicle_events row:
+  origin_leg_id         = 38
+  destination_leg_id    = 39
+  movement              = "right"
+  trajectory_data       = "[[633,252],[610,244], ... ,[581,189]]"   # JSON
+  trajectory_confidence = 0.74        # match confidence / softmax posterior
+  classifier_*          = net_heading_change, path_distance, num_points, ...
+  ...timestamps + vehicle class + bbox dims</pre>
+  <p>
+    The <code>classifier_*</code> columns are diagnostic — they let an analyst audit a
+    misclassification, and let scripts re-score trajectories offline without re-running detection
+    (the foundation of the replay harnesses on page 7).
+  </p>
+
+  <footer class="page-foot">
+    <a href="04-origin-attribution.html">← 4. Origin &amp; Attribution</a>
+    <a href="06-aggregation.html">6. Aggregation →</a>
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "channels": [
+    {
+      "origin_leg": 27,
+      "destination_leg": 26,
+      "movement": "left",
+      "entry": [
+        627,
+        204
+      ],
+      "apex": [
+        320,
+        145
+      ],
+      "exit": [
+        5,
+        177
+      ],
+      "width_in": 16,
+      "width_out": 16
+    }
+  ]
+}

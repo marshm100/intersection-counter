@@ -1,0 +1,18 @@
+cam2 hybrid m0.90 validation  window 07:00+30.0min  (live match=0.9)
+
+>> build_bank
+>> botsort turns (shared)
+>> throughs [control m0.80]
+>> hybrid [control m0.80]
+   control m0.80: net=10.0%  SB-thru 345/310  NB-thru 624/626  (db C:\Users\onkar\AppData\Local\Temp\ic_scratch_97a7849a\cam2_val_hy_m0.80.db)
+
+>> throughs [test m0.90]
+>> hybrid [test m0.90]
+   test m0.90: net=8.8%  SB-thru 309/310  NB-thru 611/626  (db C:\Users\onkar\AppData\Local\Temp\ic_scratch_97a7849a\cam2_val_hy_m0.90.db)
+
+restored cam2 match -> 0.9
+
+RESULT  control(0.80)=10.0%  test(0.90)=8.8%  delta=-1.2pp  (shipped baseline 16.4%)
+VERDICT: m0.90 WINS — apply
+to apply the winner:
+  py scripts/apply_hybrid.py --camera 2 --minutes 30 --bank C:\Users\onkar\AppData\Local\Temp\ic_scratch_97a7849a\cam2_val_bank.json --bot-db C:\Users\onkar\AppData\Local\Temp\ic_scratch_97a7849a\cam2_val_turns.db --throughs-db C:\Users\onkar\AppData\Local\Temp\ic_scratch_97a7849a\cam2_val_hy_m0.90.db --apply

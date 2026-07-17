@@ -1,0 +1,96 @@
+**READ-ONLY DESIGN: Robust turn attribution for this production traffic counter (Sunnyvale skewed camera + OC-SORT era).**
+
+I read exactly the files you specified plus the minimal surrounding code (pipeline flow, dedup, config, fixtures, groundtruth harnesses, existing diags/evals, apply gates, tracker seam, and the hand-authored path fixture) using read-only tools. No files were edited, created, or mutated. All claims are pinned to line numbers or exact symbols.
+
+### Current State (verified in code)
+- **Through is solved** (recalibrate_camera.py:117-179 + test_recal_effect.py:116-121): direction/tail-based axis detection + manual count rank for the two arterial legs produces real `destination_leg_id` rows. These feed Tier-0 `score_path_joint` (trajectory_classifier.py:573) or `score_destination_by_polyline` and cut agg_err 126%→44%.
+- **Tracking fixed** (tracker.py:107-181, OcSortBackend): OC-SORT (boxmot, motion + virtual trajectory) is wired via the unchanged `VehicleTracker` seam (`backend="ocsort"`). It sustains curves through gaps that ByteTrack fragmented; user states ~2× turn trajectories recovered.
+- **Turn attribution is the blocker** (exactly as described):
+  - `recalibrate_camera.py:188-191` explicitly emits turns with `"destination_leg_id": null` (and `movement_label` only from crude off-axis tail rotation sense). 
+  - `apply_recal_updates.py:156-157` and `test_recal_effect.py:117-118` hard-skip them (`if d is None`).
+  - Schema (database.py:102) makes `destination_leg_id INTEGER NOT NULL`.
+  - Result: no turn rows ever reach `intersection_paths`. Joint scorer (pipeline.py:728-752) and `score_destination_by_polyline:292` (filters to `origin_leg_id` candidates) both fail for turns → 100% fallback to `score_destination_leg:776` (exit-vel + pos from center) + `derive_movement:850` (CCW rank on reference_heading deltas).
+  - `derive_movement` is geometrically broken here (skewed headings ~259/61/290/123°; NB-left tail heading ≈ SB-through tail). Produces the exact phantoms you cite (SB-left=97 vs manual 0, etc.).
+  - OC-SORT made the symptom worse (more real curves reach finalization → more hits on the broken fallback path) because the path bank still contains zero turn rows.
+
+Joint (`score_path_joint`) + partial-Fréchet + tail prior (`_subsequence_dtw:474`, `_best_partial_frechet:535`, tail_cos at 652) + origin override (pipeline:743) were *designed* to make good turn paths authoritative and to ignore truncated entries. The missing piece is producing the rows.
+
+### Answers to the 5 Design Questions (blunt + code-grounded)
+
+**1. Concrete robust per-origin turn-path derivation from OC-SORT trajectories? Cluster by exit first, not origin-first.**
+
+The 2026-05-27 plan's Step 2-3 ("per-origin shape clustering", feature vec with `start_xy`, Ward+fcluster, then per-origin manual assignment) was never built and is the wrong axis for this camera. Evidence:
+- `recalibrate_camera.py:121-131` already abandoned start-point clustering for throughs (late band detection, starts are a horizontal smear; median start_x recorded only for audit).
+- Diags (grok_turn_diag.txt:19-23, grok_recall_ceiling.txt:7-9) + H1: for turns the curve happens at/before the FOV edge or at sub-20px sizes. Many stored trajectories are short straight exit-leg segments. Their `traj[0]` is already mid-turn or post-turn. `start_xy` is noise or exit.
+- `auto_cal_from_db.py:10-15` explicitly documents why pure start/end clustering (the `dbscan_like` single-linkage used in auto_calibrate) chains or fails on dense data here.
+- Hand fixture (sunnyvale_paths_hand.json:33-87) shows the target shape: full (origin, dest, label) polylines that *start* at leg origin_points but are *matched* via suffixes.
+
+**Recommended method (builds directly on existing helpers):**
+- Start with the existing tail/off-axis grouping in recalibrate_camera.py:126-130 (arterial axis from `detect_axis` on `_tail_heading`/`_exit_velocity`, then rotation sense for left/right). This already separates the conflated NB-left vs SB-through case better than pure heading buckets.
+- Within the turn pool: cluster on *reliable observed suffix* only. Feature vector (extend the plan's 14-d idea but drop/weight `start_xy` heavily): `[end_xy or last-3-pts centroid, tail_sin/tail_cos, 3-4 arclength-resampled points from the *latter half only* of the (resampled) traj, simple observed net delta or cumulative_curvature from classify]`. Z-score. Use the existing `scipy.cluster.hierarchy.linkage(..., method="ward")` + `fcluster` (already imported in auto_calibrate.py:29) or reuse `dbscan_like:163` (single-link on exit position first, then shape within).
+- Per cluster: `_fit_mean_polyline` (auto_calibrate:294, already used for arterial success) on the observed points (do not hallucinate a prefix back to origin).
+- Assign `destination_leg_id`: reliable. Use cluster median tail + `score_destination_leg` logic (or nearest leg origin_point to end centroid + 30° tolerance on expected exit dir from center). Exits/tails are the signal the user and all diags agree on.
+- Assign `(origin_leg_id, movement_label)` via the weak supervisor: manual TMC counts per approach (exactly as current script does for through at 151-162 using `manual_thru_rank` and overlap scaling from groundtruth.py). Invert the plan's "per-origin" Step 3 to per-(inferred dest or exit-group). Small assignment problem (or greedy by support): cost = -cluster_count if the cluster's observed rotation sense + earliest bearing is geometrically feasible for that (origin, mvt) given the dest, else +inf. Manual tells you the source breakdown for vehicles *leaving toward this dest*. A high-support left-curve cluster exiting toward L21 is overwhelmingly the NB Belt (L23) left (~96 manual cell).
+- Emit real rows with populated dest + label + supporting_count. (Schema + apply gates require it.)
+
+This directly exploits OC-SORT's win (more of the actual curve is now in the point list for the suffix matchers) while using only the trustworthy signals (tails + manual marginals).
+
+**2. Turn paths must be authoritative Tier-0 (bypass derive_movement).**
+
+Yes. The entire Attribution v2 design (trajectory_classifier.py:324-687 comments, pipeline:713-752) exists for this: when paths exist for the camera, `score_path_joint` (or the older `score_destination_by_polyline`) + the origin override at pipeline:743-752 read origin+dest+label straight off the winning path row and **never call derive_movement**. `classify_trajectory` still runs (for audit columns only). This is intentional and correct for mid-turn-entry cameras.
+
+`derive_movement:850` (the rank-by-delta code that hard-codes the broken geometry) should be the *last-resort fallback only* for:
+- Cameras with zero `intersection_paths` rows for that camera_id, or
+- The rare track where *both* joint and score_dest_by_polyline return destination_leg_id=None (then the old softmax+derive path runs).
+
+In a production camera with a complete path bank, 0% of final attributed events should hit derive. The phantoms are proof that "some derive is still needed" is exactly the current failure mode.
+
+**3. Robust turn-path origin assignment despite truncated entries: destination + manual count-match + rotation sense (not back-projection).**
+
+The joint scorer already *is* the runtime solution: `_subsequence_dtw:505` ("Free start: trajectory[0] may begin at any polyline point"), coverage penalty, tail prior, then copy `origin_leg_id` from the path (pipeline:742: "Origin is read off the winning path — never estimated from the entry tangent"). Early `_assign_origin` (score_origin_by_polyline on prefix only + tripwire + heading fallback) is provisional and gets overridden on joint hits.
+
+For *building* the paths' origin_leg_id:
+- Never rely on the cluster's observed start point or entry tangent for the label (structurally unreliable by camera placement + detection latency; back-projection was tried and memory says reverted).
+- Primary: manual TMC weak supervisor (per the 05-27 plan Step 3 intent and the working through logic in recal:151). Once dest_leg is known from the reliable tail, manual gives the origin breakdown for traffic exiting that leg.
+- Cheap geometric sanity (not the sole decider): the cluster's observed earliest bearing + sign of rotation (cross product, exactly as recal:129) must be compatible with leaving the candidate origin leg toward the known dest (small angle check against the origin's reference_heading + 60-90° turn sector). This catches obvious swaps without trusting the truncated entry.
+- Emit the polyline as the median of *what was actually observed*. The partial-Fréchet + densify machinery (trajectory_classifier:353, 474, 632) is already built to match observed suffixes against a longer polyline that conceptually starts at the leg origin_point (see hand fixture paths for the shape).
+
+**4. OC-SORT overcount (1461 vs manual 1211) + dedup/min-track-length interaction.**
+
+Dedup (dedup.py:60, v3_aggregator:181) is *only* cross-camera parallel-overlap dedup. It keys on final attributed (leg_label, movement, cardinal, wall time) inside coverage overlap regions. It never touches intra-camera ID splits, ghosts, or over-generation. Same-camera events are explicitly kept (dedup:125).
+
+Min-track-length gates are minimal and uniform:
+- `TRAJECTORY_MIN_POINTS=5`, `TRAJECTORY_MIN_DISTANCE_PX=50` (config:101-102) → "insufficient_data" in classify:172.
+- Extra displacement check in _assign_origin:621.
+- OC-SORT's recovery (higher `lost_track_buffer`, virtual trajectories via delta_t/inertia) naturally produces more tracks that clear these → higher total count + more turn curves that can now hit a (future) turn path.
+
+Interaction with turn-path attribution:
+- Positive: longer sustained turn curves are exactly what lets joint scorer (min_coverage 0.28, max_cost 35, dtw_mean) succeed where ByteTrack stubs failed.
+- Negative: any OC-SORT-induced extras (brief merges/splits, tracks through heavy occlusion that a human would drop) get labeled if they geometrically align with a turn-path suffix and will inflate cells.
+
+Do not make turn paths "stricter" in a way that undoes the tracking win. Instead:
+- Tune the OC-SORT kwargs (inertia, delta_t, min_hits, max_age in tracker:130) on a short labeled window until total count is within ~5-8% of the ByteTrack baseline on the same detections (or manual total). The 2× turn recovery is the goal; trim the side-effect over-generation at the source.
+- Add one cheap post-attribution quality filter (before DB write or in a replay gate): for any event whose final movement_label is left/right, require stricter min_path_distance (e.g. 120px) or min cumulative_curvature (from classify:185) than for through. Real turns have observable arc even when entry-truncated; short straight "turns" are noise.
+- In joint scorer, when the best path's movement_label is a turn, require a modestly higher tail_prior floor. This is cheap and biases against labeling a straight fragment as a turn just because it sits near a turn-path tail.
+
+**5. Validation gates to know turns are RIGHT (not just present) before shipping.**
+
+Existing gates are good but insufficient for turns (they were written for the arterial-only prototype).
+
+Mandatory before any apply of a turn-inclusive path bank:
+- Self-consistency on the build trajectories: for each emitted turn path, temporarily restrict the bank to that single path and re-run `score_path_joint` (or the replay harness with --joint); recover ≥80-85% of the cluster's supporting_count at cost <30 and coverage >0.35.
+- Manual parity on the exact build window (via per_movement_accuracy + replay_attribution_changes --joint): every turn cell |delta| ≤ max(3, 0.25 × manual); zero phantom creation (manual <1 but ours >3 for that (approach,mvt)); agg_err must not regress vs the arterial-only baseline.
+- Geometric sanity on emitted polylines: the polyline's last-segment tangent (or circular mean of final 3) within 25° of the cluster's median `_tail_heading`; that tail within 30° of the expected exit direction from center to the dest_leg origin_point.
+- Volume sanity: sum(supporting_count over all paths) / total qualifying trajs ≥ ~0.65 (rest are legitimate insufficient_data or rare mvts).
+- Engineer visual gate (the plan's Step 4, via recalibrate_viz or equivalent): overlay the new turn polylines (thick, colored by claimed label) + 10-20 raw sample trajs per cluster on real frames. Engineer must confirm the median follows visible tire paths for the turn and that the claimed origin is plausible from the entry side of the observed segment. This is non-negotiable per the 05-27 plan.
+- Apply-time + post-apply regression (extend test_recal_effect / apply_recal_updates): after temp-DB apply + reprocess from cache, the per-movement cells and agg_err must improve (or at worst stay within +2pp) vs the prior derive-heavy baseline. Any turn cell that creates a new phantom or worsens >15-20% relative blocks the promotion.
+- Production monitor (first full day after a new bank ships): total count within 10% of recent 7-day median (volume-adjusted); any turn cell >40% relative error vs historic manual or sibling cameras forces an alert and temporary fallback to derive for that camera until reviewed.
+
+These gates are all implementable with the existing groundtruth, replay, per-movement, and joint harnesses + one small extension to the recal script.
+
+### Summary Recommendation (opinionated)
+Invert the never-built part of the 05-27 plan: destination/exit-driven (or exit-shape) clustering + manual count-match for labels + rotation-sense feasibility, using only observed suffixes for the polylines. Emit complete (o, d, label) rows with real supporting_count. The joint scorer + partial-Fréchet machinery (already in the tree and proven on throughs) will then do the right thing for the population whose curves OC-SORT now captures. Derive_movement becomes a pure legacy fallback. Add the two cheap quality filters for OC-SORT over-generation. Enforce the self-consistency + manual-parity + visual gates before any apply.
+
+This is the minimal change that makes the existing Tier-0 path the source of truth for turns instead of the geometrically broken fallback. The camera + detection latency still sets a hard ceiling on the most truncated movements (NB-left in particular), but the attribution logic will stop being the amplifier of the problem. 
+
+All pointers above are directly verifiable in the files read.

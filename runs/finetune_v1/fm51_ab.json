@@ -1,0 +1,118 @@
+{
+ "new_weights": "runs/detect/runs/finetune_v1/chunk6/weights/last.pt",
+ "old_weights": "yolo26s.pt",
+ "stride": 50,
+ "conf": 0.25,
+ "rows": [
+  {
+   "interval": "2026-04-30T07:00:00",
+   "frames": 180,
+   "old_per_frame": 1.0,
+   "new_per_frame": 1.87,
+   "old_far_pf": 0.0,
+   "new_far_pf": 0.0,
+   "new_articulated": 0,
+   "new_long": 5,
+   "mio": 195
+  },
+  {
+   "interval": "2026-04-30T07:15:00",
+   "frames": 180,
+   "old_per_frame": 1.07,
+   "new_per_frame": 1.56,
+   "old_far_pf": 0.0,
+   "new_far_pf": 0.0,
+   "new_articulated": 0,
+   "new_long": 2,
+   "mio": 208
+  },
+  {
+   "interval": "2026-04-30T07:30:00",
+   "frames": 180,
+   "old_per_frame": 1.19,
+   "new_per_frame": 1.74,
+   "old_far_pf": 0.0,
+   "new_far_pf": 0.0,
+   "new_articulated": 2,
+   "new_long": 5,
+   "mio": 231
+  },
+  {
+   "interval": "2026-04-30T07:45:00",
+   "frames": 180,
+   "old_per_frame": 1.16,
+   "new_per_frame": 1.38,
+   "old_far_pf": 0.0,
+   "new_far_pf": 0.0,
+   "new_articulated": 1,
+   "new_long": 9,
+   "mio": 210
+  },
+  {
+   "interval": "2026-04-30T16:30:00",
+   "frames": 180,
+   "old_per_frame": 1.08,
+   "new_per_frame": 1.36,
+   "old_far_pf": 0.0,
+   "new_far_pf": 0.0,
+   "new_articulated": 1,
+   "new_long": 9,
+   "mio": 238
+  },
+  {
+   "interval": "2026-04-30T16:45:00",
+   "frames": 180,
+   "old_per_frame": 0.75,
+   "new_per_frame": 1.04,
+   "old_far_pf": 0.0,
+   "new_far_pf": 0.0,
+   "new_articulated": 1,
+   "new_long": 3,
+   "mio": 221
+  },
+  {
+   "interval": "2026-04-30T17:00:00",
+   "frames": 180,
+   "old_per_frame": 0.99,
+   "new_per_frame": 1.24,
+   "old_far_pf": 0.0,
+   "new_far_pf": 0.0,
+   "new_articulated": 1,
+   "new_long": 0,
+   "mio": 262
+  },
+  {
+   "interval": "2026-04-30T17:15:00",
+   "frames": 180,
+   "old_per_frame": 1.08,
+   "new_per_frame": 1.27,
+   "old_far_pf": 0.0,
+   "new_far_pf": 0.0,
+   "new_articulated": 1,
+   "new_long": 1,
+   "mio": 255
+  },
+  {
+   "interval": "2026-04-30T17:30:00",
+   "frames": 180,
+   "old_per_frame": 0.91,
+   "new_per_frame": 1.13,
+   "old_far_pf": 0.0,
+   "new_far_pf": 0.0,
+   "new_articulated": 0,
+   "new_long": 2,
+   "mio": 226
+  },
+  {
+   "interval": "2026-04-30T17:45:00",
+   "frames": 180,
+   "old_per_frame": 1.04,
+   "new_per_frame": 1.37,
+   "old_far_pf": 0.0,
+   "new_far_pf": 0.0,
+   "new_articulated": 0,
+   "new_long": 6,
+   "mio": 210
+  }
+ ]
+}

@@ -1,0 +1,26 @@
+{
+  "matcher": "subsequence-DTW + tail gate, SELECTIVE override",
+  "tracks": 1559,
+  "too_short": 0,
+  "overridden": 29,
+  "channel_agreed": 903,
+  "no_channel_fit": 527,
+  "protected_confident_baseline": 72,
+  "protected_weak_channel_fit": 28,
+  "params": {
+    "coverage_floor": 0.3,
+    "cost_ceil": 1.2,
+    "tail_min": 0.2,
+    "strong_cost": 1.0,
+    "conf_gate": 0.45,
+    "include_uturn": false,
+    "n_samples": 36,
+    "n_track": 28
+  },
+  "movement_changes": {
+    "right -> through": 11,
+    "left -> through": 7,
+    "through -> left": 7,
+    "through -> right": 4
+  }
+}

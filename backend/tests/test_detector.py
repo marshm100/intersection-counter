@@ -123,3 +123,45 @@ class TestDetectOnSyntheticScene:
 class TestClassMapping:
     def test_vehicle_class_names(self):
         assert VEHICLE_CLASSES == {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
+
+
+class TestFinetuneClassScheme:
+    """The promoted two-class-head mapping (plan_detector_finetune,
+    2026-07-17): ft classes 0/1/2 -> COCO 2/7/7, exactly as the FM51
+    full-chain gate validated."""
+
+    def test_parse_maps_ft_classes(self):
+        import numpy as np
+        from unittest.mock import MagicMock
+        from backend.services.detector import VehicleDetector
+
+        det = VehicleDetector.__new__(VehicleDetector)
+        det.class_scheme = "finetune_v1"
+        boxes = MagicMock()
+        boxes.__len__ = lambda self: 3
+        boxes.xyxy.cpu.return_value.numpy.return_value = np.array(
+            [[0, 0, 10, 10], [5, 5, 40, 20], [1, 1, 30, 15]], dtype=float)
+        boxes.conf.cpu.return_value.numpy.return_value = np.array([.9, .8, .7])
+        boxes.cls.cpu.return_value.numpy.return_value = np.array([0, 1, 2])
+        results = MagicMock(); results.boxes = boxes
+        out = det._parse_results(results)
+        assert [d["class_id"] for d in out] == [2, 7, 7]
+        assert all(d["is_vehicle"] for d in out)
+        assert out[1]["class_name"] == "truck"
+
+    def test_coco_scheme_unchanged(self):
+        import numpy as np
+        from unittest.mock import MagicMock
+        from backend.services.detector import VehicleDetector
+
+        det = VehicleDetector.__new__(VehicleDetector)
+        det.class_scheme = "coco"
+        boxes = MagicMock()
+        boxes.__len__ = lambda self: 1
+        boxes.xyxy.cpu.return_value.numpy.return_value = np.array(
+            [[0, 0, 10, 10]], dtype=float)
+        boxes.conf.cpu.return_value.numpy.return_value = np.array([.9])
+        boxes.cls.cpu.return_value.numpy.return_value = np.array([7])
+        results = MagicMock(); results.boxes = boxes
+        out = det._parse_results(results)
+        assert out[0]["class_id"] == 7

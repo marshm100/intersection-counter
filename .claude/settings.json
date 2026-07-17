@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/log_start.py"
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/log_start.py\""
           }
         ]
       }
@@ -15,14 +15,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/log_end.py"
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/log_end.py\""
           },
           {
             "type": "command",
-            "command": "python .claude/hooks/walkthrough_reminder.py"
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/walkthrough_reminder.py\""
           }
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "playwright@claude-plugins-official": true
   }
 }

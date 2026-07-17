@@ -1,0 +1,263 @@
+# Plan — item-8 phase 1, mechanism ①: the origin-evidence gate (2026-07-14)
+
+**STATUS (same day): stages 1–2 SHIPPED (59d021d, e0fa2c0, flag default
+OFF); stage-3 fit-window ablation RUN — filter half = qualified PASS with
+one induced regression, traced.**
+
+cam2 study_0700, Mio / flag-off control / gated (counters: 4691 evidenced
+= 80%, 1140 unevidenced, **348 corrected flips**; events 5347 vs 5440 ctrl,
+insufficient +93 — no drop ballooning):
+
+| cell | mio | ctrl | gate | read |
+|---|---|---|---|---|
+| NB-left | 411 | 146 | **209** | recall 0.36→0.51 — the flip fix works |
+| SB-thru | 1384 | 1082 | **1137** | +55, contamination shed |
+| SB-right | 379 | 361 | 314 | down past Mio (0.83) — shed its stolen NB-lefts |
+| EB-right | 167 | 494 | **394** | overcount −100 |
+| EB-thru | 119 | 23 | 34 | still the bank hole |
+| **EB-left** | 229 | 157 | **304** | **INDUCED regression 0.69→1.33** |
+| NB-thru / WB-right | — | — | — | stable (tripwires hold) |
+
+Watch-cell |err| sum 1124→946 (−16%). **The EB-left regression is the bank
+hole made visible:** evidenced origin-28 tracks are now correctly bound to
+28→* candidates, but the applied bank has NO 28→26 (EB-thru) path — so
+real EB-thrus are forced into 28→27 (left) and 28→29 (right). Before the
+gate they escaped into other origins' cells (wrong, but spread out). This
+is the predicted ①→③ coupling, arriving early.
+
+**Decision (next ablation before any freeze):** fill the 28→26 hole with
+the CORPUS-FITTED path (discovered from the site's own tracks — standing
+rule 1 bans DRAWN paths in fitted banks; a corpus-fitted path is
+bank-family-consistent) and re-run the arm. If EB-left returns to ~ctrl
+and EB-thru rises, the filter+fill pair goes to held-out 11:00/16:00 and
+then the five-cam sweep. The posterior half remains separate.
+
+**FILL ARM (pinned gates, same day):** first run was CONFOUNDED — gate
+geometry was derived from the candidate set, so the injected path rotated
+the leg-26/28 gates (evidenced 4691→2628). Fixed by pinning gates to
+`_gate_paths` (900e9df — also a product hazard: an operator path edit
+would have rotated evidence gates silently). Pinned rerun, gate vs fill:
+NB-left/SB-right/NB-thru/WB-right byte-identical (pin verified, 348
+corrections stable); **EB-thru 34→76** (the fill reaches its cell);
+EB-right 394→381; watch |err| 946→**902** (ctrl 1124, −20% total).
+**BUT EB-left 304→303 — the bank-hole hypothesis for the EB-left
+regression is FALSIFIED**: the 147 extra EB-lefts are not starved
+EB-thrus (they didn't drain into the new thru path; EB-thru's +42 came
+from the fallback pool). The regression has an unidentified mechanism.
+
+## The EB-left autopsy (planned 2026-07-14, gates the freeze)
+
+**Reframe worth testing first:** control was UNDER Miovision (157 vs 229,
+−72); the gated arm is OVER (304, +75) — nearly symmetric. So the +147 may
+be part RECOVERY (up to ~72 real EB-lefts the control missed) and part
+overshoot — "regression" is not yet established, only movement.
+
+**Method (one script on existing artifacts, no replay, ~2 min):** for every
+(28→27,'left') event in the fill DB (study_0700 window), join
+vehicle_track_id → dump track → classify with the PINNED box-clip gates,
+plus per-track features (evidenced?, death-vs-divergence, length, birth).
+Bucket:
+1. box-FULL 28→27 journeys — genuine lefts (recovered real; cap ~229/Mio);
+2. truncated entry-only-28 — shape-matched to the left path (the suspect
+   pool: real thrus/rights whose partial curve reads left);
+3. unevidenced tracks (the 1140 pool is NOT filtered — they can still
+   match 28→* paths and land here);
+4. box-says-other (full journeys to 26/29 called left — hard errors).
+Same buckets for the CONTROL's 157 for the delta story.
+
+**Verdicts:** bucket 1 dominant → recovery, freeze proceeds with EB-left
+watched at the sweep; bucket 2/3 dominant → the truncated/unevidenced
+shape-match is the mechanism and the POSTERIOR half (or a turn-tail-prior
+tightening for evidenced-truncated tracks) must land before freeze; bucket
+4 material → gate-geometry defect, back to stage 1.
+
+**Next (before freeze): the EB-left autopsy** — box-clip cells for the
+fill-DB's (28→27) events on study_0700 (the phase-0 join machinery on the
+working DB): who are the +147 — truncated EB-thrus whose shape curves
+left? mis-evidenced non-EB tracks? full-journey 27-exits? The freeze
+decision waits on this; everything else in the arm supports shipping the
+filter+fill pair.
+
+Phase-0 verdict (`phase0_wall_autopsies_2026-07-14.md`): all three walls
+share one axis — origin is CLAIMED without entry evidence (208 NB-left→
+SB-right flips, 454 EB→SB-thru flips, 71 mid-block driveway grabs). The
+§2c order of authority already SAYS "box-side crossings decide origin for
+every track" — but the implementation never did it: the joint scorer reads
+origin off the winning bank path (`score_path_joint`), which IS the flip
+mechanism (the ORIGIN_REWRITE_GATE covers only straight tracks). This
+mechanism implements the stated design for origin.
+
+## The mechanism
+
+At finalization, compute the track's ENTRY-GATE crossings (the operator-leg
+box perimeter — the same gates box-clip builds from legs + bank paths):
+
+1. **Entry evidence exists** (crossed a leg's gate inward): origin is that
+   leg, hard. The joint scorer's candidate paths are FILTERED to
+   `origin_leg == evidenced leg` before matching — the winner can no longer
+   rewrite origin across the intersection. (This alone kills the Wall-A
+   208-flip and the Wall-B 454 SB-thru contamination: those tracks HAVE
+   entry evidence at leg 29/28; only their matched path lied.)
+2. **No entry evidence** (born mid-box / mid-block): NO hard origin from
+   anchor or shape proximity. The track gets a POSTERIOR over origins:
+   exit-gate evidence (if any) fixes the destination; corpus-window
+   supports (scale-1, standing-rule-2 pattern) weight the feasible
+   (origin→dest) cells; shape residual against each candidate's sub-curve
+   breaks ties. Above the confidence floor → counted at the posterior max
+   WITH an `uncertain_event` flag (origin_ambiguous subtype, S-feeder);
+   below → counted origin-uncertain and queued. Nothing is silently
+   dropped (the §3-A no-drop principle) and nothing hard-claims a mouth it
+   never crossed (Wall C's 71).
+3. U-turn/jitter semantics port verbatim from box-clip (JITTER_S burst
+   collapse; same-leg re-cross ≠ u-turn without dwell + lane shift).
+
+Blind-deployable throughout: gates are operator geometry, supports are the
+site's own corpus, no GT anywhere. New constants: ONE posterior confidence
+floor (fit on the 07:00 window, frozen thereafter); gate geometry reuses
+box-clip's proven constants unchanged.
+
+## Build stages
+
+1. **`backend/services/entry_gates.py`** — verbatim port of
+   `build_gates`/`_seg_cross`/crossing-collapse from `scripts/
+   boxclip_pass2.py` (script re-imports from the service; one source of
+   truth — the turn_merge port pattern). Unit tests: gate fidelity vs the
+   script on a cam2 dump sample (identical crossings on N=500 tracks).
+2. **Pipeline wiring, behind `ORIGIN_EVIDENCE_GATE_ENABLED` (default
+   OFF).** At `_finalize_vehicle_data`: compute crossings once; evidence →
+   candidate filter into the joint scorer; no-evidence → the posterior
+   path + flag emission. Legacy behavior bit-identical when OFF
+   (test-gated, the TWO_PASS_ENABLED pattern). Instrument counters:
+   n_evidenced / n_posterior / n_uncertain / n_fallback.
+3. **Ablation on cam2 study_0700 (the FIT window)** via pass-2 replay
+   (~minutes/run): flag off vs on; posterior-floor sweep; report per-cell
+   recall/precision + whole-camera MAE. Success shape: NB-left recall
+   0.31→≥0.45, SB-right back toward 1.0 (it will DROP — that is the fix
+   working, score whole-camera only), SB-thru up, EB SB-contamination
+   gone, approach totals conserved. Also watch: fallback/insufficient
+   counts must not balloon (the filter removes candidates — the unclaimed-
+   288 pool must not grow; if it does, that diagnosis pulls forward).
+4. **Freeze constants → held-out 11:00/16:00.** No re-tuning after this
+   line — held-out movement must match the fit-window story.
+5. **Five-camera blind sweep** (frozen constants, replay, current
+   baselines: cam1 7.6 / cam2 8.1 / cam3 3.2 / cam4 live 4.6 / cam5 7.1):
+   improve the target cells, hold the tripwires (cam3, cam4-live; cam4's
+   (34→33) should shed most of its 71-event mid-block class). PASS →
+   apply through the product flow, per-window backups; flip the flag
+   default in its own commit. FAIL → retirement entry + findings; the
+   posterior piece and the filter piece gate SEPARATELY (the filter may
+   pass while the posterior retires — they are independently revertible).
+
+## Explicitly out of scope (phase-1 items ② and ③ wait)
+
+The unclaimed-288 drop diagnosis (next, informed by stage-3's counters);
+EB-thru pre-divergence allocation (after the flips die — the pool changes);
+the never-journeyed 585 (capability track); any turn-merge expectation
+recheck (the corpus bank re-discovers from de-flipped tracks first).
+
+## Risks named
+
+- Restricting candidates can starve matches → more fallback events, not
+  fewer errors. The stage-3 counters + the no-balloon check catch it.
+- cam1 (botsort+reid recipe) has different birth behavior — the sweep, not
+  cam2 intuition, decides whether the gate helps or hurts there.
+- Gates derive from operator leg anchors; a badly-placed anchor makes a
+  gate miss real entries. The n_evidenced counter per leg vs corpus
+  supports is the QA cross-check (feeds §3-B if it fires).
+
+## Ops
+
+Ablations run detached with logs + resume; no repo `.py` edits while a
+server job runs; scorers (`measure_cam2_reid_spike`, `triangulate_manual`,
+`interval_metric`) remain the only GT readers.
+
+**AUTOPSY RESULT (2026-07-14): RECOVERY — freeze proceeds.** Of the +146
+delta (ctrl 157 → fill 303): **+83 are bucket-1 GENUINE box-full 28→27
+journeys** (49→132; the gate recovered real EB-lefts the control had
+misplaced), +41 unevidenced (83→124), +23 truncated-28 (14→37), hard
+errors flat (10→9, bucket 4 immaterial). The cell's remaining overshoot
+(+75 vs Mio) is carried by the 108 unevidenced + 37 truncated suspects —
+exactly the POSTERIOR half's named workload, gating separately as planned.
+Filter+fill FREEZES as-is (no tunable constants): next = held-out
+11:00/16:00 through the FULL pass-2 chain (merge included), then the
+five-camera blind sweep, EB-left a watched cell.
+
+## HELD-OUT VERDICT (2026-07-14, post-merge, no re-tuning): MIXED — freeze HELD
+
+study_1100: ctrl |err| 1054 → frozen 1052 (flat). study_1600: 1284 → 1406
+(WORSE). The mechanism does exactly what it claims — target cells recover
+strongly and consistently on all three windows (NB-left +62/+110 held-out,
+recall 0.23→0.37 and 0.39→0.65; EB-thru +70/+185, reaching 0.65 of Mio on
+1600) — but the aggregate does not follow: **SB-right COLLAPSES on both
+held-out windows (400→188 vs Mio 388; 430→241 vs 341)**, SB-thru drifts
+down on 1600 (−195), EB-right worsens there (835→951).
+
+Reading: the fit window's SB-right dip (361→314) was the early warning.
+Phase-0 showed SB-right was FED by stolen NB-lefts — if its near-Mio
+control totals were partly CANCELLATION (real SB-rights missed, stolen
+NB-lefts filling in), then de-flipping EXPOSES a masked SB-right recall
+deficit rather than causing one. That hypothesis is testable with the
+same autopsy machinery and MUST be tested before any sweep: exposed
+deficit → the gate is truth-improving and the deficit is its own (new)
+wall; induced error → the gate steals SB-rights somewhere and the
+mechanism is wrong.
+
+**Decision: freeze HELD, five-cam sweep POSTPONED.** Next: the SB-right
+autopsy (bucket the frozen arm's (27→28) events + find where Mio's
+missing SB-rights went, both windows). The aggregate-flat/worse result
+stands recorded; no constants were touched.
+
+## SB-RIGHT AUTOPSY (2026-07-15): EXPOSED — the gate is truth-improving
+
+Method = the EB-left autopsy join, run on both held-out windows: every
+(27→28,'right') event in both arms bucketed by the PINNED box-clip verdict
+of its dump track; the vanished ctrl events cross-tabbed (verdict × frozen
+disposition); whole-dump census of box-full 27→28 journeys. Read-only on
+existing artifacts, no constants (scripts `sbright_autopsy.py` /
+`sbthru_check.py`, session scratchpad; numbers below are the deliverable).
+
+| | study_1100 | study_1600 |
+|---|---|---|
+| Mio SB-right | 388 | 341 |
+| ctrl counted / of which OTHER cells' vehicles¹ | 400 / 224 (56%) | 430 / 214 (50%) |
+| frozen counted / other-cells' | 188 / 7 (4%) | 241 / 10 (4%) |
+| box-full 27→28 journeys in the dump (trackable genuine pool) | 63 | 40 |
+| genuine pool counted SB-right, ctrl → frozen | 17→18 | 7→7 |
+
+¹ box-full journeys of other cells, or entry evidence at another leg.
+
+- **Induced-error check NEGATIVE** (the decisive row): the gate steals ZERO
+  genuine SB-rights — the box-full 27→28 pool is counted identically in
+  both arms. The 400→188 / 430→241 collapse is contamination leaving:
+  93/57 box-full NB-LEFTS (29→28), **52/56 box-full EB-LEFTS (28→27)** —
+  independent corroboration of the EB-left recovery verdict from the
+  receiving side — 62/71 truncated entry-28 EB tracks, 11/12 WB (26→28).
+- **Where Miovision's SB-rights actually are:** only 63/40 complete box
+  journeys exist in the dumps (16%/12% of Mio). The control's near-Mio
+  totals were CANCELLATION, exactly as the held-out verdict hypothesized —
+  a masked recall deficit (truncation/tracking, Wall-A's never-journeyed
+  family), partially filled by the evidenced-truncated pool (entry-only-27:
+  114/123 counted via shape) plus unevidenced leakage (44/96 events).
+- **The 1600 aggregate worsening decomposes into the SAME exposure**
+  (measured, `sbthru_check.py`): ctrl SB-thru carried 279 truncated
+  entry-28 EB tracks (phase-0's 454-flip class); the gate de-flips them
+  into origin 28, where **217 snap to 28→29:right** — that single flow is
+  the SB-thru −195 AND the EB-right 835→951 — because within-origin
+  destination allocation for pre-divergence deaths is still coverage-blind
+  (the named item-② pool). Meanwhile genuine box-full 27→29 SB-thrus
+  counted in-cell went UP: 118→179 / 102→183.
+- **Merge caution now measured:** 17/14 genuine box-full EB-lefts per
+  window are REJECTED(merge) in the frozen arm — the corpus merge
+  expecteds were discovered from flipped tracks (the phase-0 caution);
+  re-discover on the de-flipped corpus before the sweep.
+
+**DECISION: freeze STANDS; verdict EXPOSED.** The five-cam sweep stays
+postponed — not because the mechanism is suspect (verified truth-improving
+on all three windows) but because the filter half alone scores
+mid-mechanism: it strips fake counts whose replacements are precisely the
+POSTERIOR half's + item-②'s workload (unevidenced-origin posterior;
+pre-divergence destination allocation — one "partial-evidence posterior"
+design problem). Sweeping now would grade a half-landed mechanism on
+cancellation-flattered baselines. **Next: the posterior half + truncated-
+destination allocation, merge-expecteds re-discovery on de-flipped tracks,
+THEN the five-camera sweep.**

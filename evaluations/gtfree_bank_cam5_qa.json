@@ -1,0 +1,138 @@
+{
+  "camera": 5,
+  "window": "07:00:00+120min",
+  "n_tracks_usable": 5681,
+  "agreement_rate": 0.381,
+  "cells": [
+    {
+      "cell": "L36->L36 u_turn",
+      "n": 9,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L36->L37 right",
+      "n": 71,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L36->L38 through",
+      "n": 34,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L36->L39 left",
+      "n": 1295,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L37->L36 left",
+      "n": 6,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L37->L37 u_turn",
+      "n": 3,
+      "n_reverse": 2,
+      "reverse_frac": 0.67,
+      "status": "uturn_unsupported_heldout"
+    },
+    {
+      "cell": "L37->L38 right",
+      "n": 83,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L37->L39 through",
+      "n": 602,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L38->L36 through",
+      "n": 44,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L38->L37 left",
+      "n": 133,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L38->L38 u_turn",
+      "n": 41,
+      "n_reverse": 8,
+      "reverse_frac": 0.2,
+      "status": "uturn_unsupported_heldout"
+    },
+    {
+      "cell": "L38->L39 right",
+      "n": 164,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L39->L36 right",
+      "n": 563,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L39->L37 through",
+      "n": 1978,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L39->L38 left",
+      "n": 175,
+      "status": "channel_direct"
+    },
+    {
+      "cell": "L39->L39 u_turn",
+      "n": 480,
+      "status": "channel_direct"
+    }
+  ],
+  "ambiguous_pairs": [],
+  "leg_sanity": [
+    {
+      "leg_id": 39,
+      "calibrated_heading": 243.2,
+      "observed_entry_bearing": 268.1,
+      "diff_deg": 24.9,
+      "verdict": "ok"
+    },
+    {
+      "leg_id": 36,
+      "calibrated_heading": 118.9,
+      "observed_entry_bearing": 83.1,
+      "diff_deg": 35.8,
+      "verdict": "ok"
+    },
+    {
+      "leg_id": 37,
+      "calibrated_heading": 66.2,
+      "observed_entry_bearing": 76.6,
+      "diff_deg": 10.4,
+      "verdict": "ok"
+    },
+    {
+      "leg_id": 38,
+      "calibrated_heading": 296.1,
+      "observed_entry_bearing": 294.2,
+      "diff_deg": 1.9,
+      "verdict": "ok"
+    }
+  ],
+  "missing_movements": [],
+  "anchor_cells_raw": {
+    "39->37": 1978,
+    "36->39": 1295,
+    "37->39": 602,
+    "39->36": 563,
+    "39->39": 480,
+    "39->38": 175,
+    "38->39": 164,
+    "38->37": 133,
+    "37->38": 83,
+    "36->37": 71,
+    "38->36": 44,
+    "38->38": 41
+  }
+}

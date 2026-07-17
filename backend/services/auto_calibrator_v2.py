@@ -163,19 +163,25 @@ def _run_job(
         # Lazy import: pulls in YOLO via VehicleDetector.
         repo_root = Path(__file__).resolve().parent.parent.parent
         sys.path.insert(0, str(repo_root))
-        from scripts.auto_calibrate import run as run_auto_cal
+        from scripts.auto_calibrate import run as run_auto_cal, AutoCalCancelled
 
-        # Hook a progress callback by patching the script's print-based
-        # progress with a periodic _update_job. We re-implement by running
-        # auto_calibrate.run synchronously and updating progress around
-        # phases — the script doesn't take a callback today. Coarse but
-        # accurate enough for a 15-min job.
+        # The trajectory-collection pass is the long phase. We pass a
+        # should_cancel callback so a Cancel request is honored mid-pass
+        # (it polls cancel_requested every ~30 frames) instead of only
+        # after the whole window finishes.
         _update_job(camera_id, phase="collect_trajectories", progress_pct=5.0)
-        result = run_auto_cal(
-            path,
-            sample_start_sec=sample_start_sec,
-            sample_end_sec=sample_end_sec,
-        )
+        try:
+            result = run_auto_cal(
+                path,
+                sample_start_sec=sample_start_sec,
+                sample_end_sec=sample_end_sec,
+                should_cancel=lambda: bool(
+                    _JOBS.get(camera_id, {}).get("cancel_requested")),
+            )
+        except AutoCalCancelled:
+            _update_job(camera_id, status="cancelled", phase="done",
+                        progress_pct=100.0)
+            return
         if _JOBS[camera_id].get("cancel_requested"):
             _update_job(camera_id, status="cancelled", phase="done",
                         progress_pct=100.0)

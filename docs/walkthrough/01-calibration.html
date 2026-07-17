@@ -11,9 +11,12 @@
   <a href="00-overview.html">0. Overview</a>
   <a href="01-calibration.html" class="current">1. Calibration</a>
   <a href="02-detection-tracking.html">2. Detect+Track</a>
-  <a href="03-origin-assignment.html">3. Origin</a>
-  <a href="04-trajectory-classification.html">4. Classify</a>
-  <a href="05-aggregation.html">5. Aggregate</a>
+  <a href="03-path-bank.html">3. Path Bank</a>
+  <a href="04-origin-attribution.html">4. Origin</a>
+  <a href="05-classification.html">5. Classify</a>
+  <a href="06-aggregation.html">6. Aggregate</a>
+  <a href="07-accuracy.html">7. Accuracy</a>
+  <a href="08-corridor.html">8. Corridor</a>
 </nav>
 <main>
   <h1>1. Calibration</h1>
@@ -48,9 +51,9 @@
       <text x="200" y="190" text-anchor="middle" fill="#8a96a3" font-size="12">180° (S — down)</text>
       <text x="118" y="104" text-anchor="end" fill="#8a96a3" font-size="12">270° (W)</text>
 
-      <!-- Example heading 61 (L19) -->
-      <line x1="200" y1="100" x2="261" y2="66" stroke="#5fc7ff" stroke-width="3" marker-end="url(#a)"/>
-      <text x="270" y="62" fill="#5fc7ff" font-size="12">61° (NE) — L19 approach</text>
+      <!-- Example heading 82.7 (L23 SB approach) -->
+      <line x1="200" y1="100" x2="267" y2="91" stroke="#5fc7ff" stroke-width="3" marker-end="url(#a)"/>
+      <text x="276" y="92" fill="#5fc7ff" font-size="12">82.7° (≈E) — L23 (SB) approach</text>
 
       <defs>
         <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
@@ -86,10 +89,10 @@ where  perp = ref_heading + 90°</pre>
   </p>
 
   <div class="legend">
-    <span class="chip"><span class="swatch" style="background: var(--L18);"></span>L18 SB N Belt Line — origin (474, 211), ref 259.3°</span>
-    <span class="chip"><span class="swatch" style="background: var(--L19);"></span>L19 NB N Belt Line — origin (85, 370), ref 61.0°</span>
-    <span class="chip"><span class="swatch" style="background: var(--L20);"></span>L20 WB Driveway — origin (547, 326), ref 290.8°</span>
-    <span class="chip"><span class="swatch" style="background: var(--L21);"></span>L21 EB Northwest Dr — origin (217, 234), ref 123.1°</span>
+    <span class="chip"><span class="swatch" style="background: var(--L19);"></span>L22 NB N Belt Line — origin (495, 218), ref 262.5°</span>
+    <span class="chip"><span class="swatch" style="background: var(--L18);"></span>L23 SB N Belt Line — origin (143, 358), ref 82.7°</span>
+    <span class="chip"><span class="swatch" style="background: var(--L20);"></span>L24 EB Northwest Dr — origin (542, 358), ref 312.9°</span>
+    <span class="chip"><span class="swatch" style="background: var(--L21);"></span>L25 WB Private Driveway — origin (228, 227), ref 172.8°</span>
   </div>
 
   <figure>
@@ -106,71 +109,82 @@ where  perp = ref_heading + 90°</pre>
         <line x1="480" y1="0" x2="480" y2="480"/>
       </g>
 
-      <!-- L18 tripwire -->
-      <line x1="451.7" y1="93.2" x2="496.3" y2="328.8" stroke="#ff7b3a" stroke-width="3"/>
-      <!-- L18 origin -->
-      <circle cx="474" cy="211" r="6" fill="#ff7b3a"/>
-      <text x="486" y="207" fill="#ff7b3a" font-size="14" font-weight="600">L18</text>
-      <!-- L18 heading arrow -->
-      <line x1="474" y1="211" x2="394" y2="226" stroke="#ff7b3a" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar18)"/>
+      <!-- inbound vehicles: each approaches the center along its leg, crossing the tripwire -->
+      <path id="cal-nb" d="M611,159 L352,290" fill="none"/>
+      <path id="cal-sb" d="M19,398 L352,290" fill="none"/>
+      <path id="cal-eb" d="M664,402 L352,290" fill="none"/>
+      <path id="cal-wb" d="M112,168 L352,290" fill="none"/>
+      <rect x="-8" y="-5" width="16" height="10" rx="2" fill="#5fc7ff" opacity="0.9"><animateMotion dur="4.5s" begin="0s"    repeatCount="indefinite" rotate="auto"><mpath href="#cal-nb"/></animateMotion></rect>
+      <rect x="-8" y="-5" width="16" height="10" rx="2" fill="#ff7b3a" opacity="0.9"><animateMotion dur="5.2s" begin="-1.6s" repeatCount="indefinite" rotate="auto"><mpath href="#cal-sb"/></animateMotion></rect>
+      <rect x="-8" y="-5" width="16" height="10" rx="2" fill="#7ee787" opacity="0.9"><animateMotion dur="5.0s" begin="-3.1s" repeatCount="indefinite" rotate="auto"><mpath href="#cal-eb"/></animateMotion></rect>
+      <rect x="-8" y="-5" width="16" height="10" rx="2" fill="#d27bff" opacity="0.9"><animateMotion dur="4.2s" begin="-2.2s" repeatCount="indefinite" rotate="auto"><mpath href="#cal-wb"/></animateMotion></rect>
 
-      <!-- L19 tripwire -->
-      <line x1="27.2" y1="265" x2="142.8" y2="475" stroke="#5fc7ff" stroke-width="3"/>
-      <!-- L19 origin -->
-      <circle cx="85" cy="370" r="6" fill="#5fc7ff"/>
-      <text x="97" y="375" fill="#5fc7ff" font-size="14" font-weight="600">L19</text>
-      <!-- L19 heading arrow (vehicles move NE toward intersection) -->
-      <line x1="85" y1="370" x2="155" y2="331" stroke="#5fc7ff" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar19)"/>
+      <!-- L22 NB (cyan) tripwire -->
+      <line x1="510" y1="337" x2="479" y2="99" stroke="#5fc7ff" stroke-width="3" class="wt-pulse"/>
+      <circle cx="495" cy="218" r="6" fill="#5fc7ff"/>
+      <text x="505" y="214" fill="#5fc7ff" font-size="14" font-weight="600">L22</text>
+      <line x1="495" y1="218" x2="440" y2="225" stroke="#5fc7ff" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar22)"/>
 
-      <!-- L20 tripwire -->
-      <line x1="504.4" y1="438.2" x2="589.6" y2="213.8" stroke="#7ee787" stroke-width="3"/>
-      <!-- L20 origin -->
-      <circle cx="547" cy="326" r="6" fill="#7ee787"/>
-      <text x="559" y="330" fill="#7ee787" font-size="14" font-weight="600">L20</text>
-      <!-- L20 heading arrow -->
-      <line x1="547" y1="326" x2="472" y2="298" stroke="#7ee787" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar20)"/>
+      <!-- L23 SB (orange) tripwire -->
+      <line x1="128" y1="238" x2="158" y2="477" stroke="#ff7b3a" stroke-width="3" class="wt-pulse"/>
+      <circle cx="143" cy="358" r="6" fill="#ff7b3a"/>
+      <text x="103" y="362" fill="#ff7b3a" font-size="14" font-weight="600">L23</text>
+      <line x1="143" y1="358" x2="198" y2="351" stroke="#ff7b3a" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar23)"/>
 
-      <!-- L21 tripwire -->
-      <line x1="282.5" y1="133.4" x2="151.5" y2="334.6" stroke="#d27bff" stroke-width="3"/>
-      <!-- L21 origin -->
-      <circle cx="217" cy="234" r="6" fill="#d27bff"/>
-      <text x="229" y="230" fill="#d27bff" font-size="14" font-weight="600">L21</text>
-      <!-- L21 heading arrow -->
-      <line x1="217" y1="234" x2="284" y2="277" stroke="#d27bff" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar21)"/>
+      <!-- L24 EB (green) tripwire -->
+      <line x1="460" y1="445" x2="623" y2="270" stroke="#7ee787" stroke-width="3" class="wt-pulse"/>
+      <circle cx="542" cy="358" r="6" fill="#7ee787"/>
+      <text x="554" y="362" fill="#7ee787" font-size="14" font-weight="600">L24</text>
+      <line x1="542" y1="358" x2="501" y2="320" stroke="#7ee787" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar24)"/>
+
+      <!-- L25 WB (magenta) tripwire -->
+      <line x1="347" y1="212" x2="109" y2="242" stroke="#d27bff" stroke-width="3" class="wt-pulse"/>
+      <circle cx="228" cy="227" r="6" fill="#d27bff"/>
+      <text x="200" y="223" fill="#d27bff" font-size="14" font-weight="600">L25</text>
+      <line x1="228" y1="227" x2="234" y2="282" stroke="#d27bff" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ar25)"/>
 
       <!-- Intersection center -->
-      <circle cx="330.75" cy="285.25" r="8" fill="none" stroke="#ffd23f" stroke-width="2"/>
-      <circle cx="330.75" cy="285.25" r="2" fill="#ffd23f"/>
-      <text x="345" y="290" fill="#ffd23f" font-size="12">intersection center</text>
+      <circle cx="352" cy="290" r="8" fill="none" stroke="#ffd23f" stroke-width="2"/>
+      <circle cx="352" cy="290" r="2" fill="#ffd23f"/>
+      <text x="364" y="294" fill="#ffd23f" font-size="12">intersection center</text>
 
       <defs>
-        <marker id="ar18" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff7b3a"/></marker>
-        <marker id="ar19" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5fc7ff"/></marker>
-        <marker id="ar20" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7ee787"/></marker>
-        <marker id="ar21" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#d27bff"/></marker>
+        <marker id="ar22" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5fc7ff"/></marker>
+        <marker id="ar23" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff7b3a"/></marker>
+        <marker id="ar24" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7ee787"/></marker>
+        <marker id="ar25" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#d27bff"/></marker>
       </defs>
     </svg>
     <figcaption>
       Solid lines = synthesized tripwires (perpendicular to approach, ±120 px). Dashed arrows = reference heading
       (direction vehicles move when approaching). Yellow ring = centroid of origin points.
+      The arterial (N Belt Line, L22/L23) runs top-to-bottom; Northwest Dr (L24) and the driveway (L25) cross it.
     </figcaption>
   </figure>
 
-  <h2>Things to notice in this geometry</h2>
+  <h2>Why a point and a heading aren't the whole story</h2>
+  <p>
+    Calibration captures the minimum a human can click reliably: one origin point and a heading per leg.
+    That's enough to synthesize a tripwire and a fallback, but it has known limits — which is exactly why
+    the current pipeline derives a richer geometry (the <a href="03-path-bank.html">path bank</a>) on top
+    of it:
+  </p>
   <div class="callout warn">
-    <strong>L19's origin is jammed against the lower-left edge</strong> at (85, 370). With the
-    old 40-px tripwire (now 120), vehicles entering from off-frame to the southwest were often
-    first detected by YOLO already past the line. This is Bug A — see page 3.
+    <strong>Vehicles are first detected past the tripwire.</strong> A leg's origin sits at the stop bar,
+    but YOLO often first catches a vehicle already inside the intersection — past the line — so a pure
+    tripwire-crossing test misses it. Matching the <em>whole trajectory</em> against a road shape
+    (<a href="04-origin-attribution.html">page 4</a>) doesn't depend on catching the crossing moment.
   </div>
   <div class="callout warn">
-    <strong>The legs are not orthogonal.</strong> Reference headings are 259°, 61°, 291°, 123° —
-    no two legs are exactly opposite. Anything that assumes a clean four-way (a turn matrix,
-    fixed 90° buckets) will produce wrong labels here. That's Bug B — see page 4.
+    <strong>The legs are not orthogonal.</strong> Reference headings here are 262° / 83° / 313° / 173° —
+    no two legs exactly opposite. Anything assuming a clean four-way (a turn matrix, fixed 90° buckets)
+    mislabels movements; classification adapts to the real geometry instead
+    (<a href="05-classification.html">page 5</a>).
   </div>
   <div class="callout">
-    <strong>L20 is a private driveway.</strong> In the morning peak the manual count shows zero
-    L20 traffic; if the pipeline reports more than a handful, something is mis-attributing
-    real traffic (likely L18) to L20.
+    <strong>The cardinal label is load-bearing.</strong> The N/S/E/W direction isn't cosmetic — it's how
+    each leg is joined to the Miovision ground-truth approach for validation. A mislabeled cardinal
+    silently corrupts every count (it happened — see <a href="08-corridor.html">page 8</a>).
   </div>
 
   <footer class="page-foot">

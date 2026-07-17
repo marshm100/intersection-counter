@@ -17,7 +17,7 @@ from backend.config import PROJECTS_DIR
 from backend.database import (
     add_video, find_video_by_path, get_connection, get_video,
     list_videos, list_intersections, list_cameras,
-    remove_video, set_video_recording_start_time,
+    remove_video, set_project_info, set_video_recording_start_time,
     update_video_labels, link_video_to_camera,
     upsert_intersection, upsert_camera,
 )
@@ -256,6 +256,12 @@ def save_labels(project_id: str):
         iid = upsert_intersection(project_id, intersection_name, date_part)
         cid = upsert_camera(project_id, iid, camera_label)
         link_video_to_camera(project_id, v["video_id"], cid)
+
+    # Mark the project as v3-initialized so the legacy auto-bootstrap never
+    # fires for it (e.g. after a user deletes an intersection and its videos
+    # become unlinked). Only when at least one video was actually linked.
+    if len(videos) - skipped > 0:
+        set_project_info(project_id, "v3_initialized", "1")
 
     after_intersections = list_intersections(project_id)
     after_camera_ids: set[int] = set()

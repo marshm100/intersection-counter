@@ -9,9 +9,21 @@ from fastapi.responses import FileResponse
 logger = logging.getLogger(__name__)
 
 from backend.database import get_connection, get_all_project_info
+from backend.services.classifier import CLASS_GROUP_ORDER, fhwa_to_class_group
 from backend.services.excel_export import generate_tmc_excel
+from backend.services.pdf_report import generate_report_pdf
+from backend.services.spot_check import export_gate
 
 router = APIRouter()
+
+
+@router.get("/projects/{project_id}/export/gate")
+def export_gate_endpoint(project_id: str):
+    """Project-level export readiness (MASTER_PLAN §3-A): the QA acceptance gate
+    aggregated across intersections plus the bank/classification preconditions.
+    The export page renders this; `blocking=true` means the download is withheld
+    unless the operator passes ?override=true."""
+    return export_gate(project_id)
 
 
 @router.get("/projects/{project_id}/export/preview")
@@ -24,8 +36,13 @@ def export_preview(project_id: str):
         legs = conn.execute(
             "SELECT leg_id, label, cardinal_direction, sort_order FROM legs ORDER BY sort_order"
         ).fetchall()
-        event_rows = conn.execute(
-            "SELECT origin_leg_id, movement FROM vehicle_events"
+        # Aggregate in SQL rather than fetching every event row into Python: the
+        # DB is on a OneDrive path where materializing ~90k rows took ~50s; the
+        # grouped query returns a few dozen (origin_leg, movement) cells. Same
+        # counting set as before (all events, no rejected filter).
+        counts = conn.execute(
+            "SELECT origin_leg_id, movement, fhwa_class, COUNT(*) FROM vehicle_events "
+            "GROUP BY origin_leg_id, movement, fhwa_class"
         ).fetchall()
     finally:
         conn.close()
@@ -34,7 +51,8 @@ def export_preview(project_id: str):
     for row in legs:
         tmc[row[0]] = {"leg_id": row[0], "label": row[1], "through": 0, "left": 0, "right": 0, "u_turn": 0, "other": 0, "total": 0}
 
-    for origin_leg_id, movement in event_rows:
+    class_summary = {g: 0 for g in CLASS_GROUP_ORDER}   # Light/Medium/Articulated (Miovision parity)
+    for origin_leg_id, movement, fhwa_class, n in counts:
         if origin_leg_id not in tmc:
             tmc[origin_leg_id] = {
                 "leg_id": origin_leg_id,
@@ -42,10 +60,11 @@ def export_preview(project_id: str):
                 "through": 0, "left": 0, "right": 0, "u_turn": 0, "other": 0, "total": 0,
             }
         if movement in ("through", "left", "right", "u_turn"):
-            tmc[origin_leg_id][movement] += 1
+            tmc[origin_leg_id][movement] += n
         else:
-            tmc[origin_leg_id]["other"] += 1
-        tmc[origin_leg_id]["total"] += 1
+            tmc[origin_leg_id]["other"] += n
+        tmc[origin_leg_id]["total"] += n
+        class_summary[fhwa_to_class_group(fhwa_class)] += n
 
     matrix = sorted(tmc.values(), key=lambda x: next(
         (r[3] for r in legs if r[0] == x["leg_id"]), 999
@@ -57,12 +76,26 @@ def export_preview(project_id: str):
         "tmc_matrix": matrix,
         "total_vehicles": int(sum(v["total"] for v in tmc.values())),
         "leg_count": int(len(legs)),
+        "class_summary": {g: int(class_summary[g]) for g in CLASS_GROUP_ORDER},
     }
 
 
 @router.get("/projects/{project_id}/export/download")
-def export_download(project_id: str):
-    """Generate and stream the TMC Excel file as a download attachment."""
+def export_download(project_id: str, override: bool = False):
+    """Generate and stream the TMC Excel file as a download attachment.
+
+    Gated (MASTER_PLAN §3-A): if the export gate is blocking (a hard QA fail, a
+    missing bank, or empty classification) the download is withheld with HTTP 409
+    unless `override=true` — a `review` verdict (e.g. spot count pending) is NOT
+    blocking and streams a draft."""
+    gate = export_gate(project_id)
+    if gate["blocking"] and not override:
+        raise HTTPException(status_code=409, detail={
+            "message": "Export withheld — the QA gate is not satisfied.",
+            "overall": gate["overall"],
+            "blocking_reasons": gate["blocking_reasons"],
+        })
+
     info = get_all_project_info(project_id)
     project_name = info.get("project_name", project_id)
     date_str = datetime.now().strftime("%Y%m%d")
@@ -82,5 +115,130 @@ def export_download(project_id: str):
         path=str(output_path),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# --- Intersection-day deliverables (§3-E stage 3, plan_deliverables_E) ------
+
+def _intersection_gate(project_id: str, intersection_id: int) -> dict:
+    """The §3-A gate scoped to ONE intersection-day: the project gate's own
+    per-intersection entry decides blocking (same acceptance/bank/
+    classification logic, no duplicated policy)."""
+    gate = export_gate(project_id)
+    entry = next((i for i in gate["intersections"]
+                  if i["intersection_id"] == intersection_id), None)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Intersection not found")
+    reasons = list(entry["notes"])
+    # a QA-fail block carries no per-intersection note (the project gate
+    # only lists it in the project-level reasons) — name it here so the
+    # card dialog never shows an empty reason list (E-4 verify finding)
+    if entry["blocked"] and entry["overall"] == "fail":
+        reasons.append("QA acceptance gate: FAIL")
+    return {"project_id": project_id, "intersection_id": intersection_id,
+            "overall": entry["overall"], "blocking": bool(entry["blocked"]),
+            "blocking_reasons": reasons, "items": entry["items"],
+            "name": entry["name"]}
+
+
+def _deliverable_name(project_id: str, intersection_id: int, ext: str) -> str:
+    conn = get_connection(project_id)
+    try:
+        row = conn.execute(
+            "SELECT name, date FROM intersections WHERE intersection_id = ?",
+            (intersection_id,)).fetchone()
+    finally:
+        conn.close()
+    name, date = (row or (f"intersection{intersection_id}", ""))
+    safe = "".join(c if c.isalnum() or c in " ._-" else "_" for c in
+                   f"{name}_{date or datetime.now().strftime('%Y-%m-%d')}").strip()
+    return f"TMC_{safe}.{ext}"
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/export/gate")
+def intersection_export_gate(project_id: str, intersection_id: int):
+    return _intersection_gate(project_id, intersection_id)
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/export/tmc.xlsx")
+def intersection_export_xlsx(project_id: str, intersection_id: int,
+                             override: bool = False):
+    """The Miovision-parity workbook for one intersection-day (merged,
+    cross-camera-deduped). Gated per intersection; 409 unless override."""
+    gate = _intersection_gate(project_id, intersection_id)
+    if gate["blocking"] and not override:
+        raise HTTPException(status_code=409, detail={
+            "message": "Export withheld — the QA gate is not satisfied.",
+            "overall": gate["overall"],
+            "blocking_reasons": gate["blocking_reasons"]})
+    from backend.services.excel_export import generate_miovision_xlsx
+    filename = _deliverable_name(project_id, intersection_id, "xlsx")
+    output_path = Path(tempfile.gettempdir()) / filename
+    try:
+        generate_miovision_xlsx(project_id, output_path, intersection_id)
+    except Exception as exc:
+        logger.error("Intersection export failed (%s/%s): %s",
+                     project_id, intersection_id, exc)
+        raise HTTPException(status_code=500,
+                            detail="Export failed. See server logs.") from exc
+    return FileResponse(
+        path=str(output_path),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/export/report.pdf")
+def intersection_export_pdf(project_id: str, intersection_id: int,
+                            override: bool = False):
+    """The Miovision-style PDF for one intersection-day. Gated identically."""
+    gate = _intersection_gate(project_id, intersection_id)
+    if gate["blocking"] and not override:
+        raise HTTPException(status_code=409, detail={
+            "message": "Export withheld — the QA gate is not satisfied.",
+            "overall": gate["overall"],
+            "blocking_reasons": gate["blocking_reasons"]})
+    filename = _deliverable_name(project_id, intersection_id, "pdf")
+    output_path = Path(tempfile.gettempdir()) / filename
+    try:
+        generate_report_pdf(project_id, output_path,
+                            intersection_id=intersection_id)
+    except Exception as exc:
+        logger.error("Intersection PDF failed (%s/%s): %s",
+                     project_id, intersection_id, exc)
+        raise HTTPException(status_code=500,
+                            detail="PDF report failed. See server logs.") from exc
+    return FileResponse(
+        path=str(output_path), media_type="application/pdf", filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/projects/{project_id}/export/report.pdf")
+def export_report_pdf(project_id: str, override: bool = False):
+    """Generate and stream the Miovision-style PDF report (letterhead + peak-hour
+    summary + 15-min TMC table). Gated identically to the Excel download."""
+    gate = export_gate(project_id)
+    if gate["blocking"] and not override:
+        raise HTTPException(status_code=409, detail={
+            "message": "Export withheld — the QA gate is not satisfied.",
+            "overall": gate["overall"],
+            "blocking_reasons": gate["blocking_reasons"],
+        })
+
+    info = get_all_project_info(project_id)
+    project_name = info.get("project_name", project_id)
+    date_str = datetime.now().strftime("%Y%m%d")
+    safe_name = "".join(c if c.isalnum() or c in " ._-" else "_" for c in project_name).strip()
+    filename = f"TMC_Report_{safe_name}_{date_str}.pdf"
+    output_path = Path(tempfile.gettempdir()) / filename
+    try:
+        generate_report_pdf(project_id, output_path)
+    except Exception as exc:
+        logger.error("PDF report failed for project %s: %s", project_id, exc)
+        raise HTTPException(status_code=500, detail="PDF report failed. See server logs.") from exc
+
+    return FileResponse(
+        path=str(output_path), media_type="application/pdf", filename=filename,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

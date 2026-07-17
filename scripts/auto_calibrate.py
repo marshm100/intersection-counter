@@ -23,6 +23,7 @@ import sys
 import time
 from collections import defaultdict
 from pathlib import Path
+from typing import Callable
 
 import cv2
 import numpy as np
@@ -33,6 +34,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.services.detector import VehicleDetector
 from backend.services.tracker import VehicleTracker
+
+
+class AutoCalCancelled(Exception):
+    """Raised when a caller-supplied should_cancel() asks the trajectory
+    collection to stop early. Callers catch this to mark the job cancelled
+    rather than errored."""
 
 
 # --- Tunables (exposed via CLI; defaults chosen for Sunnyvale geometry) ---
@@ -69,6 +76,7 @@ def collect_trajectories(
     yolo_imgsz: int = DEFAULT_YOLO_IMGSZ,
     yolo_confidence: float = DEFAULT_YOLO_CONF,
     progress_every_sec: float = 30.0,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> tuple[list[list[tuple[float, float]]], tuple[int, int], dict]:
     """Run detector + tracker on the sample window. Return:
       ( list of trajectories, each = [(x, y), ...] in image coords ,
@@ -102,6 +110,12 @@ def collect_trajectories(
         n_detections = 0
 
         while frame_no < end_frame:
+            # Honor cancellation mid-pass (every ~30 frames keeps the flag
+            # check cheap relative to detection cost). Without this the whole
+            # window runs to completion before the caller's cancel is seen.
+            if should_cancel and (frame_no - start_frame) % 30 == 0 \
+                    and should_cancel():
+                raise AutoCalCancelled()
             ok, frame = cap.read()
             if not ok:
                 break
@@ -382,13 +396,15 @@ def run(video_path: str, sample_start_sec: float, sample_end_sec: float,
         yolo_imgsz: int = DEFAULT_YOLO_IMGSZ,
         yolo_confidence: float = DEFAULT_YOLO_CONF,
         eps_px: float = DBSCAN_EPS_PX,
-        min_samples: int = DBSCAN_MIN_SAMPLES) -> dict:
+        min_samples: int = DBSCAN_MIN_SAMPLES,
+        should_cancel: Callable[[], bool] | None = None) -> dict:
     """End-to-end: collect → cluster → discover paths → label movements."""
     t0 = time.time()
     trajectories, (fw, fh), stats = collect_trajectories(
         video_path, sample_start_sec, sample_end_sec,
         yolo_model=yolo_model, yolo_imgsz=yolo_imgsz,
         yolo_confidence=yolo_confidence,
+        should_cancel=should_cancel,
     )
 
     # Cluster entry zones (start positions) and exit zones (end positions).
