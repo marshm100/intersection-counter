@@ -86,3 +86,43 @@ post-398c913), per-cell diff tables:
 PASS → flag default ON + ship in the promoted config (measure-then-apply).
 FAIL → retirement entry + findings; the flag stays OFF and the queue keeps
 surveilling the class.
+
+## PHASE-2 VERDICT (2026-07-17, sweep + scoring complete — evidence in
+runs/origin_veto/: fm51_ablation.json, corridor_sweep.json, corridor_scored.json)
+
+**NOT SHIPPABLE AS-IS — flag stays OFF. The mechanism's redirect half is
+proven; its rescue half is missing.** Established scorer (per_interval,
+identical replay basis both sides), windows with dumps (cam1 0700-only):
+
+| cam | AVG\|err\| OFF → ON | read |
+|---|---|---|
+| FM51 (ablation) | SB −6.5→+1.0, kills 95→6, S-left 54→5, misplacement 266→127 | the targeted WIN, bookkeeping exact |
+| cam1 | 4.0 → 4.0 | wash ✓ |
+| cam2 | **4.1 → 6.7** | REGRESSION — tripwire hit (SB 12.2→8.8 and EB better, but −467 events LOST) |
+| cam3 | 34.8 → 34.9 | unchanged ✓ (the 34.8 level is a replay-basis artifact vs the live 3.2 — OFF≈ON is the valid read) |
+| cam4 | 4.7 → 4.7 | unchanged ✓; watch cell (34→33) 166→111 with arterial +58, approaches flat |
+| cam5 | 7.2 → 4.5 | total better but approaches worse — redistribution via −416 events lost |
+
+**The mechanism in one sentence:** where an alternative candidate MATCHES,
+the veto redirects correctly (FM51's 89-kill restoration; cam4's shed);
+where none matches — dense far-field mid-box births whose prefixes fit no
+other path's ENTRY segment and cross no tripwire — vetoed tracks DROP, and
+cam2/cam5 lose ~470/~420 events, which is exactly the "never silent drop"
+failure the plan's conservative principle forbade. The through-gate
+comparison is instructive: the veto out-performs it where geometry offers a
+fallback and reproduces its volume-loss pathology where it doesn't.
+
+**Next stage (the rescue half, one bounded refinement — no new constants):**
+a vetoed track that reaches finalize origin-less should claim the leg of
+the OTHER-pair through road its birth sits ON (the same d_main<25
+identification that vetoed it — the road is right there by construction),
+direction picked by the birth motion's sign along the local road tangent;
+only if THAT is ambiguous does it land origin-uncertain in the queue. Then
+re-run this exact ablation + sweep. The FM51 numbers should hold (its
+redirect already worked); cam2's −467 and cam5's −416 should return as
+main-road counts or flagged uncertainty, not losses.
+
+**Also recorded:** the finalize-time origin-rewrite leak (FM51 S-right
+76→84: ~8 vetoed tracks re-stolen by the joint scorer's rewrite, outside
+this mechanism's scope) — a candidate for the same next stage: the rewrite
+gate should respect the birth veto set.

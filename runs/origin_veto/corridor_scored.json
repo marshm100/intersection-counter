@@ -1,0 +1,104 @@
+{
+ "1": {
+  "total_off": 4.0,
+  "total_on": 4.0,
+  "per_approach": {
+   "SB": {
+    "off": 2.4,
+    "on": 3.5
+   },
+   "WB": {
+    "off": null,
+    "on": null
+   },
+   "EB": {
+    "off": 21.0,
+    "on": 18.9
+   },
+   "NB": {
+    "off": 5.9,
+    "on": 5.4
+   }
+  }
+ },
+ "2": {
+  "total_off": 4.1,
+  "total_on": 6.7,
+  "per_approach": {
+   "SB": {
+    "off": 12.2,
+    "on": 8.8
+   },
+   "WB": {
+    "off": 9.8,
+    "on": 10.5
+   },
+   "EB": {
+    "off": 24.8,
+    "on": 22.1
+   },
+   "NB": {
+    "off": 13.9,
+    "on": 14.6
+   }
+  }
+ },
+ "3": {
+  "total_off": 34.8,
+  "total_on": 34.9,
+  "per_approach": {
+   "SB": {
+    "off": 29.4,
+    "on": 29.4
+   },
+   "EB": {
+    "off": null,
+    "on": null
+   },
+   "NB": {
+    "off": 34.6,
+    "on": 34.3
+   }
+  }
+ },
+ "4": {
+  "total_off": 4.7,
+  "total_on": 4.7,
+  "per_approach": {
+   "SB": {
+    "off": 9.1,
+    "on": 9.1
+   },
+   "EB": {
+    "off": null,
+    "on": null
+   },
+   "NB": {
+    "off": 4.6,
+    "on": 4.5
+   }
+  }
+ },
+ "5": {
+  "total_off": 7.2,
+  "total_on": 4.5,
+  "per_approach": {
+   "SB": {
+    "off": 5.1,
+    "on": 8.2
+   },
+   "WB": {
+    "off": null,
+    "on": null
+   },
+   "EB": {
+    "off": 16.1,
+    "on": 21.0
+   },
+   "NB": {
+    "off": 17.3,
+    "on": 17.7
+   }
+  }
+ }
+}
