@@ -112,3 +112,26 @@ so the laptop stays usable and any interruption costs at most one chunk.
   out), not more corridor epochs.
 - **NOT promoted**: the model ships nowhere until the full-chain gate
   passes; weights at `runs/detect/runs/finetune_v1/chunk6/weights/last.pt`.
+
+## GATE PART 3 (2026-07-17): FULL-CHAIN on held-out FM51 — PASS
+
+`fm51_fullchain_ab.py`: fine-tuned detections (OpenVINO @640, production
+conf 0.10, classes mapped for chain parity) -> production pass-1 tracking ->
+replay through the rehearsal's applied bank; scored vs the SHIPPED old-chain
+events and Miovision per 15-min interval (`runs/finetune_v1/fm51_fullchain.json`).
+
+- **TOTAL: Mio 3,469 | old 3,155 (−9.1%) | new 3,602 (+3.8%).**
+- **Mean |interval err|: 8.8% -> 4.0% — halved, and under the ≤5% bar** on
+  a site the model never trained on.
+- **The documented PM miss is CLOSED**: 16:45 −19.0%->+0.5%, 17:00
+  −17.2%->−0.4%, 17:15 −20.0%->+0.8%, 17:30 −12.8%->+2.7%. The evening
+  capability gap that motivated §3-D no longer exists in the chain.
+- **Residual, named:** a consistent mild OVERSHOOT (+6–9%) in the
+  highest-volume intervals — the higher-sensitivity detector converts a few
+  extra fragments into counted events. Before promotion: the per-approach
+  cut (audit_fm51 machinery on the new working DBs) and a spot-check of the
+  overshoot class (phantoms vs genuine recoveries).
+- Remaining for promotion: per-approach MAE cut, overshoot spot-check,
+  wiring the native articulated class into the deliverable (post-promotion
+  integration), and the model-file/config swap through the product flow.
+  Promotion is the OPERATOR's call on this table, per plan.
