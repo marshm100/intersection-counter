@@ -190,6 +190,88 @@ class TestPipelineInit:
         assert p._paths[0]["origin_leg_id"] == 1
         assert p.n_origin_via_polyline == 0   # counter starts at 0
 
+    def _veto_pipeline(self, env, paths):
+        """FM51-shaped miniature: horizontal main road y=500 (legs 1 W, 2 E),
+        side stem leg 3 with its mouth just off the road at (300,450)."""
+        from backend.services.pipeline import ProcessingPipeline
+        legs = [
+            {"leg_id": 1, "label": "W", "cardinal_direction": "W",
+             "origin_zone": [[100, 500]], "reference_heading": 90.0},
+            {"leg_id": 2, "label": "E", "cardinal_direction": "E",
+             "origin_zone": [[700, 500]], "reference_heading": 270.0},
+            {"leg_id": 3, "label": "S", "cardinal_direction": "S",
+             "origin_zone": [[300, 450]], "reference_heading": 120.0},
+        ]
+        return ProcessingPipeline(
+            project_id="test", db_path=env["db_path"],
+            video_path=env["video_path"], legs=legs, fps=30.0, paths=paths)
+
+    _MAIN_THROUGH = {"path_id": 1, "camera_id": 1, "origin_leg_id": 1,
+                     "destination_leg_id": 2, "movement_label": "through",
+                     "supporting_count": 30,
+                     "polyline": [[0, 500], [800, 500]]}
+    # a 3->2 path whose ENTRY SEGMENT hugs the main road (the far-field
+    # compression geometry phase 0 measured at the FM51 stem)
+    _STEM_RIGHT = {"path_id": 2, "camera_id": 1, "origin_leg_id": 3,
+                   "destination_leg_id": 2, "movement_label": "right",
+                   "supporting_count": 7,
+                   "polyline": [[380, 495], [420, 498], [460, 500],
+                                [520, 500], [600, 500]]}
+
+    def test_origin_veto_geometry(self, pipeline_env, monkeypatch):
+        """The frozen rule (plan_origin_veto): born ON another pair's
+        through-road AND > D_MOUTH from the candidate's mouth."""
+        import backend.services.pipeline as mod
+        p = self._veto_pipeline(pipeline_env,
+                                [self._MAIN_THROUGH, self._STEM_RIGHT])
+        monkeypatch.setattr(mod, "ORIGIN_CLAIM_VETO_ENABLED", True)
+        # mid-main-road birth: stem vetoed, the through pair's own legs never
+        assert p._compute_origin_veto((390, 496)) == frozenset({3})
+        # birth in the stem's mouth throat: protected regardless of the road
+        assert p._compute_origin_veto((310, 455)) == frozenset()
+        # birth off every road: no veto
+        assert p._compute_origin_veto((390, 300)) == frozenset()
+        # flag off: always empty
+        monkeypatch.setattr(mod, "ORIGIN_CLAIM_VETO_ENABLED", False)
+        assert p._compute_origin_veto((390, 496)) == frozenset()
+
+    def test_origin_veto_no_through_pair_never_fires(self, pipeline_env,
+                                                     monkeypatch):
+        import backend.services.pipeline as mod
+        monkeypatch.setattr(mod, "ORIGIN_CLAIM_VETO_ENABLED", True)
+        p = self._veto_pipeline(pipeline_env, [self._STEM_RIGHT])
+        assert p._compute_origin_veto((390, 496)) == frozenset()
+
+    def test_origin_veto_redirects_the_claim(self, pipeline_env, monkeypatch):
+        """The phase-0 steal, reproduced then fixed: a main-road birth whose
+        prefix matches the stem path's entry segment claims the stem with the
+        flag OFF; with the veto ON the claim falls through to the heading
+        fallback and lands the true main-road origin."""
+        import backend.services.pipeline as mod
+        # the prefix rides the stem path's entry segment exactly (the
+        # far-field grab geometry): birth (380,495) is 5 px off the main
+        # through line and 92 px from the stem mouth. Steps stay small so
+        # displacement < TRAJECTORY_MIN_DISTANCE_PX until tier-0's 4-point
+        # threshold — the claim must be decided by the polyline tier, as the
+        # real FM51 grabs were.
+        pts = [(380, 495), (392, 496), (404, 497), (416, 498), (428, 499)]
+        paths = [self._MAIN_THROUGH, self._STEM_RIGHT]
+
+        p = self._veto_pipeline(pipeline_env, paths)
+        for f, (x, y) in enumerate(pts):
+            p._process_vehicle(9, _make_detection(x, y), f)
+        assert p.active_vehicles[9]["origin_leg_id"] == 3   # the steal
+        assert p.n_origin_vetoed == 0
+
+        monkeypatch.setattr(mod, "ORIGIN_CLAIM_VETO_ENABLED", True)
+        p2 = self._veto_pipeline(pipeline_env, paths)
+        for f, (x, y) in enumerate(pts):
+            p2._process_vehicle(9, _make_detection(x, y), f)
+        v = p2.active_vehicles[9]
+        assert v["origin_veto"] == frozenset({3})
+        assert v["origin_leg_id"] == 1     # falls to the main-road path match
+        assert p2.n_origin_vetoed == 1
+
     def test_tripwire_incremental_scan_catches_late_crossing(self, pipeline_env):
         """The incremental tripwire scan (2026-07-17 quadratic fix) must not
         lose segments: a track that lingers short of the line for many

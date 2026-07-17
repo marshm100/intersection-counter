@@ -353,6 +353,24 @@ ORIGIN_POSTERIOR_MARGIN_FLOOR = float(_os.environ.get(
 # death point); tied cells re-pick by corpus-support proportions. Unitless.
 DEST_TIE_BAND = float(_os.environ.get("DEST_TIE_BAND", "0.15"))
 
+# --- Claim-time origin veto (origin-grab phase 1, 2026-07-17) ----------------
+# docs/plan_origin_veto_2026-07-17.md — mechanism ② with phase 0's measured
+# signature (phase0_origin_grab_2026-07-17.md, 394 claims, two sites): a
+# candidate origin leg may NOT be claimed when the track was born ON another
+# leg-pair's through-road (< D_MAIN px from its bank polyline) AND beyond the
+# candidate's mouth throat (> D_MOUTH px from its anchor). Applies to all
+# three _assign_origin claim tiers; the fallback is the remaining candidates
+# (phase 0: the grabs' births already sit nearest the true main-road origin).
+# Constants are FROZEN geometry px from the phase-0 doc — D_MAIN=25 is the
+# measured knee (20→30 moves genuine-capture 21%→38%), D_MOUTH=60 sits in a
+# flat window (40→70 changes nothing at either site). No time constants.
+# OFF by default until the FM51 ablation + frozen-constant corridor sweep
+# pass (the plan's phase 2). Env override for replay harnesses only.
+ORIGIN_CLAIM_VETO_ENABLED = _os.environ.get(
+    "ORIGIN_CLAIM_VETO", "") in ("1", "true", "on")
+ORIGIN_VETO_D_MAIN_PX = 25.0
+ORIGIN_VETO_D_MOUTH_PX = 60.0
+
 # --- Report letterhead (§3-E deliverables, 2026-07-16) -----------------------
 # The operating firm's block on the PDF report (the example deliverable
 # carries the operator's OWN brand). Empty name = the block is omitted —

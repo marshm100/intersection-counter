@@ -21,6 +21,9 @@ from backend.config import (
     ENTRY_TIEBREAK_DECISIVE_PX,
     NATIVE_ARTICULATED_CLASS_ID,
     NATIVE_ARTICULATED_MIN_FRAMES,
+    ORIGIN_CLAIM_VETO_ENABLED,
+    ORIGIN_VETO_D_MAIN_PX,
+    ORIGIN_VETO_D_MOUTH_PX,
     ENTRY_TIEBREAK_ENABLED,
     ENTRY_TIEBREAK_EXIT_PX,
     ENTRY_TIEBREAK_MIN_ENTRY_SEP_PX,
@@ -239,6 +242,9 @@ class ProcessingPipeline:
         # Low-confidence births rejected by the track-quality gate (Phase 1.1;
         # only counts when calibration_params["track_quality_filter"] is set).
         self.n_quality_filtered: int = 0
+        # Claim-time origin veto (origin-grab phase 1): tracks whose birth
+        # geometry vetoed at least one candidate origin leg.
+        self.n_origin_vetoed: int = 0
         # Origin-evidence gate (item-8 mechanism 1): entry-gate crossings bind
         # origin and filter the joint scorer's candidates. Counters instrument
         # the ablation (plan_origin_evidence_gate stage 3): how many tracks had
@@ -794,9 +800,60 @@ class ProcessingPipeline:
                 best_d, best = d, leg["leg_id"]
         return best
 
+    def _compute_origin_veto(self, birth) -> frozenset:
+        """Legs whose origin CLAIM this track may not take (the claim-time
+        veto, docs/plan_origin_veto_2026-07-17.md): the birth lies ON another
+        leg-pair's through-road AND beyond this leg's mouth throat — the
+        phase-0-measured mid-block-grab signature. Geometry comes from the
+        operator legs + the STABLE path source (same rationale as
+        _ensure_entry_gates: injected candidate banks must not move the veto
+        roads). Empty when the flag is off or no qualifying through pair
+        exists (a site without a crossing through-road never vetoes)."""
+        if not ORIGIN_CLAIM_VETO_ENABLED:
+            return frozenset()
+        paths = getattr(self, "_gate_paths", None) or self._paths
+        throughs = [(p.get("origin_leg_id"), p.get("destination_leg_id"),
+                     p.get("polyline"))
+                    for p in (paths or [])
+                    if p.get("movement_label") == "through"
+                    and p.get("origin_leg_id") is not None
+                    and p.get("destination_leg_id") is not None
+                    and p.get("polyline")]
+        if not throughs:
+            return frozenset()
+        from backend.services.entry_gates import _closest_on_polyline
+        vetoed = set()
+        for lg in self.legs:
+            zone = lg.get("origin_zone")
+            if not zone:
+                continue
+            if len(zone) >= 2:
+                mx = (zone[0][0] + zone[1][0]) / 2.0
+                my = (zone[0][1] + zone[1][1]) / 2.0
+            else:
+                mx, my = zone[0]
+            if math.hypot(birth[0] - mx, birth[1] - my) <= ORIGIN_VETO_D_MOUTH_PX:
+                continue                      # born in the mouth throat: genuine
+            lid = lg["leg_id"]
+            for o, d, poly in throughs:
+                if lid in (o, d):
+                    continue                  # own road, not a crossing one
+                if _closest_on_polyline(poly, birth)[2] < ORIGIN_VETO_D_MAIN_PX:
+                    vetoed.add(lid)
+                    break
+        return frozenset(vetoed)
+
     def _assign_origin(self, track_id: int, frame_number: int):
         vehicle = self.active_vehicles[track_id]
         traj = vehicle["trajectory"]
+
+        # Claim-time veto set — birth-fixed geometry, computed once per track.
+        veto = vehicle.get("origin_veto")
+        if veto is None:
+            veto = self._compute_origin_veto(traj[0])
+            vehicle["origin_veto"] = veto
+            if veto:
+                self.n_origin_vetoed += 1
 
         # --- Tier 0: polyline-path match (Phase 1) ---
         # When the camera has calibrated road polylines, score the
@@ -805,9 +862,12 @@ class ProcessingPipeline:
         # This runs FIRST because it's a more specific signal than tripwire
         # crossing (encodes the road's curve, not just a point + heading)
         # and the legacy tiers stay as fallbacks for cameras without paths.
-        if self._paths and len(traj) >= 4:
+        cand_paths = ([p for p in self._paths
+                       if p.get("origin_leg_id") not in veto]
+                      if veto else self._paths)
+        if cand_paths and len(traj) >= 4:
             prefix = traj[:min(8, len(traj))]
-            match = score_origin_by_polyline(prefix, self._paths)
+            match = score_origin_by_polyline(prefix, cand_paths)
             lid = match.get("origin_leg_id")
             if lid is not None:
                 leg = next((l for l in self.legs if l["leg_id"] == lid), None)
@@ -833,6 +893,9 @@ class ProcessingPipeline:
         # ~minutes into 43 min). Scan only the segments added since.
         scan_from = max(1, int(vehicle.get("tripwire_scanned", 1)))
         for leg in self.legs:
+            if leg["leg_id"] in veto:
+                continue   # claim-time veto: a stem tripwire's span crosses
+                           # the main road in far-field; not entry evidence
             zone = leg.get("origin_zone")
             if not zone:
                 continue
@@ -883,6 +946,8 @@ class ProcessingPipeline:
         # leg traffic via the wide <=90 deg angular basin. See
         # HEADING_FALLBACK_EXCLUDE_LABEL_KEYWORDS in backend/config.py.
         def _eligible(leg: dict) -> bool:
+            if leg["leg_id"] in veto:      # claim-time veto applies here too
+                return False
             label = (leg.get("label") or "")
             return not any(kw in label for kw in HEADING_FALLBACK_EXCLUDE_LABEL_KEYWORDS)
 
