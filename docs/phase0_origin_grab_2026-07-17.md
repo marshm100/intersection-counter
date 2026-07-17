@@ -50,16 +50,17 @@ direction at the mouth IS nearly the main-road axis.) Consequence: a veto on
 origin — the killed 3→2 throughs would become W-origin SB throughs instead
 of dying, which is the SB −6.5% restoration path.
 
-## cam4 (claimed mouth = leg 34, the Donut driveway) — 85 claims
+## cam4 (claimed mouth = leg 34, the Donut driveway) — 166 claims
 
-Replay (pre-turn-merge) claim population for (34→33): 78 in window 0700 (+7
-from a partial 1100 replay; 1600 pending — see caveats). Clean bimodal split
-with an EMPTY [0,60) s_in band between clusters: 18 claims born at/outside
-the driveway mouth moving inward (genuine class), 65 born mid-block on the
-arterial (s_in 60–300+ or far-lateral, d_main p50 14 — ON the 33/35 axis),
-reproducing the item-8 census shape (79% mid-block) on a second population.
-Same anchor finding: 81% of claim births are nearest an ARTERIAL mouth
-(52 leg33 / 17 leg35), not the claimed driveway.
+Replay (pre-turn-merge) claim population for (34→33) over ALL THREE study
+windows (78/49/39 in 0700/1100/1600 — 1100+1600 landed after first
+write-up; numbers below are the full population). Bimodal split with a
+near-empty [0,60) s_in band between clusters (37 / 10 / 119 claims at
+s_in <0 / [0,60) / ≥60): the genuine class born at/outside the driveway
+mouth, the grab class born mid-block on the arterial (d_main p50 13 — ON
+the 33/35 axis), reproducing the item-8 census shape (79% mid-block) on a
+second, larger population. Same anchor finding: 82% of claim births are
+nearest an ARTERIAL mouth (103 leg33 / 33 leg35), not the claimed driveway.
 
 ## THE SIGNATURE (the deliverable — measured, not assumed)
 
@@ -82,7 +83,7 @@ constants, no time constants. Measured performance:
 | FM51 killed_through (certain grabs) | 89/95 (94%) |
 | FM51 acc_left (~94% grabs per dev scorer) | 50/54 (93%) |
 | FM51 acc_right (~88% genuine per dev scorer) | 18/76 (24%) |
-| cam4 (34→33) replay claims | 73/85 (86%) |
+| cam4 (34→33) replay claims, all 3 windows | 140/166 (84%) |
 
 Sensitivity: D_MAIN 20→30 moves FM51 acc_right capture 21%→38% (the knee is
 at ~25 — beyond it the rule starts eating the genuine mouth-adjacent
@@ -98,12 +99,14 @@ through turn-merge and is a phase-2 measurement.
 
 ## Caveats recorded
 
-- cam4 windows 1100/1600 replays were still running at write time (a
-  stationary clutter track makes `_assign_origin` re-scan its trajectory
-  every frame — quadratic; window 1100 alone ran >35 min vs 87 s for 0700).
-  The signature above should be re-checked against them when they land, and
-  that replay pathology is worth its own small fix note (unassigned
-  never-moving tracks re-attempt origin per frame over the full trajectory).
+- ~~cam4 windows 1100/1600 pending~~ RESOLVED same day: all three windows
+  replayed and re-bucketed — the signature is STABLE (composite capture 86%
+  on the 0700-only population → 84% on the full 166; FM51 unchanged; the
+  bimodal s_in structure and the anchor finding hold at scale). The replay
+  pathology stands recorded: a stationary clutter track makes
+  `_assign_origin` re-scan its trajectory every frame — quadratic; window
+  1100 replayed in 2604 s vs 87 s for 0700 (fix note: cap origin
+  re-attempts for never-moving tracks; own tests + parity check required).
 - The FM51 acc_right flagged set (18) exceeds the dev scorer's net excess
   (+9): either far-field genuine misses offset grabs inside the accepted 76,
   or ~8 genuine would be over-gated. Phase 1 must route vetoed claims
