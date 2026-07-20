@@ -266,7 +266,12 @@ The §2c architecture went from plan to product in one week. Full trail:
 - **Retirements ledger:** box-clip as counter (Gate B), ReID blanket rollout
   (§2c), concurrent-duplicate dedup (dev-gate fail), bank-D drawn-path fill
   (twice), ×-scaled merge expecteds, per-camera detection-profile config lever
-  (detector spike).
+  (detector spike), origin-evidence gate + posterior as default (item 8,
+  two-iteration budget), **origin claim-veto + rescue (2026-07-20:
+  plan_origin_veto PHASE-3 VERDICT — FM51-proven both phases but the frozen
+  d_main signature over-fires at corridor far-field compression; cam2
+  4.1→7.2 / cam5 EB 16.1→26.1, drops not recovered; flag OFF,
+  revival-ready, two named candidates)**.
 
 ---
 
@@ -574,6 +579,20 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    design). ROUTE: articulated + single-unit-truck labels in the
    fine-tune lane; re-run `fm51_native_artic_gate.py` unchanged as that
    cycle's class gate.
+   **STATUS 2026-07-20 — the origin-grab cycle is CLOSED (negative at the
+   corridor, positive at FM51).** Phase 1 (claim-time veto) + phase 3
+   (rescue half + rewrite-veto) both implemented, unit-proven flag-off
+   byte-identical, and gated on the full ablation + frozen-constant blind
+   sweep (plan_origin_veto PHASE-2 and PHASE-3 VERDICTs; evidence in
+   runs/origin_veto/). FM51 improved both rounds (S-leg steal 133→79,
+   rewrite leak closed 76→67, kills 95→6); the corridor FAILED both
+   rounds harder than flag-off (cam2 4.1→7.2, cam5 EB 16.1→26.1,
+   −538/−412 events not recovered) — the frozen d_main<25 signature does
+   not discriminate at corridor far-field compression. RETIRED per the
+   two-iteration budget; flag OFF; conservation feeders keep surveilling
+   the class; two revival candidates named in the verdict. NEXT LEVER:
+   labeling round v2 → finetune_v2 retrain → `fm51_native_artic_gate.py`
+   re-run (articulated 41/102 + Mediums 7/92 are label problems first).
 
 Each is a self-contained phase; ship and validate before the next.
 

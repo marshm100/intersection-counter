@@ -307,3 +307,57 @@ gate can run. Detached replays follow [[server-process-lifecycle]] /
   (a rescued through duplicating an already-counted main-road fragment), the
   per-approach `AVG|err|` catches it — that would route to a fragment-dedup
   guard, not more rescue.
+
+---
+
+## PHASE-3 VERDICT (2026-07-20 — ablation + blind sweep complete; evidence in
+runs/origin_veto/: fm51_ablation_phase3.json, corridor_sweep_phase3.json,
+corridor_scored_phase3.json)
+
+**FAIL — RETIRED as a default per the two-iteration budget. Flag stays OFF.**
+Both phase-3 halves built and unit-proven (811 green, flag-off byte-identical
+— re-confirmed at scale: every corridor OFF replay reproduced its committed
+total exactly, cam1 4668 / cam2 16648 / cam3 30384). FM51 improves further;
+the corridor does not recover, and the tripwires hit HARDER than phase 1.
+
+**FM51 (the lone win, again):** redirect held and strengthened (S 133→79 vs
+phase-1's 91; W 1627→1778 vs 1758; S-left 54→4) and the rewrite leak CLOSED
+(S-right 76→67; phase 1 had 76→84). Rescue returned 810 drops (W-through
+1572→1729 ≈ Mio's 1735). Cost: overshoot up slightly (total +4.0% vs
+phase-1's +3.7%, intMAE 4.19 vs 3.84).
+
+**Corridor (established per-approach scorer, replayed-minutes basis both
+sides; OFF column reproduces committed corridor_scored.json exactly):**
+
+| cam | AVG\|err\| OFF → ON3 (phase-1 ON) | events Δ ON3 (ph-1) | read |
+|---|---|---|---|
+| 1 | 4.0 → 4.1 (4.0) | +19 (−1) | wash ✓ |
+| 2 | **4.1 → 7.2 (6.7)** | **−538 (−467)** | REGRESSION — worse than phase 1; tripwire |
+| 3 | 5.9 → 6.0 on the replayed-window cut (the committed 34.8 was the whole-day artifact basis) | +119 (+15) | wash ✓ |
+| 4 | 4.7 → 5.0 (4.7) | +50 (+3) | wash (marginal) |
+| 5 | 7.2 → 4.6 (4.5) total = cancellation; **EB 16.1 → 26.1 (21.0)** | −412 (−416) | approach REGRESSION — worse than phase 1 |
+
+**The mechanism in one sentence:** at corridor far-field compression the
+frozen `d_main<25` signature stops discriminating — the veto fires on the
+broad birth population, not the mid-block-grab class (cam2: 21,142 vetoed
+tracks vs 16,648 emitted events; rewrite-veto gutted 14,002 finalize
+candidate sets) — so the rescue redistributes at scale instead of recovering
+(cam2 28>29 −858 / 27>29 +524), and the NEW rewrite-veto half (the FM51
+leak-closer) nets MORE loss than phase 1 had without it. Both halves inherit
+the veto set's precision; where the set is pervasive, every consumer
+amplifies the error. Same cross-camera non-generalization class that retired
+the item-8 evidence gate.
+
+**Disposition:** flag default stays OFF (env override kept for harnesses);
+code + tests revival-ready; the origin-grab class returns to flag-queue
+conservation surveillance. The FM51 residual (side +73 / SB −6.5% at
+promotion) remains a KNOWN shipped residual, not silently fixed.
+
+**Named revival candidates (each needs its own plan + held-out-site gate):**
+1. **Site-activation precondition** — the veto-rate itself is a blind health
+   check: FM51-shaped stem sites show a moderate, redirect-balanced rate;
+   corridor compression shows a pervasive one → stand down. Same shape as the
+   evidence gate's named coverage-precondition candidate.
+2. **Compression-relative constants** — 25 px is not the same road at
+   different focal lengths; a road-width-normalized d_main needs a fresh
+   phase-0 measurement pass, not a knob sweep.
