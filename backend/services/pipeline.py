@@ -245,6 +245,12 @@ class ProcessingPipeline:
         # Claim-time origin veto (origin-grab phase 1): tracks whose birth
         # geometry vetoed at least one candidate origin leg.
         self.n_origin_vetoed: int = 0
+        # PHASE 3 (the veto's rescue half, plan_origin_veto_2026-07-17):
+        # origin-less vetoed tracks that claimed the through-road their birth
+        # sits ON (no-drop principle); and joint-scorer rewrites blocked from
+        # re-stealing origin to a vetoed leg (the finalize-time leak).
+        self.n_origin_rescued: int = 0
+        self.n_origin_rewrite_vetoed: int = 0
         # Origin-evidence gate (item-8 mechanism 1): entry-gate crossings bind
         # origin and filter the joint scorer's candidates. Counters instrument
         # the ablation (plan_origin_evidence_gate stage 3): how many tracks had
@@ -800,6 +806,22 @@ class ProcessingPipeline:
                 best_d, best = d, leg["leg_id"]
         return best
 
+    def _through_paths(self):
+        """(origin_leg, dest_leg, polyline) for every calibrated THROUGH path,
+        read from the STABLE path source (_gate_paths when a caller injected an
+        experimental candidate set — e.g. replay bank injection — else _paths)
+        so ablating candidates never rotates the veto/rescue road set. The one
+        definition both the claim-time veto and the finalize-time rescue read,
+        so their road set is identical by construction."""
+        paths = getattr(self, "_gate_paths", None) or self._paths
+        return [(p.get("origin_leg_id"), p.get("destination_leg_id"),
+                 p.get("polyline"))
+                for p in (paths or [])
+                if p.get("movement_label") == "through"
+                and p.get("origin_leg_id") is not None
+                and p.get("destination_leg_id") is not None
+                and p.get("polyline")]
+
     def _compute_origin_veto(self, birth) -> frozenset:
         """Legs whose origin CLAIM this track may not take (the claim-time
         veto, docs/plan_origin_veto_2026-07-17.md): the birth lies ON another
@@ -811,14 +833,7 @@ class ProcessingPipeline:
         exists (a site without a crossing through-road never vetoes)."""
         if not ORIGIN_CLAIM_VETO_ENABLED:
             return frozenset()
-        paths = getattr(self, "_gate_paths", None) or self._paths
-        throughs = [(p.get("origin_leg_id"), p.get("destination_leg_id"),
-                     p.get("polyline"))
-                    for p in (paths or [])
-                    if p.get("movement_label") == "through"
-                    and p.get("origin_leg_id") is not None
-                    and p.get("destination_leg_id") is not None
-                    and p.get("polyline")]
+        throughs = self._through_paths()
         if not throughs:
             return frozenset()
         from backend.services.entry_gates import _closest_on_polyline
@@ -842,6 +857,49 @@ class ProcessingPipeline:
                     vetoed.add(lid)
                     break
         return frozenset(vetoed)
+
+    def _origin_rescue(self, birth, prefix):
+        """The veto's rescue half (PHASE 3): an origin-less track that the
+        claim-time veto stripped of every candidate claims the leg of the
+        through-road its birth sits ON — the same d_main<25 identification
+        that vetoed it (a through-road's own two legs are never vetoed, so
+        both are available). Direction from the sign of the birth motion along
+        the road tangent: polylines run origin->dest (origin_detector
+        _entry_segment = the first half), so the tangent points origin->dest;
+        motion along +tangent => the origin leg, anti-parallel => the reverse-
+        direction through's leg on the same road.
+
+        Returns None (-> the track keeps its insufficient_data drop, i.e.
+        origin-uncertain to the conservation-feeder queue) when the flag is
+        off, no single through-road holds the birth, or the motion is
+        degenerate/ambiguous. Reuses D_MAIN=25 only; NO new constants."""
+        if not ORIGIN_CLAIM_VETO_ENABLED:
+            return None
+        throughs = self._through_paths()
+        if not throughs:
+            return None
+        from backend.services.entry_gates import _closest_on_polyline
+        on_road = []
+        for o, d, poly in throughs:
+            cpt, tan, dist = _closest_on_polyline(poly, birth)
+            if cpt is not None and dist < ORIGIN_VETO_D_MAIN_PX:
+                on_road.append((o, d, tan))
+        if not on_road:
+            return None
+        # Both directions of the SAME road (o<->d and its reverse through) may
+        # match; that is ONE road, not ambiguity. Two DISTINCT roads within
+        # d_main = a crossing point -> ambiguous, no rescue.
+        if len({frozenset((o, d)) for o, d, _ in on_road}) != 1:
+            return None
+        o, d, tan = on_road[0]
+        mx = prefix[-1][0] - prefix[0][0]
+        my = prefix[-1][1] - prefix[0][1]
+        if math.hypot(mx, my) < 1.0:
+            return None                     # sub-pixel motion: not a real through
+        proj = mx * tan[0] + my * tan[1]
+        if proj == 0.0:
+            return None                     # perpendicular to the road: ambiguous
+        return o if proj > 0 else d
 
     def _assign_origin(self, track_id: int, frame_number: int):
         vehicle = self.active_vehicles[track_id]
@@ -1031,14 +1089,37 @@ class ProcessingPipeline:
         if self._audit_mode:
             self._audit_emit(track_id, vehicle)
         if vehicle["origin_leg_id"] is None:
-            n_pts = len(vehicle.get("trajectory", []))
-            if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES:
-                self.n_insufficient_data += 1
-                logger.debug(
-                    "Track %d discarded: no origin assigned (%d points)",
-                    track_id, n_pts,
-                )
-            return
+            # PHASE 3 rescue: the claim-time veto may have stripped every
+            # candidate, dropping a genuine far-field through here. Claim the
+            # through-road the birth sits ON before the drop (flag-off: the
+            # helper returns None -> byte-identical to the legacy path below).
+            traj0 = vehicle.get("trajectory") or []
+            rescued = (self._origin_rescue(traj0[0], traj0[:8])
+                       if len(traj0) >= 2 else None)
+            if rescued is not None:
+                leg = next(
+                    (lg for lg in self.legs if lg["leg_id"] == rescued), None)
+                if leg is not None:
+                    vehicle["origin_leg_id"] = rescued
+                    vehicle["reference_heading"] = leg.get("reference_heading")
+                    # Birth is when the vehicle was at its origin (far-field),
+                    # not this finalize frame — bin off start_frame.
+                    vehicle["origin_frame"] = vehicle.get("start_frame") or frame_number
+                    # Part 2 (rewrite-veto) reads the veto set off the vehicle;
+                    # ensure it's present for a track rescued before _assign_origin
+                    # cached it.
+                    if vehicle.get("origin_veto") is None:
+                        vehicle["origin_veto"] = self._compute_origin_veto(traj0[0])
+                    self.n_origin_rescued += 1
+            if vehicle["origin_leg_id"] is None:
+                n_pts = len(traj0)
+                if n_pts >= ORIGIN_ASSIGN_MIN_FRAMES:
+                    self.n_insufficient_data += 1
+                    logger.debug(
+                        "Track %d discarded: no origin assigned (%d points)",
+                        track_id, n_pts,
+                    )
+                return
 
         trajectory = vehicle["trajectory"]
         if not trajectory:
@@ -1088,7 +1169,17 @@ class ProcessingPipeline:
         # rewrite origin across the intersection (the phase-0 flip mechanism).
         # No evidence -> current behavior, counted (the posterior half gates
         # separately per plan_origin_evidence_gate_2026-07-14).
-        candidate_paths = self._paths
+        # PHASE 3 rewrite-veto: the joint scorer reads origin OFF the winning
+        # path and rewrites it below (~1289) consulting nothing — the FM51
+        # S-right 76->84 leak, where a vetoed leg is re-stolen at finalize.
+        # Exclude veto-origin paths from the candidate set so the rewrite can
+        # never land on a vetoed leg. Flag-off: veto is empty -> self._paths.
+        veto = vehicle.get("origin_veto") or frozenset()
+        candidate_paths = ([p for p in self._paths
+                            if p.get("origin_leg_id") not in veto]
+                           if veto else self._paths)
+        if veto and len(candidate_paths) < len(self._paths):
+            self.n_origin_rewrite_vetoed += 1
         gate_origin = gate_dest = gate_tag = None
         # Branch-1 event columns (partial-evidence posterior); None unless the
         # unevidenced-origin posterior fires for this track.
@@ -1109,7 +1200,8 @@ class ProcessingPipeline:
                         origin_leg)
                     vehicle["origin_leg_id"] = evidenced
                 candidate_paths = [p for p in self._paths
-                                   if p["origin_leg_id"] == evidenced]
+                                   if p["origin_leg_id"] == evidenced
+                                   and p.get("origin_leg_id") not in veto]
             else:
                 self.n_origin_unevidenced += 1
 

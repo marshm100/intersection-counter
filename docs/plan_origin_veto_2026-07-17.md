@@ -126,3 +126,184 @@ main-road counts or flagged uncertainty, not losses.
 76→84: ~8 vetoed tracks re-stolen by the joint scorer's rewrite, outside
 this mechanism's scope) — a candidate for the same next stage: the rewrite
 gate should respect the birth veto set.
+
+---
+
+## PHASE 3 — the rescue half + the rewrite-veto (code-level design, 2026-07-20)
+
+The verdict's "bounded next stage," specified against the real finalize
+path so it can be built without re-reading it. Two edits, both under the
+EXISTING flag `ORIGIN_CLAIM_VETO_ENABLED`, **no new constants** (reuse
+`ORIGIN_VETO_D_MAIN_PX = 25`, `ORIGIN_VETO_D_MOUTH_PX = 60`). Flag-OFF stays
+byte-identical (every new branch is reached only through a non-empty veto
+set, which is empty when the flag is off — `_compute_origin_veto` already
+returns `frozenset()` at `pipeline.py:812`).
+
+### Where the drop happens (the target)
+
+`_finalize_vehicle_data` (`pipeline.py:1027`): when a track reaches finalize
+with `vehicle["origin_leg_id"] is None` it is counted as `insufficient_data`
+and **returned/dropped** at `pipeline.py:1033-1041`. A track the claim-time
+veto stripped of every candidate lands here — this is the cam2 −467 / cam5
+−416 pathology. The rescue intercepts BEFORE that return; the rewrite-veto
+protects a correctly-claimed origin from being re-stolen downstream.
+
+### Confirmed conventions (checked, do not re-derive)
+
+- **Polyline orientation is origin→destination.** `_entry_segment` is "the
+  first half of the polyline — the off-frame-entry-to-intersection-center
+  portion" (`origin_detector.py:239`). So the unit tangent `T` returned by
+  `entry_gates._closest_on_polyline(poly, pt)` (index i→i+1) points FROM the
+  path's `origin_leg` TOWARD its `destination_leg`. Direction-sign rule
+  below depends on this — assert it in a test.
+- `_closest_on_polyline` returns `(closest_point, unit_tangent, distance)`.
+- The claim-time veto never vetoes a through-road's OWN two legs
+  (`pipeline.py:838-840` skips `lid in (o, d)`) — so the road the birth sits
+  ON always has both its legs available to claim.
+
+### Part 1 — the rescue (an origin-less vetoed track claims the road it sits on)
+
+New helper `_origin_rescue(birth, prefix) -> int | None`:
+
+1. Gated: `if not ORIGIN_CLAIM_VETO_ENABLED: return None`.
+2. Through-road set = the SAME set `_compute_origin_veto` uses (extract the
+   `throughs` comprehension at `pipeline.py:815-821` into a shared
+   `_through_paths()` so the rescue road set is identical to the veto road
+   set by construction).
+3. Find the through-path(s) `p` with `_closest_on_polyline(p.polyline,
+   birth)[2] < ORIGIN_VETO_D_MAIN_PX`. **If 0 or ≥2 match → return None**
+   (no road, or birth on a crossing of two roads = ambiguous). This is the
+   same `d_main<25` identification that fired the veto — "the road is right
+   there by construction."
+4. Direction: `T` = tangent at `birth`'s closest point on `p`;
+   `M` = `prefix[-1] − prefix[0]` (`prefix = traj[:min(8, len)]`, the same
+   window claim-time and phase 0 used). **Degeneracy guard (constant-free,
+   NOT a tuning knob):** if `|M| < 1px` (sub-pixel = not a real through) or
+   `dot(M, T) == 0` (perpendicular) → return None.
+5. `origin = p.origin_leg_id if dot(M, T) > 0 else p.destination_leg_id`
+   (motion along +T = travelling origin→dest → origin is the origin leg;
+   anti-parallel = the reverse-direction through on the same road →
+   origin is the destination leg).
+
+Wire at `pipeline.py:1033`, inside the `origin_leg_id is None` branch,
+before the drop:
+
+```python
+if vehicle["origin_leg_id"] is None:
+    rescued = self._origin_rescue(trajectory[0], trajectory[:8]) \
+        if trajectory else None          # trajectory read up from below
+    if rescued is not None:
+        leg = next((l for l in self.legs if l["leg_id"] == rescued), None)
+        if leg is not None:
+            vehicle["origin_leg_id"] = rescued
+            vehicle["reference_heading"] = leg["reference_heading"]
+            vehicle["origin_frame"] = frame_number   # or start_frame proxy
+            vehicle["origin_veto"] = vehicle.get("origin_veto") \
+                or self._compute_origin_veto(trajectory[0])   # for Part 2
+            self.n_origin_rescued += 1
+            # fall through — do NOT return; the normal chain now runs
+    if vehicle["origin_leg_id"] is None:
+        # existing insufficient_data drop == "origin-uncertain → the queue"
+        ... (unchanged 1034-1041)
+```
+
+The **ambiguous/no-road case keeps the existing `insufficient_data` drop** —
+that IS "origin-uncertain → the conservation feeders' pool/queue" (already
+counted at `n_insufficient_data`; the §3-B coverage feeder surveils these,
+per the phase-1 plan's "counted, never silently reassigned"). No new queue
+plumbing.
+
+A rescued track then flows through the ENTIRE normal chain (classify →
+joint scorer → destination → through_gate → turn-merge), so its main-road
+through is still subject to `through_gate.reject_invalid_throughs` and the
+volume gate — the rescue recovers a MISSED far-field through, it does not
+bypass the dedup that the FM51 redirect (kills 95→6) depends on.
+
+### Part 2 — the rewrite-veto (the joint scorer may not re-steal to a vetoed leg)
+
+At `pipeline.py:1091`, `candidate_paths = self._paths` feeds the joint
+scorer (`score_path_joint`, 1131), which READS ORIGIN OFF the winning path
+and rewrites `origin_leg_id` at 1289-1292. Nothing there consults the veto
+— the leak (FM51 S-right 76→84). Fix: filter the candidate set by the veto
+before scoring:
+
+```python
+veto = vehicle.get("origin_veto") or frozenset()
+candidate_paths = ([p for p in self._paths
+                    if p.get("origin_leg_id") not in veto]
+                   if veto else self._paths)
+```
+
+Compose with the (currently-OFF) evidence-gate narrowing at 1111 — apply the
+same `not in veto` filter to that branch's list too, so the two are order-
+independent. Effect: the joint scorer cannot SELECT a veto-origin path, so
+the 1289 rewrite can't move origin to a vetoed leg. If the filter empties the
+set, `score_path_joint` finds no match → `polyline_dest` stays None → the
+softmax `score_destination_by_polyline` / `score_destination_leg` fallback
+runs on the ALREADY-CLAIMED (or rescued) origin — **origin is preserved, no
+drop.** Counter `n_origin_rewrite_vetoed` increments when the filter shrinks
+the set.
+
+### Counters + stats
+
+Add `self.n_origin_rescued = 0` and `self.n_origin_rewrite_vetoed = 0`
+beside `n_origin_vetoed` (`pipeline.py:247`), and surface both in
+`pass2_replay.py:224` next to `origin_vetoed`. They ride the replay stats
+exactly like the phase-1 counter (the sweep reads them for bookkeeping-exact
+accounting: rescued + redirected + still-dropped must reconcile the event
+delta, the "bookkeeping exact" bar the FM51 ablation already met).
+
+### Tests (extend test_pipeline.py's veto block, 227-273)
+
+1. **Rescue, both directions.** Reproduce a far-field mid-block birth on a
+   through-road with every side-leg claim vetoed; motion +T → claims
+   `origin_leg`; reversed motion → claims `destination_leg`. `n_origin_rescued
+   == 1`, an event is emitted (was a drop).
+2. **Rescue ambiguity → drop.** Perpendicular / sub-pixel birth motion, or
+   birth within 25px of two through-roads → stays `insufficient_data`,
+   `n_origin_rescued == 0`.
+3. **Rewrite-veto.** A vetoed-origin path that would otherwise win the joint
+   scorer is excluded; origin stays the claimed main-road leg;
+   `n_origin_rewrite_vetoed == 1` (the S-right 76→84 shape).
+4. **Flag-OFF byte-identical.** With the flag off, `n_origin_rescued ==
+   n_origin_rewrite_vetoed == 0` and event rows are unchanged vs pre-phase-3
+   (guards the no-regression basis the whole gate rests on).
+
+### The re-gate (SAME harness, unchanged — the ship gate)
+
+Env override `ORIGIN_CLAIM_VETO=1`, replays only (dumps exist post-398c913),
+scored with `interval_metric.per_interval` on the identical replay basis both
+sides. Reproduce `runs/origin_veto/*.json`:
+
+- **FM51 ablation** (`scripts/fm51_fullchain_ab.py` + through-gate both
+  sides → `fm51_ablation.json`): the redirect must HOLD (SB ≈ +1.0, kills
+  ≈6, misplacement ≤127) AND the S-right leak close (76→84 back toward 76).
+- **Blind corridor sweep** (`scripts/corridor_metric_sweep.py` →
+  `corridor_sweep.json` / `corridor_scored.json`, the per-cam total + per-
+  approach `AVG|err|` OFF vs ON table). **ACCEPTANCE:** cam2 recovers from
+  6.7 toward ≤4.1 (the −467 returns as real counts or flagged uncertainty,
+  NOT losses); cam5 approaches recover from the −416 redistribution;
+  cam1/cam3/cam4 stay flat (the veto-untouched cells must remain identical).
+- PASS → flag default ON + ship in the promoted config (measure-then-apply).
+  FAIL → retirement entry + findings; flag stays OFF, queue keeps surveilling.
+
+**Harness cost (real):** the FM51/corridor DRIVER scripts the Fable-5 session
+ran were in the ephemeral session scratchpad, not committed. The committed
+primitives to rebuild them from: `scripts/replay_origin.py`,
+`scripts/replay_fullchain.py`, `scripts/fm51_fullchain_ab.py`,
+`scripts/corridor_metric_sweep.py`, `scripts/interval_metric.py`, and the
+target JSON shapes in `runs/origin_veto/`. Budget a rebuild step before the
+gate can run. Detached replays follow [[server-process-lifecycle]] /
+[[replay-quadratic-stationary-tracks]] (Start-Process + Monitor).
+
+### Open checks to close during the build
+
+- Assert polyline orientation (origin→dest) in a test rather than trust it.
+- The rescued origin's `classifier_*` audit columns will be relative to the
+  claimed heading — same acceptable-for-v1 staleness already noted at
+  `pipeline.py:1299-1304` (reported movement comes from the path label, so
+  counts are unaffected); document, don't fix.
+- Watch for rescue OVER-recovery: if cam2 swings past +467 into an OVER-count
+  (a rescued through duplicating an already-counted main-road fragment), the
+  per-approach `AVG|err|` catches it — that would route to a fragment-dedup
+  guard, not more rescue.

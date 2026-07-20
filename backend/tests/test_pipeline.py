@@ -272,6 +272,111 @@ class TestPipelineInit:
         assert v["origin_leg_id"] == 1     # falls to the main-road path match
         assert p2.n_origin_vetoed == 1
 
+    # --- PHASE 3: the rescue half + the rewrite-veto -----------------------
+
+    def test_origin_rescue_direction_and_guards(self, pipeline_env, monkeypatch):
+        """_origin_rescue picks the leg of the through-road the birth sits on by
+        the SIGN of the birth motion along the road tangent. Polylines run
+        origin->dest, so east motion on the horizontal main road (origin=W
+        leg 1, dest=E leg 2) => origin leg 1; reversed => leg 2. This also
+        asserts the origin->dest polyline orientation the sign rule rests on."""
+        import backend.services.pipeline as mod
+        monkeypatch.setattr(mod, "ORIGIN_CLAIM_VETO_ENABLED", True)
+        p = self._veto_pipeline(pipeline_env,
+                                [self._MAIN_THROUGH, self._STEM_RIGHT])
+        # born ON the main road (y=500), moving EAST (+tangent) -> the W origin
+        assert p._origin_rescue((390, 496), [(390, 496), (430, 498)]) == 1
+        # moving WEST (anti-parallel) -> the reverse-through's leg = E (2)
+        assert p._origin_rescue((410, 498), [(430, 498), (390, 496)]) == 2
+        # exactly perpendicular to the road -> ambiguous
+        assert p._origin_rescue((390, 496), [(390, 496), (390, 540)]) is None
+        # sub-pixel motion -> not a real through
+        assert p._origin_rescue((390, 496), [(390, 496), (390.5, 496)]) is None
+        # off every through-road -> nothing to claim
+        assert p._origin_rescue((390, 300), [(390, 300), (430, 300)]) is None
+        # flag off -> never rescues
+        monkeypatch.setattr(mod, "ORIGIN_CLAIM_VETO_ENABLED", False)
+        assert p._origin_rescue((390, 496), [(390, 496), (430, 498)]) is None
+
+    def test_origin_rescue_emits_event_else_drops(self, pipeline_env, monkeypatch):
+        """An origin-less far-field through (the veto's -467 drop) is rescued to
+        the main-road leg and emits an event with the flag ON; with the flag
+        OFF the same track keeps the legacy insufficient_data drop."""
+        import backend.services.pipeline as mod
+        legs = [
+            {"leg_id": 1, "label": "W", "cardinal_direction": "W",
+             "origin_zone": [[100, 500]], "reference_heading": 90.0},
+            {"leg_id": 2, "label": "E", "cardinal_direction": "E",
+             "origin_zone": [[700, 500]], "reference_heading": 270.0},
+        ]
+
+        def _origin_less_vehicle():
+            return {
+                "origin_leg_id": None, "reference_heading": None,
+                "origin_frame": None, "start_frame": 3,
+                # straight east along y=500, covering most of the main polyline
+                "trajectory": [(100 + i * 40, 500) for i in range(15)],
+                "confidences": [0.9] * 15, "last_center": (660, 500),
+                "class_id": 2, "class_name": "car",
+                "bbox_width": 100.0, "bbox_height": 60.0, "bbox_area": 6000.0,
+            }
+
+        # Flag ON -> rescued, one event, origin = the W leg (moving east).
+        monkeypatch.setattr(mod, "ORIGIN_CLAIM_VETO_ENABLED", True)
+        p = ProcessingPipeline(
+            project_id="test", db_path=pipeline_env["db_path"],
+            video_path=pipeline_env["video_path"], legs=legs, fps=30.0,
+            paths=[self._MAIN_THROUGH])
+        p.active_vehicles[50] = _origin_less_vehicle()
+        p._finalize_vehicle(50, frame_number=25)
+        events = _get_vehicle_events(pipeline_env["db_path"])
+        assert len(events) == 1
+        assert events[0]["origin_leg_id"] == 1
+        assert p.n_origin_rescued == 1
+
+        # Flag OFF -> no rescue, dropped as insufficient_data, no new event.
+        monkeypatch.setattr(mod, "ORIGIN_CLAIM_VETO_ENABLED", False)
+        p2 = ProcessingPipeline(
+            project_id="test", db_path=pipeline_env["db_path"],
+            video_path=pipeline_env["video_path"], legs=legs, fps=30.0,
+            paths=[self._MAIN_THROUGH])
+        p2.active_vehicles[51] = _origin_less_vehicle()
+        before = _count_vehicle_events(pipeline_env["db_path"])
+        p2._finalize_vehicle(51, frame_number=25)
+        assert _count_vehicle_events(pipeline_env["db_path"]) == before
+        assert p2.n_origin_rescued == 0
+        assert p2.n_insufficient_data == 1
+
+    def test_rewrite_veto_filters_vetoed_origin_paths(self, pipeline_env,
+                                                      monkeypatch):
+        """The finalize-time joint scorer must not see a path whose origin is a
+        vetoed leg (the FM51 S-right 76->84 re-steal): candidate_paths drops
+        the 3->2 stem path, so the scorer can only keep the claimed main-road
+        origin."""
+        import backend.services.pipeline as mod
+        monkeypatch.setattr(mod, "ORIGIN_CLAIM_VETO_ENABLED", True)
+        p = self._veto_pipeline(pipeline_env,
+                                [self._MAIN_THROUGH, self._STEM_RIGHT])
+        captured = {}
+
+        def fake_joint(trajectory, candidate_paths, **kw):
+            captured["origins"] = sorted(
+                pp.get("origin_leg_id") for pp in candidate_paths)
+            return {"destination_leg_id": None}   # no match -> softmax fallback
+
+        monkeypatch.setattr(mod, "score_path_joint", fake_joint)
+        p.active_vehicles[60] = {
+            "origin_leg_id": 1, "reference_heading": 90.0, "origin_frame": 5,
+            "origin_veto": frozenset({3}), "start_frame": 0,
+            "trajectory": [(100 + i * 30, 500) for i in range(12)],
+            "confidences": [0.9] * 12, "last_center": (430, 500),
+            "class_id": 2, "class_name": "car",
+            "bbox_width": 100.0, "bbox_height": 60.0, "bbox_area": 6000.0,
+        }
+        p._finalize_vehicle(60, frame_number=25)
+        assert captured["origins"] == [1]           # the 3->2 stem path filtered
+        assert p.n_origin_rewrite_vetoed == 1
+
     def test_tripwire_incremental_scan_catches_late_crossing(self, pipeline_env):
         """The incremental tripwire scan (2026-07-17 quadratic fix) must not
         lose segments: a track that lingers short of the line for many

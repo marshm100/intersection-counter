@@ -223,6 +223,11 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         "origin_corrected": int(getattr(pipe, "n_origin_corrected", 0)),
         # Claim-time veto (origin-grab phase 1): tracks with >=1 vetoed leg.
         "origin_vetoed": int(getattr(pipe, "n_origin_vetoed", 0)),
+        # PHASE 3 (rescue half): origin-less vetoed tracks that claimed the
+        # through-road their birth sits on; and joint-scorer origin rewrites
+        # blocked from re-stealing to a vetoed leg. Bookkeeping for the re-gate.
+        "origin_rescued": int(getattr(pipe, "n_origin_rescued", 0)),
+        "origin_rewrite_vetoed": int(getattr(pipe, "n_origin_rewrite_vetoed", 0)),
         # Posterior-half counters (plan_posterior_half_2026-07-15 stage-4
         # instrumentation: branch applications + flag-bound origin near-ties).
         "posterior_origin": int(getattr(pipe, "n_posterior_origin", 0)),

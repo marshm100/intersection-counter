@@ -1,0 +1,62 @@
+{
+ "per_leg": {
+  "off": {
+   "2": 1744,
+   "1": 1627,
+   "3": 133,
+   "4": 3
+  },
+  "on": {
+   "2": 1748,
+   "1": 1778,
+   "3": 79,
+   "4": 3
+  }
+ },
+ "kills": {
+  "off": 0,
+  "on": 6
+ },
+ "totals": {
+  "mio": 3469,
+  "off": 3507,
+  "on": 3608
+ },
+ "interval_mae_off": 2.49,
+ "interval_mae_on": 4.19,
+ "counters_on": {
+  "vetoed": 4625,
+  "rescued": 810,
+  "rewrite_vetoed": 3379
+ },
+ "cell_S_and_throughs": {
+  "W-through": {
+   "off": 1572,
+   "on": 1729
+  },
+  "E-through": {
+   "off": 1710,
+   "on": 1714
+  },
+  "S-left": {
+   "off": 54,
+   "on": 4
+  },
+  "S-right": {
+   "off": 76,
+   "on": 67
+  },
+  "S-through": {
+   "off": 2,
+   "on": 8
+  },
+  "S-u_turn": {
+   "off": 1,
+   "on": 0
+  },
+  "SE-through": {
+   "off": 2,
+   "on": 2
+  }
+ }
+}
