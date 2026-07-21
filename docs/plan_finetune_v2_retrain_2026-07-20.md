@@ -15,17 +15,18 @@ script, promotion is measure-then-apply, fallback is one line.
   long** (33 frames) / **63 medium** (45 frames); boxes 1,807 prefills →
   2,453 (+646 add-missed/edits). Post-labeling check PASSED (class-3 rows
   present, all 164 files touched).
-- **v1 medium scan IN FLIGHT** (operator decision: full scan of all 430):
-  206/430 reviewed, **89 M boxes across 71 frames** so far. Yield is
-  ACCELERATING into the mid-tail (28 M-frames in the first ~100 scanned, 43
-  in the second; positions 185–198 nearly solid) — v1's truck-first order
-  puts the widest boxes (semis/longs) first and the medium band mid-list,
-  so **the remaining 224 frames must be scanned; do not stop early.**
-  Round-1 audit trail preserved as `reviewed_round1.json`; both dataset
-  yamls now carry the four names.
+- **v1 medium scan COMPLETE (2026-07-21)**: 430/430 reviewed, **187 M boxes
+  across 147 frames** — the full-scan decision vindicated (the 206-frame
+  checkpoint had only 89; quartile yield by manifest position = [28, 50,
+  45, 24], the predicted mid-list medium band, with even the tail quartile
+  holding 24 M-frames — a partial scan would have left half the mediums
+  contradictory). v1 final distribution: 7,910 vehicle / 227 articulated /
+  90 long / 187 medium. Round-1 audit trail preserved as
+  `reviewed_round1.json`; both dataset yamls carry the four names.
 
-**BLOCKER for training: the v1 scan completes + the post-scan check
-(reviewed 430/430, M-yield curve recorded here).**
+**COMBINED v1+v2 (the training set): 594 frames — 10,125 vehicle / 347
+articulated / 145 long / 250 medium. Post-scan check PASSED; the training
+blocker is CLEARED.**
 
 ## Dataset — combined v1+v2, four classes
 
