@@ -123,10 +123,12 @@ class TestDetectOnSyntheticScene:
 class TestClassMapping:
     def test_vehicle_class_names(self):
         assert VEHICLE_CLASSES == {2: "car", 3: "motorcycle", 5: "bus",
-                                   7: "truck", 8: "articulated_truck"}
+                                   7: "truck", 8: "articulated_truck",
+                                   9: "single_unit_truck"}
 
-    def test_relevant_classes_exclude_native_articulated(self):
-        # The stock-model COCO filter must never request id 8 (boat in COCO).
+    def test_relevant_classes_exclude_native_ids(self):
+        # The stock-model COCO filter must never request the synthetic ids
+        # (8 = boat, 9 = traffic light in COCO).
         from backend.services.detector import VehicleDetector
         assert VehicleDetector.RELEVANT_CLASSES == [2, 3, 5, 7]
 
@@ -156,6 +158,31 @@ class TestFinetuneClassScheme:
         assert all(d["is_vehicle"] for d in out)
         assert out[1]["class_name"] == "articulated_truck"
         assert out[2]["class_name"] == "truck"
+
+    def test_parse_maps_ft_v2_classes(self):
+        """finetune_v2 (plan_finetune_v2_retrain_2026-07-20): 0/1 as v1;
+        2 (long) AND 3 (medium) both ride the native single-unit id 9 ->
+        FHWA 5 -> Mediums, aspect branch bypassed."""
+        import numpy as np
+        from unittest.mock import MagicMock
+        from backend.services.detector import VehicleDetector
+
+        det = VehicleDetector.__new__(VehicleDetector)
+        det.class_scheme = "finetune_v2"
+        boxes = MagicMock()
+        boxes.__len__ = lambda self: 4
+        boxes.xyxy.cpu.return_value.numpy.return_value = np.array(
+            [[0, 0, 10, 10], [5, 5, 40, 20], [1, 1, 30, 15], [2, 2, 20, 12]],
+            dtype=float)
+        boxes.conf.cpu.return_value.numpy.return_value = np.array(
+            [.9, .8, .7, .6])
+        boxes.cls.cpu.return_value.numpy.return_value = np.array([0, 1, 2, 3])
+        results = MagicMock(); results.boxes = boxes
+        out = det._parse_results(results)
+        assert [d["class_id"] for d in out] == [2, 8, 9, 9]
+        assert all(d["is_vehicle"] for d in out)
+        assert out[2]["class_name"] == "single_unit_truck"
+        assert out[3]["class_name"] == "single_unit_truck"
 
     def test_coco_scheme_unchanged(self):
         import numpy as np

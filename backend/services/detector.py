@@ -13,6 +13,7 @@ from ultralytics import YOLO  # noqa: E402
 
 from backend.config import (
     NATIVE_ARTICULATED_CLASS_ID,
+    NATIVE_SINGLE_UNIT_CLASS_ID,
     VEHICLE_CLASSES,
     YOLO_CONFIDENCE_THRESHOLD,
     YOLO_IMGSZ,
@@ -36,19 +37,26 @@ class VehicleDetector:
     mutating module-level constants.
     """
 
-    # The COCO class filter for STOCK models. The native articulated id is
-    # ours, not COCO's (8 = boat there) — it must never reach a coco-scheme
-    # model's `classes=` request.
-    RELEVANT_CLASSES = sorted(k for k in VEHICLE_CLASSES
-                              if k != NATIVE_ARTICULATED_CLASS_ID)
+    # The COCO class filter for STOCK models. The native ids (8 articulated,
+    # 9 single-unit) are ours, not COCO's (boat / traffic light there) — they
+    # must never reach a coco-scheme model's `classes=` request.
+    RELEVANT_CLASSES = sorted(
+        k for k in VEHICLE_CLASSES
+        if k not in (NATIVE_ARTICULATED_CLASS_ID, NATIVE_SINGLE_UNIT_CLASS_ID))
 
-    # Fine-tuned two-class-head scheme (plan_detector_finetune, promoted
-    # 2026-07-17): model emits 0 vehicle / 1 articulated / 2 long_single.
-    # 0/2 keep EXACTLY the mapping the FM51 full-chain gate validated
-    # (long_single -> COCO truck + aspect subclassification); class 1 rides
-    # its own id end-to-end (plan_articulated_native_2026-07-17) so the
-    # L/M/A deliverable gets the model's semi call, not the size heuristic.
-    _FT_CLASS_MAP = {0: 2, 1: NATIVE_ARTICULATED_CLASS_ID, 2: 7}
+    # Fine-tuned head schemes, keyed by class_scheme. v1 (plan_detector_
+    # finetune, promoted 2026-07-17): 0 vehicle / 1 articulated / 2
+    # long_single, with 0/2 keeping EXACTLY the mapping the FM51 full-chain
+    # gate validated (long_single -> COCO truck + aspect subclassification)
+    # and class 1 riding its own id end-to-end (plan_articulated_native).
+    # v2 (plan_finetune_v2_retrain_2026-07-20): adds 3 medium, and BOTH 2/3
+    # ride the native single-unit id -> FHWA 5 -> Mediums, aspect bypassed.
+    _FT_CLASS_MAPS = {
+        "finetune_v1": {0: 2, 1: NATIVE_ARTICULATED_CLASS_ID, 2: 7},
+        "finetune_v2": {0: 2, 1: NATIVE_ARTICULATED_CLASS_ID,
+                        2: NATIVE_SINGLE_UNIT_CLASS_ID,
+                        3: NATIVE_SINGLE_UNIT_CLASS_ID},
+    }
 
     def __init__(
         self,
@@ -61,8 +69,9 @@ class VehicleDetector:
 
         Defaults pull from config (accurate mode); the v3 orchestrator
         passes per-mode overrides. Model auto-downloads on first use.
-        class_scheme: "coco" (stock models) or "finetune_v1" (the promoted
-        fine-tuned head; detections are class-mapped to COCO ids).
+        class_scheme: "coco" (stock models) or a _FT_CLASS_MAPS key
+        ("finetune_v1" = the promoted head, "finetune_v2" = the 4-class
+        retrain); ft detections are class-mapped to chain ids.
         """
         self.class_scheme = class_scheme
         mp = model_path or YOLO_MODEL
@@ -152,8 +161,9 @@ class VehicleDetector:
         for i in range(len(cls_ids)):
             x1, y1, x2, y2 = xyxy[i]
             class_id = int(cls_ids[i])
-            if self.class_scheme == "finetune_v1":
-                class_id = self._FT_CLASS_MAP.get(class_id, 2)
+            ft_map = self._FT_CLASS_MAPS.get(self.class_scheme)
+            if ft_map is not None:
+                class_id = ft_map.get(class_id, 2)
             w = float(x2 - x1)
             h = float(y2 - y1)
             detections.append({
@@ -177,13 +187,13 @@ class VehicleDetector:
 
         YOLO26 uses NMS-free end-to-end inference by default (one-to-one head).
         """
+        ft_map = self._FT_CLASS_MAPS.get(self.class_scheme)
         results = self.model(
             frame,
             conf=self.confidence,
             iou=YOLO_IOU_THRESHOLD,
             imgsz=self.imgsz,
-            classes=(list(self._FT_CLASS_MAP)
-                     if self.class_scheme == "finetune_v1"
+            classes=(list(ft_map) if ft_map is not None
                      else self.RELEVANT_CLASSES),
             device=self._device,
             verbose=False,
@@ -203,13 +213,13 @@ class VehicleDetector:
             return []
         if str(self._device).startswith("intel"):
             return [self.detect(f) for f in frames]
+        ft_map = self._FT_CLASS_MAPS.get(self.class_scheme)
         results = self.model(
             frames,
             conf=self.confidence,
             iou=YOLO_IOU_THRESHOLD,
             imgsz=self.imgsz,
-            classes=(list(self._FT_CLASS_MAP)
-                     if self.class_scheme == "finetune_v1"
+            classes=(list(ft_map) if ft_map is not None
                      else self.RELEVANT_CLASSES),
             device=self._device,
             verbose=False,

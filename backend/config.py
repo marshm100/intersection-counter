@@ -135,8 +135,15 @@ def get_processing_mode_config(mode: str | None) -> dict:
 # is free in every cache/dump this app has written; it must stay OUT of the
 # stock-model class filter (detector.RELEVANT_CLASSES excludes it).
 NATIVE_ARTICULATED_CLASS_ID = 8
+# finetune_v2 scheme (plan_finetune_v2_retrain_2026-07-20): ft classes 2
+# (long single-unit) and 3 (medium) both ride this synthetic id to
+# single_unit_truck / FHWA 5 -> the Miovision Mediums bucket, bypassing the
+# aspect branch (it was built for COCO-7 boxes and buries these). COCO 9 is
+# traffic light — never a vehicle id, so the namespace is free.
+NATIVE_SINGLE_UNIT_CLASS_ID = 9
 VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck",
-                   NATIVE_ARTICULATED_CLASS_ID: "articulated_truck"}
+                   NATIVE_ARTICULATED_CLASS_ID: "articulated_truck",
+                   NATIVE_SINGLE_UNIT_CLASS_ID: "single_unit_truck"}
 
 # Trajectory classification thresholds (degrees)
 TRAJECTORY_THROUGH_MAX_ANGLE = 25
@@ -419,6 +426,11 @@ ARTICULATED_MIN_CARS_PER_BAND = 20  # a band needs this many cars for a trustwor
 # Class-at-birth alone would systematically under-call semis (far-field births
 # detect as plain vehicle before the trailer resolves), hence votes.
 NATIVE_ARTICULATED_MIN_FRAMES = 2
+# Same vote-floor pattern for the finetune_v2 single-unit id (classes 2/3 ->
+# 9): two independent frames, one flicker never flips. Articulated takes
+# precedence at finalize (a far-field semi often reads medium before the
+# trailer resolves — the rarer, more specific class wins).
+NATIVE_SINGLE_UNIT_MIN_FRAMES = 2
 
 # --- Bank-gated through filter (FM51 audit #4, 2026-07-06) ------------------
 # A "through" movement is only legitimate between OPPOSING legs; a through from a

@@ -23,6 +23,9 @@ YOLO_TO_SIMPLIFIED: dict[int, str | None] = {
     7: "truck",        # truck → sub-classified by size
     8: "multi_unit_truck",  # fine-tuned head's NATIVE articulated
                             # (NATIVE_ARTICULATED_CLASS_ID) → FHWA 9 directly
+    9: "single_unit_truck",  # finetune_v2 NATIVE long/medium
+                             # (NATIVE_SINGLE_UNIT_CLASS_ID) → FHWA 5 directly,
+                             # aspect branch bypassed by construction
 }
 
 # Simplified category → best-guess FHWA class

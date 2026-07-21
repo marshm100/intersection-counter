@@ -32,10 +32,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 PROJECT = "0acb12c0"
 CAMERA = 2
-WEIGHTS = "yolo26s_ft1_openvino_model"   # the PROMOTED export (imgsz 640 baked)
+# The flow below is the FROZEN gate; only these three pointers move per
+# candidate model (plan_finetune_v2_retrain_2026-07-20 — env overrides, v1
+# defaults so the promoted-model invocation stays bit-reproducible).
+# finetune_v2 invocation:
+#   GATE_WEIGHTS=<runs/finetune_v2 best export>  GATE_VARIANT=ftv2n \
+#   GATE_CLASS_MAP=0:2,1:8,2:9,3:9  py scripts/fm51_native_artic_gate.py
+import os as _os
+WEIGHTS = _os.environ.get(
+    "GATE_WEIGHTS",
+    "yolo26s_ft1_openvino_model")        # the PROMOTED export (imgsz 640 baked)
 CONF = 0.10                              # the balanced profile's floor
-CLASS_MAP = {0: 2, 1: 8, 2: 7}           # native scheme (plan_articulated_native)
-WINDOWS = [("ftv1n_am", "07:00", "09:00"), ("ftv1n_pm", "16:00", "18:00")]
+CLASS_MAP = ({int(k): int(v) for k, v in
+              (kv.split(":") for kv in _os.environ["GATE_CLASS_MAP"].split(","))}
+             if _os.environ.get("GATE_CLASS_MAP")
+             else {0: 2, 1: 8, 2: 7})    # native scheme (plan_articulated_native)
+_VAR = _os.environ.get("GATE_VARIANT", "ftv1n")
+WINDOWS = [(f"{_VAR}_am", "07:00", "09:00"), (f"{_VAR}_pm", "16:00", "18:00")]
 SCRATCH = Path(r"C:\Users\onkar\AppData\Local\Temp\ic_scratch_fm51")
 BASELINE = Path("runs/finetune_v1/fm51_fullchain.json")
 XML = Path("docs/historic data/26097 TIA for Wise County, TX/Cam 1 FM51-CORD4699/"

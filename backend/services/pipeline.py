@@ -21,6 +21,8 @@ from backend.config import (
     ENTRY_TIEBREAK_DECISIVE_PX,
     NATIVE_ARTICULATED_CLASS_ID,
     NATIVE_ARTICULATED_MIN_FRAMES,
+    NATIVE_SINGLE_UNIT_CLASS_ID,
+    NATIVE_SINGLE_UNIT_MIN_FRAMES,
     ORIGIN_CLAIM_VETO_ENABLED,
     ORIGIN_VETO_D_MAIN_PX,
     ORIGIN_VETO_D_MOUTH_PX,
@@ -763,6 +765,9 @@ class ProcessingPipeline:
                 # plain vehicle, so every class-8 detection votes. Counted here,
                 # decided at finalize against NATIVE_ARTICULATED_MIN_FRAMES.
                 "n_native_articulated": 0,
+                # Same pattern for the finetune_v2 single-unit id (9) —
+                # plan_finetune_v2_retrain_2026-07-20.
+                "n_native_single_unit": 0,
             }
             self.n_tracks_total += 1
 
@@ -779,6 +784,9 @@ class ProcessingPipeline:
         if detection["class_id"] == NATIVE_ARTICULATED_CLASS_ID:
             vehicle["n_native_articulated"] = (
                 vehicle.get("n_native_articulated", 0) + 1)
+        elif detection["class_id"] == NATIVE_SINGLE_UNIT_CLASS_ID:
+            vehicle["n_native_single_unit"] = (
+                vehicle.get("n_native_single_unit", 0) + 1)
 
         if vehicle["origin_leg_id"] is None:
             n_pts = len(vehicle["trajectory"])
@@ -1517,11 +1525,19 @@ class ProcessingPipeline:
         # born-8 track WITHOUT the vote floor demotes to plain truck (a
         # 1-frame flicker never flips a class). Coco-scheme runs have no 8s
         # anywhere, so this is a no-op for them by construction.
+        # finetune_v2 single-unit (id 9) mirrors the pattern one rung down
+        # (plan_finetune_v2_retrain): articulated wins on both floors met —
+        # a far-field semi often reads medium before the trailer resolves,
+        # so the rarer, more specific class takes precedence.
         effective_class_id = vehicle["class_id"]
         if (vehicle.get("n_native_articulated", 0)
                 >= NATIVE_ARTICULATED_MIN_FRAMES):
             effective_class_id = NATIVE_ARTICULATED_CLASS_ID
-        elif effective_class_id == NATIVE_ARTICULATED_CLASS_ID:
+        elif (vehicle.get("n_native_single_unit", 0)
+                >= NATIVE_SINGLE_UNIT_MIN_FRAMES):
+            effective_class_id = NATIVE_SINGLE_UNIT_CLASS_ID
+        elif effective_class_id in (NATIVE_ARTICULATED_CLASS_ID,
+                                    NATIVE_SINGLE_UNIT_CLASS_ID):
             effective_class_id = 7
         vehicle_class = classify_vehicle(
             effective_class_id,

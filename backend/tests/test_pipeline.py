@@ -853,6 +853,61 @@ class TestVehicleEventWriting:
         p._process_vehicle(11, _make_detection(500, 740, class_id=8), 3)
         assert p.active_vehicles[11]["n_native_articulated"] == 2
 
+    def test_native_single_unit_votes_promote(self, pipeline_env):
+        """plan_finetune_v2_retrain: >= NATIVE_SINGLE_UNIT_MIN_FRAMES id-9
+        detections make the track single_unit_truck / FHWA 5 (-> Mediums)
+        even when born as a plain vehicle, aspect branch bypassed."""
+        p = _make_pipeline(pipeline_env)
+        p.active_vehicles[12] = {
+            "origin_leg_id": 1,
+            "reference_heading": 0.0,
+            "origin_frame": 5,
+            "trajectory": [(500, 780 - i * 20) for i in range(20)],
+            "confidences": [0.9] * 20,
+            "last_center": (500, 400),
+            "class_id": 2,
+            "class_name": "car",
+            "bbox_width": 100.0,
+            "bbox_height": 60.0,
+            "bbox_area": 6000.0,
+            "n_native_single_unit": 2,
+        }
+        p._finalize_vehicle(12, frame_number=25)
+        events = _get_vehicle_events(pipeline_env["db_path"])
+        assert len(events) == 1
+        assert events[0]["vehicle_class"] == "single_unit_truck"
+        assert events[0]["fhwa_class"] == 5
+
+    def test_native_single_unit_flicker_demotes_artic_precedes(self, pipeline_env):
+        """A single id-9 frame (below the floor) never flips the class:
+        born-9 demotes to the COCO-truck aspect path. And when BOTH floors
+        are met, articulated wins (the rarer, more specific class)."""
+        p = _make_pipeline(pipeline_env)
+        base = {
+            "origin_leg_id": 1, "reference_heading": 0.0, "origin_frame": 5,
+            "trajectory": [(500, 780 - i * 20) for i in range(20)],
+            "confidences": [0.9] * 20, "last_center": (500, 400),
+            "class_name": "single_unit_truck",
+            "bbox_width": 100.0, "bbox_height": 60.0, "bbox_area": 6000.0,
+        }
+        p.active_vehicles[13] = {**base, "class_id": 9,
+                                 "n_native_single_unit": 1}
+        p._finalize_vehicle(13, frame_number=25)
+        p.active_vehicles[14] = {**base, "class_id": 2,
+                                 "n_native_single_unit": 3,
+                                 "n_native_articulated": 2}
+        p._finalize_vehicle(14, frame_number=25)
+        events = {e["vehicle_track_id"]: e
+                  for e in _get_vehicle_events(pipeline_env["db_path"])}
+        # aspect 100/60 = 1.67 -> the truck branch's single_unit bucket, but
+        # via the DEMOTED coco path (fhwa 5 same value; the class_id took the
+        # truck branch, not the native bypass — asserted by the born-9 demote
+        # not crashing plus the artic-precedence case below)
+        assert events[13]["vehicle_class"] == "single_unit_truck"
+        assert events[13]["fhwa_class"] == 5
+        assert events[14]["vehicle_class"] == "multi_unit_truck"
+        assert events[14]["fhwa_class"] == 9
+
     def test_classifier_factors_persisted(self, pipeline_env):
         """Phase A instrumentation for bug #5: the classifier's decision
         factors (net_heading_change, cumulative_curvature, straightness,
