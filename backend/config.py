@@ -72,23 +72,27 @@ PROCESSING_MODES = {
         "description": "Best accuracy. Large model at 1280 px, every frame. On CPU this is ~60× slower than real-time and is only practical for short clips; for full-day footage use Balanced or Fast.",
     },
     "balanced": {
-        # PROMOTED 2026-07-17 (plan_detector_finetune, FM51 full-chain gate:
-        # total -9.1% -> +1.1%, interval MAE 8.8% -> 2.5% PASS, PM miss
-        # closed, on the held-out site): the corridor-fine-tuned two-class
-        # head at its VALIDATED imgsz. Fallback = the previous stock pair
-        # (yolo26s.pt @ 960, class_scheme coco). Known residual, tracked in
-        # the plan doc: far-field side-leg origin grab at T-stems (the
-        # origin-grab cycle owns it).
-        "yolo_model": "yolo26s_ft1.pt",
+        # PROMOTED 2026-07-21 (plan_finetune_v2_retrain, held-out FM51 gate
+        # vs the v1 native baseline on the identical basis: total +3.8% ->
+        # +2.0%, interval MAE 4.0% -> 3.0%, Articulated 22 -> 56, Mediums
+        # 7 -> 157): the 4-class corridor head (adds the medium class; ft
+        # 2/3 ride the native single-unit id). Fallback = the previous
+        # promoted pair (yolo26s_ft1.pt @ 640, class_scheme finetune_v1);
+        # pre-ft stock fallback remains yolo26s.pt @ 960, coco. Known
+        # residuals, tracked in the plan doc: ~46 held-out semis still read
+        # medium (artic<->medium split; ambiguous-class feeder surveils),
+        # far-field side-leg origin grab at T-stems (origin-veto retired,
+        # conservation feeders surveil).
+        "yolo_model": "yolo26s_ft2.pt",
         "yolo_imgsz": 640,
-        "yolo_class_scheme": "finetune_v1",
+        "yolo_class_scheme": "finetune_v2",
         "yolo_confidence": 0.10,
         "detection_skip": 1,
         # Detection every frame, so strict ByteTrack defaults are appropriate.
         "tracker_match_threshold": 0.8,
         "tracker_activation_threshold": 0.25,
         "label": "Balanced",
-        "description": "Recommended for full-day clips. Fine-tuned site-trained model at 640 px detecting every frame (FM51-validated: interval error 8.8%→2.5%); fast vehicles track reliably (no skip-frame Kalman mismatch). Full-day footage usually fits in an overnight run.",
+        "description": "Recommended for full-day clips. Fine-tuned site-trained 4-class model at 640 px detecting every frame (FM51-validated: interval MAE 3.0%, native articulated + medium classes for L/M/A); fast vehicles track reliably (no skip-frame Kalman mismatch). Full-day footage usually fits in an overnight run.",
     },
     "fast": {
         "yolo_model": "yolo26s.pt",

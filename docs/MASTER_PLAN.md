@@ -593,6 +593,19 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    the class; two revival candidates named in the verdict. NEXT LEVER:
    labeling round v2 → finetune_v2 retrain → `fm51_native_artic_gate.py`
    re-run (articulated 41/102 + Mediums 7/92 are label problems first).
+   **STATUS 2026-07-21/22 — finetune_v2 DONE AND PROMOTED**
+   (`plan_finetune_v2_retrain_2026-07-20.md`): round-v2 labels (164) +
+   full v1 medium scan (430, +187 M), combined 594-frame 4-class set,
+   64 CPU epochs, native single-unit id 9 wired end-to-end (ft 2/3 →
+   FHWA 5 → Mediums, aspect bypassed, artic precedence). **Held-out FM51
+   gate vs promoted v1, identical basis: total +3.8→+2.0%, MAE 4.0→3.0%
+   (no-regression PASS strictly better), Articulated 22→56 vs 102,
+   Mediums 7→157 vs 92** (truck mass M+A 213 vs 194 — the overshoot is
+   largely the ~46 still-missed semis one bucket down; the inverse of
+   v1's lump-all pathology at a third the magnitude). Promoted into
+   Balanced (yolo26s_ft2@640, scheme finetune_v2; fallback = one-line
+   revert to ft1). Residual artic gap routes to a future semi label
+   round; the ambiguous-class feeder surveils the artic↔medium split.
 
 Each is a self-contained phase; ship and validate before the next.
 
