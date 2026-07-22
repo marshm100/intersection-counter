@@ -102,6 +102,39 @@ fallback = revert the profile entry (one line, same as v1's lever).
 FAIL → the verdict section records which bar and the next label/route
 decision; the promoted v1 detector stays.
 
+## GATE VERDICT (2026-07-21 — evidence runs/finetune_v2/fm51_gate_v2.json;
+the script's hardcoded outp briefly overwrote the v1 evidence, restored from
+git; fix the path when the script is next touched)
+
+Training: 64/64 epochs, 8 chunks, ~7.2 h CPU. **Winner chunk 5 best.pt (48
+ep)**: val all .605 / articulated .697 (P .781) / long .608→.545 / medium
+.499 — runner-up chunk 7 (long .608, medium .449); val is 113 images, the
+gate decided. Exported `yolo26s_ft2_openvino_model` (FP16 @640).
+
+**Held-out FM51, identical scoring basis, v2 vs the PROMOTED v1 native:**
+
+| bar | promoted v1 | finetune_v2 | read |
+|---|---|---|---|
+| 1. No-regression (hard) | total +3.8%, MAE 4.0% | **total +2.0%, MAE 3.0%** | **PASS — strictly better** on both axes |
+| 2. Articulated vs Mio 102 | 22 events | **56 events** | 2.5×; bar (~parity) still not met — 55% of Mio |
+| 3. Mediums vs Mio 92 | 7 events | **157 events** | recall UNLOCKED; +65 overshoot, see composition |
+
+Lights 3327 vs Mio 3275 (+1.6%). **The truck-mass composition explains the
+Mediums overshoot:** ours M+A = 213 vs Mio's 194 (+10%) — the total truck
+mass is nearly right, but ~46 semis the head still misses land one bucket
+down in Mediums (46 of the +65; residual over-call ~19). The Mediums number
+is not phantom traffic; it is largely mis-split articulated — the exact
+inverse of v1's pathology (which lumped ALL 102 into Mediums), at a third
+of the magnitude.
+
+**Disposition: recommend PROMOTE** — every axis improves on the shipped
+state (totals closer to truth, MAE 4.0→3.0, Articulated 22→56, Mediums
+7→157-with-known-bias vs 7-with-nothing), and the flag queue's ambiguous-
+class feeder (articulated↔medium) is the designed surveillance for the
+residual split error. The remaining articulated gap is a capability limit —
+route: a future semi-diversity label round, this gate re-runs unchanged.
+Fallback stays one line (revert the profile entry).
+
 ## Sequence
 
 1. ~~Round v2 labels~~ DONE (verified above).
