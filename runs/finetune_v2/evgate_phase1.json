@@ -1,0 +1,230 @@
+{
+ "97a7_2_stock": {
+  "windows": {
+   "study_0700": {
+    "tracks": 8320,
+    "evidenced": 4691,
+    "events": 5734,
+    "posterior_origin": 686,
+    "posterior_rescued": 375
+   },
+   "study_1100": {
+    "tracks": 7489,
+    "evidenced": 3647,
+    "events": 4582,
+    "posterior_origin": 599,
+    "posterior_rescued": 491
+   },
+   "study_1600": {
+    "tracks": 11247,
+    "evidenced": 5455,
+    "events": 7327,
+    "posterior_origin": 1210,
+    "posterior_rescued": 500
+   }
+  },
+  "coverage": 0.51,
+  "activate": false
+ },
+ "97a7_2_ft2": {
+  "windows": {
+   "ft2_study_0700": {
+    "tracks": 13907,
+    "evidenced": 5356,
+    "events": 6571,
+    "posterior_origin": 567,
+    "posterior_rescued": 915
+   },
+   "ft2_study_1100": {
+    "tracks": 12721,
+    "evidenced": 4077,
+    "events": 5134,
+    "posterior_origin": 585,
+    "posterior_rescued": 997
+   },
+   "ft2_study_1600": {
+    "tracks": 19826,
+    "evidenced": 6528,
+    "events": 8701,
+    "posterior_origin": 1067,
+    "posterior_rescued": 1482
+   }
+  },
+  "coverage": 0.344,
+  "activate": false
+ },
+ "97a7_1_stock": {
+  "windows": {
+   "study_0700": {
+    "tracks": 6728,
+    "evidenced": 1780,
+    "events": 4779,
+    "posterior_origin": 1848,
+    "posterior_rescued": 90
+   }
+  },
+  "coverage": 0.265,
+  "activate": false
+ },
+ "97a7_1_ft2": {
+  "windows": {
+   "ft2_study_0700": {
+    "tracks": 16605,
+    "evidenced": 3047,
+    "events": 6519,
+    "posterior_origin": 1747,
+    "posterior_rescued": 620
+   }
+  },
+  "coverage": 0.183,
+  "activate": false
+ },
+ "97a7_4_stock": {
+  "windows": {
+   "study_0700": {
+    "tracks": 7664,
+    "evidenced": 2329,
+    "events": 5149,
+    "posterior_origin": 2713,
+    "posterior_rescued": 184
+   },
+   "study_1100": {
+    "tracks": 4970,
+    "evidenced": 2197,
+    "events": 3479,
+    "posterior_origin": 1217,
+    "posterior_rescued": 96
+   },
+   "study_1600": {
+    "tracks": 8986,
+    "evidenced": 2854,
+    "events": 5974,
+    "posterior_origin": 2881,
+    "posterior_rescued": 183
+   }
+  },
+  "coverage": 0.341,
+  "activate": false
+ },
+ "97a7_4_ft2": {
+  "windows": {
+   "ft2_study_0700": {
+    "tracks": 10304,
+    "evidenced": 3197,
+    "events": 5650,
+    "posterior_origin": 2192,
+    "posterior_rescued": 234
+   },
+   "ft2_study_1100": {
+    "tracks": 6809,
+    "evidenced": 2604,
+    "events": 3743,
+    "posterior_origin": 992,
+    "posterior_rescued": 192
+   },
+   "ft2_study_1600": {
+    "tracks": 11907,
+    "evidenced": 3845,
+    "events": 6422,
+    "posterior_origin": 2234,
+    "posterior_rescued": 213
+   }
+  },
+  "coverage": 0.332,
+  "activate": false
+ },
+ "97a7_5_stock": {
+  "windows": {
+   "study_0700": {
+    "tracks": 8960,
+    "evidenced": 2953,
+    "events": 5624,
+    "posterior_origin": 1809,
+    "posterior_rescued": 204
+   },
+   "study_1100": {
+    "tracks": 6572,
+    "evidenced": 2900,
+    "events": 4222,
+    "posterior_origin": 1000,
+    "posterior_rescued": 261
+   },
+   "study_1600": {
+    "tracks": 10196,
+    "evidenced": 4103,
+    "events": 6733,
+    "posterior_origin": 2171,
+    "posterior_rescued": 333
+   }
+  },
+  "coverage": 0.387,
+  "activate": false
+ },
+ "97a7_5_ft2": {
+  "windows": {
+   "ft2_study_0700": {
+    "tracks": 12978,
+    "evidenced": 3829,
+    "events": 6307,
+    "posterior_origin": 1515,
+    "posterior_rescued": 257
+   },
+   "ft2_study_1100": {
+    "tracks": 8699,
+    "evidenced": 3130,
+    "events": 4390,
+    "posterior_origin": 864,
+    "posterior_rescued": 375
+   },
+   "ft2_study_1600": {
+    "tracks": 13787,
+    "evidenced": 4722,
+    "events": 7257,
+    "posterior_origin": 1734,
+    "posterior_rescued": 529
+   }
+  },
+  "coverage": 0.329,
+  "activate": false
+ },
+ "0acb_2_ft1": {
+  "windows": {
+   "ftv1_am": {
+    "tracks": 2476,
+    "evidenced": 90,
+    "events": 1588,
+    "posterior_origin": 954,
+    "posterior_rescued": 7
+   },
+   "ftv1_pm": {
+    "tracks": 3018,
+    "evidenced": 38,
+    "events": 2017,
+    "posterior_origin": 1524,
+    "posterior_rescued": 8
+   }
+  },
+  "coverage": 0.023,
+  "activate": false
+ },
+ "0acb_2_ftv2": {
+  "windows": {
+   "ftv2n_am": {
+    "tracks": 2604,
+    "evidenced": 81,
+    "events": 1613,
+    "posterior_origin": 891,
+    "posterior_rescued": 8
+   },
+   "ftv2n_pm": {
+    "tracks": 3250,
+    "evidenced": 39,
+    "events": 2043,
+    "posterior_origin": 1445,
+    "posterior_rescued": 9
+   }
+  },
+  "coverage": 0.02,
+  "activate": false
+ }
+}

@@ -68,3 +68,57 @@ numbers; the corridor stays stock-basis production.
 Replays only (~1–4 min/window post-398c913): ~9 corridor windows × 2 bases
 + FM51's 4 window-DBs, scored with the established per-approach scorer.
 No detection, no training, no product wiring in this phase.
+
+---
+
+## PHASE-1 VERDICT (2026-07-24 — census + gate-ON scoring complete;
+evidence runs/finetune_v2/evgate_phase1.json)
+
+**The stock-basis revival PASSES — cam2's best numbers ever recorded. The
+ft2 compound FAILS. The activation rule makes every correct decision, with
+one honest recalibration.**
+
+**Coverage census** (n_origin_evidenced/n_tracks_total, gate-ON replay —
+the census's own pinned definition):
+
+| camera×basis | coverage | decision | correct? |
+|---|---|---|---|
+| cam2 stock | **0.510** | **ON** | ✓ 4.1→**2.8%** total (NB 13.9→**3.2**, SB→7.3, WB 9.9, EB 23.5) |
+| cam2 ft2 | 0.344 | OFF | ✓ gate-ON measured **17.3%** — see below |
+| cam5 stock | 0.387 | OFF | ✓ (item-8 harm class) |
+| cam4 stock | 0.341 | OFF | ✓ |
+| cam4 ft2 | 0.332 | OFF | ✓ |
+| cam5 ft2 | 0.329 | OFF | ✓ |
+| cam1 stock | 0.265 | OFF | ✓ (the EB-199% site) |
+| cam1 ft2 | 0.183 | OFF | ✓ |
+| FM51 ft1 / ftv2 | 0.023 / 0.020 | OFF | ✓ held-out control stands down ×20 clear |
+
+**C recalibrated 0.70 → 0.45** — a DEFINITION change, not a knob turn: the
+plan froze 0.70 against item-8's census scale; this census's pinned
+denominator (all born tracks) reads the same signal lower (cam2-stock's
+numerator 4691 at 0700 is IDENTICAL to item-8's — only the denominator
+differs). On this scale the gap is [0.387, 0.510], midpoint 0.45, and the
+DECISION SET is exactly what 0.70 produced on the old scale: activate
+cam2-stock alone. Margin note: the gap is 12 pts wide; a future site
+landing in it is a gray zone — the conservation feeders remain the
+backstop, and activation only ever moves a camera TO the proven-better
+configuration.
+
+**The compound hypothesis is DEAD as configured** (gate+posterior on ft2):
+pooled 17.3% total (EB 61.4, NB 13.8) vs no-gate ft2's 4.9. Mechanism: on
+ft2 the unevidenced population IS the fragment flood (8,551/13,907 tracks
+at AM), and the posterior half hard-counts unevidenced tracks by corpus
+proportions — "counting by popularity," the item-8 plan's named risk,
+realized at scale (+750 events AM). The filter half behaved; the posterior
+fed on the flood. **The census statistic itself detects this blindly**
+(cam2 coverage 0.510→0.344 under ft2) — the rule refuses ft2 for the same
+reason the scoring condemns it. Named-but-not-chased follow-up: a
+posterior-OFF ablation on ft2 (one env flag) — bounded, unproven, parked.
+
+**Ship recommendation:** wire the activation precondition into pass-2 —
+per-camera auto-activation when the camera's own gate-ON replay coverage
+≥ 0.45 (this census's definition, computed blind at any site) — which
+today activates exactly cam2-stock: total 2.8%, three of four approaches
+at/near the bar (NB 3.2 / SB 7.3 / WB 9.9), EB 23.5 the remaining wall
+(the occlusion-split class; a distinct mechanism). Measure-then-apply,
+operator ✓, own commit.
