@@ -1,0 +1,74 @@
+{
+ "1": {
+  "stock": {
+   "total": 4.0,
+   "per_approach": {
+    "EB": 21.0,
+    "NB": 5.9,
+    "SB": 2.4
+   }
+  },
+  "ft2": {
+   "total": 26.1,
+   "per_approach": {
+    "EB": 93.9,
+    "NB": 36.3,
+    "SB": 9.7
+   }
+  }
+ },
+ "2": {
+  "stock": {
+   "total": 4.1,
+   "per_approach": {
+    "EB": 24.8,
+    "NB": 13.9,
+    "SB": 12.2,
+    "WB": 9.8
+   }
+  },
+  "ft2": {
+   "total": 4.9,
+   "per_approach": {
+    "EB": 38.3,
+    "NB": 8.9,
+    "SB": 8.6,
+    "WB": 11.4
+   }
+  }
+ },
+ "4": {
+  "stock": {
+   "total": 4.7,
+   "per_approach": {
+    "NB": 4.6,
+    "SB": 9.1
+   }
+  },
+  "ft2": {
+   "total": 11.6,
+   "per_approach": {
+    "NB": 10.0,
+    "SB": 22.1
+   }
+  }
+ },
+ "5": {
+  "stock": {
+   "total": 7.2,
+   "per_approach": {
+    "EB": 16.1,
+    "NB": 17.3,
+    "SB": 5.1
+   }
+  },
+  "ft2": {
+   "total": 13.8,
+   "per_approach": {
+    "EB": 63.9,
+    "NB": 23.3,
+    "SB": 6.7
+   }
+  }
+ }
+}
