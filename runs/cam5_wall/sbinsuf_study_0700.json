@@ -1,0 +1,162 @@
+{
+ "window": "study_0700",
+ "n_finalized": 8960,
+ "kept_origins": {
+  "sb_37_39": {
+   "37": 929,
+   "38": 19,
+   "36": 17
+  },
+  "nb_39_37": {
+   "39": 140
+  }
+ },
+ "sb_37_39": {
+  "n": 1222,
+  "dropped": 257,
+  "drop_rate": 0.21,
+  "sites": {
+   "C_derive": 257
+  },
+  "classifier_movements": {
+   "through": 254,
+   "left": 2,
+   "right": 1
+  },
+  "by_site": {
+   "C_derive": {
+    "n": 257,
+    "npts_q": [
+     9,
+     32,
+     42,
+     208
+    ],
+    "disp_q": [
+     285.2,
+     492.7,
+     519.2,
+     604.8
+    ],
+    "pdist_q": [
+     285.6,
+     493.4,
+     521.6,
+     624.6
+    ],
+    "cls_net_q": [
+     0.1,
+     3.0,
+     5.0,
+     38.3
+    ],
+    "cls_movements": {
+     "through": 254,
+     "left": 2,
+     "right": 1
+    },
+    "origins": {
+     "37": 256,
+     "36": 1
+    }
+   }
+  },
+  "offset_vs_sb_path": {
+   "kept": {
+    "mean_off_q": [
+     0.6,
+     2.7,
+     9.8,
+     91.1
+    ],
+    "max_off_q": [
+     1.8,
+     9.5,
+     24.3,
+     110.2
+    ],
+    "end_gap_q": [
+     0.2,
+     9.4,
+     19.9,
+     233.7
+    ]
+   },
+   "dropped": {
+    "mean_off_q": [
+     20.1,
+     23.7,
+     26.0,
+     38.3
+    ],
+    "max_off_q": [
+     46.4,
+     58.7,
+     62.7,
+     101.2
+    ],
+    "end_gap_q": [
+     4.3,
+     9.5,
+     10.8,
+     107.0
+    ]
+   }
+  }
+ },
+ "nb_39_37": {
+  "n": 140,
+  "dropped": 0,
+  "drop_rate": 0.0,
+  "sites": {},
+  "classifier_movements": {},
+  "by_site": {},
+  "offset_vs_sb_path": {
+   "kept": {
+    "mean_off_q": [
+     18.3,
+     32.7,
+     37.9,
+     54.5
+    ],
+    "max_off_q": [
+     52.5,
+     61.1,
+     64.3,
+     74.8
+    ],
+    "end_gap_q": [
+     534.8,
+     551.0,
+     554.7,
+     566.0
+    ]
+   },
+   "dropped": {
+    "mean_off_q": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "max_off_q": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "end_gap_q": [
+     0,
+     0,
+     0,
+     0
+    ]
+   }
+  }
+ },
+ "all_sites": {
+  "B_classifier": 1328,
+  "A_no_origin": 1623,
+  "C_derive": 309
+ }
+}

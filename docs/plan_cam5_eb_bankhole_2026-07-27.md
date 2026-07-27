@@ -315,3 +315,65 @@ sized and evidence-anchored (phase0.json, fate_*.json):
 
 Order: 2 (diagnosis, cheap) → 1 (the family, biggest mass) → 3
 (capability track). Each inherits full gate discipline.
+
+---
+
+## SB-INSUF DIAGNOSIS (2026-07-27, same session — re-aimed item 2 CLOSED
+as diagnosis; evidence runs/cam5_wall/sbinsuf_study_{0700,1600}.json;
+harness scripts/cam5_sbinsuf_diag.py, replayed-minutes basis)
+
+**The leak is one mechanism, named to the constant: the fitted SB-thru
+polyline is single-lane-biased, and the polyline destination scorer's
+lateral gate — `score_destination_by_polyline(max_avg_distance_px=20.0)`,
+trajectory_classifier.py:292, reject at :326 — drops the adjacent-lane
+throughs.** Site census: 257/257 (0700) and 429/430 (1600) of the
+real-geometry SB drops fire at the tier-chain fall-through
+(pipeline.py:1538, "C_derive"; the one exception is a 4-point track at
+the classifier's num_points<5 edge). With the posterior retired, nothing
+rescues them.
+
+The dropped population is NOT fragments — it is clean traffic:
+- long and straight: npts median 42/43, displacement median 519/541 px
+  (full-frame traverses), path distance ≈ displacement;
+- correctly origined (256/257 and 428/429 = leg 37) and correctly
+  shape-classified (254/423 "through", median |net heading| ~5°);
+- journey-complete: end gap to the path's exit vertex median 10.8/11.6 px.
+
+**The offset split is the proof** (mean point distance to the applied
+37→39 polyline, quartiles):
+
+| population | 0700 | 1600 |
+|---|---|---|
+| kept (929 / 1,971) | [0.6, 2.7, **9.8**, 91] | [0.7, 3.0, **12.5**, 76] |
+| dropped (257 / 429) | [**20.1**, 23.7, 26.0, 38] | [**20.1**, 23.6, 25.9, 65] |
+
+Every dropped track rides ≥20.1 px off the fitted centerline — the gate
+constant to the decimal — and the NB stream provides the yardstick:
+opposing-direction tracks sit 33–41 px from the SB path, so the dropped
+band (20–40 px) is exactly the adjacent same-direction lane. The NB
+mirror population drops ZERO (0/140, 0/326) against its own path — the
+lane bias is specific to the SB fit. Whole-camera site census for
+context: no-origin 1,623/1,944, classifier 1,328/1,174, derive 309/520
+(the derive class is ~83% this one SB lane defect).
+
+**The coupling constraint (do not fix the gate in isolation):** the SB
+cell is a three-population compose — full journeys (929/1,971 kept),
+fragment echoes of real vehicles correctly claimed (~800/660 events from
+the geo 36>39 and 39>39 populations), netting −116/−184 vs Mio. Simply
+recovering the drops overshoots: +141 (+7.5%) at 0700, +246 (+8.7%) at
+1600 — because a dropped full track and a counted fragment can be the
+SAME vehicle. Any lateral-gate fix must ship WITH same-vehicle echo
+suppression (prefer the best track, suppress its fragments) — which is
+the stub-claim discipline (re-aimed item 1). The two items are one
+mechanism plan.
+
+**Fix directions for that plan (each a frozen-constant blind-sweep
+affair — widening lateral acceptance is precisely the magnet-hazard
+class this block measured three times):** (a) lane-band / multi-lane
+path fit for high-volume throughs (fit the corridor envelope, not one
+centerline); (b) per-cell max_avg_distance scaled to the fitted lane
+spread; (c) plain constant widen 20→~45 px — cheapest, highest magnet
+risk, must prove NB-left/EB-right phantoms don't grow. Candidate blind
+census for activation: kept-vs-near-miss offset bimodality is computable
+GT-free from any site's own replay (the 20-px floor and the 10-px kept
+median are visible without Miovision).

@@ -580,7 +580,17 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    stub-ness alone; (2) SB-thru insufficient-data leak −417 (21%/18% of
    real-geometry journeys — cheapest next, diagnosis first); (3) EB-right
    journey formation −207 (13/21 real-geometry tracks/window; capability
-   class beside cam2 SB-right). A GT-free geometric promotion guard
+   class beside cam2 SB-right).
+   **Item (2) DIAGNOSED same day** (sbinsuf section of the plan doc):
+   the fitted SB-thru polyline is single-lane-biased and
+   `score_destination_by_polyline`'s lateral gate (max_avg_distance_px
+   = 20.0, trajectory_classifier.py:292) drops the adjacent-lane
+   throughs — 257/257 and 429/430 of the drops, every one riding
+   ≥20.1 px off the centerline (constant matched to the decimal; NB
+   opposing lanes at 33–41 px are the yardstick; NB mirror drops 0).
+   COUPLING: un-dropping alone overshoots +7.5/+8.7% (fragment echoes
+   of the same vehicles already count) — so the lateral fix and the
+   stub/echo discipline (item 1) are ONE mechanism plan, not two. A GT-free geometric promotion guard
    (reject near-subsegments of banked paths, 15–22 px tell) is on record
    for any future bank-fill idea. Nothing shipped; project.db untouched;
    corridor scoreboard unchanged.
