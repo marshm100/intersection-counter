@@ -287,6 +287,8 @@ design must be lane/arc-aware (same-lane + overlapping path-s-ranges,
 the (s,d) machinery) or it will re-fail. Own session, full design
 first; this session ends iteration 1 with the partial on the record.
 
+## Generalize (after the corridor, not before)
+
 If the mechanism ships at cam5: the same census decides cam1/cam4 (their
 ft2 re-baseline failures are fragment floods — this is the "attribution
 hardening" the ft2 disposition named as the precondition for ever
@@ -294,3 +296,39 @@ re-detecting the corridor with the promoted head), and cam2-EB's
 occlusion-split double-attribution is a candidate SECOND application of
 E (concurrent-split chains) under its own plan. None of that is claimed
 by this cycle.
+
+---
+
+## ITERATION-2 DESIGN (2026-07-27 — the budget's last; declared before
+implementation)
+
+**CD — concurrent dedup over ALL counted events.** Two counted events'
+tracks are the same physical vehicle iff during their co-life:
+1. shared frames >= 1.0 s (CONC_MIN_OVERLAP_S, reused from iteration 1);
+2. **mean box-IoU over shared frames >= IOU_MIN** (NEW constant,
+   candidate 0.30 — two boxes of one vehicle cover the same pixels; the
+   v2 dump carries bw/bh, cols 4-5);
+3. **lockstep**: std of the same-frame center distance <= LOCKSTEP_STD_PX
+   (NEW constant, candidate 10 px — a double-box is welded to its
+   vehicle; a follower's headway breathes).
+Keep-one preference as in iteration 1 (full tag, then longer track).
+CD runs after C-proper, before R (a CD-removed twin's chain stays
+event-covered, so R cannot resurrect it).
+
+**Why this is not the retired 2026-07-09 pass:** that pass used center
+proximity alone and ate compressed far-band FOLLOWERS. Followers fail
+BOTH new conditions — sustained IoU >= 0.3 for a full second means the
+boxes cover the same pixels throughout, and follower gaps fluctuate
+where double-boxes are rigid. The residual risk (extreme compression
+where two real vehicles' boxes genuinely merge for seconds) is
+adjudicated by the pre-existing gates: if CD eats real vehicles the
+protected bands UNDERSHOOT and iteration 2 fails per its own gate.
+
+Everything from iteration 1 stays frozen (bearing 55 deg, L=40
+full-only + concurrent cut, C-proper, R rmin=3). Fit protocol: the two
+new constants fit on 0700 ONLY from their candidate values, frozen,
+then held-out 1100/1600. Bands met -> the corridor sweep + FM51
+(phase 2, finally). Bands failed -> the cycle CLOSES with iteration-1's
+partial standing and a retirement entry; whether NB-left's closure
+ships alone is then an operator decision informed by the sweep-less
+evidence.
