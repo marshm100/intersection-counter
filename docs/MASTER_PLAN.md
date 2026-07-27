@@ -598,7 +598,21 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    default), NB/SB-THRU-protection invariant (±3 pts, hard stop) against
    the load-bearing fragment feed, two-iteration budget, phase-0 blind
    chain census doubling as the future activation precondition, corridor
-   blind sweep with cam3/FM51 tripwires. Next session starts phase 0. A GT-free geometric promotion guard
+   blind sweep with cam3/FM51 tripwires. Next session starts phase 0.
+   **STATUS 2026-07-27 (later, same session) — phase 0 DONE + iteration 1
+   PARTIAL** (the plan doc's census parts 1–2 + ITERATION-1 VERDICT):
+   census over cam5 + corridor + FM51 (excess composition, not rate, is
+   the activation signal; FM51's 785 flip-pairs/day proved the direction
+   gate load-bearing pre-arm; cam4's 1,181/day same-cell echo pool
+   noted); three ablation arms + a 0700-only fit under enforced holdout
+   discipline. **NB-left (the +646 wall) is CLOSED and holds held-out
+   (1.85→1.07); per-cell abs −44%/−37%; but the protected-thru truth
+   bands FAILED held-out (SB 1.054 / NB 1.085 — unchained CONCURRENT
+   same-cell echoes, systematic across window compositions), so the
+   corridor sweep did not run.** Nothing wired; flags nonexistent;
+   production untouched. Iteration 2 (the budget's last) must be
+   lane/arc-aware concurrent dedup or it re-fails the retired 2026-07-09
+   pass — design doc first, fresh session. A GT-free geometric promotion guard
    (reject near-subsegments of banked paths, 15–22 px tell) is on record
    for any future bank-fill idea. Nothing shipped; project.db untouched;
    corridor scoreboard unchanged.
