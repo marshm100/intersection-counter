@@ -54,6 +54,33 @@ L_WIDE_PX = 45.0          # widened fallback acceptance, THROUGH winners only
 R_MIN_SPAN_PX = 2 * AMBIGUITY_PX   # recovery coverage floor (60 px)
 
 
+CONC_MIN_OVERLAP_S = 1.0
+CONC_MAX_DIST_PX = 35.0
+
+
+def _concurrent_dup(pts, counted_tids, tracks, fps) -> bool:
+    """True when `pts` overlaps a counted track in time by >= 1 s with a
+    mean same-frame distance <= 35 px (same physical vehicle, two tracks)."""
+    if not pts:
+        return False
+    pts = sorted(pts)
+    by_f = {int(p[0]): (p[1], p[2]) for p in pts}
+    f_lo, f_hi = int(pts[0][0]), int(pts[-1][0])
+    need = int(CONC_MIN_OVERLAP_S * fps)
+    for tid in counted_tids:
+        opts = tracks.get(tid)
+        if not opts:
+            continue
+        opts = sorted(opts)
+        if int(opts[-1][0]) < f_lo or int(opts[0][0]) > f_hi:
+            continue
+        ds = [math.hypot(x - by_f[int(f)][0], y - by_f[int(f)][1])
+              for f, x, y in opts if int(f) in by_f]
+        if len(ds) >= need and sum(ds) / len(ds) <= CONC_MAX_DIST_PX:
+            return True
+    return False
+
+
 def _l_patched_replay(w: str, out_db: Path):
     """Replay with score_destination_by_polyline widened to L_WIDE_PX for
     THROUGH winners only (turn winners re-rejected past the stock 20 px)."""
@@ -83,13 +110,24 @@ def _l_patched_replay(w: str, out_db: Path):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--arm", choices=["ec", "lec"], default="ec")
+    ap.add_argument("--arm", choices=["ec", "lec", "lec2"], default="ec")
     ap.add_argument("--windows", default=",".join(WINDOWS))
+    ap.add_argument("--lwide", type=float, default=None,
+                    help="override L_WIDE_PX (lec2 fit; changes the lpatch "
+                         "DB name so variants coexist)")
+    ap.add_argument("--r-min-members", type=int, default=2)
+    ap.add_argument("--label", default=None,
+                    help="evidence-file suffix for fit variants")
     args = ap.parse_args()
     windows = args.windows.split(",")
     arm = args.arm
-    outp = Path(f"runs/cam5_wall/{arm}_arm.json")
+    global L_WIDE_PX
+    if args.lwide is not None:
+        L_WIDE_PX = args.lwide
+    suffix = f"_{args.label}" if args.label else ""
+    outp = Path(f"runs/cam5_wall/{arm}_arm{suffix}.json")
     scratch = Path(f"data/projects/{PROJECT}/_replay_scratch")
+    lpatch_tag = f"lpatch{int(L_WIDE_PX)}" if L_WIDE_PX != 45.0 else "lpatch"
 
     gates, _anch = CE.pinned_gates(PROJECT, CAM)
     mio = T.load_miovision(CAM)
@@ -142,9 +180,9 @@ def main() -> int:
 
         # BASE events (always from the stock replay for the base arm score)
         base_db = scratch / f"cam5wall_stock_{w}.db"
-        # arm events come from the stock DB (ec) or the L-patched replay (lec)
-        if arm == "lec":
-            arm_db = scratch / f"cam5wall_lpatch_{w}.db"
+        # arm events come from the stock DB (ec) or the L-patched replay
+        if arm in ("lec", "lec2"):
+            arm_db = scratch / f"cam5wall_{lpatch_tag}_{w}.db"
             if not arm_db.exists():
                 t0 = _clock.time()
                 st = _l_patched_replay(w, arm_db)
@@ -165,9 +203,45 @@ def main() -> int:
             c.close()
             return out
 
-        for e in load_events(base_db):
+        base_evs = load_events(base_db)
+        for e in base_evs:
             _score_ev("base", e)
         evs = load_events(arm_db)
+
+        # lec2 E-compose-L: an L-ADDED event (its track has no stock event)
+        # survives only if its chain carried NO stock-counted event — the
+        # widened gate rescues uncovered VEHICLES, never extra fragments of
+        # counted ones (the LEC 1.093 overshoot fix).
+        n_lcut = 0
+        if arm == "lec2":
+            stock_tids = {e["tid"] for e in base_evs}
+            stock_chains = {chain_map.get(t) for t in stock_tids} - {None}
+            filtered = []
+            for e in evs:
+                if e["tid"] in stock_tids:
+                    filtered.append(e)
+                    continue
+                ci = chain_map.get(e["tid"])
+                if ci is not None and ci in stock_chains:
+                    n_lcut += 1
+                    continue
+                # the diagnosed lateral class is JOURNEY-COMPLETE (the
+                # single_full 258); a non-full track rescued by the wider
+                # gate is an unchained fragment, not a missing vehicle
+                if tags.get(e["tid"]) != "full":
+                    n_lcut += 1
+                    continue
+                # concurrent-duplicate cut: an L-admitted full whose
+                # trajectory overlaps a COUNTED track in time (>=1 s) at
+                # lane distance (<=35 px mean) is the same vehicle counted
+                # twice — sequential chaining cannot link concurrent
+                # tracks by construction.
+                if _concurrent_dup(tracks.get(e["tid"], []), stock_tids,
+                                   tracks, fps):
+                    n_lcut += 1
+                    continue
+                filtered.append(e)
+            evs = filtered
 
         # union pointlists per chain (x, y only), computed lazily
         union_cache: dict[int, list] = {}
@@ -204,13 +278,46 @@ def main() -> int:
             for e in ce_sorted[1:]:
                 rej_cells[f"{e['o']}>{e['d']}"] += 1
 
-        # R: conservative recovery (lec only) — multi-member zero-event chains
+        # C-proper (lec2): singleton TURN claims must reach their cell's
+        # divergence; ineligible claims re-route to the origin's thru
+        # sibling (the geometric no-turn prior), else drop.
+        n_creroute = n_cdrop = 0
+        if arm == "lec2":
+            thru_by_origin = {o: d for (o, d) in thru_cells}
+            filtered = []
+            for e in kept:
+                cell = (e["o"], e["d"])
+                info = div_map.get(cell)
+                name = P0._cell_name(legcard, *cell)
+                is_turn = bool(name and name[1] in ("left", "right"))
+                ci = chain_map.get(e["tid"])
+                multi = ci is not None and len(by_chain.get(ci, [])) >= 2
+                if not (is_turn and info and not multi):
+                    filtered.append(e)
+                    continue
+                pts_xy = ([(p[1], p[2]) for t in members.get(ci, [e["tid"]])
+                           for p in tracks.get(t, [])]
+                          if ci is not None else
+                          [(p[1], p[2]) for p in tracks.get(e["tid"], [])])
+                reach = reaches_divergence(pts_xy, cell, div_map)
+                if reach is False:
+                    d_thru = thru_by_origin.get(e["o"])
+                    if d_thru is not None:
+                        filtered.append({**e, "d": d_thru, "mv": "through"})
+                        n_creroute += 1
+                    else:
+                        n_cdrop += 1
+                else:
+                    filtered.append(e)
+            kept = filtered
+
+        # R: conservative recovery — multi-member zero-event chains
         n_rec = 0
         rec_cells = Counter()
-        if arm == "lec":
-            ev_ci = {chain_map.get(e["tid"]) for e in evs} - {None}
+        if arm in ("lec", "lec2"):
+            ev_ci = {chain_map.get(e["tid"]) for e in kept} - {None}
             for ci, tids in members.items():
-                if len(tids) < 2 or ci in ev_ci:
+                if len(tids) < args.r_min_members or ci in ev_ci:
                     continue
                 uxy = union_xy(ci)
                 upts = sorted(p for tid in tids for p in tracks[tid])
@@ -258,10 +365,13 @@ def main() -> int:
         result[w] = {"rejected": n_rej,
                      "rejected_cells": dict(rej_cells.most_common(8)),
                      "recovered": n_rec,
-                     "recovered_cells": dict(rec_cells.most_common(8))}
+                     "recovered_cells": dict(rec_cells.most_common(8)),
+                     "l_cut_covered_fragments": n_lcut,
+                     "c_rerouted": n_creroute, "c_dropped": n_cdrop}
         print(f"[{arm.upper()}] {w}: rejected={n_rej} "
               f"{dict(rej_cells.most_common(5))} recovered={n_rec} "
-              f"{dict(rec_cells.most_common(5))}", flush=True)
+              f"{dict(rec_cells.most_common(5))} lcut={n_lcut} "
+              f"c_reroute={n_creroute} c_drop={n_cdrop}", flush=True)
 
     mins = P0.window_minutes(windows)
     for tag in ("base", arm):

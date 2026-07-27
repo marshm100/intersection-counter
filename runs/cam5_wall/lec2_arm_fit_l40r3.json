@@ -1,0 +1,150 @@
+{
+ "arm": "lec2",
+ "bearing_tol": 55.0,
+ "l_wide_px": null,
+ "r_min_span": null,
+ "study_0700": {
+  "rejected": 487,
+  "rejected_cells": {
+   "39>37": 260,
+   "39>38": 114,
+   "37>39": 65,
+   "36>37": 16,
+   "36>39": 15,
+   "38>39": 6,
+   "37>36": 3,
+   "38>36": 3
+  },
+  "recovered": 36,
+  "recovered_cells": {
+   "37>39": 26,
+   "39>37": 9,
+   "36>38": 1
+  },
+  "l_cut_covered_fragments": 2,
+  "c_rerouted": 87,
+  "c_dropped": 0
+ },
+ "score_base": {
+  "total": 6.3,
+  "per_approach": {
+   "EB": 12.7,
+   "NB": 10.9,
+   "SB": 4.2
+  }
+ },
+ "score_lec2": {
+  "total": 3.1,
+  "per_approach": {
+   "EB": 15.2,
+   "NB": 5.1,
+   "SB": 7.5
+  }
+ },
+ "cells": [
+  {
+   "cell": "36>36",
+   "base": 1,
+   "lec2": 1,
+   "mio": 0
+  },
+  {
+   "cell": "36>37",
+   "base": 89,
+   "lec2": 70,
+   "mio": 23
+  },
+  {
+   "cell": "36>38",
+   "base": 76,
+   "lec2": 83,
+   "mio": 25
+  },
+  {
+   "cell": "36>39",
+   "base": 45,
+   "lec2": 28,
+   "mio": 26
+  },
+  {
+   "cell": "37>36",
+   "base": 35,
+   "lec2": 32,
+   "mio": 22
+  },
+  {
+   "cell": "37>38",
+   "base": 72,
+   "lec2": 70,
+   "mio": 48
+  },
+  {
+   "cell": "37>39",
+   "base": 1752,
+   "lec2": 1976,
+   "mio": 1868
+  },
+  {
+   "cell": "38>36",
+   "base": 17,
+   "lec2": 14,
+   "mio": 4
+  },
+  {
+   "cell": "38>37",
+   "base": 113,
+   "lec2": 112,
+   "mio": 96
+  },
+  {
+   "cell": "38>38",
+   "base": 6,
+   "lec2": 6,
+   "mio": 6
+  },
+  {
+   "cell": "38>39",
+   "base": 124,
+   "lec2": 118,
+   "mio": 188
+  },
+  {
+   "cell": "39>36",
+   "base": 5,
+   "lec2": 3,
+   "mio": 21
+  },
+  {
+   "cell": "39>37",
+   "base": 2468,
+   "lec2": 2308,
+   "mio": 2379
+  },
+  {
+   "cell": "39>38",
+   "base": 557,
+   "lec2": 357,
+   "mio": 335
+  },
+  {
+   "cell": "39>39",
+   "base": 1,
+   "lec2": 0,
+   "mio": 1
+  }
+ ],
+ "invariant_vs_truth": {
+  "37>39": {
+   "ratio": 1.058,
+   "in_band": false
+  },
+  "39>37": {
+   "ratio": 0.97,
+   "in_band": true
+  }
+ },
+ "per_cell_abs": {
+  "base": 711,
+  "lec2": 456
+ }
+}
