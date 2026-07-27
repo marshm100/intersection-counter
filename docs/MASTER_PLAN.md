@@ -271,7 +271,10 @@ The §2c architecture went from plan to product in one week. Full trail:
   plan_origin_veto PHASE-3 VERDICT — FM51-proven both phases but the frozen
   d_main signature over-fires at corridor far-field compression; cam2
   4.1→7.2 / cam5 EB 16.1→26.1, drops not recovered; flag OFF,
-  revival-ready, two named candidates)**.
+  revival-ready, two named candidates)**, **bank-hole path-fill at
+  fragment-heavy cameras (cam5: drawn ×2 2026-07-09/10, fitted corpus ×1
+  2026-07-27 — the approach-level gain was phantom cancellation;
+  plan_cam5_eb_bankhole VERDICT)**.
 
 ---
 
@@ -558,6 +561,29 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    corpus banks + the turn merge (EB better, SB worse than isolation) —
    scoring bases differ, always name the basis. cam2-EB's occlusion-split
    class is the remaining wall there.
+   **STATUS 2026-07-27 (later) — the cam5 wall RE-DIAGNOSED; bank-hole
+   framing retired** (`plan_cam5_eb_bankhole_2026-07-27.md`, operator-
+   selected wall B): phase-0 decomposition + fate ledgers on the stock
+   replay basis (OFF-parity to the rebaseline row EXACT). The holes hold
+   45/82/65 veh/day against 200–650-veh walls (best case +73 ≈ 6% of NB's
+   error mass); the one guard-surviving fitted-path promotion FAILED its
+   pre-declared phantom gate (EB-thru cell 43 events vs 4 real; the EB
+   approach "gain" 16.1→13.5 was phantom fill cancelling the EB-right
+   deficit — per-approach flattered, per-cell corrupted). Path-fill at
+   fragment-heavy cameras is now measured-dead ×3 (drawn ×2, fitted ×1).
+   The REAL cam5 walls, sized from the ledgers: (1) far-field same-anchor
+   STUB class — 45% of all tracks; feeds the entire NB-left phantom
+   (+646) and most EB-right events, while the SAME population correctly
+   carries NB-thru (1839/1663 fragment events) — so the discriminator
+   must be divergence-segment coverage ((s,d) direction), never entry
+   evidence (activation census rightly refuses cam5 at 0.387) and never
+   stub-ness alone; (2) SB-thru insufficient-data leak −417 (21%/18% of
+   real-geometry journeys — cheapest next, diagnosis first); (3) EB-right
+   journey formation −207 (13/21 real-geometry tracks/window; capability
+   class beside cam2 SB-right). A GT-free geometric promotion guard
+   (reject near-subsegments of banked paths, 15–22 px tell) is on record
+   for any future bank-fill idea. Nothing shipped; project.db untouched;
+   corridor scoreboard unchanged.
 9. **D-low-light** + **E deliverables (L/M/A Excel, PDF)** + **F2/F3 calibration studio** —
    unchanged from prior sequencing.
    **STATUS 2026-07-17:** E is DONE (plan_deliverables_E: Miovision-parity

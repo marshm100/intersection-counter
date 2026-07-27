@@ -1,0 +1,540 @@
+{
+ "basis": "replayed-minutes (per_interval, 15-min bins, ref_floor 20, windows 0700/1100/1600)",
+ "per_window": {
+  "study_0700": {
+   "total": 6.3,
+   "per_approach": {
+    "EB": 12.7,
+    "NB": 10.9,
+    "SB": 4.2
+   },
+   "n_bins": 8
+  },
+  "study_1100": {
+   "total": 9.7,
+   "per_approach": {
+    "EB": 13.0,
+    "NB": 23.8,
+    "SB": 6.1
+   },
+   "n_bins": 8
+  },
+  "study_1600": {
+   "total": 5.5,
+   "per_approach": {
+    "EB": 22.7,
+    "NB": 17.2,
+    "SB": 5.2
+   },
+   "n_bins": 8
+  }
+ },
+ "pooled": {
+  "total": 7.2,
+  "per_approach": {
+   "EB": 16.1,
+   "NB": 17.3,
+   "SB": 5.1
+  },
+  "n_bins": 24,
+  "wb_bins_scored": 0
+ },
+ "off_parity": {
+  "pass": true,
+  "cells": {
+   "total": [
+    7.2,
+    7.2
+   ],
+   "EB": [
+    16.1,
+    16.1
+   ],
+   "NB": [
+    17.3,
+    17.3
+   ],
+   "SB": [
+    5.1,
+    5.1
+   ]
+  }
+ },
+ "cells_pooled": [
+  {
+   "cell": "36>36",
+   "name": "WB uturn",
+   "ours": 1,
+   "mio": 0
+  },
+  {
+   "cell": "36>37",
+   "name": "WB right",
+   "ours": 248,
+   "mio": 69
+  },
+  {
+   "cell": "36>38",
+   "name": "WB thru",
+   "ours": 196,
+   "mio": 76
+  },
+  {
+   "cell": "36>39",
+   "name": "WB left",
+   "ours": 108,
+   "mio": 65
+  },
+  {
+   "cell": "37>36",
+   "name": "SB left",
+   "ours": 143,
+   "mio": 98
+  },
+  {
+   "cell": "37>38",
+   "name": "SB right",
+   "ours": 352,
+   "mio": 273
+  },
+  {
+   "cell": "37>39",
+   "name": "SB thru",
+   "ours": 5766,
+   "mio": 6183
+  },
+  {
+   "cell": "38>36",
+   "name": "EB thru",
+   "ours": 54,
+   "mio": 45
+  },
+  {
+   "cell": "38>37",
+   "name": "EB left",
+   "ours": 370,
+   "mio": 308
+  },
+  {
+   "cell": "38>38",
+   "name": "EB uturn",
+   "ours": 11,
+   "mio": 11
+  },
+  {
+   "cell": "38>39",
+   "name": "EB right",
+   "ours": 387,
+   "mio": 594
+  },
+  {
+   "cell": "39>36",
+   "name": "NB right",
+   "ours": 9,
+   "mio": 82
+  },
+  {
+   "cell": "39>37",
+   "name": "NB thru",
+   "ours": 6447,
+   "mio": 5926
+  },
+  {
+   "cell": "39>38",
+   "name": "NB left",
+   "ours": 1406,
+   "mio": 760
+  },
+  {
+   "cell": "39>39",
+   "name": "NB uturn",
+   "ours": 1,
+   "mio": 4
+  },
+  {
+   "cell": null,
+   "name": "SB uturn",
+   "ours": 0,
+   "mio": 22
+  }
+ ],
+ "cells_by_window": {
+  "study_0700": [
+   {
+    "cell": "36>36",
+    "name": "WB uturn",
+    "ours": 1,
+    "mio": 0
+   },
+   {
+    "cell": "36>37",
+    "name": "WB right",
+    "ours": 89,
+    "mio": 23
+   },
+   {
+    "cell": "36>38",
+    "name": "WB thru",
+    "ours": 76,
+    "mio": 25
+   },
+   {
+    "cell": "36>39",
+    "name": "WB left",
+    "ours": 45,
+    "mio": 26
+   },
+   {
+    "cell": "37>36",
+    "name": "SB left",
+    "ours": 35,
+    "mio": 22
+   },
+   {
+    "cell": "37>38",
+    "name": "SB right",
+    "ours": 72,
+    "mio": 48
+   },
+   {
+    "cell": "37>39",
+    "name": "SB thru",
+    "ours": 1752,
+    "mio": 1868
+   },
+   {
+    "cell": "38>36",
+    "name": "EB thru",
+    "ours": 17,
+    "mio": 4
+   },
+   {
+    "cell": "38>37",
+    "name": "EB left",
+    "ours": 113,
+    "mio": 96
+   },
+   {
+    "cell": "38>38",
+    "name": "EB uturn",
+    "ours": 6,
+    "mio": 6
+   },
+   {
+    "cell": "38>39",
+    "name": "EB right",
+    "ours": 124,
+    "mio": 188
+   },
+   {
+    "cell": "39>36",
+    "name": "NB right",
+    "ours": 5,
+    "mio": 21
+   },
+   {
+    "cell": "39>37",
+    "name": "NB thru",
+    "ours": 2468,
+    "mio": 2379
+   },
+   {
+    "cell": "39>38",
+    "name": "NB left",
+    "ours": 557,
+    "mio": 335
+   },
+   {
+    "cell": "39>39",
+    "name": "NB uturn",
+    "ours": 1,
+    "mio": 1
+   },
+   {
+    "cell": null,
+    "name": "SB uturn",
+    "ours": 0,
+    "mio": 4
+   }
+  ],
+  "study_1100": [
+   {
+    "cell": "36>37",
+    "name": "WB right",
+    "ours": 56,
+    "mio": 21
+   },
+   {
+    "cell": "36>38",
+    "name": "WB thru",
+    "ours": 61,
+    "mio": 24
+   },
+   {
+    "cell": "36>39",
+    "name": "WB left",
+    "ours": 20,
+    "mio": 17
+   },
+   {
+    "cell": "37>36",
+    "name": "SB left",
+    "ours": 41,
+    "mio": 27
+   },
+   {
+    "cell": "37>38",
+    "name": "SB right",
+    "ours": 107,
+    "mio": 88
+   },
+   {
+    "cell": "37>39",
+    "name": "SB thru",
+    "ours": 1379,
+    "mio": 1496
+   },
+   {
+    "cell": "38>36",
+    "name": "EB thru",
+    "ours": 24,
+    "mio": 12
+   },
+   {
+    "cell": "38>37",
+    "name": "EB left",
+    "ours": 111,
+    "mio": 87
+   },
+   {
+    "cell": "38>38",
+    "name": "EB uturn",
+    "ours": 1,
+    "mio": 1
+   },
+   {
+    "cell": "38>39",
+    "name": "EB right",
+    "ours": 116,
+    "mio": 162
+   },
+   {
+    "cell": "39>36",
+    "name": "NB right",
+    "ours": 4,
+    "mio": 26
+   },
+   {
+    "cell": "39>37",
+    "name": "NB thru",
+    "ours": 1539,
+    "mio": 1362
+   },
+   {
+    "cell": "39>38",
+    "name": "NB left",
+    "ours": 410,
+    "mio": 185
+   },
+   {
+    "cell": null,
+    "name": "NB uturn",
+    "ours": 0,
+    "mio": 1
+   },
+   {
+    "cell": null,
+    "name": "SB uturn",
+    "ours": 0,
+    "mio": 15
+   }
+  ],
+  "study_1600": [
+   {
+    "cell": "36>37",
+    "name": "WB right",
+    "ours": 103,
+    "mio": 25
+   },
+   {
+    "cell": "36>38",
+    "name": "WB thru",
+    "ours": 59,
+    "mio": 27
+   },
+   {
+    "cell": "36>39",
+    "name": "WB left",
+    "ours": 43,
+    "mio": 22
+   },
+   {
+    "cell": "37>36",
+    "name": "SB left",
+    "ours": 67,
+    "mio": 49
+   },
+   {
+    "cell": "37>38",
+    "name": "SB right",
+    "ours": 173,
+    "mio": 137
+   },
+   {
+    "cell": "37>39",
+    "name": "SB thru",
+    "ours": 2635,
+    "mio": 2819
+   },
+   {
+    "cell": "38>36",
+    "name": "EB thru",
+    "ours": 13,
+    "mio": 29
+   },
+   {
+    "cell": "38>37",
+    "name": "EB left",
+    "ours": 146,
+    "mio": 125
+   },
+   {
+    "cell": "38>38",
+    "name": "EB uturn",
+    "ours": 4,
+    "mio": 4
+   },
+   {
+    "cell": "38>39",
+    "name": "EB right",
+    "ours": 147,
+    "mio": 244
+   },
+   {
+    "cell": "39>37",
+    "name": "NB thru",
+    "ours": 2440,
+    "mio": 2185
+   },
+   {
+    "cell": "39>38",
+    "name": "NB left",
+    "ours": 439,
+    "mio": 240
+   },
+   {
+    "cell": null,
+    "name": "NB right",
+    "ours": 0,
+    "mio": 35
+   },
+   {
+    "cell": null,
+    "name": "NB uturn",
+    "ours": 0,
+    "mio": 2
+   },
+   {
+    "cell": null,
+    "name": "SB uturn",
+    "ours": 0,
+    "mio": 3
+   }
+  ]
+ },
+ "hole_mio_volumes": {
+  "38>36": {
+   "name": "EB thru",
+   "study_0700": 4,
+   "study_1100": 12,
+   "study_1600": 29,
+   "total": 45
+  },
+  "39>36": {
+   "name": "NB right",
+   "study_0700": 21,
+   "study_1100": 26,
+   "study_1600": 35,
+   "total": 82
+  },
+  "36>39": {
+   "name": "WB left",
+   "study_0700": 26,
+   "study_1100": 17,
+   "study_1600": 22,
+   "total": 65
+  }
+ },
+ "corpus_supports_vs_mio0700": [
+  {
+   "cell": "36>37",
+   "support": 64,
+   "mio_0700": 23
+  },
+  {
+   "cell": "36>38",
+   "support": 51,
+   "mio_0700": 25
+  },
+  {
+   "cell": "36>39",
+   "support": 1238,
+   "mio_0700": 26
+  },
+  {
+   "cell": "37>36",
+   "support": 3,
+   "mio_0700": 22
+  },
+  {
+   "cell": "37>38",
+   "support": 81,
+   "mio_0700": 48
+  },
+  {
+   "cell": "37>39",
+   "support": 584,
+   "mio_0700": 1868
+  },
+  {
+   "cell": "38>36",
+   "support": 58,
+   "mio_0700": 4
+  },
+  {
+   "cell": "38>37",
+   "support": 128,
+   "mio_0700": 96
+  },
+  {
+   "cell": "38>39",
+   "support": 164,
+   "mio_0700": 188
+  },
+  {
+   "cell": "39>36",
+   "support": 814,
+   "mio_0700": 21
+  },
+  {
+   "cell": "39>37",
+   "support": 1544,
+   "mio_0700": 2379
+  },
+  {
+   "cell": "39>38",
+   "support": 153,
+   "mio_0700": 335
+  },
+  {
+   "cell": "39>39",
+   "support": 461,
+   "mio_0700": 1
+  }
+ ],
+ "production_hole_events": {
+  "38>36": 54,
+  "39>36": 11,
+  "36>39": 81
+ }
+}
