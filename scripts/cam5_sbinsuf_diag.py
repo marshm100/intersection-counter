@@ -44,7 +44,7 @@ import backend.services.pipeline as PL
 
 PROJECT = "97a7849a"
 CAM = 5
-SCRATCH = Path(r"C:\Users\onkar\AppData\Local\Temp\ic_scratch_97a7849a")
+SCRATCH = Path("data/projects/97a7849a/_replay_scratch")  # see cam5_wall_phase0
 
 RECORDS: list[dict] = []
 _LEGS: dict[int, tuple[float, float]] = {}

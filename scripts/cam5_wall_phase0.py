@@ -36,7 +36,8 @@ from interval_metric import per_interval
 
 PROJECT = "97a7849a"
 CAM = 5
-SCRATCH = Path(r"C:\Users\onkar\AppData\Local\Temp\ic_scratch_97a7849a")
+SCRATCH = Path("data/projects/97a7849a/_replay_scratch")  # gitignored via data/;
+# NOT under %TEMP% — Windows purged Temp scratch DBs mid-session 2026-07-27
 WINDOWS = ["study_0700", "study_1100", "study_1600"]
 WINDOW_HOURS = {"study_0700": (7, 9), "study_1100": (11, 13),
                 "study_1600": (16, 18)}

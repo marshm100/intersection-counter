@@ -157,6 +157,53 @@ replays. No detection, no training, no iGPU.
   per-cell AND per-approach; an approach win with a corrupted cell is a
   FAIL by gate, not judgment.
 
+## PHASE-0 FINDINGS, part 1 — the cam5 chain census (2026-07-27, same
+day; evidence runs/cam5_wall/chain_census.json, harness
+scripts/lane_echo_phase0.py; BASE replays re-derived into
+data/projects/97a7849a/_replay_scratch after a Windows Temp purge ate
+the originals mid-session — OFF-parity re-proven EXACT on the new
+copies first: 7.2 / 16.1 / 17.3 / 5.1)
+
+Frozen-constant chaining over the three stock windows, joined to BASE
+events. GT appears nowhere in the census itself (Mio used below only to
+interpret it — dev yardstick).
+
+- **E's prize is real: 1,625 excess events/day** (630/388/607 per
+  window) across 595/374/580 multi-event chains. NB-left: 554 of its
+  1,406 events sit in multi-event chains; its singleton population is
+  dominated by FULL-journey tracks (249/147/166 ≈ the real turners —
+  Mio 335/185/240). Dedup alone projects NB-left from 1.85× toward
+  ~1.3× pooled; the remaining ~290 singleton orphans (entry_only /
+  no_crossing / exit_only) are C's load. E is necessary, not
+  sufficient.
+- **DEFECT CAUGHT in the frozen chaining — cross-direction false
+  links:** 174 chains carry BOTH an SB-thru and an NB-thru event
+  (85/21/68). At the compressed far band one direction's death sits
+  pixels from the opposing direction's birth, and `chain_tracks` gates
+  on time+distance+tags only — no heading. Dedup on a false chain eats
+  a real vehicle (the 2026-07-09 hazard, new clothing).
+  **AMENDMENT 1:** a direction-consistency gate on chain edges (A's
+  end-tangent vs B's start-tangent within the bearing-tol class
+  constant, 55°), unit-tested, ships inside E — measured by the same
+  census (the 174 must go to ~0 without the same-cell pair mass
+  collapsing).
+- **NB-thru's +89 is itself a cancellation compose:** 222/89/186
+  same-cell NB-thru echo pairs per window mask ~133 genuinely-missing
+  NB vehicles at 0700 (2,468 − 222 = 2,246 vs 2,379). An honest dedup
+  breaks the naive ±3-of-BASE invariant. **AMENDMENT 2:** the
+  protection invariant is vs TRUTH on the dev windows — post-arm
+  NB-thru and SB-thru ratios must land in [0.97, 1.03] — not vs BASE's
+  flattered ratio. **AMENDMENT 3:** chain-union recovery is REQUIRED,
+  not optional: zero-event chains whose union geometry is claimable are
+  the −133's candidates; census them (count + union-claimability)
+  before phase 1 arms.
+- **The SB dropped laterals are clean losses, not echoes:** dropped /
+  no-event real-geometry SB tracks sit in a counted chain 2/0/0 times
+  out of 257/311/430. The +7.5/+8.7% overshoot arithmetic stands
+  numerically, but its mechanism is the fragment feed covering OTHER
+  vehicles — so L's recovery is genuinely additive, and the L+E arm
+  measures the net compose empirically.
+
 ## Generalize (after the corridor, not before)
 
 If the mechanism ships at cam5: the same census decides cam1/cam4 (their
