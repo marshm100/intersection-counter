@@ -364,8 +364,11 @@ ORIGIN_POSTERIOR_ENABLED = _os.environ.get(
 # never measured them). Census scale: cam2-stock 0.510 activates (4.1->2.8%
 # total, NB 3.2); everything else 0.387-and-below stands down, incl. the
 # held-out FM51 at 0.02. C=0.45 = the census-definition gap midpoint.
+# Default ON (operator promotion 2026-07-27, after the live cam2
+# verification byte-matched phase 1): every pass-2 runs the blind census;
+# only coverage >= C activates. EVIDENCE_ACTIVATION_ENABLED=0 reverts.
 EVIDENCE_ACTIVATION_ENABLED = _os.environ.get(
-    "EVIDENCE_ACTIVATION_ENABLED", "") in ("1", "true", "on")
+    "EVIDENCE_ACTIVATION_ENABLED", "1") in ("1", "true", "on")
 EVIDENCE_ACTIVATION_COVERAGE = 0.45
 # The two fit-then-frozen constants (stage 4 fits them on cam2 study_0700
 # ONLY; env overrides exist for that sweep and nothing else):
