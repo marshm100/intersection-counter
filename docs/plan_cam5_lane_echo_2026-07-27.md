@@ -332,3 +332,49 @@ then held-out 1100/1600. Bands met -> the corridor sweep + FM51
 partial standing and a retirement entry; whether NB-left's closure
 ships alone is then an operator decision informed by the sweep-less
 evidence.
+
+---
+
+## ITERATION-2 VERDICT + CYCLE CLOSE (2026-07-27 — FAIL AT FIT; evidence
+runs/cam5_wall/lec3_arm_fit*.json)
+
+CD was implemented as designed (all-events concurrent dedup, sustained
+IoU + lockstep, spatio-temporal prefilter; the R-resurrection defect —
+concurrent twins live in DIFFERENT sequential chains, so R re-recovered
+CD-removed vehicles — was caught and fixed before fitting). **The
+constants have no discriminating regime:** IoU 0.30/0.40 and lockstep
+10/6/4 px all catch the same ~93–99 pairs at 0700, of which ~42–46 are
+NB-thru — and removing them drives NB-thru to 0.95, BELOW the band, at
+the fit window whose base inflation (1.04×) is mild. The caught pairs at
+the far band are predominantly REAL adjacent vehicles with genuinely
+overlapping boxes, not double-boxes. **The 2026-07-09 conclusion is
+re-confirmed with a strictly stronger discriminator: image-space
+concurrency tests cannot separate far-band twins from real neighbors.
+Iteration 2 FAILS at fit; the held-out windows were never run; the
+two-iteration budget CLOSES the cycle.**
+
+### The cycle's standing result (what future work inherits)
+
+- **Iteration-1 PARTIAL stands:** NB-left (the +646 wall) closed and
+  held-out-proven (1.85 → 1.06/1.07); per-cell abs −44% fit / −37%
+  held-out; both protected thrus moved TOWARD truth on held-out
+  (NB 1.122→1.085, SB 0.93→1.054 in |err| terms) but did not reach the
+  [0.97, 1.03] band — so the corridor sweep never ran and NOTHING is
+  wired or shipped. Flags do not exist; production untouched.
+- **Retired by measurement (do not retry as-is):** cell-agnostic
+  keep-one (E-alone); ungated chaining at fragment-heavy sites (FM51's
+  785 flip-pairs/day); all-events image-space concurrent dedup (CD —
+  twice-confirmed dead); R without the CD-chain guard.
+- **Revival-ready, evidence-backed:** the direction-gated chain builder,
+  divergence-aware survivor selection, C-proper eligibility reroute,
+  L full-journey lateral rescue + concurrent cut, R rmin=3 — the LEC2
+  frozen bundle, one honest band-miss from its own bar.
+- **Named future candidates (new mechanism class, own plan + budget):**
+  (a) appearance-based twin detection (ReID embeddings exist per-camera
+  for botsort+reid recipes — a twin test on embedding similarity is
+  image-space-compression-immune); (b) per-window composition-adaptive
+  rejection (the fit/held-out inflation delta 1.04× vs 1.12× is
+  measurable blind from the census — an activation-style scaler, needs
+  its own gate); (c) the operator decision recorded in the plan: whether
+  LEC2's sweep-less partial justifies a relaxed-bar corridor sweep is
+  an explicit bar change, not a default.

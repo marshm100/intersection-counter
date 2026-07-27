@@ -56,6 +56,39 @@ R_MIN_SPAN_PX = 2 * AMBIGUITY_PX   # recovery coverage floor (60 px)
 
 CONC_MIN_OVERLAP_S = 1.0
 CONC_MAX_DIST_PX = 35.0
+# Iteration-2 CD constants (candidates; fit on 0700 only, then frozen)
+CD_IOU_MIN = 0.30
+CD_LOCKSTEP_STD_PX = 10.0
+
+
+def _iou(a, b):
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    ax1, ay1, ax2, ay2 = ax - aw / 2, ay - ah / 2, ax + aw / 2, ay + ah / 2
+    bx1, by1, bx2, by2 = bx - bw / 2, by - bh / 2, bx + bw / 2, by + bh / 2
+    ix = max(0.0, min(ax2, bx2) - max(ax1, bx1))
+    iy = max(0.0, min(ay2, by2) - max(ay1, by1))
+    inter = ix * iy
+    union = aw * ah + bw * bh - inter
+    return inter / union if union > 0 else 0.0
+
+
+def _cd_same_vehicle(boxes_a, boxes_b, fps, iou_min, lockstep_px):
+    """Sustained-IoU + lockstep test over shared frames (iteration-2 CD)."""
+    shared = sorted(set(boxes_a) & set(boxes_b))
+    need = int(CONC_MIN_OVERLAP_S * fps)
+    if len(shared) < need:
+        return False
+    ious, dists = [], []
+    for f in shared:
+        a, b = boxes_a[f], boxes_b[f]
+        ious.append(_iou(a, b))
+        dists.append(math.hypot(a[0] - b[0], a[1] - b[1]))
+    if sum(ious) / len(ious) < iou_min:
+        return False
+    mean_d = sum(dists) / len(dists)
+    var = sum((d - mean_d) ** 2 for d in dists) / len(dists)
+    return math.sqrt(var) <= lockstep_px
 
 
 def _concurrent_dup(pts, counted_tids, tracks, fps) -> bool:
@@ -110,7 +143,10 @@ def _l_patched_replay(w: str, out_db: Path):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--arm", choices=["ec", "lec", "lec2"], default="ec")
+    ap.add_argument("--arm", choices=["ec", "lec", "lec2", "lec3"],
+                    default="ec")
+    ap.add_argument("--cd-iou", type=float, default=CD_IOU_MIN)
+    ap.add_argument("--cd-lockstep", type=float, default=CD_LOCKSTEP_STD_PX)
     ap.add_argument("--windows", default=",".join(WINDOWS))
     ap.add_argument("--lwide", type=float, default=None,
                     help="override L_WIDE_PX (lec2 fit; changes the lpatch "
@@ -157,9 +193,14 @@ def main() -> int:
     for w in windows:
         rows, fps = CE.load_rows(PROJECT, CAM, w)
         tracks: dict[int, list] = {}
+        boxes: dict[int, dict] = defaultdict(dict)
         for r in rows:
-            tracks.setdefault(int(r[0]), []).append(
+            tid_r = int(r[0])
+            tracks.setdefault(tid_r, []).append(
                 (float(r[1]), float(r[2]), float(r[3])))
+            if arm == "lec3" and len(r) >= 8:
+                boxes[tid_r][int(r[1])] = (float(r[2]), float(r[3]),
+                                           float(r[4]), float(r[5]))
         recs, tags = [], {}
         for tid, pts in tracks.items():
             pts = sorted(pts)
@@ -181,7 +222,7 @@ def main() -> int:
         # BASE events (always from the stock replay for the base arm score)
         base_db = scratch / f"cam5wall_stock_{w}.db"
         # arm events come from the stock DB (ec) or the L-patched replay
-        if arm in ("lec", "lec2"):
+        if arm in ("lec", "lec2", "lec3"):
             arm_db = scratch / f"cam5wall_{lpatch_tag}_{w}.db"
             if not arm_db.exists():
                 t0 = _clock.time()
@@ -213,7 +254,7 @@ def main() -> int:
         # widened gate rescues uncovered VEHICLES, never extra fragments of
         # counted ones (the LEC 1.093 overshoot fix).
         n_lcut = 0
-        if arm == "lec2":
+        if arm in ("lec2", "lec3"):
             stock_tids = {e["tid"] for e in base_evs}
             stock_chains = {chain_map.get(t) for t in stock_tids} - {None}
             filtered = []
@@ -282,7 +323,7 @@ def main() -> int:
         # divergence; ineligible claims re-route to the origin's thru
         # sibling (the geometric no-turn prior), else drop.
         n_creroute = n_cdrop = 0
-        if arm == "lec2":
+        if arm in ("lec2", "lec3"):
             thru_by_origin = {o: d for (o, d) in thru_cells}
             filtered = []
             for e in kept:
@@ -311,13 +352,71 @@ def main() -> int:
                     filtered.append(e)
             kept = filtered
 
+        # CD (lec3, iteration 2): concurrent dedup over ALL kept events —
+        # sustained-IoU + lockstep same-vehicle test, spatio-temporal
+        # bucket prefilter. Keep-one per duplicate group (full, longest).
+        n_cd = 0
+        cd_cells = Counter()
+        if arm == "lec3":
+            real = [e for e in kept if e["tid"] > 0 and e["tid"] in boxes]
+            bucket = defaultdict(list)
+            for idx, e in enumerate(real):
+                for f, (cx, cy, _bw, _bh) in boxes[e["tid"]].items():
+                    if f % 10 == 0:
+                        bucket[(f // 30, int(cx) // 80, int(cy) // 80)].append(idx)
+            pairs = set()
+            for idxs in bucket.values():
+                for i in range(len(idxs)):
+                    for j in range(i + 1, len(idxs)):
+                        if idxs[i] != idxs[j]:
+                            pairs.add((min(idxs[i], idxs[j]),
+                                       max(idxs[i], idxs[j])))
+            parent = list(range(len(real)))
+
+            def find(x):
+                while parent[x] != x:
+                    parent[x] = parent[parent[x]]
+                    x = parent[x]
+                return x
+
+            for i, j in pairs:
+                if find(i) == find(j):
+                    continue
+                if _cd_same_vehicle(boxes[real[i]["tid"]],
+                                    boxes[real[j]["tid"]], fps,
+                                    args.cd_iou, args.cd_lockstep):
+                    parent[find(i)] = find(j)
+            groups = defaultdict(list)
+            for idx in range(len(real)):
+                groups[find(idx)].append(real[idx])
+            drop_ids = set()
+            cd_removed_chains = set()
+            for g in groups.values():
+                if len(g) < 2:
+                    continue
+                g_sorted = sorted(
+                    g, key=lambda e: (0 if tags.get(e["tid"]) == "full" else 1,
+                                      -len(tracks.get(e["tid"], [])),
+                                      e["tid"]))
+                for e in g_sorted[1:]:
+                    drop_ids.add(id(e))
+                    n_cd += 1
+                    cd_cells[f"{e['o']}>{e['d']}"] += 1
+                    ci = chain_map.get(e["tid"])
+                    if ci is not None:
+                        cd_removed_chains.add(ci)
+            kept = [e for e in kept if id(e) not in drop_ids]
+        else:
+            cd_removed_chains = set()
+
         # R: conservative recovery — multi-member zero-event chains
         n_rec = 0
         rec_cells = Counter()
-        if arm in ("lec", "lec2"):
+        if arm in ("lec", "lec2", "lec3"):
             ev_ci = {chain_map.get(e["tid"]) for e in kept} - {None}
             for ci, tids in members.items():
-                if len(tids) < args.r_min_members or ci in ev_ci:
+                if (len(tids) < args.r_min_members or ci in ev_ci
+                        or ci in cd_removed_chains):
                     continue
                 uxy = union_xy(ci)
                 upts = sorted(p for tid in tids for p in tracks[tid])
@@ -367,11 +466,14 @@ def main() -> int:
                      "recovered": n_rec,
                      "recovered_cells": dict(rec_cells.most_common(8)),
                      "l_cut_covered_fragments": n_lcut,
-                     "c_rerouted": n_creroute, "c_dropped": n_cdrop}
+                     "c_rerouted": n_creroute, "c_dropped": n_cdrop,
+                     "cd_removed": n_cd,
+                     "cd_cells": dict(cd_cells.most_common(8))}
         print(f"[{arm.upper()}] {w}: rejected={n_rej} "
               f"{dict(rej_cells.most_common(5))} recovered={n_rec} "
               f"{dict(rec_cells.most_common(5))} lcut={n_lcut} "
-              f"c_reroute={n_creroute} c_drop={n_cdrop}", flush=True)
+              f"c_reroute={n_creroute} c_drop={n_cdrop} cd={n_cd} "
+              f"{dict(cd_cells.most_common(5))}", flush=True)
 
     mins = P0.window_minutes(windows)
     for tag in ("base", arm):
