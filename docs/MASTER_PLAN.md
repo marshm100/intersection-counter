@@ -590,7 +590,15 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    opposing lanes at 33–41 px are the yardstick; NB mirror drops 0).
    COUPLING: un-dropping alone overshoots +7.5/+8.7% (fragment echoes
    of the same vehicles already count) — so the lateral fix and the
-   stub/echo discipline (item 1) are ONE mechanism plan, not two. A GT-free geometric promotion guard
+   stub/echo discipline (item 1) are ONE mechanism plan, not two.
+   **That plan is WRITTEN: `plan_cam5_lane_echo_2026-07-27.md`** — three
+   components (E echo-suppression on the revival-ready track_chains
+   machinery, zero new chaining constants; L per-cell lateral acceptance,
+   ships only with E; C divergence-eligibility with geometric thru
+   default), NB/SB-THRU-protection invariant (±3 pts, hard stop) against
+   the load-bearing fragment feed, two-iteration budget, phase-0 blind
+   chain census doubling as the future activation precondition, corridor
+   blind sweep with cam3/FM51 tripwires. Next session starts phase 0. A GT-free geometric promotion guard
    (reject near-subsegments of banked paths, 15–22 px tell) is on record
    for any future bank-fill idea. Nothing shipped; project.db untouched;
    corridor scoreboard unchanged.
