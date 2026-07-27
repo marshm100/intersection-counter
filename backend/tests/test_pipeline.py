@@ -377,6 +377,77 @@ class TestPipelineInit:
         assert captured["origins"] == [1]           # the 3->2 stem path filtered
         assert p.n_origin_rewrite_vetoed == 1
 
+    # --- Evidence-gate modes (plan_evidence_activation_2026-07-24) --------
+
+    def _evidence_vehicle(self):
+        """Straight-east track along the main road, born at the W mouth —
+        entry-gate evidence says leg 1; the PROVISIONAL origin is wrong (3)."""
+        return {
+            "origin_leg_id": 3, "reference_heading": 120.0, "origin_frame": 5,
+            "start_frame": 0,
+            "trajectory": [(40 + i * 30, 500) for i in range(15)],
+            "confidences": [0.9] * 15, "last_center": (460, 500),
+            "class_id": 2, "class_name": "car",
+            "bbox_width": 100.0, "bbox_height": 60.0, "bbox_area": 6000.0,
+        }
+
+    def test_probe_counts_but_never_alters(self, pipeline_env, monkeypatch):
+        """PROBE advances the coverage counters and changes NOTHING else —
+        the event matches mode-off byte-for-byte (the activation census's
+        no-effect contract). Mode ON corrects origin to the evidenced leg.
+        The joint scorer is stubbed to no-match so the polyline tier can't
+        mask the evidence override."""
+        import backend.services.pipeline as mod
+        monkeypatch.setattr(mod, "score_path_joint",
+                            lambda *a, **k: {"destination_leg_id": None})
+        results = {}
+        for mode in ("off", "probe", "on"):
+            p = self._veto_pipeline(pipeline_env,
+                                    [self._MAIN_THROUGH, self._STEM_RIGHT])
+            p._evidence_mode = mode
+            p._posterior_on = mode == "on"
+            p.active_vehicles[70] = self._evidence_vehicle()
+            p._finalize_vehicle(70, frame_number=30)
+            ev = [e for e in _get_vehicle_events(pipeline_env["db_path"])
+                  if e["vehicle_track_id"] == 70]
+            results[mode] = {
+                "origin": ev[-1]["origin_leg_id"] if ev else None,
+                "movement": ev[-1]["movement"] if ev else None,
+                "evidenced": p.n_origin_evidenced,
+                "unevidenced": p.n_origin_unevidenced,
+            }
+            # distinct ids per mode so events don't collide
+            import sqlite3
+            c = sqlite3.connect(pipeline_env["db_path"])
+            c.execute("DELETE FROM vehicle_events"); c.commit(); c.close()
+        assert results["off"]["origin"] == 3          # provisional kept
+        assert results["off"]["evidenced"] == 0       # machinery skipped
+        assert results["probe"]["origin"] == 3        # UNALTERED
+        assert results["probe"]["movement"] == results["off"]["movement"]
+        assert results["probe"]["evidenced"] == 1     # but counted
+        assert results["on"]["origin"] == 1           # evidence-corrected
+        assert results["on"]["evidenced"] == 1
+
+    def test_evidence_mode_resolution(self, pipeline_env, monkeypatch):
+        """None maps the module flags (legacy harness semantics, incl.
+        gate-without-posterior); explicit 'on' means the proven PAIR."""
+        import backend.services.pipeline as mod
+        p = self._veto_pipeline(pipeline_env, [self._MAIN_THROUGH])
+        assert (p._evidence_mode, p._posterior_on) == ("off", False)
+        monkeypatch.setattr(mod, "ORIGIN_EVIDENCE_GATE_ENABLED", True)
+        p2 = self._veto_pipeline(pipeline_env, [self._MAIN_THROUGH])
+        assert (p2._evidence_mode, p2._posterior_on) == ("on", False)
+        monkeypatch.setattr(mod, "ORIGIN_POSTERIOR_ENABLED", True)
+        p3 = self._veto_pipeline(pipeline_env, [self._MAIN_THROUGH])
+        assert (p3._evidence_mode, p3._posterior_on) == ("on", True)
+        from backend.services.pipeline import ProcessingPipeline
+        import pytest as _pytest
+        with _pytest.raises(ValueError):
+            ProcessingPipeline(
+                project_id="test", db_path=pipeline_env["db_path"],
+                video_path=pipeline_env["video_path"], legs=[], fps=30.0,
+                evidence_mode="bogus")
+
     def test_tripwire_incremental_scan_catches_late_crossing(self, pipeline_env):
         """The incremental tripwire scan (2026-07-17 quadratic fix) must not
         lose segments: a track that lingers short of the line for many

@@ -353,6 +353,20 @@ ORIGIN_EVIDENCE_GATE_ENABLED = _os.environ.get(
 # OFF by default until the stage-4 fit + stage-5 held-out + stage-6 sweep.
 ORIGIN_POSTERIOR_ENABLED = _os.environ.get(
     "ORIGIN_POSTERIOR_ENABLED", "") in ("1", "true", "on")
+
+# --- Evidence-gate ACTIVATION PRECONDITION (item-8 revival, ----------------
+# plan_evidence_activation_2026-07-24 PHASE-1 VERDICT). Per-camera, GT-free:
+# pass-2 first replays in PROBE mode (evidence computed + counted, ZERO
+# attribution effect), reads coverage = origin_evidenced / tracks, and only
+# when coverage >= the threshold re-replays with the PROVEN pair (gate +
+# posterior, replay-level ONLY — the run_pass2 posterior extras
+# census_expecteds/conserve_pass stay keyed on their own flags; phase 1
+# never measured them). Census scale: cam2-stock 0.510 activates (4.1->2.8%
+# total, NB 3.2); everything else 0.387-and-below stands down, incl. the
+# held-out FM51 at 0.02. C=0.45 = the census-definition gap midpoint.
+EVIDENCE_ACTIVATION_ENABLED = _os.environ.get(
+    "EVIDENCE_ACTIVATION_ENABLED", "") in ("1", "true", "on")
+EVIDENCE_ACTIVATION_COVERAGE = 0.45
 # The two fit-then-frozen constants (stage 4 fits them on cam2 study_0700
 # ONLY; env overrides exist for that sweep and nothing else):
 # margin floor — an origin posterior whose top-2 margin falls below this is

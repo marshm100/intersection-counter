@@ -87,7 +87,7 @@ def _row_to_tracked(row) -> dict:
 def replay_camera(project_id: str, camera_id: int, *, variant: str,
                   out_db: str | Path, start_frame: int | None = None,
                   end_frame: int | None = None, bank: dict | None = None,
-                  should_cancel=None) -> dict:
+                  should_cancel=None, evidence_mode: str | None = None) -> dict:
     """Replay a camera's raw-track dump through the production chain into
     `out_db` (a copy of project.db with this camera's events replaced — the
     established retrack working-DB pattern). Returns run stats.
@@ -164,7 +164,10 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         project_id=project_id, db_path=str(out_db), video_path=video["path"],
         legs=legs, fps=float(video["fps"]),
         video_start_time=video["recording_start_datetime"],
-        video_id=video["video_id"], calibration_params=calib, paths=paths)
+        video_id=video["video_id"], calibration_params=calib, paths=paths,
+        # None keeps the legacy module-flag semantics (harness env overrides);
+        # the activation precondition passes "probe"/"on" explicitly.
+        evidence_mode=evidence_mode)
     pipe._v3_camera_id = camera_id
     pipe._v3_trim_id = None
     if bank is not None:

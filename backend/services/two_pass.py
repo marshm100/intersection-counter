@@ -37,7 +37,11 @@ import numpy as np
 
 _CELL_RE = re.compile(r"L(\d+)->L(\d+)")
 
-from backend.config import ORIGIN_POSTERIOR_ENABLED
+from backend.config import (
+    EVIDENCE_ACTIVATION_COVERAGE,
+    EVIDENCE_ACTIVATION_ENABLED,
+    ORIGIN_POSTERIOR_ENABLED,
+)
 from backend.database import get_connection, get_db_path
 from backend.services.detection_cache import compute_video_content_hash, parquet_path
 from backend.services.flag_feeders import rebuild_flags
@@ -863,8 +867,33 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     # working DBs must coexist (measure-then-apply per window).
     if should_cancel is not None and should_cancel():
         raise JobCancelled(f"pass-2 cancelled after corpus bank (cam {camera_id})")
-    stats = replay_camera(project_id, camera_id, variant=variant, out_db=out_db,
-                          should_cancel=should_cancel)
+    # Evidence-gate activation precondition (plan_evidence_activation
+    # PHASE-1 VERDICT): PROBE replay first — evidence counted, zero
+    # attribution effect, so this replay IS the legacy result — then only a
+    # camera whose own blind coverage clears the bar re-replays with the
+    # proven pair (gate + posterior, replay-level only). Flag OFF: plain
+    # legacy replay, byte-identical.
+    activation = None
+    if EVIDENCE_ACTIVATION_ENABLED:
+        stats = replay_camera(project_id, camera_id, variant=variant,
+                              out_db=out_db, should_cancel=should_cancel,
+                              evidence_mode="probe")
+        n_tracks = int(stats.get("tracks") or 0)
+        coverage = (stats.get("origin_evidenced", 0) / n_tracks
+                    if n_tracks else 0.0)
+        activation = {"coverage": round(coverage, 3),
+                      "threshold": EVIDENCE_ACTIVATION_COVERAGE,
+                      "activated": coverage >= EVIDENCE_ACTIVATION_COVERAGE}
+        logger.info("two-pass cam%s %s: evidence coverage %.3f -> %s",
+                    camera_id, variant, coverage,
+                    "ACTIVATE" if activation["activated"] else "stand down")
+        if activation["activated"]:
+            stats = replay_camera(project_id, camera_id, variant=variant,
+                                  out_db=out_db, should_cancel=should_cancel,
+                                  evidence_mode="on")
+    else:
+        stats = replay_camera(project_id, camera_id, variant=variant,
+                              out_db=out_db, should_cancel=should_cancel)
     # Conservation pass (posterior half iteration 3): at most one counted
     # event per fragment chain, additive loses to legacy — BEFORE the merge
     # so the volume gate polices turns over de-duplicated counts.
@@ -885,6 +914,9 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                                    if k != "borderline"},
         "borderline": merge["borderline"], "out_db": str(out_db),
         "applied": False,
+        # Evidence-activation decision (None when the flag is off) — the
+        # operator-visible record of the blind coverage census + outcome.
+        "evidence_activation": activation,
     }
     stats_p.write_text(json.dumps({"dump_meta": meta,
                                    "calib_fingerprint": fingerprint,

@@ -176,6 +176,14 @@ class ProcessingPipeline:
         # verbatim to the backend so tracker behaviour can be tuned without
         # touching the call sites; ignored by backends that don't accept them.
         tracker_kwargs: dict | None = None,
+        # Evidence-gate mode (plan_evidence_activation_2026-07-24):
+        #   None    -> legacy: the module flags decide (harness env overrides
+        #              keep their exact semantics, incl. gate-without-posterior)
+        #   "off"   -> gate machinery skipped entirely
+        #   "probe" -> evidence computed + counters advance, ZERO attribution
+        #              effect (the activation precondition's blind census)
+        #   "on"    -> the PROVEN pair: gate + posterior both live
+        evidence_mode: str | None = None,
     ):
         self.project_id = project_id
         self.db_path = db_path
@@ -197,6 +205,18 @@ class ProcessingPipeline:
         self._tracker_match_threshold = tracker_match_threshold
         self._tracker_activation_threshold = tracker_activation_threshold
         self._calibration_params = calibration_params or {}
+        # Evidence-gate mode resolution (see the param doc above). Explicit
+        # "on" = the proven pair; legacy None maps the module flags so every
+        # existing harness/env pattern is byte-preserved.
+        if evidence_mode is None:
+            self._evidence_mode = "on" if ORIGIN_EVIDENCE_GATE_ENABLED else "off"
+            self._posterior_on = (self._evidence_mode == "on"
+                                  and ORIGIN_POSTERIOR_ENABLED)
+        else:
+            if evidence_mode not in ("off", "probe", "on"):
+                raise ValueError(f"bad evidence_mode: {evidence_mode!r}")
+            self._evidence_mode = evidence_mode
+            self._posterior_on = evidence_mode == "on"
         self._paths: list[dict] = list(paths) if paths else []
         self._tracker_backend = tracker_backend
         self._tracker_kwargs = dict(tracker_kwargs) if tracker_kwargs else {}
@@ -1195,23 +1215,29 @@ class ProcessingPipeline:
         origin_margin_val = None
         dest_tie_marg = None
         posterior_source = None
-        if ORIGIN_EVIDENCE_GATE_ENABLED and self._paths:
-            evidenced, gate_dest, gate_tag = self._gate_evidence(vehicle)
-            gate_origin = evidenced
+        if self._evidence_mode != "off" and self._paths:
+            evidenced, e_dest, e_tag = self._gate_evidence(vehicle)
+            # Coverage counters advance in probe AND on — they ARE the blind
+            # activation census (plan_evidence_activation). In probe mode
+            # nothing else happens: no origin override, no candidate filter,
+            # no posterior inputs — attribution is byte-identical to "off".
             if evidenced is not None:
                 self.n_origin_evidenced += 1
-                if evidenced != origin_leg_id:
-                    self.n_origin_corrected += 1
-                    origin_leg_id = evidenced
-                    origin_leg = next(
-                        (lg for lg in self.legs if lg["leg_id"] == evidenced),
-                        origin_leg)
-                    vehicle["origin_leg_id"] = evidenced
-                candidate_paths = [p for p in self._paths
-                                   if p["origin_leg_id"] == evidenced
-                                   and p.get("origin_leg_id") not in veto]
             else:
                 self.n_origin_unevidenced += 1
+            if self._evidence_mode == "on":
+                gate_origin, gate_dest, gate_tag = evidenced, e_dest, e_tag
+                if evidenced is not None:
+                    if evidenced != origin_leg_id:
+                        self.n_origin_corrected += 1
+                        origin_leg_id = evidenced
+                        origin_leg = next(
+                            (lg for lg in self.legs if lg["leg_id"] == evidenced),
+                            origin_leg)
+                        vehicle["origin_leg_id"] = evidenced
+                    candidate_paths = [p for p in self._paths
+                                       if p["origin_leg_id"] == evidenced
+                                       and p.get("origin_leg_id") not in veto]
 
         # --- Tier 0: polyline-path (origin + destination + movement) ---
         # When the camera has calibrated paths, the (origin_leg,
@@ -1261,8 +1287,7 @@ class ProcessingPipeline:
                 speed_tiebreak_min_sep=SPEED_TIEBREAK_MIN_SEP,
                 # Partial-evidence posterior consumes the admitted candidate
                 # set; byte-identical result dict when the flag is off.
-                return_candidates=(ORIGIN_POSTERIOR_ENABLED
-                                   and ORIGIN_EVIDENCE_GATE_ENABLED),
+                return_candidates=self._posterior_on,
             )
             if joint.get("entry_tiebreak_applied"):
                 self.n_entry_tiebreak += 1
@@ -1294,8 +1319,7 @@ class ProcessingPipeline:
             # filters candidates to the evidenced destination first. Counted
             # at the posterior max; the posterior + margin are persisted so
             # Feeder-1 queues near-ties (origin_ambiguous).
-            if (ORIGIN_POSTERIOR_ENABLED and ORIGIN_EVIDENCE_GATE_ENABLED
-                    and gate_tag is not None):
+            if self._posterior_on and gate_tag is not None:
                 cands = joint.get("candidates") or []
                 if gate_origin is None and cands:
                     pool = cands
@@ -1457,7 +1481,7 @@ class ProcessingPipeline:
             # tracks stay dropped — no evidence + no geometry = counting by
             # popularity, the named posterior risk.
             rescued = False
-            if (ORIGIN_POSTERIOR_ENABLED and ORIGIN_EVIDENCE_GATE_ENABLED
+            if (self._posterior_on
                     and gate_origin is not None and self._paths):
                 if gate_tag == "full" and gate_dest is not None:
                     cell_paths = [
