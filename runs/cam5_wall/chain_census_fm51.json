@@ -1,0 +1,130 @@
+{
+ "ftv2n_am": {
+  "n_tracks_mapped": 2024,
+  "n_chains": 1299,
+  "multiplicity": {
+   "1": 818,
+   "2": 308,
+   "3": 122,
+   "4": 37,
+   "5": 9,
+   "6": 4,
+   "7": 1
+  },
+  "tags": {
+   "no_crossing": 1683,
+   "exit_only": 245,
+   "entry_only": 42,
+   "full": 54
+  },
+  "n_events": 1610,
+  "events_unmapped_track": 0,
+  "chains_with_2plus_events": 337,
+  "excess_events": 405,
+  "excess_by_cellpair_top": {
+   "1>2+2>1": 328,
+   "2>1+3>2": 19,
+   "1>2": 14,
+   "2>1": 12,
+   "1>2+2>1+3>2": 9,
+   "1>2+1>4+2>1": 5,
+   "2>1+3>1": 4,
+   "1>2+2>1+3>1": 4
+  },
+  "zero_event_chains": {
+   "n": 94,
+   "multi_member": 13,
+   "union_tags": {
+    "entry_only": 6,
+    "no_crossing": 7,
+    "single_no_crossing": 51,
+    "single_exit_only": 19,
+    "single_full": 3,
+    "single_entry_only": 8
+   }
+  },
+  "multi_ev_heading_spread": {
+   "same_cell_q": [
+    1,
+    5,
+    8,
+    24
+   ],
+   "cross_cell_q": [
+    5,
+    168,
+    171,
+    180
+   ],
+   "n_same": 25,
+   "n_cross": 312
+  },
+  "nb_left": null,
+  "sb_geo_no_event": null,
+  "sb_geo_no_event_echo_covered": null
+ },
+ "ftv2n_pm": {
+  "n_tracks_mapped": 2521,
+  "n_chains": 1484,
+  "multiplicity": {
+   "1": 859,
+   "2": 368,
+   "3": 165,
+   "4": 52,
+   "5": 22,
+   "6": 14,
+   "7": 3,
+   "8": 1
+  },
+  "tags": {
+   "no_crossing": 2365,
+   "exit_only": 98,
+   "entry_only": 58
+  },
+  "n_events": 2045,
+  "events_unmapped_track": 0,
+  "chains_with_2plus_events": 461,
+  "excess_events": 630,
+  "excess_by_cellpair_top": {
+   "1>2+2>1": 457,
+   "2>1+3>2": 57,
+   "1>2+2>1+3>2": 36,
+   "2>1": 32,
+   "1>2+2>1+3>1": 22,
+   "1>2": 14,
+   "2>1+3>1": 7,
+   "1>4+2>1": 1
+  },
+  "zero_event_chains": {
+   "n": 69,
+   "multi_member": 12,
+   "union_tags": {
+    "no_crossing": 8,
+    "entry_only": 3,
+    "exit_only": 1,
+    "single_no_crossing": 37,
+    "single_entry_only": 15,
+    "single_exit_only": 5
+   }
+  },
+  "multi_ev_heading_spread": {
+   "same_cell_q": [
+    0,
+    7,
+    10,
+    176
+   ],
+   "cross_cell_q": [
+    7,
+    167,
+    170,
+    180
+   ],
+   "n_same": 46,
+   "n_cross": 415
+  },
+  "nb_left": null,
+  "sb_geo_no_event": null,
+  "sb_geo_no_event_echo_covered": null
+ }
+}

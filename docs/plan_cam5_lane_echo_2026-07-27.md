@@ -204,6 +204,53 @@ interpret it — dev yardstick).
   vehicles — so L's recovery is genuinely additive, and the L+E arm
   measures the net compose empirically.
 
+## PHASE-0 FINDINGS, part 2 — corridor + FM51 census; PHASE-1 arms 1–3
+(2026-07-27, same session; evidence runs/cam5_wall/chain_census_*.json,
+e_arm.json, ec_arm.json, lec_arm.json)
+
+**Corridor + FM51 baselines (excess events / total events per day):**
+cam5 11.8%, cam4 ~12% (35→33 same-cell alone 1,181/day — plausibly its
+whole SB overcount; STAT-rule queue-follower risk NAMED for the sweep),
+cam1 7.5% (top class = 22↔23 flips), cam2 ~8% (plus 1,070 uncounted
+FULL journeys/day — its own future recovery pool), FM51 25–31% (785/day
+almost pure 1↔2 flips at 167–180°), cam3 (24 h, passing) 4.0%.
+**The activation signal is the COMPOSITION, not the rate** (FM51's 28%
+is harmless today precisely because nothing dedups; a naive dedup would
+have eaten ~785 real FM51 vehicles — the direction gate is
+load-bearing, proven on the held-out site before any arm ran).
+
+**Arm results (cam5, replayed-minutes, whole-camera):**
+
+| arm | pooled | NB-thru | SB-thru | NB-left | per-cell abs |
+|---|---|---|---|---|---|
+| BASE | 7.2 (EB 16.1/NB 17.3/SB 5.1) | 1.088 | 0.933 | 1.85 | 2405 |
+| E-alone (diagnostic) | "2.9" — cancellation | 0.95 ✗ | 0.893 ✗ | 1.72 | 2231 |
+| EC (divergence-aware survivor) | 2.9* | **0.991 ✓** | 0.894 ✗ | 1.40 | **1745** |
+| LEC (+45 px L, +R) | 7.9* | **1.007 ✓** | 1.093 ✗ over | 1.40 | **1673** |
+
+(*approach MAEs remain compose-sensitive while SB is off-truth; the
+per-cell cut is the honest arm comparator.)
+
+- E-alone proved the pre-declared lesson: cell-agnostic keep-one lets
+  stub LEFTS survive over their vehicle's THRU (820 vs 100 rejections).
+  The divergence-aware survivor (EC) fixes it: NB-thru in band, NB-left
+  sheds 340 echoes, −27% per-cell abs, direction gate cuts 10,195
+  false edges/day.
+- LEC: L admitted +1,052 events; recovery R added +237; NB-thru stayed
+  in band (recycled mass balanced) but SB-thru overshot to 1.093 —
+  **the widen rescues unchained echo fragments too. NEXT ITERATION
+  (design, not knob): compose L with E — the widened acceptance applies
+  only to tracks whose CHAIN carries no counted event** (rescue
+  uncovered vehicles, never additional fragments of counted ones).
+  NB-left's remaining +302 is the SINGLETON orphan class = C-proper
+  (divergence-eligibility on unchained turn claims), still unbuilt.
+
+**PROCESS CORRECTION (on the record):** arms 1–3 scored all three
+windows; the plan reserved 1100/1600 as held-out. No constant was
+per-window fitted, but from here the discipline is enforced properly:
+LEC-v2 + C-proper fit on 0700 ONLY → constants frozen → 1100/1600
+held-out confirmation → the corridor sweep.
+
 ## Generalize (after the corridor, not before)
 
 If the mechanism ships at cam5: the same census decides cam1/cam4 (their
