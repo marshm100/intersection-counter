@@ -1,0 +1,158 @@
+{
+ "arm": "lec2",
+ "bearing_tol": 55.0,
+ "l_wide_px": null,
+ "r_min_span": null,
+ "study_1100": {
+  "rejected": 318,
+  "rejected_cells": {
+   "39>38": 118,
+   "39>37": 103,
+   "37>39": 56,
+   "38>36": 13,
+   "36>39": 9,
+   "38>39": 7,
+   "37>38": 4,
+   "36>37": 4
+  },
+  "recovered": 27,
+  "recovered_cells": {
+   "37>39": 21,
+   "39>37": 6
+  },
+  "l_cut_covered_fragments": 55,
+  "c_rerouted": 103,
+  "c_dropped": 1
+ },
+ "study_1600": {
+  "rejected": 487,
+  "rejected_cells": {
+   "39>37": 209,
+   "37>39": 119,
+   "39>38": 108,
+   "36>39": 15,
+   "36>37": 13,
+   "37>38": 11,
+   "37>36": 6,
+   "38>36": 3
+  },
+  "recovered": 45,
+  "recovered_cells": {
+   "37>39": 39,
+   "39>37": 6
+  },
+  "l_cut_covered_fragments": 66,
+  "c_rerouted": 68,
+  "c_dropped": 0
+ },
+ "score_base": {
+  "total": 7.6,
+  "per_approach": {
+   "EB": 17.8,
+   "NB": 20.5,
+   "SB": 5.6
+  }
+ },
+ "score_lec2": {
+  "total": 6.8,
+  "per_approach": {
+   "EB": 19.3,
+   "NB": 7.4,
+   "SB": 6.5
+  }
+ },
+ "cells": [
+  {
+   "cell": "36>37",
+   "base": 159,
+   "lec2": 139,
+   "mio": 46
+  },
+  {
+   "cell": "36>38",
+   "base": 120,
+   "lec2": 124,
+   "mio": 51
+  },
+  {
+   "cell": "36>39",
+   "base": 63,
+   "lec2": 38,
+   "mio": 39
+  },
+  {
+   "cell": "37>36",
+   "base": 108,
+   "lec2": 100,
+   "mio": 76
+  },
+  {
+   "cell": "37>38",
+   "base": 280,
+   "lec2": 264,
+   "mio": 225
+  },
+  {
+   "cell": "37>39",
+   "base": 4014,
+   "lec2": 4547,
+   "mio": 4315
+  },
+  {
+   "cell": "38>36",
+   "base": 37,
+   "lec2": 21,
+   "mio": 41
+  },
+  {
+   "cell": "38>37",
+   "base": 257,
+   "lec2": 253,
+   "mio": 212
+  },
+  {
+   "cell": "38>38",
+   "base": 5,
+   "lec2": 5,
+   "mio": 5
+  },
+  {
+   "cell": "38>39",
+   "base": 263,
+   "lec2": 254,
+   "mio": 406
+  },
+  {
+   "cell": "39>36",
+   "base": 4,
+   "lec2": 3,
+   "mio": 61
+  },
+  {
+   "cell": "39>37",
+   "base": 3979,
+   "lec2": 3847,
+   "mio": 3547
+  },
+  {
+   "cell": "39>38",
+   "base": 849,
+   "lec2": 456,
+   "mio": 425
+  }
+ ],
+ "invariant_vs_truth": {
+  "37>39": {
+   "ratio": 1.054,
+   "in_band": false
+  },
+  "39>37": {
+   "ratio": 1.085,
+   "in_band": false
+  }
+ },
+ "per_cell_abs": {
+  "base": 1699,
+  "lec2": 1064
+ }
+}

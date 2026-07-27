@@ -251,7 +251,41 @@ per-window fitted, but from here the discipline is enforced properly:
 LEC-v2 + C-proper fit on 0700 ONLY → constants frozen → 1100/1600
 held-out confirmation → the corridor sweep.
 
-## Generalize (after the corridor, not before)
+## ITERATION-1 VERDICT (2026-07-27 — PARTIAL; evidence
+runs/cam5_wall/lec2_arm_fit_l40r3fc.json + lec2_arm_heldout.json)
+
+Frozen constants (declared at fit, 0700 only): bearing gate 55°; L = 40 px
+fallback widen, THROUGH winners only, journey-complete tracks only, +
+concurrent-duplicate cut (≥1 s overlap at ≤35 px mean) against counted
+tracks; C-proper divergence reroute on singleton turn claims; R = ≥3-member
+zero-event chains, union-full or thru-default at ≥60 px span.
+
+| cut | fit 0700 | held-out 1100+1600 |
+|---|---|---|
+| NB-left vs truth | 356/335 = **1.06** | 456/425 = **1.07** ✓ HOLDS |
+| per-cell abs | 711→397 (**−44%**) | 1699→1064 (**−37%**) ✓ |
+| SB-thru band | **1.027 ✓** | 1.054 ✗ |
+| NB-thru band | 0.969 (edge) | **1.085 ✗** |
+| NB approach MAE | 10.9→5.1 | 20.5→7.4 |
+
+**What generalized:** the NB-left phantom closure (the cycle's primary
+wall), the per-cell abs collapse, the direction gate, C-proper, and the
+WB phantom shrink. **What didn't:** the protected-thru truth bands. The
+miss is systematic, not scatter — the held-out windows carry FAR more
+base NB-thru inflation (1.12×) than the fit window (1.04×), and the
+frozen balance under-removes there. The residual class is UNCHAINED
+CONCURRENT same-cell echoes: invisible to sequential chaining (E),
+untouched by C (thru claims), and the concurrent cut only ran on
+L-admits. **The corridor sweep does NOT run (its own gate).**
+
+**Iteration 2 (the budget's last) — named candidate + named trap:**
+extend the concurrent-duplicate rule to all counted events — which is
+the RETIRED 2026-07-09 concurrent-dedup in new clothing, and its
+failure mode is on the record (far-band followers sit < 35 px apart in
+image space; the pass ate real NB-thru at every setting). The iteration-2
+design must be lane/arc-aware (same-lane + overlapping path-s-ranges,
+the (s,d) machinery) or it will re-fail. Own session, full design
+first; this session ends iteration 1 with the partial on the record.
 
 If the mechanism ships at cam5: the same census decides cam1/cam4 (their
 ft2 re-baseline failures are fragment floods — this is the "attribution
