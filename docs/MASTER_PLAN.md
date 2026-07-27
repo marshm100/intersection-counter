@@ -544,6 +544,20 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    arbitration (iteration 4, own plan+budget), evidence-coverage activation precondition
    (needs a held-out SITE gate). SB-right's "1.07 fix" is now known to be cancellation —
    its true recall deficit (~0.12–0.16 trackable) is a capability-track wall.
+   **STATUS 2026-07-27 — the activation-precondition candidate SHIPPED**
+   (`plan_evidence_activation_2026-07-24.md` + wiring): per-camera blind
+   coverage census (probe mode, zero attribution effect) in every pass-2,
+   C=0.45 (census-definition gap midpoint), **default ON**. The census
+   decided all 10 camera×basis cells correctly incl. the held-out FM51
+   standing down ×20 clear; the ft2 compound measured DEAD (the posterior
+   counts the fragment flood — 17.3%); cam2-stock alone activates. cam2
+   production re-applied through the real pass-2 (all three windows
+   activated, coverages 0.485–0.564) → **production interval scorer:
+   total 4.8%, NB 3.2 / WB 9.9 / SB 10.2 / EB 17.2**. The replay-isolated
+   gate value was 2.8 (EB 23.5); production composes with per-window
+   corpus banks + the turn merge (EB better, SB worse than isolation) —
+   scoring bases differ, always name the basis. cam2-EB's occlusion-split
+   class is the remaining wall there.
 9. **D-low-light** + **E deliverables (L/M/A Excel, PDF)** + **F2/F3 calibration studio** —
    unchanged from prior sequencing.
    **STATUS 2026-07-17:** E is DONE (plan_deliverables_E: Miovision-parity
