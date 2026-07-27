@@ -612,7 +612,20 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    corridor sweep did not run.** Nothing wired; flags nonexistent;
    production untouched. Iteration 2 (the budget's last) must be
    lane/arc-aware concurrent dedup or it re-fails the retired 2026-07-09
-   pass — design doc first, fresh session. A GT-free geometric promotion guard
+   pass — design doc first, fresh session.
+   **STATUS 2026-07-27 (final) — iteration 2 FAILED AT FIT; the LANE+ECHO
+   CYCLE IS CLOSED** (plan doc ITERATION-2 VERDICT + CYCLE CLOSE): the
+   strongest image-space concurrent discriminator (sustained box-IoU +
+   lockstep) has NO separating regime at the far band — every setting
+   catches the same ~95 pairs and breaks the NB-thru band at the fit
+   window; 2026-07-09's conclusion re-confirmed. Standing result:
+   iteration-1 partial (NB-left 1.85→1.07 held-out, per-cell abs
+   −44%/−37%, thrus toward-truth but band-missed); LEC2 bundle
+   revival-ready flag-less; retirements ledger gains all-events
+   image-space concurrent dedup (×2 now). Future candidates named:
+   ReID-embedding twin test (compression-immune), composition-adaptive
+   rejection (own plan + gate). Whether the sweep-less partial justifies
+   a relaxed-bar sweep = operator decision, explicitly a bar change. A GT-free geometric promotion guard
    (reject near-subsegments of banked paths, 15–22 px tell) is on record
    for any future bank-fill idea. Nothing shipped; project.db untouched;
    corridor scoreboard unchanged.
