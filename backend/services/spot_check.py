@@ -100,6 +100,41 @@ def propose_window(project_id: str, camera_id: int, minutes: float = 10.0,
             "processed_range": [round(t0, 1), round(t1, 1)]}
 
 
+def _trim_windows_video(project_id: str, camera_id: int) -> list[tuple[float, float]]:
+    """The camera's DECLARED reporting windows (its intersection's trims) in
+    video-seconds — the deliverable's claim scope (§3-B validation 2026-07-28,
+    phase-0 finding 2: certification must cover what the deliverable claims,
+    not all processed footage). Empty when no trims are declared — the claim
+    is then the full footage and stratification stays footage-wide."""
+    conn = get_connection(project_id)
+    try:
+        rows = conn.execute(
+            "SELECT t.start_wallclock, t.end_wallclock FROM trims t "
+            "JOIN cameras c ON c.intersection_id = t.intersection_id "
+            "WHERE c.camera_id = ? ORDER BY t.sort_order", (camera_id,)).fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return []
+    offset = _rec_offset_seconds(project_id, camera_id)
+    if offset is None:
+        return []
+
+    def _secs(hms: str) -> float:
+        h, m, s = (list(map(int, hms.split(":"))) + [0, 0])[:3]
+        return h * 3600 + m * 60 + s
+
+    out = []
+    for sw, ew in rows:
+        try:
+            vs, ve = _secs(sw) - offset, _secs(ew) - offset
+        except (ValueError, AttributeError):
+            continue
+        if ve > 0:
+            out.append((max(0.0, vs), ve))
+    return out
+
+
 def _processed_segments(project_id: str, camera_id: int,
                         bin_seconds: int = 300) -> list[tuple[float, float]]:
     """Partition the camera's processed footage into coverage SEGMENTS for spot
@@ -107,7 +142,9 @@ def _processed_segments(project_id: str, camera_id: int,
     e.g. an AM trim vs a PM trim), each long block subdivided into <=
     SEG_MAX_PER_BLOCK parts of ~SEG_TARGET_SECONDS. Returns [(start, end), ...] in
     video-seconds. Aggregated in SQL (active 5-min bins, <=288 rows) so it stays
-    index-only on the OneDrive DB. Blind: uses only the run's own coverage."""
+    index-only on the OneDrive DB. Blind: uses only the run's own coverage —
+    CLIPPED to the declared reporting windows (trims) when any exist, so the
+    gate certifies the deliverable's claim scope and nothing else."""
     conn = get_connection(project_id)
     try:
         rows = conn.execute(
@@ -118,6 +155,10 @@ def _processed_segments(project_id: str, camera_id: int,
     finally:
         conn.close()
     bins = [int(r[0]) for r in rows]
+    trims = _trim_windows_video(project_id, camera_id)
+    if trims:
+        bins = [b for b in bins
+                if any(ts <= b < te for ts, te in trims)]
     if not bins:
         return []
     blocks: list[tuple[int, int]] = []
@@ -257,9 +298,23 @@ def list_spot_counts(project_id: str, camera_id: int) -> list[dict]:
             for r in rows]
 
 
+APPROACH_MIN_MANUAL = 30   # per-approach binding needs at least this many
+                           # manually counted vehicles (below it the CI always
+                           # straddles the target band — self-limiting anyway)
+
+
 def compare_spot_count(project_id: str, camera_id: int, start: float,
                        duration: float, manual_counts: dict[str, int]) -> dict:
-    """Manual vs system over the window, per cell + total, with 95% CIs."""
+    """Manual vs system over the window, per cell + total, with 95% CIs.
+
+    PER-APPROACH BINDING (§3-B validation 2026-07-28, phase-0 finding 1):
+    the TOTAL can pass while one approach is badly off — cancellation is
+    exactly how cam5 false-passed (a −18.5% EB approach inside a passing
+    total). So each approach (bound direction) gets its own Katz CI, and
+    an approach whose CI lies WHOLLY outside ±TARGET (with ≥
+    APPROACH_MIN_MANUAL manual vehicles) demotes a would-be pass to
+    "review" — review-not-fail semantics: a small window cannot condemn a
+    camera, but it can and must withhold certification."""
     sys_counts = _system_counts(project_id, camera_id, start, duration)
     cells = []
     for key in sorted(set(manual_counts) | set(sys_counts)):
@@ -271,6 +326,26 @@ def compare_spot_count(project_id: str, camera_id: int, start: float,
                       "ci95": [round(lo, 3), round(hi, 3)]})
     m_tot = sum(int(v) for v in manual_counts.values())
     s_tot = sum(sys_counts.values())
+
+    approaches = []
+    app_binding = []
+    agg: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    for c in cells:
+        d = c["cell"].split()[0]
+        agg[d][0] += c["manual"]
+        agg[d][1] += c["system"]
+    for d in sorted(agg):
+        am, asys = agg[d]
+        ap, alo, ahi = katz_ci(asys, am)
+        outside = am >= APPROACH_MIN_MANUAL and (alo > TARGET_REL_ERR
+                                                 or ahi < -TARGET_REL_ERR)
+        approaches.append({"approach": d, "manual": am, "system": asys,
+                           "rel_err": (round(ap, 3) if math.isfinite(ap) else None),
+                           "ci95": [round(alo, 3), round(ahi, 3)],
+                           "outside_target": outside})
+        if outside:
+            app_binding.append(f"{d} {ap*100:+.0f}%")
+
     point, lo, hi = katz_ci(s_tot, m_tot)
     if m_tot == 0:
         verdict = "review"
@@ -280,9 +355,14 @@ def compare_spot_count(project_id: str, camera_id: int, start: float,
         verdict = "fail"
     else:
         verdict = "review"   # within reach but CI too wide, or marginal point error
+    if verdict == "pass" and app_binding:
+        verdict = "review"   # an approach's CI wholly outside ±target
     note = ("no manual counts entered" if not m_tot else
             f"total error {point*100:+.1f}% (95% CI {lo*100:+.1f}%..{hi*100:+.1f}%) "
             f"vs target +/-{TARGET_REL_ERR*100:.0f}%")
+    if app_binding:
+        note += ("; approach(es) outside the target band despite the total: "
+                 + ", ".join(app_binding) + " — review those movements")
     if verdict == "review" and m_tot and abs(point) <= TARGET_REL_ERR:
         # How many total vehicles would certify, GIVEN the observed point
         # error: the CI half-width budget shrinks by |log-ratio| already spent.
@@ -296,6 +376,7 @@ def compare_spot_count(project_id: str, camera_id: int, start: float,
     return {
         "camera_id": camera_id, "start_seconds": start, "duration_seconds": duration,
         "cells": cells,
+        "approaches": approaches,
         "total": {"manual": m_tot, "system": s_tot,
                   "rel_err": (round(point, 3) if math.isfinite(point) else None),
                   "ci95": [round(lo, 3), round(hi, 3)]},

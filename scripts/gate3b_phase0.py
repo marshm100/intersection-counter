@@ -107,6 +107,24 @@ def main() -> int:
                                           w["duration_seconds"])
                 rep = compare_spot_count(PROJECT, cam, w["start_seconds"],
                                          w["duration_seconds"], manual)
+                # EXTEND-TO-CERTIFY (protocol e): the operator follows the
+                # service's own "extend the count" guidance — grow the window
+                # in 15-min steps (to the segment end, cap 60 min) while the
+                # verdict is a CI-wide review with an in-target point error.
+                seg_end = w["segment"][1]
+                dur = w["duration_seconds"]
+                while (rep["verdict"] == "review" and rep["total"]["manual"]
+                       and rep["total"]["rel_err"] is not None
+                       and abs(rep["total"]["rel_err"]) <= 0.05
+                       and "extend the count" in rep["note"]
+                       and dur < 3600.0
+                       and w["start_seconds"] + dur < seg_end - 60.0):
+                    dur = min(dur + 900.0, 3600.0,
+                              seg_end - w["start_seconds"])
+                    manual = gt_manual_counts(mio, rec, w["start_seconds"], dur)
+                    rep = compare_spot_count(PROJECT, cam, w["start_seconds"],
+                                             dur, manual)
+                w = {**w, "duration_seconds": dur}
                 apps = approach_errors(rep)
                 for d, a in apps.items():
                     if a["rel_err"] is not None and a["manual"] >= 50:

@@ -240,7 +240,7 @@ class TestStratifiedSpot:
         # Spot-count the AM block only.
         client.post(f"/api/projects/{pid}/cameras/{cid}/qa/spot-counts",
                     json={"start_seconds": 600, "duration_seconds": 900,
-                          "manual_counts": {"N through": 500, "S through": 400}})
+                          "manual_counts": {"S through": 500, "N through": 400}})
         gate = client.get(f"/api/projects/{pid}/intersections/{iid}/qa/acceptance").json()
         spot = next(i for i in gate["items"] if i["item"] == "spot_count")
         assert spot["verdict"] == "review"       # PM block still unsampled
@@ -250,7 +250,7 @@ class TestStratifiedSpot:
         # Now cover the PM block too.
         client.post(f"/api/projects/{pid}/cameras/{cid}/qa/spot-counts",
                     json={"start_seconds": 30000, "duration_seconds": 900,
-                          "manual_counts": {"N through": 500, "S through": 400}})
+                          "manual_counts": {"S through": 500, "N through": 400}})
         gate2 = client.get(f"/api/projects/{pid}/intersections/{iid}/qa/acceptance").json()
         spot2 = next(i for i in gate2["items"] if i["item"] == "spot_count")
         assert spot2["detail"][0]["covered"] == 2
@@ -262,3 +262,65 @@ class TestStratifiedSpot:
         pid, _, cid = spot_project
         w = client.get(f"/api/projects/{pid}/cameras/{cid}/qa/spot-windows").json()
         assert w["n_segments"] == 1 and len(w["windows"]) == 1
+
+
+# ---- 3-B validation additions (plan_3b_validation_2026-07-28) ---------------
+
+class TestApproachBindingAndScope:
+    def test_approach_outside_target_demotes_pass_to_review(self, spot_project):
+        pid, _, cid = spot_project
+        # Cancellation shape: S-approach undercount (-20%) offset by an
+        # N-approach overcount so the TOTAL passes (-4%, CI within 10%).
+        # The per-approach binding must withhold certification (phase-0
+        # finding 1: cam5 false-passed exactly this way).
+        r = client.post(f"/api/projects/{pid}/cameras/{cid}/qa/spot-counts",
+                        json={"start_seconds": 600, "duration_seconds": 600,
+                              "manual_counts": {"S through": 750,
+                                                "N through": 460,
+                                                "S left": 40}})
+        assert r.status_code == 200
+        rep = r.json()
+        assert abs(rep["total"]["rel_err"]) <= 0.05        # total alone would pass
+        assert rep["verdict"] == "review"                  # ...but approaches bind
+        assert "approach" in rep["note"]
+        outside = {a["approach"] for a in rep["approaches"] if a["outside_target"]}
+        assert "S" in outside
+    def test_small_approach_cannot_bind(self, spot_project):
+        pid, _, cid = spot_project
+        # An E-approach cell with only 10 manual vehicles (way off, system 0)
+        # stays below APPROACH_MIN_MANUAL and must NOT demote the verdict.
+        r = client.post(f"/api/projects/{pid}/cameras/{cid}/qa/spot-counts",
+                        json={"start_seconds": 600, "duration_seconds": 600,
+                              "manual_counts": {"S through": 600,
+                                                "N through": 560,
+                                                "S left": 40,
+                                                "E through": 10}})
+        assert r.status_code == 200
+        rep = r.json()
+        e_row = next(a for a in rep["approaches"] if a["approach"] == "E")
+        assert e_row["outside_target"] is False
+        assert rep["verdict"] == "pass"
+    def test_trims_scope_segments_to_reporting_windows(self, spot_two_block):
+        pid, iid, cid = spot_two_block
+        from backend.services.spot_check import _processed_segments
+        before = _processed_segments(pid, cid)
+        assert len(before) == 2                            # AM + PM blocks
+        conn = get_connection(pid)
+        with conn:
+            conn.execute(
+                "INSERT INTO videos (camera_id, sort_order, path, filename, fps, "
+                "width, height, total_frames, duration_seconds, file_size_bytes, "
+                "recording_start_datetime, added_at) VALUES (?, 0, 'x.mp4', 'x.mp4', "
+                "10, 640, 480, 400000, 40000, 1, '2026-06-12T07:00:00', '2026-06-12')",
+                (cid,))
+            # Reporting window covers ONLY the AM block: 07:10-07:26 wall-clock
+            # = video seconds [600, 1560) given the 07:00:00 recording start.
+            conn.execute(
+                "INSERT INTO trims (intersection_id, start_wallclock, "
+                "end_wallclock, sort_order) VALUES (?, '07:10:00', '07:26:00', 0)",
+                (iid,))
+        conn.close()
+        after = _processed_segments(pid, cid)
+        assert len(after) == 1                             # PM block out of scope
+        s, e = after[0]
+        assert s >= 599.0 and e <= 1600.0
