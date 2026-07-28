@@ -195,3 +195,26 @@ with Stage 3/5)
 Estimated build effort: ~8-13 focused sessions + the three [OP] moments
 (5.2 authorization, 6.2 procurement, 6.4 rehearsal). First moves on
 "go": 1.1 -> 1.2 -> 1.3 in one block.
+
+---
+
+## STAGE-1 RECORD (2026-07-28 — steps 1.1 core + 1.2 + 1.3 DONE)
+
+- **1.3 bin-edge audit: REAL variance, no fix** (runs/3b_validation/
+  rule595_edge_audit.json): shift-sweep gains <= 2.6 pts at INCONSISTENT
+  optima (0..-90 s) — not a uniform clock artifact; the weak negative
+  tendency (4/5 cams prefer -15..-30 s) is plausibly the box-crossing
+  vs Mio-crossing definition gap, recorded; per-camera shift fitting
+  against GT would be the Sec-0 overfit trap — refused.
+- **1.2 gate re-shaped to the customer standard**
+  (backend/services/spot_check.py): approach rows now bind by the 5/95
+  TOLERANCE (±5/15-min-equivalent small, 5% large) with the Katz-CI
+  statistical guard; the ±5%-band + 30-manual floor superseded (the
+  absolute grace IS the small-cell floor). **Matrix re-run: ZERO
+  false-pass — cam5 caught 5/5 seeds (was 4/5 under the old band)**;
+  cam1/cam4 still certify honestly; cam3's scope refusal stands.
+- **1.1 core: the rule is a service** (backend/services/rule595.py,
+  4 boundary tests; the dev scorer refactored onto it — re-baseline
+  numbers byte-identical: 65.3/46.7/77.3/76.4/70.9/70.3). OWED from
+  1.1: movement x class cells (parse_by_class + fhwa buckets) and the
+  export-side compliance report surface — next block.

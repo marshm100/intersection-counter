@@ -298,23 +298,22 @@ def list_spot_counts(project_id: str, camera_id: int) -> list[dict]:
             for r in rows]
 
 
-APPROACH_MIN_MANUAL = 30   # per-approach binding needs at least this many
-                           # manually counted vehicles (below it the CI always
-                           # straddles the target band — self-limiting anyway)
-
-
 def compare_spot_count(project_id: str, camera_id: int, start: float,
                        duration: float, manual_counts: dict[str, int]) -> dict:
     """Manual vs system over the window, per cell + total, with 95% CIs.
 
-    PER-APPROACH BINDING (§3-B validation 2026-07-28, phase-0 finding 1):
-    the TOTAL can pass while one approach is badly off — cancellation is
-    exactly how cam5 false-passed (a −18.5% EB approach inside a passing
-    total). So each approach (bound direction) gets its own Katz CI, and
-    an approach whose CI lies WHOLLY outside ±TARGET (with ≥
-    APPROACH_MIN_MANUAL manual vehicles) demotes a would-be pass to
-    "review" — review-not-fail semantics: a small window cannot condemn a
-    camera, but it can and must withhold certification."""
+    PER-APPROACH BINDING (§3-B validation 2026-07-28; re-shaped to THE
+    CUSTOMER STANDARD 2026-07-28, plan_595_standard step 1.2): the TOTAL
+    can pass while one approach is badly off — cancellation is exactly
+    how cam5 false-passed. Each approach (bound direction) gets its own
+    Katz CI, judged by the 5/95 rule's shape: the allowed |diff| is the
+    rule's tolerance for the approach's manual volume at this window
+    length (±5 per 15-min equivalent for small approaches, 5% for large),
+    and the approach BINDS — demoting a would-be pass to "review" — only
+    when the diff exceeds that tolerance AND the 95% CI excludes it (the
+    statistical guard: a short window cannot condemn, only withhold).
+    The old ±5%-band + 30-manual floor is superseded: the absolute grace
+    IS the small-cell floor now."""
     sys_counts = _system_counts(project_id, camera_id, start, duration)
     cells = []
     for key in sorted(set(manual_counts) | set(sys_counts)):
@@ -327,6 +326,8 @@ def compare_spot_count(project_id: str, camera_id: int, start: float,
     m_tot = sum(int(v) for v in manual_counts.values())
     s_tot = sum(sys_counts.values())
 
+    from backend.services.rule595 import tolerance as _r595_tol
+    bins_equiv = max(duration / 900.0, 1e-9)
     approaches = []
     app_binding = []
     agg: dict[str, list[int]] = defaultdict(lambda: [0, 0])
@@ -337,14 +338,20 @@ def compare_spot_count(project_id: str, camera_id: int, start: float,
     for d in sorted(agg):
         am, asys = agg[d]
         ap, alo, ahi = katz_ci(asys, am)
-        outside = am >= APPROACH_MIN_MANUAL and (alo > TARGET_REL_ERR
-                                                 or ahi < -TARGET_REL_ERR)
+        tol = _r595_tol(am, bins_equiv)
+        diff = asys - am
+        if am > 0:
+            lo_abs, hi_abs = alo * am, ahi * am    # Katz CI mapped to absolute
+            outside = abs(diff) > tol and (lo_abs > tol or hi_abs < -tol)
+        else:
+            outside = asys > tol                    # a manual 0 is exact
         approaches.append({"approach": d, "manual": am, "system": asys,
                            "rel_err": (round(ap, 3) if math.isfinite(ap) else None),
                            "ci95": [round(alo, 3), round(ahi, 3)],
+                           "tolerance_595": round(tol, 1),
                            "outside_target": outside})
         if outside:
-            app_binding.append(f"{d} {ap*100:+.0f}%")
+            app_binding.append(f"{d} {diff:+d} veh (allowed ±{tol:.0f})")
 
     point, lo, hi = katz_ci(s_tot, m_tot)
     if m_tot == 0:
@@ -361,8 +368,9 @@ def compare_spot_count(project_id: str, camera_id: int, start: float,
             f"total error {point*100:+.1f}% (95% CI {lo*100:+.1f}%..{hi*100:+.1f}%) "
             f"vs target +/-{TARGET_REL_ERR*100:.0f}%")
     if app_binding:
-        note += ("; approach(es) outside the target band despite the total: "
-                 + ", ".join(app_binding) + " — review those movements")
+        note += ("; approach(es) outside the 5/95 tolerance despite the "
+                 "total: " + ", ".join(app_binding)
+                 + " — review those movements")
     if verdict == "review" and m_tot and abs(point) <= TARGET_REL_ERR:
         # How many total vehicles would certify, GIVEN the observed point
         # error: the CI half-width budget shrinks by |log-ratio| already spent.

@@ -40,46 +40,11 @@ CORRIDOR = {
 DAYLIGHT = (6, 20)                # cam3's daylight cut (Mio night exclusion)
 
 
-def _bins(minutes):
-    by_bin = defaultdict(list)
-    for m in minutes:
-        by_bin[(m.hour, m.minute // 15)].append(m)
-    return {b: ms for b, ms in by_bin.items() if len(ms) >= 10}
-
-
-def _cellsum(src, minutes):
-    out = defaultdict(int)
-    for m in minutes:
-        for k, v in src.get(m, {}).items():
-            out[k] += v
-    return out
+from backend.services.rule595 import compliance, score_cells
 
 
 def score(ours, ref, minutes):
-    rows = []
-    for b, ms in sorted(_bins(minutes).items()):
-        o_cells = _cellsum(ours, ms)
-        r_cells = _cellsum(ref, ms)
-        for cell in sorted(set(o_cells) | set(r_cells)):
-            o, r = o_cells.get(cell, 0), r_cells.get(cell, 0)
-            if o == 0 and r == 0:
-                continue
-            ok = (abs(o - r) <= 5) if r <= 100 else (abs(o - r) / r <= 0.05)
-            rows.append({"bin": f"{b[0]:02d}:{b[1]*15:02d}",
-                         "cell": f"{cell[0]} {cell[1]}",
-                         "ours": o, "ref": r, "ok": ok})
-    return rows
-
-
-def compliance(rows):
-    n = len(rows)
-    ok = sum(1 for r in rows if r["ok"])
-    worst = sorted((r for r in rows if not r["ok"]),
-                   key=lambda r: -(abs(r["ours"] - r["ref"])))
-    return {"cells_scored": n, "compliant": ok,
-            "pct": round(100.0 * ok / n, 1) if n else None,
-            "worst": [{k: r[k] for k in ("bin", "cell", "ours", "ref")}
-                      for r in worst[:8]]}
+    return score_cells(ours, ref, minutes)
 
 
 def main() -> int:
