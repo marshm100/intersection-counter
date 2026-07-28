@@ -52,6 +52,11 @@ site where Miovision never ran?"* If no, it's research, not product.
 ---
 
 ## 1b. The acceptance metric — AVG |err| ≤ 5% per 15-min interval
+**[SUPERSEDED AS THE BAR 2026-07-28 — operator directive: the customer
+5/95 standard (§1c) is THE standard to beat; this MAE metric demotes to
+a diagnostic. The adoption plan, autonomy directive ("rely on humans as
+little as possible; every human moment passes the child test"), and
+sequencing live in `plan_595_standard_2026-07-28.md`.]**
 
 Net counts hide per-interval error (a run nets ~0% while individual bins blow past
 5%). So the bar is **mean-ABSOLUTE per-15-min-interval error, ≤ 5%**, vs ground truth
