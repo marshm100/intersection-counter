@@ -493,7 +493,20 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    per-cell abs; total net −0.4% vs +2.2%; no collapse — the delta is confined to the
    turn-merge volume gate (NB-left +38 blind). The honest blind number replaces the shipped
    7.2% claim. See the Gate-B sweep doc, RESOLVED section.
-3. **B flag queue — VALIDATED + COMPLETED 2026-07-09/10.** B-VAL retrospective run twice;
+3. **B flag queue — VALIDATED + COMPLETED 2026-07-09/10.**
+   **§3-B BLIND-GATE VALIDATION — DONE 2026-07-28**
+   (`plan_3b_validation_2026-07-28.md`; wall C closed): gate-vs-GT
+   confusion matrix over 6 cameras with a simulated-perfect operator;
+   gate HARDENED (per-approach binding rows, trim-scoped certification,
+   extend-to-certify protocol; 824 green — the arc's first product-code
+   change); FM51 founding case caught end-to-end (stratified 0/5
+   certify, PM window fails by name). THE CLAIM STRUCTURE is written
+   (plan doc + runbook): net-total ±5% is spot-CERTIFIABLE; the
+   per-approach bar is NOT blind-certifiable by feasible spot counts —
+   a measured structural limit, stated — per-approach assurance rides
+   the flag queue + approach tripwires; certification scope = declared
+   trims. Residuals: acceptance-composition simulation, S1 sweep
+   (demoted to alarm-quality). B-VAL retrospective run twice;
    S4 + S5 feeders shipped and catching their targets AT RANK 1 in production; S3 blocked
    (standing rule 3, §2d); flood control shipped (3,247 flags → 77 cards). Residual B work:
    S1 sensitivity (the cam2 SB-thru −15% that stayed under threshold) — small, evidence in
