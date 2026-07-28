@@ -1,0 +1,109 @@
+{
+ "cam1": {
+  "fails": 58,
+  "caught": 54,
+  "recall_pct": 93.1,
+  "big_fails": 18,
+  "big_caught": 18,
+  "big_recall_pct": 100.0,
+  "open_flags": 1115,
+  "missed_big": []
+ },
+ "cam2": {
+  "fails": 169,
+  "caught": 158,
+  "recall_pct": 93.5,
+  "big_fails": 45,
+  "big_caught": 42,
+  "big_recall_pct": 93.3,
+  "open_flags": 1140,
+  "missed_big": [
+   {
+    "bin": "11:30",
+    "cell": "NB left",
+    "ours": 36,
+    "ref": 56
+   },
+   {
+    "bin": "12:15",
+    "cell": "SB right",
+    "ours": 21,
+    "ref": 56
+   },
+   {
+    "bin": "16:45",
+    "cell": "EB left",
+    "ours": 37,
+    "ref": 57
+   }
+  ]
+ },
+ "cam3": {
+  "fails": 96,
+  "caught": 96,
+  "recall_pct": 100.0,
+  "big_fails": 54,
+  "big_caught": 54,
+  "big_recall_pct": 100.0,
+  "open_flags": 1740,
+  "missed_big": []
+ },
+ "cam4": {
+  "fails": 38,
+  "caught": 24,
+  "recall_pct": 63.2,
+  "big_fails": 13,
+  "big_caught": 11,
+  "big_recall_pct": 84.6,
+  "open_flags": 123,
+  "missed_big": [
+   {
+    "bin": "11:30",
+    "cell": "SB right",
+    "ours": 20,
+    "ref": 0
+   },
+   {
+    "bin": "17:00",
+    "cell": "NB thru",
+    "ours": 309,
+    "ref": 341
+   }
+  ]
+ },
+ "cam5": {
+  "fails": 93,
+  "caught": 70,
+  "recall_pct": 75.3,
+  "big_fails": 27,
+  "big_caught": 23,
+  "big_recall_pct": 85.2,
+  "open_flags": 252,
+  "missed_big": [
+   {
+    "bin": "07:30",
+    "cell": "NB left",
+    "ours": 37,
+    "ref": 66
+   },
+   {
+    "bin": "12:15",
+    "cell": "EB right",
+    "ours": 6,
+    "ref": 27
+   },
+   {
+    "bin": "16:15",
+    "cell": "EB right",
+    "ours": 11,
+    "ref": 37
+   },
+   {
+    "bin": "16:45",
+    "cell": "NB thru",
+    "ours": 307,
+    "ref": 268
+   }
+  ]
+ }
+}

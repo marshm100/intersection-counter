@@ -778,3 +778,18 @@ review layer's validation (are the failures FLAGGED? — unmeasured);
 (d) the 5-star video precondition maps onto our measured
 source-resolution wall: qualifying footage is REQUIRED before the
 guarantee could apply at all.
+
+**§1c item (c) MEASURED (2026-07-28 — scripts/rule595_queue_recall.py,
+runs/3b_validation/rule595_queue_recall.json):** of the 5/95-FAILING
+cell-bins on the production tables, the production flag queue surfaces
+**88.5% overall and 94.3% of BIG failures (|delta| >= 20 veh)** — cam1
+100%-of-big, cam2 93%, cam3 100%, cam4 85%, cam5 85%. Every missed BIG
+failure maps onto an already-named wall (cam2 S3-blocked classes, cam4
+SB-right phantom, cam5 EB-right formation / NB-left) — no new
+mechanisms. CONSEQUENCE: "pipeline + worked queue" is the credible
+route to the customer standard on qualifying footage — the deployable
+claim is compliance AFTER review, with the queue's recall now measured.
+Caveats on record: recall counts any matching open flag (breadth not
+precision; workload 123-1,740 open flags/camera rides the existing
+impact-ordering + flood control), and the corridor queues predate some
+recent applies.
