@@ -625,7 +625,16 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    image-space concurrent dedup (×2 now). Future candidates named:
    ReID-embedding twin test (compression-immune), composition-adaptive
    rejection (own plan + gate). Whether the sweep-less partial justifies
-   a relaxed-bar sweep = operator decision, explicitly a bar change. A GT-free geometric promotion guard
+   a relaxed-bar sweep = operator decision, explicitly a bar change.
+   **STATUS 2026-07-28 — the ReID twin spike FAILED its pre-declared
+   gate** (`spike_reid_twin_2026-07-28.md`): AUC seq-vs-near 0.399 —
+   at the 640×480 source, far-band crops (10–30 px) carry no identity
+   signal (osnet measures where/how-big, not what; cam1's 0.87–0.89 was
+   same-depth association). Third mechanism family dead on the
+   concurrent-twin class → reclassified a SOURCE-RESOLUTION wall;
+   higher-res source video is the capability-track prerequisite for
+   reopening it. Appearance candidate retired at spike cost (no cache
+   builds). NEXT per the gate: §3-B blind-gate validation. A GT-free geometric promotion guard
    (reject near-subsegments of banked paths, 15–22 px tell) is on record
    for any future bank-fill idea. Nothing shipped; project.db untouched;
    corridor scoreboard unchanged.
