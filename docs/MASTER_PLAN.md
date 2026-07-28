@@ -660,6 +660,17 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    (boxes + trails) via `preview.jpg`, update-in-place live panel with
    vehicle/trajectory counts. 830 tests green (+6); verified live on
    cam5 end-to-end. F3 (playback studio) remains the stage-3 block.
+   **STATUS 2026-07-28 (later) — F3 SHIPPED, both stages**
+   (`plan_f3_playback_studio_2026-07-28.md`, 03b75bd + dfc72c3): stage A
+   range-capable `/videos/{id}/stream` (206/200/416, 8 tests; also fixed
+   the Phase-9 playback page's stubbed video element) + the studio
+   underlay (footage plays beneath the drawing layers, scrubber-synced,
+   pause = frozen frame); stage B sample tracks persisted with frame
+   stamps (clustering inputs untouched; capped ~46 KB payload) + synced
+   replay (each track's last 2 s rides the playing video). 840 tests
+   green; live-verified on cam5 incl. absolute-frame sync
+   (252000 = 25200 s × 10 fps exact). The calibration-studio track
+   (F1/F2/F3) is COMPLETE; browser-visual polish rides operator use.
    **STATUS 2026-07-17:** E is DONE (plan_deliverables_E: Miovision-parity
    workbook + letterhead PDF + per-intersection-day gated exports, verified
    live). **§3-D detector fine-tune is DONE AND PROMOTED** (plan_detector_
