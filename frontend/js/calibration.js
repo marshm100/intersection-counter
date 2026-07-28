@@ -1710,14 +1710,45 @@
                 </div>`;
                 return;
             }
-            const pct = (_suggestionJobStatus.progress_pct || 0).toFixed(1);
-            host.innerHTML = `<div style="padding:8px;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;font-size:12px;">
-                Auto-calibration running... ${pct}% (${escapeHtml(_suggestionJobStatus.phase || "")})
-                <button onclick="v3CalibrationCancelAutoCal()"
-                    style="margin-left:8px;font-size:11px;padding:1px 6px;background:white;color:#92400e;border:1px solid #92400e;border-radius:3px;cursor:pointer;">
-                    Cancel
-                </button>
-            </div>`;
+            // F2 live-perception panel (plan_f2_livecal_2026-07-28): the
+            // skeleton is built ONCE and updated in place each poll, so the
+            // preview <img> survives re-renders (no flash) and only
+            // re-fetches when the backend reports a new preview_seq.
+            const st = _suggestionJobStatus;
+            const pct = Math.max(0, Math.min(100, st.progress_pct || 0));
+            let live = document.getElementById("v3-autocal-live");
+            if (!live) {
+                host.innerHTML = `<div id="v3-autocal-live" style="padding:8px;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;font-size:12px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span id="v3-autocal-text" style="flex:1;"></span>
+                        <button onclick="v3CalibrationCancelAutoCal()"
+                            style="font-size:11px;padding:1px 6px;background:white;color:#92400e;border:1px solid #92400e;border-radius:3px;cursor:pointer;">
+                            Cancel
+                        </button>
+                    </div>
+                    <div style="margin-top:6px;height:6px;background:#fde68a;border-radius:3px;overflow:hidden;">
+                        <div id="v3-autocal-bar" style="height:100%;width:0%;background:#d97706;transition:width .5s;"></div>
+                    </div>
+                    <div id="v3-autocal-counts" class="cal-meta" style="margin:4px 0 0;"></div>
+                    <img id="v3-autocal-preview" alt="" data-seq="0"
+                        style="display:none;width:100%;margin-top:6px;border-radius:4px;border:1px solid #f59e0b;"
+                        onload="this.style.display='block'" onerror="this.style.display='none'">
+                </div>`;
+                live = document.getElementById("v3-autocal-live");
+            }
+            document.getElementById("v3-autocal-text").textContent =
+                `Auto-calibration running… ${pct.toFixed(1)}% (${st.phase || ""})`;
+            document.getElementById("v3-autocal-bar").style.width = `${pct}%`;
+            const counts = document.getElementById("v3-autocal-counts");
+            counts.textContent = (st.active_tracks != null)
+                ? `${st.active_tracks} vehicles in view · ${st.finished_tracks} trajectories collected`
+                : "warming up the detector…";
+            const img = document.getElementById("v3-autocal-preview");
+            const seq = st.preview_seq || 0;
+            if (seq > 0 && String(seq) !== img.dataset.seq) {
+                img.dataset.seq = String(seq);
+                img.src = `/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion/preview.jpg?seq=${seq}`;
+            }
             return;
         }
         if (!_suggestion) { host.innerHTML = ""; return; }

@@ -77,6 +77,8 @@ def collect_trajectories(
     yolo_confidence: float = DEFAULT_YOLO_CONF,
     progress_every_sec: float = 30.0,
     should_cancel: Callable[[], bool] | None = None,
+    on_progress: Callable[[dict], None] | None = None,
+    on_progress_every_sec: float = 1.0,
 ) -> tuple[list[list[tuple[float, float]]], tuple[int, int], dict]:
     """Run detector + tracker on the sample window. Return:
       ( list of trajectories, each = [(x, y), ...] in image coords ,
@@ -107,6 +109,7 @@ def collect_trajectories(
 
         frame_no = start_frame
         last_log = time.time()
+        last_progress = 0.0
         n_detections = 0
 
         while frame_no < end_frame:
@@ -140,6 +143,29 @@ def collect_trajectories(
                       f"({progress*100:.1f}%)  active_tracks={len(active)}  "
                       f"finished={len(finished)}", file=sys.stderr)
                 last_log = now
+            # Live-perception hook (F2, plan_f2_livecal_2026-07-28):
+            # OBSERVATIONAL ONLY — the callback sees the loop's state and
+            # must not mutate it; on_progress=None is byte-identical to
+            # the legacy path. Throttled independently of the log cadence.
+            if on_progress is not None and now - last_progress >= on_progress_every_sec:
+                try:
+                    on_progress({
+                        "frame_no": frame_no,
+                        "start_frame": start_frame,
+                        "end_frame": end_frame,
+                        "progress": (frame_no - start_frame)
+                        / max(1, end_frame - start_frame),
+                        "active": len(active),
+                        "finished": len(finished),
+                        "frame": frame,
+                        "tracked": tracked,
+                        "trails": {tid: pts[-30:]
+                                   for tid, pts in active.items()},
+                    })
+                except Exception:
+                    # A preview failure must never kill calibration.
+                    pass
+                last_progress = now
             frame_no += 1
 
         # Flush still-active tracks at the end of the window.
@@ -397,7 +423,8 @@ def run(video_path: str, sample_start_sec: float, sample_end_sec: float,
         yolo_confidence: float = DEFAULT_YOLO_CONF,
         eps_px: float = DBSCAN_EPS_PX,
         min_samples: int = DBSCAN_MIN_SAMPLES,
-        should_cancel: Callable[[], bool] | None = None) -> dict:
+        should_cancel: Callable[[], bool] | None = None,
+        on_progress: Callable[[dict], None] | None = None) -> dict:
     """End-to-end: collect → cluster → discover paths → label movements."""
     t0 = time.time()
     trajectories, (fw, fh), stats = collect_trajectories(
@@ -405,6 +432,7 @@ def run(video_path: str, sample_start_sec: float, sample_end_sec: float,
         yolo_model=yolo_model, yolo_imgsz=yolo_imgsz,
         yolo_confidence=yolo_confidence,
         should_cancel=should_cancel,
+        on_progress=on_progress,
     )
 
     # Cluster entry zones (start positions) and exit zones (end positions).

@@ -66,7 +66,59 @@ def _update_job(camera_id: int, **fields) -> None:
 def get_status(camera_id: int) -> dict | None:
     with _JOBS_LOCK:
         job = _JOBS.get(camera_id)
-        return dict(job) if job else None
+        if not job:
+            return None
+        out = dict(job)
+        # JPEG bytes are served by the preview endpoint, never in JSON.
+        out.pop("preview_jpeg", None)
+        return out
+
+
+def get_preview_jpeg(camera_id: int) -> bytes | None:
+    """The latest live-perception frame (F2). Ephemeral — process
+    lifetime only, single slot, overwritten ~1/s while a job runs."""
+    with _JOBS_LOCK:
+        job = _JOBS.get(camera_id)
+        return job.get("preview_jpeg") if job else None
+
+
+def _render_preview(camera_id: int, info: dict) -> None:
+    """F2 live-perception callback (plan_f2_livecal_2026-07-28): honest
+    progress + a small annotated JPEG into the job slot. Runs ~1/s on
+    the worker thread; the collector's hook guard swallows failures, so
+    a preview problem can never kill calibration."""
+    import cv2
+    frame = info.get("frame")
+    if frame is None:
+        return
+    img = frame.copy()
+    for t in info.get("tracked", []):
+        bb = t.get("bbox")
+        if bb:
+            x1, y1, x2, y2 = (int(v) for v in bb)
+            cv2.rectangle(img, (x1, y1), (x2, y2), (80, 220, 80), 2)
+    for pts in (info.get("trails") or {}).values():
+        for a, b in zip(pts, pts[1:]):
+            cv2.line(img, (int(a[0]), int(a[1])),
+                     (int(b[0]), int(b[1])), (60, 160, 255), 2)
+    h, w = img.shape[:2]
+    if w > 640:
+        img = cv2.resize(img, (640, int(h * 640 / w)))
+    ok, buf = cv2.imencode(".jpg", img,
+                           [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+    fields = {
+        "progress_pct": round(5.0 + 85.0 * float(info.get("progress", 0.0)), 1),
+        "active_tracks": info.get("active", 0),
+        "finished_tracks": info.get("finished", 0),
+    }
+    if ok:
+        fields["preview_jpeg"] = buf.tobytes()
+    with _JOBS_LOCK:
+        job = _JOBS.get(camera_id)
+        if job is not None:
+            job.update(fields)
+            job["preview_seq"] = int(job.get("preview_seq", 0)) + 1
+            job["updated_at"] = time.time()
 
 
 def cancel(camera_id: int) -> bool:
@@ -177,6 +229,7 @@ def _run_job(
                 sample_end_sec=sample_end_sec,
                 should_cancel=lambda: bool(
                     _JOBS.get(camera_id, {}).get("cancel_requested")),
+                on_progress=lambda info: _render_preview(camera_id, info),
             )
         except AutoCalCancelled:
             _update_job(camera_id, status="cancelled", phase="done",

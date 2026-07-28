@@ -1,7 +1,7 @@
 import json
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 from typing import List
 
@@ -558,6 +558,21 @@ def cancel_camera_auto_cal_v2(project_id: str, camera_id: int):
     _require_camera_404(project_id, camera_id)
     ok = auto_calibrator_v2.cancel(camera_id)
     return {"cancel_requested": ok}
+
+
+@router.get("/projects/{project_id}/cameras/{camera_id}/calibration/suggestion/preview.jpg")
+def get_camera_auto_cal_preview(project_id: str, camera_id: int):
+    """F2 live-perception frame (plan_f2_livecal_2026-07-28): the latest
+    annotated frame of the RUNNING auto-cal (boxes + trails), ~1/s.
+    Ephemeral — 404 until the first frame lands or after a restart; the
+    UI polls status and refreshes this when preview_seq changes."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    jpg = auto_calibrator_v2.get_preview_jpeg(camera_id)
+    if not jpg:
+        raise HTTPException(status_code=404, detail="no preview frame yet")
+    return Response(content=jpg, media_type="image/jpeg",
+                    headers={"Cache-Control": "no-store"})
 
 
 @router.get("/projects/{project_id}/cameras/{camera_id}/calibration/suggestion")
