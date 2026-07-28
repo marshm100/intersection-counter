@@ -1,0 +1,50 @@
+{
+ "window": "study_0700",
+ "n_pairs_scored": {
+  "seq": 120,
+  "far": 120,
+  "near": 119,
+  "twin": 69
+ },
+ "no_clean_frames_flagged": {
+  "seq": 0,
+  "far": 0,
+  "near": 0,
+  "twin": 0
+ },
+ "similarity_quartiles": {
+  "seq": [
+   0.442,
+   0.743,
+   0.802,
+   0.845,
+   0.961
+  ],
+  "far": [
+   0.5,
+   0.701,
+   0.777,
+   0.828,
+   0.943
+  ],
+  "near": [
+   0.652,
+   0.774,
+   0.82,
+   0.868,
+   0.947
+  ],
+  "twin": [
+   0.48,
+   0.603,
+   0.691,
+   0.787,
+   0.956
+  ]
+ },
+ "auc_seq_vs_near": 0.399,
+ "twin_split_at_midpoint": {
+  "same_vehicle_side": 15,
+  "different_vehicle_side": 54
+ }
+}
