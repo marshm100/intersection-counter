@@ -117,3 +117,26 @@ class TestCollectorContract:
         assert "on_progress" in params
         assert params["on_progress"].default is None    # legacy path intact
         assert "on_progress" in inspect.signature(A.run).parameters
+
+
+class TestShapeSampleTracks:
+    def test_downsample_and_min_points(self):
+        acc = {1: {f: (float(f), 0.0) for f in range(100, 190)},   # 90 frames
+               2: {f: (0.0, 0.0) for f in range(100, 110)}}        # 10 frames
+        out = AC._shape_sample_tracks(acc, every=3, min_points=8)
+        by_tid = {t["tid"]: t for t in out}
+        assert 1 in by_tid
+        assert 2 not in by_tid                       # 10/3 = 4 pts < 8
+        pts = by_tid[1]["points"]
+        assert len(pts) == 30                        # 90 frames / every-3rd
+        assert pts[0] == [100, 100.0, 0.0]
+        assert pts[1][0] == 103                      # stride respected
+
+    def test_global_cap_keeps_longest(self):
+        acc = {i: {f: (0.0, 0.0) for f in range(0, 30 * (i + 1), 1)}
+               for i in range(5)}                    # lengths 30..150
+        out = AC._shape_sample_tracks(acc, every=1, min_points=8, max_points=200)
+        lens = [len(t["points"]) for t in out]
+        assert lens == sorted(lens, reverse=True)    # longest first
+        assert sum(lens) <= 200
+        assert lens[0] == 150                        # the longest survived

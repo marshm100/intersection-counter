@@ -82,6 +82,30 @@ def get_preview_jpeg(camera_id: int) -> bytes | None:
         return job.get("preview_jpeg") if job else None
 
 
+def _shape_sample_tracks(acc: dict, every: int = 3,
+                         min_points: int = 8, max_points: int = 25000) -> list:
+    """F3 stage B: shape the accumulated {tid: {frame: (x, y)}} into the
+    persisted `sample_tracks` payload — every Nth frame per track, short
+    tracks dropped, globally capped by total points (longest tracks kept
+    first) so the suggestion JSON stays ~sub-MB."""
+    shaped = []
+    for tid, by_frame in acc.items():
+        frames = sorted(by_frame)[::every]
+        if len(frames) < min_points:
+            continue
+        shaped.append({"tid": int(tid),
+                       "points": [[int(f), round(by_frame[f][0], 1),
+                                   round(by_frame[f][1], 1)] for f in frames]})
+    shaped.sort(key=lambda t: -len(t["points"]))
+    out, total = [], 0
+    for t in shaped:
+        if total + len(t["points"]) > max_points:
+            break
+        out.append(t)
+        total += len(t["points"])
+    return out
+
+
 def _render_preview(camera_id: int, info: dict) -> None:
     """F2 live-perception callback (plan_f2_livecal_2026-07-28): honest
     progress + a small annotated JPEG into the job slot. Runs ~1/s on
@@ -222,6 +246,18 @@ def _run_job(
         # (it polls cancel_requested every ~30 frames) instead of only
         # after the whole window finishes.
         _update_job(camera_id, phase="collect_trajectories", progress_pct=5.0)
+        # F3 stage B: accumulate frame-stamped sample tracks from the same
+        # hook the preview rides (trails × trails_f are parallel slices).
+        _track_acc: dict[int, dict[int, tuple]] = {}
+
+        def _cb(info):
+            for tid, pts in (info.get("trails") or {}).items():
+                fs = (info.get("trails_f") or {}).get(tid) or []
+                slot = _track_acc.setdefault(tid, {})
+                for f, p in zip(fs, pts):
+                    slot[int(f)] = p
+            _render_preview(camera_id, info)
+
         try:
             result = run_auto_cal(
                 path,
@@ -229,7 +265,7 @@ def _run_job(
                 sample_end_sec=sample_end_sec,
                 should_cancel=lambda: bool(
                     _JOBS.get(camera_id, {}).get("cancel_requested")),
-                on_progress=lambda info: _render_preview(camera_id, info),
+                on_progress=_cb,
             )
         except AutoCalCancelled:
             _update_job(camera_id, status="cancelled", phase="done",
@@ -244,6 +280,9 @@ def _run_job(
         # Drop the full video_path off the JSON we persist — keep the
         # JSON small + portable. Add summary metadata to job_metadata.
         result.pop("video_path", None)
+        # F3 stage B: the studio's synced replay data (shape-additive —
+        # readers of the suggestion payload ignore unknown keys).
+        result["sample_tracks"] = _shape_sample_tracks(_track_acc)
         meta = {
             "video_id": vid,
             "video_path": path,

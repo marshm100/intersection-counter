@@ -106,6 +106,9 @@ def collect_trajectories(
 
         active: dict[int, list[tuple[float, float]]] = defaultdict(list)
         finished: list[list[tuple[float, float]]] = []
+        # Parallel frame stamps for the F3 hook payload only — clustering
+        # consumes `active`/`finished` (x,y) exactly as before.
+        active_f: dict[int, list[int]] = defaultdict(list)
 
         frame_no = start_frame
         last_log = time.time()
@@ -131,10 +134,12 @@ def collect_trajectories(
                 active[t["track_id"]].append(
                     (float(t["center"][0]), float(t["center"][1])),
                 )
+                active_f[t["track_id"]].append(frame_no)
             # Drop tracks the tracker stopped emitting — they're done.
             for tid in list(active.keys()):
                 if tid not in present_ids:
                     finished.append(active.pop(tid))
+                    active_f.pop(tid, None)
 
             now = time.time()
             if now - last_log >= progress_every_sec:
@@ -161,6 +166,8 @@ def collect_trajectories(
                         "tracked": tracked,
                         "trails": {tid: pts[-30:]
                                    for tid, pts in active.items()},
+                        "trails_f": {tid: fs[-30:]
+                                     for tid, fs in active_f.items()},
                     })
                 except Exception:
                     # A preview failure must never kill calibration.

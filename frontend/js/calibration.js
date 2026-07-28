@@ -395,6 +395,53 @@
     // --- F3 studio: play the footage under the drawing layers ------------
     let _videoMode = false;
 
+    function _drawSampleTrails() {
+        // Replay the auto-cal sample tracks in sync with the playing video
+        // (stage B): each track's last ~2 s of points up to the current
+        // frame, so the engineer watches the traffic the clusters came from.
+        const tracks = _suggestion && _suggestion.payload
+            && _suggestion.payload.sample_tracks;
+        if (!tracks || !tracks.length) return;
+        const vid = document.getElementById('v3-calib-video');
+        if (!vid) return;
+        const fps = (_suggestion.payload.stats
+                     && _suggestion.payload.stats.fps_source) || 10;
+        const frame = Math.round(vid.currentTime * fps);
+        const lookback = Math.round(2 * fps);
+        _ctx.save();
+        _ctx.lineWidth = 2;
+        _ctx.strokeStyle = 'rgba(251,146,60,0.9)';
+        _ctx.fillStyle = 'rgba(251,146,60,0.9)';
+        for (const t of tracks) {
+            const pts = t.points;
+            if (!pts.length || pts[0][0] > frame
+                || pts[pts.length - 1][0] < frame - lookback) continue;
+            let head = null;
+            _ctx.beginPath();
+            let started = false;
+            for (const [f, x, y] of pts) {
+                if (f > frame) break;
+                if (f < frame - lookback) continue;
+                if (!started) { _ctx.moveTo(x, y); started = true; }
+                else _ctx.lineTo(x, y);
+                head = [x, y];
+            }
+            if (started) _ctx.stroke();
+            if (head) {
+                _ctx.beginPath();
+                _ctx.arc(head[0], head[1], 4, 0, 2 * Math.PI);
+                _ctx.fill();
+            }
+        }
+        _ctx.restore();
+    }
+
+    function _studioLoop() {
+        if (!_videoMode) return;
+        _redraw();
+        requestAnimationFrame(_studioLoop);
+    }
+
     window.v3CalibrationTogglePlay = function () {
         const vid = document.getElementById('v3-calib-video');
         const btn = document.getElementById('v3-calib-play');
@@ -416,7 +463,7 @@
             _videoMode = true;
             vid.play().catch(() => {});
             if (btn) btn.innerHTML = '&#9208;';
-            _redraw();
+            requestAnimationFrame(_studioLoop);
         } else {
             vid.pause();
             vid.style.display = 'none';
@@ -776,6 +823,7 @@
         _drawChannels();                           // each channel self-gates by origin leg
         _drawSavedPaths();                         // each path self-gates by origin leg
         _drawSuggestedPaths();                     // dashed overlay when preview is on
+        if (_videoMode) _drawSampleTrails();       // F3: synced sample-track replay
         if (_drawingPath) _drawInProgressPath();   // active draw always shows
         if (_drawingChannel) _drawChannelDraft();
 
