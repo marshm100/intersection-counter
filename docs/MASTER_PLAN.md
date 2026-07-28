@@ -747,3 +747,34 @@ Each is a self-contained phase; ship and validate before the next.
   mode, with a written note, or it's research debt.
 - **Spot-count blind spot:** a single AM spot window passed while the PM was bad — the
   stopping rule / spot-window selection must force coverage of the *hardest* conditions.
+
+---
+
+## 1c. THE CUSTOMER STANDARD — Miovision's 5/95 rule (recorded 2026-07-28)
+
+Operator-provided (the standard to meet): per movement cell per 15-min
+bin — ref <= 100 -> +/-5 VEHICLES absolute; ref > 100 -> >= 95%
+accurate. Conditioned on THEIR 5-star video/camera requirements; night /
+low-light / glare explicitly excluded from the guarantee; operationally
+backed by their human QA ("we'll fix it").
+
+**Measured baseline (scripts/rule595_compliance.py,
+runs/3b_validation/rule595.json — production tables vs Mio, raw
+pipeline, no review layer):** cam1 65.3% / cam2 46.7% / cam3 68.8%
+(77.3% daylight) / cam4 76.4% / cam5 70.9% / FM51 70.3% stock-era and
+**71.0% current-chain** of cell-bins compliant, vs an effective ~100%
+guarantee.
+
+Shape lesson: +/-5 absolute at 20-100-veh cells is +/-3-6% PER BIN —
+harsher than the Sec-1b averaged bar for mid-size cells (FM51's 3.0 MAE
+still scores 71% here); more forgiving only for tiny cells. The Sec-1b
+dev metric and the acceptance gate are NOT aligned to this standard.
+
+Named consequences (the re-aim, when directed): (a) adopt per-bin-cell
+5/95 as the reporting scorer alongside MAE; (b) the spot gate's verdict
+rule gains the +/-5 absolute grace (also fixes small-approach CI
+straddle); (c) queue-recall vs 5/95-failing cell-bins becomes the
+review layer's validation (are the failures FLAGGED? — unmeasured);
+(d) the 5-star video precondition maps onto our measured
+source-resolution wall: qualifying footage is REQUIRED before the
+guarantee could apply at all.
