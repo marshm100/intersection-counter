@@ -378,3 +378,32 @@ two-iteration budget CLOSES the cycle.**
   its own gate); (c) the operator decision recorded in the plan: whether
   LEC2's sweep-less partial justifies a relaxed-bar corridor sweep is
   an explicit bar change, not a default.
+
+---
+
+## OPERATOR-AUTHORIZED DELIVERABLE-TRUTHFULNESS SWEEP (2026-07-28 —
+"handoff then sweep"; an explicit bar change, on record)
+
+The cycle's dev bands ([0.97,1.03] protected thrus) were missed held-out
+and the cycle is CLOSED. The operator has authorized re-judging the
+frozen LEC2 bundle at the bar the §3-B claim structure validated — what
+the DELIVERABLE needs — over the corridor + FM51:
+
+**Pre-declared per-camera bar (replayed-minutes basis, LEC2 vs BASE on
+identical replays):**
+  (1) per-cell abs error total (cells with GT >= 10) strictly improves;
+  (2) NO cell with GT >= 30 worsens by more than max(10 veh, 20% of GT);
+  (3) net-total: |net_after| <= max(|net_before|, 5%) — certifiability
+      never lost;
+  (4) per-approach MAE not worse by > 0.3 points on any approach;
+      cam3 = HARD STOP at any worsening beyond that noise band;
+  (5) FM51 (ftv2n replay basis, held-out): same bar.
+Constants: the frozen LEC2 bundle exactly as committed (bearing 55,
+L=40 full-journey-only + concurrent cut 1s/35px, C-proper divergence
+reroute, R rmin=3). No re-fitting anywhere.
+
+PASS on a camera -> that camera joins the ship set; the ship step
+itself (measure-then-apply through the real pass-2, production
+interval-scorer reported alongside, operator ✓) is a separate follow-up.
+FAIL anywhere -> that camera stays base; a cam3 or FM51 failure kills
+the ship set entirely. All numbers land here; negatives included.
