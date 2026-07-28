@@ -189,8 +189,14 @@
             <div class="calib-layout">
                 <div class="calib-canvas-wrap">
                     <div class="cal-layers-grid" id="v3-calib-layers"></div>
-                    <canvas id="v3-calib-canvas" style="cursor:crosshair;max-width:100%;display:block;"></canvas>
+                    <div id="v3-calib-stage" style="position:relative;">
+                        <video id="v3-calib-video" muted playsinline
+                            style="position:absolute;inset:0;width:100%;height:100%;display:none;"></video>
+                        <canvas id="v3-calib-canvas" style="cursor:crosshair;max-width:100%;display:block;position:relative;z-index:1;"></canvas>
+                    </div>
                     <div class="calib-scrubber-row">
+                        <button id="v3-calib-play" onclick="v3CalibrationTogglePlay()" title="Play the footage under the drawing layers (F3 studio)"
+                            style="font-size:12px;padding:2px 10px;background:white;border:1px solid #9ca3af;border-radius:3px;cursor:pointer;">&#9655;</button>
                         <span class="calib-scrubber-time" id="v3-calib-time-display">00:00:05</span>
                         <input type="range" id="v3-calib-scrubber"
                             min="0" max="${Math.floor(_videoDuration)}" step="1"
@@ -385,6 +391,40 @@
         if (!_videoId) return;
         _img.src = `/api/projects/${_pid}/videos/${_videoId}/frame?seconds=${seconds}&_t=${Date.now()}`;
     }
+
+    // --- F3 studio: play the footage under the drawing layers ------------
+    let _videoMode = false;
+
+    window.v3CalibrationTogglePlay = function () {
+        const vid = document.getElementById('v3-calib-video');
+        const btn = document.getElementById('v3-calib-play');
+        if (!vid || !_videoId) return;
+        if (!_videoMode) {
+            if (!vid.src) {
+                vid.src = `/api/projects/${_pid}/videos/${_videoId}/stream`;
+                vid.addEventListener('timeupdate', () => {
+                    if (!_videoMode) return;
+                    _currentSeconds = Math.floor(vid.currentTime);
+                    const scrub = document.getElementById('v3-calib-scrubber');
+                    const disp = document.getElementById('v3-calib-time-display');
+                    if (scrub) scrub.value = _currentSeconds;
+                    if (disp) disp.textContent = _fmtTime(_currentSeconds);
+                });
+            }
+            vid.currentTime = _currentSeconds;
+            vid.style.display = 'block';
+            _videoMode = true;
+            vid.play().catch(() => {});
+            if (btn) btn.innerHTML = '&#9208;';
+            _redraw();
+        } else {
+            vid.pause();
+            vid.style.display = 'none';
+            _videoMode = false;
+            if (btn) btn.innerHTML = '&#9655;';
+            _loadFrame(_currentSeconds);   // freeze on the paused moment
+        }
+    };
 
     function _fmtTime(totalSec) {
         const h = Math.floor(totalSec / 3600);
@@ -725,7 +765,9 @@
     function _redraw() {
         if (!_canvas || !_ctx || !_img.complete) return;
         _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
-        _ctx.drawImage(_img, 0, 0);
+        // F3 studio: in video mode the footage plays BENEATH the canvas —
+        // leave the background transparent so the overlays ride the motion.
+        if (!_videoMode) _ctx.drawImage(_img, 0, 0);
 
         // Layered draw, gated by the per-leg × per-type Layers matrix (F1).
         // Paths/channels are gated by their ORIGIN leg; nodes + fallback by their

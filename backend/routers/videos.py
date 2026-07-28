@@ -7,10 +7,13 @@ will migrate to videos-table reads in subsequent phases.
 """
 
 import asyncio
+import os
+import re
+from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import Response
+from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from backend.config import PROJECTS_DIR
@@ -117,6 +120,76 @@ def get_videos(project_id: str):
     """List all videos attached to the project, in sort order."""
     _require_project(project_id)
     return list_videos(project_id)
+
+
+# --- F3 stage A (plan_f3_playback_studio_2026-07-28) -----------------------
+# Real HTTP-Range file serving so <video> elements can play + seek the
+# source footage. No transcoding: files are browser-playable mp4; a
+# "sample window" is a client-side currentTime clamp, never a server cut.
+
+_STREAM_CHUNK = 1024 * 1024          # 1 MiB read granularity
+_RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)$")
+_MIME_BY_EXT = {".mp4": "video/mp4", ".m4v": "video/mp4",
+                ".mov": "video/quicktime", ".mkv": "video/x-matroska",
+                ".avi": "video/x-msvideo"}
+
+
+def _file_iter(path: str, start: int, end: int):
+    """Yield [start, end] inclusive in _STREAM_CHUNK pieces."""
+    with open(path, "rb") as f:
+        f.seek(start)
+        remaining = end - start + 1
+        while remaining > 0:
+            chunk = f.read(min(_STREAM_CHUNK, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+            yield chunk
+
+
+@router.get("/projects/{project_id}/videos/{video_id}/stream")
+def stream_video(project_id: str, video_id: int,
+                 range_header: str | None = Header(default=None, alias="Range")):
+    """Range-capable video file serving (206 partial / 200 full / 416).
+    Feeds the Phase-9 playback page and the F3 calibration studio."""
+    _require_project(project_id)
+    v = _require_video(project_id, video_id)
+    path = v["path"]
+    if not path or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="video file missing on disk")
+    size = os.path.getsize(path)
+    mime = _MIME_BY_EXT.get(Path(path).suffix.lower(), "application/octet-stream")
+    base_headers = {"Accept-Ranges": "bytes", "Cache-Control": "no-cache"}
+
+    if not range_header:
+        return StreamingResponse(_file_iter(path, 0, size - 1),
+                                 media_type=mime,
+                                 headers={**base_headers,
+                                          "Content-Length": str(size)})
+
+    m = _RANGE_RE.match(range_header.strip())
+    if not m or (m.group(1) == "" and m.group(2) == ""):
+        raise HTTPException(status_code=416, detail="malformed Range",
+                            headers={"Content-Range": f"bytes */{size}"})
+    if m.group(1) == "":
+        # suffix form: last N bytes
+        n = int(m.group(2))
+        if n == 0:
+            raise HTTPException(status_code=416, detail="empty suffix range",
+                                headers={"Content-Range": f"bytes */{size}"})
+        start, end = max(0, size - n), size - 1
+    else:
+        start = int(m.group(1))
+        end = int(m.group(2)) if m.group(2) else size - 1
+    end = min(end, size - 1)
+    if start > end or start >= size:
+        raise HTTPException(status_code=416, detail="range out of bounds",
+                            headers={"Content-Range": f"bytes */{size}"})
+    return StreamingResponse(
+        _file_iter(path, start, end), status_code=206, media_type=mime,
+        headers={**base_headers,
+                 "Content-Range": f"bytes {start}-{end}/{size}",
+                 "Content-Length": str(end - start + 1)})
 
 
 @router.post("/projects/{project_id}/videos/browse")

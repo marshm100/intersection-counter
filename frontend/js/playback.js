@@ -114,17 +114,13 @@ async function _refreshCameraDataAndDraw() {
     }
     // Load events for this camera (all pages — typically small)
     _pbEvents = await _fetchAllEvents(pid, _pbActiveCameraId);
-    // Set the video source
+    // Set the video source — the F3 range-capable stream endpoint
+    // (plan_f3_playback_studio_2026-07-28; the browser handles seeking
+    // via HTTP Range requests).
     const video = document.getElementById('pb-video');
     if (video && _pbVideos[_pbActiveVideoIdx]) {
         const v = _pbVideos[_pbActiveVideoIdx];
-        // Stream the file via the existing frame endpoint? The video router
-        // exposes per-frame extraction but not a video file stream. For
-        // local-file playback we point at file:/// — works in Edge/Chrome
-        // because Claude Code's server runs on localhost.
-        video.src = `/api/projects/${pid}/videos/${v.video_id}/frame?seconds=0&_static=1`;
-        // Fallback: many setups won't have a streaming endpoint yet.
-        // The canvas overlay still works against a static thumbnail.
+        video.src = `/api/projects/${pid}/videos/${v.video_id}/stream`;
         video.poster = `/api/projects/${pid}/videos/${v.video_id}/frame?seconds=0`;
     }
     await _refreshCountsPanel();
