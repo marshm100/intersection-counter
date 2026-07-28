@@ -653,6 +653,13 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
    corridor scoreboard unchanged.
 9. **D-low-light** + **E deliverables (L/M/A Excel, PDF)** + **F2/F3 calibration studio** —
    unchanged from prior sequencing.
+   **STATUS 2026-07-28 — F2 SHIPPED** (`plan_f2_livecal_2026-07-28.md`,
+   3d340e5): live auto-cal perception view — observational `on_progress`
+   hook in `collect_trajectories` (None-path byte-identical), honest
+   progress 5→90 replacing the pinned 5%, ~1/s annotated preview
+   (boxes + trails) via `preview.jpg`, update-in-place live panel with
+   vehicle/trajectory counts. 830 tests green (+6); verified live on
+   cam5 end-to-end. F3 (playback studio) remains the stage-3 block.
    **STATUS 2026-07-17:** E is DONE (plan_deliverables_E: Miovision-parity
    workbook + letterhead PDF + per-intersection-day gated exports, verified
    live). **§3-D detector fine-tune is DONE AND PROMOTED** (plan_detector_
