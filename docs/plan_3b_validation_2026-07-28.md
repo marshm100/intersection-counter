@@ -126,3 +126,48 @@ reconcile: the spot gate certifies NET-window accuracy; the Sec-1b bar is
 interval MAE. A camera can pass one and fail the other (cam2 does). For
 cam2-class cameras the blind verdict is honestly "review + flag queue",
 never "pass" - phase-2 claim language item (f).
+
+---
+
+## PHASE 1-2 VERDICT + THE CLAIM STRUCTURE (2026-07-28 — evidence
+runs/3b_validation/{phase0_matrix,fm51_retrospective}.json; gate changes
+shipped in backend/services/spot_check.py, 824 tests green)
+
+**Shipped gate hardening:** (c) per-approach binding rows (CI wholly
+outside +/-5% with >=30 manual demotes pass->review; first catch was
+crossed N/S labels in our own 5-week-old test fixture); (d) trim-scoped
+stratification (certification = the declared reporting windows; no
+trims -> footage-wide, so cam3's night refusal is an honest refusal of
+an over-broad claim, remedied by declaring trims); (e) extend-to-certify
+protocol (the simulation follows the service's own guidance; cam1/cam4
+certify honestly).
+
+**Matrix after hardening (5 seeds):** cam5 false-pass caught 4/5 by
+approach binding; residual 1/5 — and cam4 3/5 — are STRUCTURAL: their
+net totals genuinely cancel to ~0 and a 9-18% approach error at
+feasible spot volumes has a CI straddling the target. cam2 = correct
+refusal (net -8.8% real). **FM51 retrospective: stratified certification
+0/5 with the PM window failing by name 4/5 (the founding case caught
+end-to-end); old single-window flow 0/20 under the hardened logic (the
+historical false-pass needed the era's looser practice) — stratification's
+distinct contribution is that the hardest segment is ALWAYS examined.**
+
+**THE CLAIM STRUCTURE (what the product may say at a GT-free site):**
+1. **Net-total accuracy (+/-5%) is spot-CERTIFIABLE** — stratified across
+   the declared reporting windows, CI-disciplined, extend-to-certify,
+   with per-approach tripwires that withhold certification when a
+   sampled window can resolve an approach outside the band.
+2. **The per-approach bar is NOT blind-certifiable by spot counts** — a
+   measured structural limit (S2-honesty tradition): feasible manual
+   windows cannot resolve a 9-18% approach error, and cancellation can
+   zero the net while approaches fail. Per-approach assurance rides the
+   FLAG QUEUE (S1/S4/S5 feeders + the new approach rows as opportunistic
+   tripwires) and is a surveillance claim, not a certification.
+3. **Scope is explicit**: certification covers the declared trims only;
+   footage outside them is uncertified and the claim language says so.
+
+**Residuals (named, not hidden):** acceptance-layer composition with
+simulated spot rows (the composition logic is unit-tested;
+end-to-end-with-simulation still owed); S1 threshold sweep vs the cam2
+SB-thru miss (superseded in priority by the claim structure — the queue
+surveils, S1 tuning is now an alarm-quality item, not a claim item).

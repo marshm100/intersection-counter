@@ -95,3 +95,27 @@ Excel TMC from the export page (hard-coded integers, cross-camera dedup applied)
   prefer a longer count window there (aim ≥850 vehicles).
 - Spot counts validate NET error per cell. Compensating within-cell errors (miss one vehicle,
   phantom another) needs per-event review to surface.
+
+## Blind acceptance — what certification means (§3-B validation 2026-07-28)
+
+The acceptance gate was validated against ground truth on six cameras
+(plan_3b_validation_2026-07-28.md). What it certifies, and what it does not:
+
+1. **Count-until-certified, every segment.** The gate proposes one spot
+   window per reporting segment (your declared trims). Count each; when
+   the tool says "extend the count to ~N vehicles", keep counting — a
+   30-minute window at moderate volume usually cannot certify alone.
+2. **A "pass" certifies the NET TOTAL (±5%) of your declared reporting
+   windows.** Nothing more. Footage outside your trims is uncertified —
+   declare trims that match what the deliverable claims.
+3. **Per-approach accuracy is surveilled, not certified.** The flag queue
+   (coverage, bank-hole, merge feeders) plus the spot report's
+   per-approach rows are tripwires: any approach row flagged "outside
+   target" or any unresolved queue card on a high-volume movement means
+   REVIEW that movement before export. No feasible manual count can
+   certify per-approach accuracy blind — treat the queue as the
+   per-approach authority.
+4. **"Review" is an obligation, not a soft pass.** The gate never
+   certifies by vagueness: wide CIs, uncovered segments, or a binding
+   approach row all hold the verdict at review until resolved — by more
+   counting, by trim scoping, or by working the queue.
