@@ -961,6 +961,29 @@ def rebuild_s5_union(project_id: str, intersection_id: int,
     return rebuild_flags(project_id, intersection_id, extra_flags=extras)
 
 
+BACKUP_KEEP = 12   # pre-apply project.db copies kept per project (~380 MB
+                   # each on the corridor — a full-corridor re-apply is
+                   # 9 windows, so 12 keeps a whole campaign + margin while
+                   # bounding the directory at ~5 GB; C-stage residual,
+                   # closed 2026-07-28)
+
+
+def _rotate_backups(bdir: Path, keep: int = BACKUP_KEEP) -> None:
+    """Delete the oldest pre-apply backups beyond `keep`. Name-sorted =
+    time-sorted (timestamp prefix). Deletion failures are non-fatal — a
+    locked file just survives one more rotation."""
+    try:
+        backups = sorted(bdir.glob("*_pre_twopass_cam*.db"))
+    except OSError:
+        return
+    for old in backups[:-keep] if keep > 0 else []:
+        try:
+            old.unlink()
+            logger.info("backup rotation: removed %s", old.name)
+        except OSError:
+            pass
+
+
 def _finish_apply(project_id: str, camera_id: int, intersection_id: int,
                   out_db: Path, f_lo: int, f_hi: int, fps: float,
                   result: dict) -> dict:
@@ -972,6 +995,7 @@ def _finish_apply(project_id: str, camera_id: int, intersection_id: int,
         f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_pre_twopass_cam{camera_id}.db")
     backup.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(proj_db, backup)
+    _rotate_backups(backup.parent)
     _apply_window_events(proj_db, out_db, camera_id, f_lo / fps, f_hi / fps)
     c = sqlite3.connect(proj_db)
     card = {lid: cd for lid, cd in c.execute(

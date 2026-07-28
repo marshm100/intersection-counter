@@ -171,3 +171,17 @@ simulated spot rows (the composition logic is unit-tested;
 end-to-end-with-simulation still owed); S1 threshold sweep vs the cam2
 SB-thru miss (superseded in priority by the claim structure — the queue
 surveils, S1 tuning is now an alarm-quality item, not a claim item).
+
+**Acceptance-composition sim (the owed item — CLOSED 2026-07-28;
+evidence runs/3b_validation/acceptance_sim.json, harness
+scripts/gate3b_acceptance_sim.py):** full `acceptance()` composed on a
+scratch copy with simulated-perfect stratified spot counts (seed 97,
+extend-to-certify). **Zero false-ship: all five intersections compose
+to overall=fail** — the gate is conservative end-to-end on the corridor
+as it stands. FINDING for a future block: `reverse_balance` fails on
+ALL five intersections — over peak-window claims the item is
+universally red (real directional peaking, exactly the case its
+docstring warns about), so it currently adds no discrimination and
+solely determines several compositions. A peak-aware reverse-balance
+(or trims-scoped applicability) is the named fix; measured change,
+own block.

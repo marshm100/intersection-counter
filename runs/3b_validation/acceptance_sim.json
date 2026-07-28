@@ -1,0 +1,194 @@
+{
+ "seed": 97,
+ "spot_rows": {
+  "1": [
+   {
+    "segment": 0,
+    "start": 26250.5,
+    "dur": 1800.0,
+    "verdict": "pass"
+   },
+   {
+    "segment": 1,
+    "start": 61952.8,
+    "dur": 2700.0,
+    "verdict": "review"
+   }
+  ],
+  "2": [
+   {
+    "segment": 0,
+    "start": 26250.5,
+    "dur": 1800.0,
+    "verdict": "review"
+   },
+   {
+    "segment": 1,
+    "start": 43952.8,
+    "dur": 1800.0,
+    "verdict": "review"
+   },
+   {
+    "segment": 2,
+    "start": 59609.1,
+    "dur": 1800.0,
+    "verdict": "review"
+   }
+  ],
+  "3": [
+   {
+    "segment": 0,
+    "start": 4200.0,
+    "dur": 300.0,
+    "verdict": "review"
+   },
+   {
+    "segment": 1,
+    "start": 7500.0,
+    "dur": 300.0,
+    "verdict": "fail"
+   },
+   {
+    "segment": 2,
+    "start": 9300.0,
+    "dur": 600.0,
+    "verdict": "fail"
+   },
+   {
+    "segment": 3,
+    "start": 11400.0,
+    "dur": 900.0,
+    "verdict": "fail"
+   },
+   {
+    "segment": 4,
+    "start": 14100.0,
+    "dur": 1500.0,
+    "verdict": "fail"
+   },
+   {
+    "segment": 5,
+    "start": 21057.6,
+    "dur": 1800.0,
+    "verdict": "fail"
+   },
+   {
+    "segment": 6,
+    "start": 45701.1,
+    "dur": 1800.0,
+    "verdict": "pass"
+   },
+   {
+    "segment": 7,
+    "start": 55523.9,
+    "dur": 1800.0,
+    "verdict": "fail"
+   },
+   {
+    "segment": 8,
+    "start": 78160.7,
+    "dur": 1800.0,
+    "verdict": "fail"
+   },
+   {
+    "segment": 9,
+    "start": 84000.0,
+    "dur": 900.0,
+    "verdict": "fail"
+   }
+  ],
+  "4": [
+   {
+    "segment": 0,
+    "start": 26008.9,
+    "dur": 2700.0,
+    "verdict": "pass"
+   },
+   {
+    "segment": 1,
+    "start": 43894.6,
+    "dur": 2700.0,
+    "verdict": "pass"
+   },
+   {
+    "segment": 2,
+    "start": 59420.7,
+    "dur": 2700.0,
+    "verdict": "pass"
+   }
+  ],
+  "5": [
+   {
+    "segment": 0,
+    "start": 26008.9,
+    "dur": 2700.0,
+    "verdict": "review"
+   },
+   {
+    "segment": 1,
+    "start": 43952.8,
+    "dur": 1800.0,
+    "verdict": "pass"
+   },
+   {
+    "segment": 2,
+    "start": 59420.7,
+    "dur": 1800.0,
+    "verdict": "pass"
+   }
+  ]
+ },
+ "composed": {
+  "1": {
+   "camera": 1,
+   "items": {
+    "corridor_consistency": "warn",
+    "reverse_balance": "fail",
+    "spot_count": "review",
+    "review_flags": "ok"
+   },
+   "overall": "fail"
+  },
+  "2": {
+   "camera": 2,
+   "items": {
+    "corridor_consistency": "fail",
+    "reverse_balance": "fail",
+    "spot_count": "review",
+    "review_flags": "ok"
+   },
+   "overall": "fail"
+  },
+  "3": {
+   "camera": 3,
+   "items": {
+    "corridor_consistency": "fail",
+    "reverse_balance": "fail",
+    "spot_count": "fail",
+    "review_flags": "ok"
+   },
+   "overall": "fail"
+  },
+  "4": {
+   "camera": 4,
+   "items": {
+    "corridor_consistency": "fail",
+    "reverse_balance": "fail",
+    "spot_count": "pass",
+    "review_flags": "ok"
+   },
+   "overall": "fail"
+  },
+  "5": {
+   "camera": 5,
+   "items": {
+    "corridor_consistency": "ok",
+    "reverse_balance": "fail",
+    "spot_count": "review",
+    "review_flags": "ok"
+   },
+   "overall": "fail"
+  }
+ },
+ "false_ship_intersections": []
+}

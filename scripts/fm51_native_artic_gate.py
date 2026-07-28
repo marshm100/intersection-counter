@@ -238,7 +238,12 @@ def stage_d_score(outs, v):
         print(f"  {k:<20} Miovision {mio_cls_w.get(k, 0):>5}   "
               f"ours {ours_cls.get(k, 0):>5}")
 
-    outp = Path("runs/finetune_v1/fm51_native_artic.json")
+    # GATE_OUT joins the script's env-pointer family (WEIGHTS/VARIANT/
+    # CLASS_MAP): a re-run for a NEW chain must set it, or it lands on the
+    # v1 evidence file — the hardcoded default once overwrote the v1 gate
+    # evidence (restored from git, handoff 2026-07-27).
+    outp = Path(_os.environ.get("GATE_OUT",
+                                "runs/finetune_v1/fm51_native_artic.json"))
     outp.parent.mkdir(parents=True, exist_ok=True)
     outp.write_text(json.dumps({
         "rows": rows,

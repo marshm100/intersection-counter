@@ -213,3 +213,22 @@ class TestProcessingStatusMerge:
         r = client.get(f"/api/projects/{proj}/intersections/{iid}/processing/status")
         assert r.status_code == 200
         assert "two_pass" not in r.json()
+
+
+class TestBackupRotation:
+    def test_rotation_keeps_newest(self, tmp_path):
+        from backend.services.two_pass import _rotate_backups
+        for i in range(15):
+            (tmp_path / f"202607{i:02d}_000000_pre_twopass_cam1.db").write_bytes(b"x")
+        (tmp_path / "unrelated.db").write_bytes(b"x")     # never touched
+        _rotate_backups(tmp_path, keep=12)
+        left = sorted(p.name for p in tmp_path.glob("*_pre_twopass_cam*.db"))
+        assert len(left) == 12
+        assert left[0].startswith("20260703")             # oldest 3 gone
+        assert (tmp_path / "unrelated.db").exists()
+
+    def test_keep_zero_is_noop_guard(self, tmp_path):
+        from backend.services.two_pass import _rotate_backups
+        (tmp_path / "20260701_000000_pre_twopass_cam1.db").write_bytes(b"x")
+        _rotate_backups(tmp_path, keep=0)
+        assert len(list(tmp_path.glob("*.db"))) == 1      # keep=0 deletes nothing
