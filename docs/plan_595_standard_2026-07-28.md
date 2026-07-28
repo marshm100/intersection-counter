@@ -123,3 +123,75 @@ counts + recall) → W4.2 (star rating at ingest — reuses built censuses)
 the qualifying-footage acceptance test, with W2.3/2.4 as authorized
 cycles alongside. Every stage keeps the paid-for discipline: plan →
 measure → pre-declared gate → ship-or-retire with numbers.
+
+---
+
+## EXECUTION CHECKLIST (2026-07-28 — the steps, dependency-ordered;
+[OP] = operator action, everything else is build work)
+
+### Stage 1 — the standard into the machinery (~1-2 sessions)
+1.1 Productize the 5/95 scorer: movement x class cells, per-camera
+    compliance report served beside every export. GATE: re-baselined
+    wall chart, one commit.
+1.2 Acceptance-gate alignment: spot verdicts + approach rows adopt the
+    +/-5-absolute grace; Sec-3-B matrix re-run. GATE: zero false-pass
+    held AND the small-cell eternal-review dissolves (cam1/cam4 certify
+    honestly).
+1.3 Bin-edge audit: are window-edge bins (the 17:45-class worst rows)
+    manufactured by binning/truncation? GATE: measured verdict; if
+    real, fix + re-score.
+
+### Stage 2 — the labor levers (~2-3 sessions)
+2.1 Queue PRECISION measurement (the recall study inverted): noise rate
+    per flag subtype on compliant cells. GATE: precision table.
+2.2 Auto-resolution rules per subtype (zero-volume holes post-census,
+    exact duplicates, cells already inside the +/-5 grace). PRE-DECLARED
+    GATE: open cards drop to TENS per camera while BIG-failure recall
+    stays >= 94.3% — recall may not drop.
+2.3 Cards re-keyed to the 5/95 frame: one card = one failing cell-bin
+    ("fix this bin"), not per-event floods. GATE: card counts + a
+    scripted dry-run of the flow.
+
+### Stage 3 — the star rating at ingest (~1-2 sessions)
+3.1 Census-at-ingest service: the built blind censuses (stub share,
+    flip share, coverage, offset bimodality) computed on the pass-1
+    dump; thresholds anchored to the measured corpus (FM51-class high,
+    cam5-class low). GATE: the rating separates the known sites
+    correctly from their on-file census values.
+3.2 Ingest UI: stars + plain-language guarantee statement per camera
+    ("2-star: totals only — per-movement guarantee needs better
+    footage"). Child-test language.
+
+### Stage 4 — child-test UX passes (~3-5 sessions; parallelizable
+with Stage 3/5)
+4.1 Tally spot-count screen + live certification meter (independence
+    preserved: no AI overlay while counting).
+4.2 Review-card one-question redesign (giant guarded buttons,
+    single-key answers, undo, stopping rule).
+4.3 Cardinal wizard ("tap where north is") + auto-trims proposal with
+    one-click accept.
+4.4 Traffic-light export screen language pass.
+    GATES: scripted dry-runs each; the REAL gate for all four is 6.4.
+
+### Stage 5 — raw-compliance cycles (parallel; full gate discipline)
+5.1 Phantom-small-cell treatment corridor-wide (the proven
+    C-proper/geometric-guard family) — own plan + pre-declared gates.
+5.2 [OP authorizes] Census-gated LEC2 activation cycle — own plan +
+    budget per the standing rule.
+
+### Stage 6 — footage + the acceptance test
+6.1 Qualifying-footage spec into the runbook (resolution, height/angle,
+    daylight — our 5-star analog + procurement guidance).
+6.2 [OP] Procure one qualifying study (camera or video source). LONG
+    LEAD — start now, everything else proceeds meanwhile.
+6.3 Interim rehearsal: corridor post-review compliance with a
+    simulated-perfect reviewer. GATE: >=99%.
+6.4 [OP] Real-operator rehearsal on the new surfaces (also closes the
+    F2/F3 first-human-use gap). GATE: rehearsal findings worked off.
+6.5 THE ACCEPTANCE TEST: blind qualifying-footage study, worked queue,
+    GT withheld until after export. GATE: 100% cell-bin 5/95 compliance
+    on the deliverable. That is "we beat it."
+
+Estimated build effort: ~8-13 focused sessions + the three [OP] moments
+(5.2 authorization, 6.2 procurement, 6.4 rehearsal). First moves on
+"go": 1.1 -> 1.2 -> 1.3 in one block.
