@@ -113,3 +113,16 @@ Still owed in phase 0: the FM51 retrospective (stock-era PM sag - does
 stratification catch the historical false-pass?), and the
 acceptance-layer composition (queue/consistency items) on a scratch DB
 copy with simulated spot rows.
+
+**Eternal-review DIAGNOSED (same day):** cam1/cam4 = pure CI-width (points
+-4..+3%; 30-min windows at 850-1,400 vehicles spill the +/-10% CI once
+any point offset spends budget) -> protocol fix: extend-to-certify (the
+service already prints "extend to ~N"; simulate the operator following
+it; runbook prescribes it). cam2 = genuine marginal point error
+(-5..-11% net across windows/seeds) -> **the gate is CORRECTLY refusing
+certification**: cam2's honest net is ~-8.8% even though its interval
+MAE is 4.8. This exposes the CLAIM-BASIS split the claim doc must
+reconcile: the spot gate certifies NET-window accuracy; the Sec-1b bar is
+interval MAE. A camera can pass one and fail the other (cam2 does). For
+cam2-class cameras the blind verdict is honestly "review + flag queue",
+never "pass" - phase-2 claim language item (f).
