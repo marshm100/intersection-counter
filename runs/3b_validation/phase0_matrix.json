@@ -1,0 +1,3967 @@
+{
+ "minutes": 30.0,
+ "seeds": [
+  97,
+  198,
+  299,
+  400,
+  501
+ ],
+ "gt_verdicts": {
+  "1": {
+   "total": 4.0,
+   "total_pass": true,
+   "approach_fails": [
+    "EB 21.0"
+   ]
+  },
+  "2": {
+   "total": 4.8,
+   "total_pass": true,
+   "approach_fails": [
+    "EB 17.2",
+    "WB 9.9",
+    "SB 10.2"
+   ]
+  },
+  "3": {
+   "total": 3.2,
+   "total_pass": true,
+   "approach_fails": []
+  },
+  "4": {
+   "total": 4.7,
+   "total_pass": true,
+   "approach_fails": [
+    "SB 9.1"
+   ]
+  },
+  "5": {
+   "total": 7.2,
+   "total_pass": false,
+   "approach_fails": [
+    "EB 16.1",
+    "NB 17.3",
+    "SB 5.1"
+   ]
+  }
+ },
+ "matrix": {
+  "1": {
+   "n_segments": 3,
+   "verdict_distribution": {
+    "review": 5
+   },
+   "blind_pass_frac": 0.0,
+   "gt": {
+    "total": 4.0,
+    "total_pass": true,
+    "approach_fails": [
+     "EB 21.0"
+    ]
+   },
+   "FALSE_PASS": false,
+   "rows": [
+    {
+     "seed": 97,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "pass",
+      "review",
+      "pass"
+     ],
+     "worst_approach": [
+      "seg1:E",
+      0.114
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26008.9,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.001,
+       "ci95": [
+        -0.074,
+        0.077
+       ],
+       "manual_total": 1338,
+       "approach_errors": {
+        "E": {
+         "manual": 73,
+         "system": 77,
+         "rel_err": 0.055
+        },
+        "N": {
+         "manual": 752,
+         "system": 726,
+         "rel_err": -0.035
+        },
+        "S": {
+         "manual": 513,
+         "system": 523,
+         "rel_err": 0.019
+        },
+        "W": {
+         "manual": 0,
+         "system": 10,
+         "rel_err": null
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43952.8,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.015,
+       "ci95": [
+        -0.102,
+        0.082
+       ],
+       "manual_total": 889,
+       "approach_errors": {
+        "E": {
+         "manual": 79,
+         "system": 88,
+         "rel_err": 0.114
+        },
+        "N": {
+         "manual": 383,
+         "system": 399,
+         "rel_err": 0.042
+        },
+        "S": {
+         "manual": 426,
+         "system": 389,
+         "rel_err": -0.087
+        },
+        "W": {
+         "manual": 1,
+         "system": 0,
+         "rel_err": -1.0
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 59420.7,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.018,
+       "ci95": [
+        -0.086,
+        0.054
+       ],
+       "manual_total": 1515,
+       "approach_errors": {
+        "E": {
+         "manual": 154,
+         "system": 158,
+         "rel_err": 0.026
+        },
+        "N": {
+         "manual": 677,
+         "system": 602,
+         "rel_err": -0.111
+        },
+        "S": {
+         "manual": 681,
+         "system": 724,
+         "rel_err": 0.063
+        },
+        "W": {
+         "manual": 3,
+         "system": 3,
+         "rel_err": 0.0
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 198,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "pass",
+      "review",
+      "pass"
+     ],
+     "worst_approach": [
+      "seg1:E",
+      0.146
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 25202.0,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": 0.009,
+       "ci95": [
+        -0.067,
+        0.091
+       ],
+       "manual_total": 1246,
+       "approach_errors": {
+        "E": {
+         "manual": 67,
+         "system": 70,
+         "rel_err": 0.045
+        },
+        "N": {
+         "manual": 713,
+         "system": 705,
+         "rel_err": -0.011
+        },
+        "S": {
+         "manual": 466,
+         "system": 470,
+         "rel_err": 0.009
+        },
+        "W": {
+         "manual": 0,
+         "system": 12,
+         "rel_err": null
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43441.9,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.023,
+       "ci95": [
+        -0.11,
+        0.072
+       ],
+       "manual_total": 900,
+       "approach_errors": {
+        "E": {
+         "manual": 82,
+         "system": 94,
+         "rel_err": 0.146
+        },
+        "N": {
+         "manual": 403,
+         "system": 400,
+         "rel_err": -0.007
+        },
+        "S": {
+         "manual": 411,
+         "system": 384,
+         "rel_err": -0.066
+        },
+        "W": {
+         "manual": 4,
+         "system": 1,
+         "rel_err": -0.75
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 57875.0,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": 0.006,
+       "ci95": [
+        -0.067,
+        0.084
+       ],
+       "manual_total": 1357,
+       "approach_errors": {
+        "E": {
+         "manual": 145,
+         "system": 152,
+         "rel_err": 0.048
+        },
+        "N": {
+         "manual": 581,
+         "system": 560,
+         "rel_err": -0.036
+        },
+        "S": {
+         "manual": 629,
+         "system": 651,
+         "rel_err": 0.035
+        },
+        "W": {
+         "manual": 2,
+         "system": 2,
+         "rel_err": 0.0
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 299,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "review",
+      "review",
+      "review"
+     ],
+     "worst_approach": [
+      "seg1:E",
+      0.146
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26975.3,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.038,
+       "ci95": [
+        -0.108,
+        0.038
+       ],
+       "manual_total": 1364,
+       "approach_errors": {
+        "E": {
+         "manual": 80,
+         "system": 77,
+         "rel_err": -0.037
+        },
+        "N": {
+         "manual": 744,
+         "system": 683,
+         "rel_err": -0.082
+        },
+        "S": {
+         "manual": 539,
+         "system": 546,
+         "rel_err": 0.013
+        },
+        "W": {
+         "manual": 1,
+         "system": 6,
+         "rel_err": 5.0
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43487.8,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.02,
+       "ci95": [
+        -0.107,
+        0.075
+       ],
+       "manual_total": 900,
+       "approach_errors": {
+        "E": {
+         "manual": 82,
+         "system": 94,
+         "rel_err": 0.146
+        },
+        "N": {
+         "manual": 403,
+         "system": 404,
+         "rel_err": 0.002
+        },
+        "S": {
+         "manual": 411,
+         "system": 383,
+         "rel_err": -0.068
+        },
+        "W": {
+         "manual": 4,
+         "system": 1,
+         "rel_err": -0.75
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 57372.6,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": 0.024,
+       "ci95": [
+        -0.058,
+        0.113
+       ],
+       "manual_total": 1088,
+       "approach_errors": {
+        "E": {
+         "manual": 131,
+         "system": 134,
+         "rel_err": 0.023
+        },
+        "N": {
+         "manual": 418,
+         "system": 426,
+         "rel_err": 0.019
+        },
+        "S": {
+         "manual": 537,
+         "system": 552,
+         "rel_err": 0.028
+        },
+        "W": {
+         "manual": 2,
+         "system": 2,
+         "rel_err": 0.0
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 400,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "pass",
+      "review",
+      "review"
+     ],
+     "worst_approach": [
+      "seg1:E",
+      0.151
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26653.8,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.009,
+       "ci95": [
+        -0.081,
+        0.069
+       ],
+       "manual_total": 1346,
+       "approach_errors": {
+        "E": {
+         "manual": 72,
+         "system": 72,
+         "rel_err": 0.0
+        },
+        "N": {
+         "manual": 758,
+         "system": 709,
+         "rel_err": -0.065
+        },
+        "S": {
+         "manual": 516,
+         "system": 549,
+         "rel_err": 0.064
+        },
+        "W": {
+         "manual": 0,
+         "system": 4,
+         "rel_err": null
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 40970.5,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.033,
+       "ci95": [
+        -0.123,
+        0.066
+       ],
+       "manual_total": 819,
+       "approach_errors": {
+        "E": {
+         "manual": 73,
+         "system": 84,
+         "rel_err": 0.151
+        },
+        "N": {
+         "manual": 353,
+         "system": 342,
+         "rel_err": -0.031
+        },
+        "S": {
+         "manual": 393,
+         "system": 361,
+         "rel_err": -0.081
+        },
+        "W": {
+         "manual": 0,
+         "system": 5,
+         "rel_err": null
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 61933.5,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": 0.032,
+       "ci95": [
+        -0.037,
+        0.106
+       ],
+       "manual_total": 1559,
+       "approach_errors": {
+        "E": {
+         "manual": 185,
+         "system": 205,
+         "rel_err": 0.108
+        },
+        "N": {
+         "manual": 651,
+         "system": 620,
+         "rel_err": -0.048
+        },
+        "S": {
+         "manual": 722,
+         "system": 779,
+         "rel_err": 0.079
+        },
+        "W": {
+         "manual": 1,
+         "system": 5,
+         "rel_err": 4.0
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 501,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "review",
+      "pass",
+      "pass"
+     ],
+     "worst_approach": [
+      "seg0:E",
+      -0.259
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 28544.7,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.076,
+       "ci95": [
+        -0.15,
+        0.003
+       ],
+       "manual_total": 1164,
+       "approach_errors": {
+        "E": {
+         "manual": 81,
+         "system": 60,
+         "rel_err": -0.259
+        },
+        "N": {
+         "manual": 593,
+         "system": 543,
+         "rel_err": -0.084
+        },
+        "S": {
+         "manual": 489,
+         "system": 458,
+         "rel_err": -0.063
+        },
+        "W": {
+         "manual": 1,
+         "system": 14,
+         "rel_err": 13.0
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 42995.1,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": 0.0,
+       "ci95": [
+        -0.09,
+        0.098
+       ],
+       "manual_total": 873,
+       "approach_errors": {
+        "E": {
+         "manual": 82,
+         "system": 95,
+         "rel_err": 0.159
+        },
+        "N": {
+         "manual": 390,
+         "system": 393,
+         "rel_err": 0.008
+        },
+        "S": {
+         "manual": 393,
+         "system": 383,
+         "rel_err": -0.025
+        },
+        "W": {
+         "manual": 8,
+         "system": 2,
+         "rel_err": -0.75
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 58673.3,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.021,
+       "ci95": [
+        -0.091,
+        0.054
+       ],
+       "manual_total": 1406,
+       "approach_errors": {
+        "E": {
+         "manual": 150,
+         "system": 145,
+         "rel_err": -0.033
+        },
+        "N": {
+         "manual": 617,
+         "system": 579,
+         "rel_err": -0.062
+        },
+        "S": {
+         "manual": 638,
+         "system": 651,
+         "rel_err": 0.02
+        },
+        "W": {
+         "manual": 1,
+         "system": 1,
+         "rel_err": 0.0
+        }
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "2": {
+   "n_segments": 3,
+   "verdict_distribution": {
+    "review": 5
+   },
+   "blind_pass_frac": 0.0,
+   "gt": {
+    "total": 4.8,
+    "total_pass": true,
+    "approach_fails": [
+     "EB 17.2",
+     "WB 9.9",
+     "SB 10.2"
+    ]
+   },
+   "FALSE_PASS": false,
+   "rows": [
+    {
+     "seed": 97,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "review",
+      "review",
+      "review"
+     ],
+     "worst_approach": [
+      "seg2:E",
+      -0.211
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26008.9,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.08,
+       "ci95": [
+        -0.143,
+        -0.013
+       ],
+       "manual_total": 1614,
+       "approach_errors": {
+        "E": {
+         "manual": 145,
+         "system": 135,
+         "rel_err": -0.069
+        },
+        "N": {
+         "manual": 795,
+         "system": 730,
+         "rel_err": -0.082
+        },
+        "S": {
+         "manual": 474,
+         "system": 405,
+         "rel_err": -0.146
+        },
+        "W": {
+         "manual": 200,
+         "system": 215,
+         "rel_err": 0.075
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43894.6,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.091,
+       "ci95": [
+        -0.162,
+        -0.013
+       ],
+       "manual_total": 1215,
+       "approach_errors": {
+        "E": {
+         "manual": 240,
+         "system": 208,
+         "rel_err": -0.133
+        },
+        "N": {
+         "manual": 422,
+         "system": 415,
+         "rel_err": -0.017
+        },
+        "S": {
+         "manual": 435,
+         "system": 359,
+         "rel_err": -0.175
+        },
+        "W": {
+         "manual": 118,
+         "system": 123,
+         "rel_err": 0.042
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 59420.7,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.1,
+       "ci95": [
+        -0.155,
+        -0.042
+       ],
+       "manual_total": 2034,
+       "approach_errors": {
+        "E": {
+         "manual": 455,
+         "system": 359,
+         "rel_err": -0.211
+        },
+        "N": {
+         "manual": 602,
+         "system": 567,
+         "rel_err": -0.058
+        },
+        "S": {
+         "manual": 825,
+         "system": 749,
+         "rel_err": -0.092
+        },
+        "W": {
+         "manual": 152,
+         "system": 155,
+         "rel_err": 0.02
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 198,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "review",
+      "review",
+      "review"
+     ],
+     "worst_approach": [
+      "seg2:E",
+      -0.382
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 25202.0,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.054,
+       "ci95": [
+        -0.122,
+        0.02
+       ],
+       "manual_total": 1415,
+       "approach_errors": {
+        "E": {
+         "manual": 129,
+         "system": 109,
+         "rel_err": -0.155
+        },
+        "N": {
+         "manual": 733,
+         "system": 731,
+         "rel_err": -0.003
+        },
+        "S": {
+         "manual": 412,
+         "system": 365,
+         "rel_err": -0.114
+        },
+        "W": {
+         "manual": 141,
+         "system": 134,
+         "rel_err": -0.05
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43355.4,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.088,
+       "ci95": [
+        -0.159,
+        -0.011
+       ],
+       "manual_total": 1219,
+       "approach_errors": {
+        "E": {
+         "manual": 238,
+         "system": 195,
+         "rel_err": -0.181
+        },
+        "N": {
+         "manual": 448,
+         "system": 427,
+         "rel_err": -0.047
+        },
+        "S": {
+         "manual": 418,
+         "system": 363,
+         "rel_err": -0.132
+        },
+        "W": {
+         "manual": 115,
+         "system": 127,
+         "rel_err": 0.104
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 57875.0,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.079,
+       "ci95": [
+        -0.139,
+        -0.015
+       ],
+       "manual_total": 1757,
+       "approach_errors": {
+        "E": {
+         "manual": 385,
+         "system": 238,
+         "rel_err": -0.382
+        },
+        "N": {
+         "manual": 528,
+         "system": 514,
+         "rel_err": -0.027
+        },
+        "S": {
+         "manual": 657,
+         "system": 663,
+         "rel_err": 0.009
+        },
+        "W": {
+         "manual": 187,
+         "system": 203,
+         "rel_err": 0.086
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 299,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "review",
+      "review",
+      "review"
+     ],
+     "worst_approach": [
+      "seg2:E",
+      -0.344
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26975.3,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.05,
+       "ci95": [
+        -0.112,
+        0.016
+       ],
+       "manual_total": 1727,
+       "approach_errors": {
+        "E": {
+         "manual": 186,
+         "system": 169,
+         "rel_err": -0.091
+        },
+        "N": {
+         "manual": 770,
+         "system": 726,
+         "rel_err": -0.057
+        },
+        "S": {
+         "manual": 547,
+         "system": 509,
+         "rel_err": -0.069
+        },
+        "W": {
+         "manual": 224,
+         "system": 236,
+         "rel_err": 0.054
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43403.8,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.109,
+       "ci95": [
+        -0.179,
+        -0.033
+       ],
+       "manual_total": 1223,
+       "approach_errors": {
+        "E": {
+         "manual": 228,
+         "system": 193,
+         "rel_err": -0.154
+        },
+        "N": {
+         "manual": 457,
+         "system": 427,
+         "rel_err": -0.066
+        },
+        "S": {
+         "manual": 429,
+         "system": 350,
+         "rel_err": -0.184
+        },
+        "W": {
+         "manual": 109,
+         "system": 120,
+         "rel_err": 0.101
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 57372.6,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.066,
+       "ci95": [
+        -0.136,
+        0.009
+       ],
+       "manual_total": 1313,
+       "approach_errors": {
+        "E": {
+         "manual": 273,
+         "system": 179,
+         "rel_err": -0.344
+        },
+        "N": {
+         "manual": 394,
+         "system": 382,
+         "rel_err": -0.03
+        },
+        "S": {
+         "manual": 499,
+         "system": 510,
+         "rel_err": 0.022
+        },
+        "W": {
+         "manual": 147,
+         "system": 155,
+         "rel_err": 0.054
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 400,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "pass",
+      "review",
+      "review"
+     ],
+     "worst_approach": [
+      "seg1:E",
+      -0.247
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26653.8,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.026,
+       "ci95": [
+        -0.091,
+        0.042
+       ],
+       "manual_total": 1662,
+       "approach_errors": {
+        "E": {
+         "manual": 180,
+         "system": 160,
+         "rel_err": -0.111
+        },
+        "N": {
+         "manual": 761,
+         "system": 760,
+         "rel_err": -0.001
+        },
+        "S": {
+         "manual": 488,
+         "system": 465,
+         "rel_err": -0.047
+        },
+        "W": {
+         "manual": 233,
+         "system": 233,
+         "rel_err": 0.0
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 40746.6,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.095,
+       "ci95": [
+        -0.169,
+        -0.013
+       ],
+       "manual_total": 1087,
+       "approach_errors": {
+        "E": {
+         "manual": 215,
+         "system": 162,
+         "rel_err": -0.247
+        },
+        "N": {
+         "manual": 376,
+         "system": 382,
+         "rel_err": 0.016
+        },
+        "S": {
+         "manual": 402,
+         "system": 349,
+         "rel_err": -0.132
+        },
+        "W": {
+         "manual": 94,
+         "system": 91,
+         "rel_err": -0.032
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 61933.5,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.106,
+       "ci95": [
+        -0.162,
+        -0.046
+       ],
+       "manual_total": 1948,
+       "approach_errors": {
+        "E": {
+         "manual": 453,
+         "system": 409,
+         "rel_err": -0.097
+        },
+        "N": {
+         "manual": 603,
+         "system": 542,
+         "rel_err": -0.101
+        },
+        "S": {
+         "manual": 774,
+         "system": 666,
+         "rel_err": -0.14
+        },
+        "W": {
+         "manual": 118,
+         "system": 125,
+         "rel_err": 0.059
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 501,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "review",
+      "review",
+      "review"
+     ],
+     "worst_approach": [
+      "seg2:E",
+      -0.36
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 28544.7,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.103,
+       "ci95": [
+        -0.168,
+        -0.033
+       ],
+       "manual_total": 1430,
+       "approach_errors": {
+        "E": {
+         "manual": 114,
+         "system": 134,
+         "rel_err": 0.175
+        },
+        "N": {
+         "manual": 630,
+         "system": 587,
+         "rel_err": -0.068
+        },
+        "S": {
+         "manual": 557,
+         "system": 418,
+         "rel_err": -0.25
+        },
+        "W": {
+         "manual": 129,
+         "system": 144,
+         "rel_err": 0.116
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 42883.7,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.074,
+       "ci95": [
+        -0.146,
+        0.004
+       ],
+       "manual_total": 1219,
+       "approach_errors": {
+        "E": {
+         "manual": 242,
+         "system": 203,
+         "rel_err": -0.161
+        },
+        "N": {
+         "manual": 452,
+         "system": 443,
+         "rel_err": -0.02
+        },
+        "S": {
+         "manual": 408,
+         "system": 363,
+         "rel_err": -0.11
+        },
+        "W": {
+         "manual": 117,
+         "system": 120,
+         "rel_err": 0.026
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 58673.3,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.088,
+       "ci95": [
+        -0.146,
+        -0.026
+       ],
+       "manual_total": 1857,
+       "approach_errors": {
+        "E": {
+         "manual": 450,
+         "system": 288,
+         "rel_err": -0.36
+        },
+        "N": {
+         "manual": 516,
+         "system": 516,
+         "rel_err": 0.0
+        },
+        "S": {
+         "manual": 699,
+         "system": 692,
+         "rel_err": -0.01
+        },
+        "W": {
+         "manual": 192,
+         "system": 198,
+         "rel_err": 0.031
+        }
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "3": {
+   "n_segments": 10,
+   "verdict_distribution": {
+    "fail": 5
+   },
+   "blind_pass_frac": 0.0,
+   "gt": {
+    "total": 3.2,
+    "total_pass": true,
+    "approach_fails": []
+   },
+   "FALSE_PASS": false,
+   "rows": [
+    {
+     "seed": 97,
+     "camera_verdict": "fail",
+     "window_verdicts": [
+      "review",
+      "fail",
+      "fail",
+      "fail",
+      "fail",
+      "fail",
+      "pass",
+      "fail",
+      "fail",
+      "fail"
+     ],
+     "worst_approach": [
+      "seg8:N",
+      -0.995
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 4200.0,
+       "dur": 300.0,
+       "verdict": "review",
+       "total_rel_err": -0.833,
+       "ci95": [
+        -0.961,
+        0.362
+       ],
+       "manual_total": 6,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "S": {
+         "manual": 6,
+         "system": 1,
+         "rel_err": -0.833
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 7500.0,
+       "dur": 300.0,
+       "verdict": "fail",
+       "total_rel_err": -0.889,
+       "ci95": [
+        -0.972,
+        -0.116
+       ],
+       "manual_total": 9,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 4,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 5,
+         "system": 1,
+         "rel_err": -0.8
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 9300.0,
+       "dur": 600.0,
+       "verdict": "fail",
+       "total_rel_err": -0.92,
+       "ci95": [
+        -0.973,
+        -0.641
+       ],
+       "manual_total": 25,
+       "approach_errors": {
+        "E": {
+         "manual": 2,
+         "system": 2,
+         "rel_err": 0.0
+        },
+        "N": {
+         "manual": 10,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 13,
+         "system": 0,
+         "rel_err": -1.0
+        }
+       }
+      },
+      {
+       "segment": 3,
+       "start": 11400.0,
+       "dur": 900.0,
+       "verdict": "fail",
+       "total_rel_err": -0.935,
+       "ci95": [
+        -0.978,
+        -0.712
+       ],
+       "manual_total": 31,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 18,
+         "system": 1,
+         "rel_err": -0.944
+        },
+        "S": {
+         "manual": 13,
+         "system": 1,
+         "rel_err": -0.923
+        }
+       }
+      },
+      {
+       "segment": 4,
+       "start": 14100.0,
+       "dur": 1500.0,
+       "verdict": "fail",
+       "total_rel_err": -0.972,
+       "ci95": [
+        -0.99,
+        -0.878
+       ],
+       "manual_total": 72,
+       "approach_errors": {
+        "E": {
+         "manual": 1,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "N": {
+         "manual": 28,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 43,
+         "system": 2,
+         "rel_err": -0.953
+        }
+       }
+      },
+      {
+       "segment": 5,
+       "start": 21057.6,
+       "dur": 1800.0,
+       "verdict": "fail",
+       "total_rel_err": -0.484,
+       "ci95": [
+        -0.546,
+        -0.413
+       ],
+       "manual_total": 684,
+       "approach_errors": {
+        "E": {
+         "manual": 10,
+         "system": 120,
+         "rel_err": 11.0
+        },
+        "N": {
+         "manual": 451,
+         "system": 102,
+         "rel_err": -0.774
+        },
+        "S": {
+         "manual": 223,
+         "system": 131,
+         "rel_err": -0.413
+        }
+       }
+      },
+      {
+       "segment": 6,
+       "start": 45701.1,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.001,
+       "ci95": [
+        -0.092,
+        0.099
+       ],
+       "manual_total": 838,
+       "approach_errors": {
+        "E": {
+         "manual": 13,
+         "system": 42,
+         "rel_err": 2.231
+        },
+        "N": {
+         "manual": 383,
+         "system": 426,
+         "rel_err": 0.112
+        },
+        "S": {
+         "manual": 442,
+         "system": 369,
+         "rel_err": -0.165
+        }
+       }
+      },
+      {
+       "segment": 7,
+       "start": 55523.9,
+       "dur": 1800.0,
+       "verdict": "fail",
+       "total_rel_err": -0.184,
+       "ci95": [
+        -0.245,
+        -0.118
+       ],
+       "manual_total": 1414,
+       "approach_errors": {
+        "E": {
+         "manual": 9,
+         "system": 22,
+         "rel_err": 1.444
+        },
+        "N": {
+         "manual": 676,
+         "system": 503,
+         "rel_err": -0.256
+        },
+        "S": {
+         "manual": 729,
+         "system": 629,
+         "rel_err": -0.137
+        }
+       }
+      },
+      {
+       "segment": 8,
+       "start": 78160.7,
+       "dur": 1800.0,
+       "verdict": "fail",
+       "total_rel_err": -0.967,
+       "ci95": [
+        -0.98,
+        -0.943
+       ],
+       "manual_total": 430,
+       "approach_errors": {
+        "E": {
+         "manual": 6,
+         "system": 3,
+         "rel_err": -0.5
+        },
+        "N": {
+         "manual": 211,
+         "system": 1,
+         "rel_err": -0.995
+        },
+        "S": {
+         "manual": 213,
+         "system": 10,
+         "rel_err": -0.953
+        }
+       }
+      },
+      {
+       "segment": 9,
+       "start": 84000.0,
+       "dur": 900.0,
+       "verdict": "fail",
+       "total_rel_err": -0.979,
+       "ci95": [
+        -0.993,
+        -0.908
+       ],
+       "manual_total": 95,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 43,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 52,
+         "system": 2,
+         "rel_err": -0.962
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 198,
+     "camera_verdict": "fail",
+     "window_verdicts": [
+      "review",
+      "fail",
+      "fail",
+      "fail",
+      "fail",
+      "fail",
+      "review",
+      "pass",
+      "fail",
+      "fail"
+     ],
+     "worst_approach": [
+      "seg8:N",
+      -0.996
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 4200.0,
+       "dur": 300.0,
+       "verdict": "review",
+       "total_rel_err": -0.833,
+       "ci95": [
+        -0.961,
+        0.362
+       ],
+       "manual_total": 6,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "S": {
+         "manual": 6,
+         "system": 1,
+         "rel_err": -0.833
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 7500.0,
+       "dur": 300.0,
+       "verdict": "fail",
+       "total_rel_err": -0.889,
+       "ci95": [
+        -0.972,
+        -0.116
+       ],
+       "manual_total": 9,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 4,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 5,
+         "system": 1,
+         "rel_err": -0.8
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 9300.0,
+       "dur": 600.0,
+       "verdict": "fail",
+       "total_rel_err": -0.92,
+       "ci95": [
+        -0.973,
+        -0.641
+       ],
+       "manual_total": 25,
+       "approach_errors": {
+        "E": {
+         "manual": 2,
+         "system": 2,
+         "rel_err": 0.0
+        },
+        "N": {
+         "manual": 10,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 13,
+         "system": 0,
+         "rel_err": -1.0
+        }
+       }
+      },
+      {
+       "segment": 3,
+       "start": 11400.0,
+       "dur": 900.0,
+       "verdict": "fail",
+       "total_rel_err": -0.935,
+       "ci95": [
+        -0.978,
+        -0.712
+       ],
+       "manual_total": 31,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 18,
+         "system": 1,
+         "rel_err": -0.944
+        },
+        "S": {
+         "manual": 13,
+         "system": 1,
+         "rel_err": -0.923
+        }
+       }
+      },
+      {
+       "segment": 4,
+       "start": 14100.0,
+       "dur": 1500.0,
+       "verdict": "fail",
+       "total_rel_err": -0.972,
+       "ci95": [
+        -0.99,
+        -0.878
+       ],
+       "manual_total": 72,
+       "approach_errors": {
+        "E": {
+         "manual": 1,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "N": {
+         "manual": 28,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 43,
+         "system": 2,
+         "rel_err": -0.953
+        }
+       }
+      },
+      {
+       "segment": 5,
+       "start": 19051.0,
+       "dur": 1800.0,
+       "verdict": "fail",
+       "total_rel_err": -0.984,
+       "ci95": [
+        -0.991,
+        -0.966
+       ],
+       "manual_total": 487,
+       "approach_errors": {
+        "E": {
+         "manual": 11,
+         "system": 5,
+         "rel_err": -0.545
+        },
+        "N": {
+         "manual": 270,
+         "system": 2,
+         "rel_err": -0.993
+        },
+        "S": {
+         "manual": 206,
+         "system": 1,
+         "rel_err": -0.995
+        }
+       }
+      },
+      {
+       "segment": 6,
+       "start": 44360.1,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": 0.051,
+       "ci95": [
+        -0.044,
+        0.154
+       ],
+       "manual_total": 850,
+       "approach_errors": {
+        "E": {
+         "manual": 15,
+         "system": 51,
+         "rel_err": 2.4
+        },
+        "N": {
+         "manual": 405,
+         "system": 429,
+         "rel_err": 0.059
+        },
+        "S": {
+         "manual": 430,
+         "system": 413,
+         "rel_err": -0.04
+        }
+       }
+      },
+      {
+       "segment": 7,
+       "start": 51679.9,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": 0.002,
+       "ci95": [
+        -0.082,
+        0.094
+       ],
+       "manual_total": 994,
+       "approach_errors": {
+        "E": {
+         "manual": 10,
+         "system": 37,
+         "rel_err": 2.7
+        },
+        "N": {
+         "manual": 466,
+         "system": 504,
+         "rel_err": 0.082
+        },
+        "S": {
+         "manual": 518,
+         "system": 455,
+         "rel_err": -0.122
+        }
+       }
+      },
+      {
+       "segment": 8,
+       "start": 76771.9,
+       "dur": 1800.0,
+       "verdict": "fail",
+       "total_rel_err": -0.969,
+       "ci95": [
+        -0.981,
+        -0.947
+       ],
+       "manual_total": 489,
+       "approach_errors": {
+        "E": {
+         "manual": 11,
+         "system": 3,
+         "rel_err": -0.727
+        },
+        "N": {
+         "manual": 263,
+         "system": 1,
+         "rel_err": -0.996
+        },
+        "S": {
+         "manual": 215,
+         "system": 11,
+         "rel_err": -0.949
+        }
+       }
+      },
+      {
+       "segment": 9,
+       "start": 84000.0,
+       "dur": 900.0,
+       "verdict": "fail",
+       "total_rel_err": -0.979,
+       "ci95": [
+        -0.993,
+        -0.908
+       ],
+       "manual_total": 95,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 43,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 52,
+         "system": 2,
+         "rel_err": -0.962
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 299,
+     "camera_verdict": "fail",
+     "window_verdicts": [
+      "review",
+      "fail",
+      "fail",
+      "fail",
+      "fail",
+      "review",
+      "review",
+      "pass",
+      "fail",
+      "fail"
+     ],
+     "worst_approach": [
+      "seg8:N",
+      -1.0
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 4200.0,
+       "dur": 300.0,
+       "verdict": "review",
+       "total_rel_err": -0.833,
+       "ci95": [
+        -0.961,
+        0.362
+       ],
+       "manual_total": 6,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "S": {
+         "manual": 6,
+         "system": 1,
+         "rel_err": -0.833
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 7500.0,
+       "dur": 300.0,
+       "verdict": "fail",
+       "total_rel_err": -0.889,
+       "ci95": [
+        -0.972,
+        -0.116
+       ],
+       "manual_total": 9,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 4,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 5,
+         "system": 1,
+         "rel_err": -0.8
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 9300.0,
+       "dur": 600.0,
+       "verdict": "fail",
+       "total_rel_err": -0.92,
+       "ci95": [
+        -0.973,
+        -0.641
+       ],
+       "manual_total": 25,
+       "approach_errors": {
+        "E": {
+         "manual": 2,
+         "system": 2,
+         "rel_err": 0.0
+        },
+        "N": {
+         "manual": 10,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 13,
+         "system": 0,
+         "rel_err": -1.0
+        }
+       }
+      },
+      {
+       "segment": 3,
+       "start": 11400.0,
+       "dur": 900.0,
+       "verdict": "fail",
+       "total_rel_err": -0.935,
+       "ci95": [
+        -0.978,
+        -0.712
+       ],
+       "manual_total": 31,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 18,
+         "system": 1,
+         "rel_err": -0.944
+        },
+        "S": {
+         "manual": 13,
+         "system": 1,
+         "rel_err": -0.923
+        }
+       }
+      },
+      {
+       "segment": 4,
+       "start": 14100.0,
+       "dur": 1500.0,
+       "verdict": "fail",
+       "total_rel_err": -0.972,
+       "ci95": [
+        -0.99,
+        -0.878
+       ],
+       "manual_total": 72,
+       "approach_errors": {
+        "E": {
+         "manual": 1,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "N": {
+         "manual": 28,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 43,
+         "system": 2,
+         "rel_err": -0.953
+        }
+       }
+      },
+      {
+       "segment": 5,
+       "start": 23460.8,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.038,
+       "ci95": [
+        -0.115,
+        0.045
+       ],
+       "manual_total": 1143,
+       "approach_errors": {
+        "E": {
+         "manual": 17,
+         "system": 107,
+         "rel_err": 5.294
+        },
+        "N": {
+         "manual": 714,
+         "system": 581,
+         "rel_err": -0.186
+        },
+        "S": {
+         "manual": 412,
+         "system": 411,
+         "rel_err": -0.002
+        }
+       }
+      },
+      {
+       "segment": 6,
+       "start": 44480.5,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": 0.034,
+       "ci95": [
+        -0.059,
+        0.137
+       ],
+       "manual_total": 847,
+       "approach_errors": {
+        "E": {
+         "manual": 15,
+         "system": 50,
+         "rel_err": 2.333
+        },
+        "N": {
+         "manual": 390,
+         "system": 431,
+         "rel_err": 0.105
+        },
+        "S": {
+         "manual": 442,
+         "system": 395,
+         "rel_err": -0.106
+        }
+       }
+      },
+      {
+       "segment": 7,
+       "start": 50430.5,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": 0.006,
+       "ci95": [
+        -0.078,
+        0.098
+       ],
+       "manual_total": 1003,
+       "approach_errors": {
+        "E": {
+         "manual": 7,
+         "system": 36,
+         "rel_err": 4.143
+        },
+        "N": {
+         "manual": 445,
+         "system": 479,
+         "rel_err": 0.076
+        },
+        "S": {
+         "manual": 551,
+         "system": 494,
+         "rel_err": -0.103
+        }
+       }
+      },
+      {
+       "segment": 8,
+       "start": 78902.8,
+       "dur": 1800.0,
+       "verdict": "fail",
+       "total_rel_err": -0.976,
+       "ci95": [
+        -0.987,
+        -0.954
+       ],
+       "manual_total": 422,
+       "approach_errors": {
+        "E": {
+         "manual": 4,
+         "system": 1,
+         "rel_err": -0.75
+        },
+        "N": {
+         "manual": 187,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 231,
+         "system": 9,
+         "rel_err": -0.961
+        }
+       }
+      },
+      {
+       "segment": 9,
+       "start": 84000.0,
+       "dur": 900.0,
+       "verdict": "fail",
+       "total_rel_err": -0.979,
+       "ci95": [
+        -0.993,
+        -0.908
+       ],
+       "manual_total": 95,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 43,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 52,
+         "system": 2,
+         "rel_err": -0.962
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 400,
+     "camera_verdict": "fail",
+     "window_verdicts": [
+      "review",
+      "fail",
+      "fail",
+      "fail",
+      "fail",
+      "pass",
+      "review",
+      "review",
+      "fail",
+      "fail"
+     ],
+     "worst_approach": [
+      "seg9:S",
+      -0.962
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 4200.0,
+       "dur": 300.0,
+       "verdict": "review",
+       "total_rel_err": -0.833,
+       "ci95": [
+        -0.961,
+        0.362
+       ],
+       "manual_total": 6,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "S": {
+         "manual": 6,
+         "system": 1,
+         "rel_err": -0.833
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 7500.0,
+       "dur": 300.0,
+       "verdict": "fail",
+       "total_rel_err": -0.889,
+       "ci95": [
+        -0.972,
+        -0.116
+       ],
+       "manual_total": 9,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 4,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 5,
+         "system": 1,
+         "rel_err": -0.8
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 9300.0,
+       "dur": 600.0,
+       "verdict": "fail",
+       "total_rel_err": -0.92,
+       "ci95": [
+        -0.973,
+        -0.641
+       ],
+       "manual_total": 25,
+       "approach_errors": {
+        "E": {
+         "manual": 2,
+         "system": 2,
+         "rel_err": 0.0
+        },
+        "N": {
+         "manual": 10,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 13,
+         "system": 0,
+         "rel_err": -1.0
+        }
+       }
+      },
+      {
+       "segment": 3,
+       "start": 11400.0,
+       "dur": 900.0,
+       "verdict": "fail",
+       "total_rel_err": -0.935,
+       "ci95": [
+        -0.978,
+        -0.712
+       ],
+       "manual_total": 31,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 18,
+         "system": 1,
+         "rel_err": -0.944
+        },
+        "S": {
+         "manual": 13,
+         "system": 1,
+         "rel_err": -0.923
+        }
+       }
+      },
+      {
+       "segment": 4,
+       "start": 14100.0,
+       "dur": 1500.0,
+       "verdict": "fail",
+       "total_rel_err": -0.972,
+       "ci95": [
+        -0.99,
+        -0.878
+       ],
+       "manual_total": 72,
+       "approach_errors": {
+        "E": {
+         "manual": 1,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "N": {
+         "manual": 28,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 43,
+         "system": 2,
+         "rel_err": -0.953
+        }
+       }
+      },
+      {
+       "segment": 5,
+       "start": 22661.5,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": 0.007,
+       "ci95": [
+        -0.077,
+        0.099
+       ],
+       "manual_total": 1001,
+       "approach_errors": {
+        "E": {
+         "manual": 11,
+         "system": 170,
+         "rel_err": 14.455
+        },
+        "N": {
+         "manual": 652,
+         "system": 464,
+         "rel_err": -0.288
+        },
+        "S": {
+         "manual": 338,
+         "system": 374,
+         "rel_err": 0.107
+        }
+       }
+      },
+      {
+       "segment": 6,
+       "start": 37872.6,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.027,
+       "ci95": [
+        -0.118,
+        0.075
+       ],
+       "manual_total": 792,
+       "approach_errors": {
+        "E": {
+         "manual": 14,
+         "system": 25,
+         "rel_err": 0.786
+        },
+        "N": {
+         "manual": 397,
+         "system": 400,
+         "rel_err": 0.008
+        },
+        "S": {
+         "manual": 381,
+         "system": 346,
+         "rel_err": -0.092
+        }
+       }
+      },
+      {
+       "segment": 7,
+       "start": 61772.9,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.066,
+       "ci95": [
+        -0.132,
+        0.005
+       ],
+       "manual_total": 1489,
+       "approach_errors": {
+        "E": {
+         "manual": 12,
+         "system": 25,
+         "rel_err": 1.083
+        },
+        "N": {
+         "manual": 673,
+         "system": 645,
+         "rel_err": -0.042
+        },
+        "S": {
+         "manual": 804,
+         "system": 721,
+         "rel_err": -0.103
+        }
+       }
+      },
+      {
+       "segment": 8,
+       "start": 74247.2,
+       "dur": 1800.0,
+       "verdict": "fail",
+       "total_rel_err": -0.787,
+       "ci95": [
+        -0.824,
+        -0.741
+       ],
+       "manual_total": 583,
+       "approach_errors": {
+        "E": {
+         "manual": 14,
+         "system": 20,
+         "rel_err": 0.429
+        },
+        "N": {
+         "manual": 245,
+         "system": 15,
+         "rel_err": -0.939
+        },
+        "S": {
+         "manual": 324,
+         "system": 89,
+         "rel_err": -0.725
+        }
+       }
+      },
+      {
+       "segment": 9,
+       "start": 84000.0,
+       "dur": 900.0,
+       "verdict": "fail",
+       "total_rel_err": -0.979,
+       "ci95": [
+        -0.993,
+        -0.908
+       ],
+       "manual_total": 95,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 43,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 52,
+         "system": 2,
+         "rel_err": -0.962
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 501,
+     "camera_verdict": "fail",
+     "window_verdicts": [
+      "review",
+      "fail",
+      "fail",
+      "fail",
+      "fail",
+      "review",
+      "review",
+      "review",
+      "fail",
+      "fail"
+     ],
+     "worst_approach": [
+      "seg8:N",
+      -0.996
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 4200.0,
+       "dur": 300.0,
+       "verdict": "review",
+       "total_rel_err": -0.833,
+       "ci95": [
+        -0.961,
+        0.362
+       ],
+       "manual_total": 6,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "S": {
+         "manual": 6,
+         "system": 1,
+         "rel_err": -0.833
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 7500.0,
+       "dur": 300.0,
+       "verdict": "fail",
+       "total_rel_err": -0.889,
+       "ci95": [
+        -0.972,
+        -0.116
+       ],
+       "manual_total": 9,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 4,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 5,
+         "system": 1,
+         "rel_err": -0.8
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 9300.0,
+       "dur": 600.0,
+       "verdict": "fail",
+       "total_rel_err": -0.92,
+       "ci95": [
+        -0.973,
+        -0.641
+       ],
+       "manual_total": 25,
+       "approach_errors": {
+        "E": {
+         "manual": 2,
+         "system": 2,
+         "rel_err": 0.0
+        },
+        "N": {
+         "manual": 10,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 13,
+         "system": 0,
+         "rel_err": -1.0
+        }
+       }
+      },
+      {
+       "segment": 3,
+       "start": 11400.0,
+       "dur": 900.0,
+       "verdict": "fail",
+       "total_rel_err": -0.935,
+       "ci95": [
+        -0.978,
+        -0.712
+       ],
+       "manual_total": 31,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 18,
+         "system": 1,
+         "rel_err": -0.944
+        },
+        "S": {
+         "manual": 13,
+         "system": 1,
+         "rel_err": -0.923
+        }
+       }
+      },
+      {
+       "segment": 4,
+       "start": 14100.0,
+       "dur": 1500.0,
+       "verdict": "fail",
+       "total_rel_err": -0.972,
+       "ci95": [
+        -0.99,
+        -0.878
+       ],
+       "manual_total": 72,
+       "approach_errors": {
+        "E": {
+         "manual": 1,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "N": {
+         "manual": 28,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 43,
+         "system": 2,
+         "rel_err": -0.953
+        }
+       }
+      },
+      {
+       "segment": 5,
+       "start": 27363.8,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.042,
+       "ci95": [
+        -0.111,
+        0.032
+       ],
+       "manual_total": 1424,
+       "approach_errors": {
+        "E": {
+         "manual": 13,
+         "system": 25,
+         "rel_err": 0.923
+        },
+        "N": {
+         "manual": 772,
+         "system": 725,
+         "rel_err": -0.061
+        },
+        "S": {
+         "manual": 639,
+         "system": 614,
+         "rel_err": -0.039
+        }
+       }
+      },
+      {
+       "segment": 6,
+       "start": 43187.2,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": 0.006,
+       "ci95": [
+        -0.087,
+        0.108
+       ],
+       "manual_total": 820,
+       "approach_errors": {
+        "E": {
+         "manual": 9,
+         "system": 39,
+         "rel_err": 3.333
+        },
+        "N": {
+         "manual": 405,
+         "system": 419,
+         "rel_err": 0.035
+        },
+        "S": {
+         "manual": 406,
+         "system": 367,
+         "rel_err": -0.096
+        }
+       }
+      },
+      {
+       "segment": 7,
+       "start": 53665.1,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.097,
+       "ci95": [
+        -0.167,
+        -0.021
+       ],
+       "manual_total": 1244,
+       "approach_errors": {
+        "E": {
+         "manual": 18,
+         "system": 43,
+         "rel_err": 1.389
+        },
+        "N": {
+         "manual": 601,
+         "system": 535,
+         "rel_err": -0.11
+        },
+        "S": {
+         "manual": 625,
+         "system": 545,
+         "rel_err": -0.128
+        }
+       }
+      },
+      {
+       "segment": 8,
+       "start": 77661.3,
+       "dur": 1800.0,
+       "verdict": "fail",
+       "total_rel_err": -0.972,
+       "ci95": [
+        -0.983,
+        -0.95
+       ],
+       "manual_total": 468,
+       "approach_errors": {
+        "E": {
+         "manual": 8,
+         "system": 3,
+         "rel_err": -0.625
+        },
+        "N": {
+         "manual": 248,
+         "system": 1,
+         "rel_err": -0.996
+        },
+        "S": {
+         "manual": 212,
+         "system": 9,
+         "rel_err": -0.958
+        }
+       }
+      },
+      {
+       "segment": 9,
+       "start": 84000.0,
+       "dur": 900.0,
+       "verdict": "fail",
+       "total_rel_err": -0.979,
+       "ci95": [
+        -0.993,
+        -0.908
+       ],
+       "manual_total": 95,
+       "approach_errors": {
+        "E": {
+         "manual": 0,
+         "system": 0,
+         "rel_err": null
+        },
+        "N": {
+         "manual": 43,
+         "system": 0,
+         "rel_err": -1.0
+        },
+        "S": {
+         "manual": 52,
+         "system": 2,
+         "rel_err": -0.962
+        }
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "4": {
+   "n_segments": 3,
+   "verdict_distribution": {
+    "review": 5
+   },
+   "blind_pass_frac": 0.0,
+   "gt": {
+    "total": 4.7,
+    "total_pass": true,
+    "approach_fails": [
+     "SB 9.1"
+    ]
+   },
+   "FALSE_PASS": false,
+   "rows": [
+    {
+     "seed": 97,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "review",
+      "review",
+      "review"
+     ],
+     "worst_approach": [
+      "seg0:N",
+      -0.086
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26008.9,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.043,
+       "ci95": [
+        -0.114,
+        0.033
+       ],
+       "manual_total": 1341,
+       "approach_errors": {
+        "E": {
+         "manual": 7,
+         "system": 9,
+         "rel_err": 0.286
+        },
+        "N": {
+         "manual": 816,
+         "system": 746,
+         "rel_err": -0.086
+        },
+        "S": {
+         "manual": 518,
+         "system": 528,
+         "rel_err": 0.019
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43894.6,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": 0.001,
+       "ci95": [
+        -0.091,
+        0.102
+       ],
+       "manual_total": 828,
+       "approach_errors": {
+        "E": {
+         "manual": 7,
+         "system": 8,
+         "rel_err": 0.143
+        },
+        "N": {
+         "manual": 407,
+         "system": 383,
+         "rel_err": -0.059
+        },
+        "S": {
+         "manual": 414,
+         "system": 438,
+         "rel_err": 0.058
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 59420.7,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": 0.032,
+       "ci95": [
+        -0.039,
+        0.109
+       ],
+       "manual_total": 1466,
+       "approach_errors": {
+        "E": {
+         "manual": 5,
+         "system": 7,
+         "rel_err": 0.4
+        },
+        "N": {
+         "manual": 678,
+         "system": 681,
+         "rel_err": 0.004
+        },
+        "S": {
+         "manual": 783,
+         "system": 825,
+         "rel_err": 0.054
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 198,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "pass",
+      "review",
+      "pass"
+     ],
+     "worst_approach": [
+      "seg2:S",
+      0.094
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 25202.0,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.013,
+       "ci95": [
+        -0.089,
+        0.069
+       ],
+       "manual_total": 1204,
+       "approach_errors": {
+        "E": {
+         "manual": 8,
+         "system": 10,
+         "rel_err": 0.25
+        },
+        "N": {
+         "manual": 744,
+         "system": 713,
+         "rel_err": -0.042
+        },
+        "S": {
+         "manual": 452,
+         "system": 465,
+         "rel_err": 0.029
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43355.4,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.023,
+       "ci95": [
+        -0.112,
+        0.074
+       ],
+       "manual_total": 855,
+       "approach_errors": {
+        "E": {
+         "manual": 7,
+         "system": 11,
+         "rel_err": 0.571
+        },
+        "N": {
+         "manual": 429,
+         "system": 405,
+         "rel_err": -0.056
+        },
+        "S": {
+         "manual": 419,
+         "system": 419,
+         "rel_err": 0.0
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 57875.0,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": 0.005,
+       "ci95": [
+        -0.067,
+        0.083
+       ],
+       "manual_total": 1386,
+       "approach_errors": {
+        "E": {
+         "manual": 15,
+         "system": 10,
+         "rel_err": -0.333
+        },
+        "N": {
+         "manual": 647,
+         "system": 591,
+         "rel_err": -0.087
+        },
+        "S": {
+         "manual": 724,
+         "system": 792,
+         "rel_err": 0.094
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 299,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "pass",
+      "review",
+      "review"
+     ],
+     "worst_approach": [
+      "seg2:N",
+      -0.108
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26975.3,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.016,
+       "ci95": [
+        -0.087,
+        0.06
+       ],
+       "manual_total": 1400,
+       "approach_errors": {
+        "E": {
+         "manual": 5,
+         "system": 10,
+         "rel_err": 1.0
+        },
+        "N": {
+         "manual": 825,
+         "system": 783,
+         "rel_err": -0.051
+        },
+        "S": {
+         "manual": 570,
+         "system": 584,
+         "rel_err": 0.025
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43403.8,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.015,
+       "ci95": [
+        -0.105,
+        0.083
+       ],
+       "manual_total": 851,
+       "approach_errors": {
+        "E": {
+         "manual": 6,
+         "system": 10,
+         "rel_err": 0.667
+        },
+        "N": {
+         "manual": 434,
+         "system": 399,
+         "rel_err": -0.081
+        },
+        "S": {
+         "manual": 411,
+         "system": 429,
+         "rel_err": 0.044
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 57372.6,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.039,
+       "ci95": [
+        -0.118,
+        0.047
+       ],
+       "manual_total": 1068,
+       "approach_errors": {
+        "E": {
+         "manual": 15,
+         "system": 4,
+         "rel_err": -0.733
+        },
+        "N": {
+         "manual": 473,
+         "system": 422,
+         "rel_err": -0.108
+        },
+        "S": {
+         "manual": 580,
+         "system": 600,
+         "rel_err": 0.034
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 400,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "pass",
+      "review",
+      "review"
+     ],
+     "worst_approach": [
+      "seg2:S",
+      -0.093
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26653.8,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": 0.004,
+       "ci95": [
+        -0.069,
+        0.081
+       ],
+       "manual_total": 1377,
+       "approach_errors": {
+        "E": {
+         "manual": 7,
+         "system": 10,
+         "rel_err": 0.429
+        },
+        "N": {
+         "manual": 815,
+         "system": 792,
+         "rel_err": -0.028
+        },
+        "S": {
+         "manual": 555,
+         "system": 580,
+         "rel_err": 0.045
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 40746.6,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": 0.021,
+       "ci95": [
+        -0.074,
+        0.126
+       ],
+       "manual_total": 794,
+       "approach_errors": {
+        "E": {
+         "manual": 4,
+         "system": 3,
+         "rel_err": -0.25
+        },
+        "N": {
+         "manual": 370,
+         "system": 364,
+         "rel_err": -0.016
+        },
+        "S": {
+         "manual": 420,
+         "system": 444,
+         "rel_err": 0.057
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 61933.5,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.086,
+       "ci95": [
+        -0.149,
+        -0.017
+       ],
+       "manual_total": 1541,
+       "approach_errors": {
+        "E": {
+         "manual": 13,
+         "system": 8,
+         "rel_err": -0.385
+        },
+        "N": {
+         "manual": 677,
+         "system": 629,
+         "rel_err": -0.071
+        },
+        "S": {
+         "manual": 851,
+         "system": 772,
+         "rel_err": -0.093
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 501,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "review",
+      "review",
+      "review"
+     ],
+     "worst_approach": [
+      "seg2:S",
+      0.127
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 28544.7,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": 0.041,
+       "ci95": [
+        -0.039,
+        0.127
+       ],
+       "manual_total": 1180,
+       "approach_errors": {
+        "E": {
+         "manual": 5,
+         "system": 7,
+         "rel_err": 0.4
+        },
+        "N": {
+         "manual": 654,
+         "system": 690,
+         "rel_err": 0.055
+        },
+        "S": {
+         "manual": 521,
+         "system": 531,
+         "rel_err": 0.019
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 42883.7,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.028,
+       "ci95": [
+        -0.116,
+        0.069
+       ],
+       "manual_total": 862,
+       "approach_errors": {
+        "E": {
+         "manual": 8,
+         "system": 11,
+         "rel_err": 0.375
+        },
+        "N": {
+         "manual": 427,
+         "system": 410,
+         "rel_err": -0.04
+        },
+        "S": {
+         "manual": 427,
+         "system": 417,
+         "rel_err": -0.023
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 58673.3,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": 0.053,
+       "ci95": [
+        -0.021,
+        0.133
+       ],
+       "manual_total": 1394,
+       "approach_errors": {
+        "E": {
+         "manual": 12,
+         "system": 13,
+         "rel_err": 0.083
+        },
+        "N": {
+         "manual": 658,
+         "system": 639,
+         "rel_err": -0.029
+        },
+        "S": {
+         "manual": 724,
+         "system": 816,
+         "rel_err": 0.127
+        }
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "5": {
+   "n_segments": 3,
+   "verdict_distribution": {
+    "review": 4,
+    "pass": 1
+   },
+   "blind_pass_frac": 0.2,
+   "gt": {
+    "total": 7.2,
+    "total_pass": false,
+    "approach_fails": [
+     "EB 16.1",
+     "NB 17.3",
+     "SB 5.1"
+    ]
+   },
+   "FALSE_PASS": true,
+   "rows": [
+    {
+     "seed": 97,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "review",
+      "pass",
+      "pass"
+     ],
+     "worst_approach": [
+      "seg2:E",
+      -0.235
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26008.9,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.039,
+       "ci95": [
+        -0.109,
+        0.035
+       ],
+       "manual_total": 1395,
+       "approach_errors": {
+        "E": {
+         "manual": 81,
+         "system": 78,
+         "rel_err": -0.037
+        },
+        "N": {
+         "manual": 796,
+         "system": 743,
+         "rel_err": -0.067
+        },
+        "S": {
+         "manual": 497,
+         "system": 469,
+         "rel_err": -0.056
+        },
+        "W": {
+         "manual": 21,
+         "system": 50,
+         "rel_err": 1.381
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43952.8,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.007,
+       "ci95": [
+        -0.093,
+        0.089
+       ],
+       "manual_total": 923,
+       "approach_errors": {
+        "E": {
+         "manual": 77,
+         "system": 59,
+         "rel_err": -0.234
+        },
+        "N": {
+         "manual": 413,
+         "system": 450,
+         "rel_err": 0.09
+        },
+        "S": {
+         "manual": 418,
+         "system": 383,
+         "rel_err": -0.084
+        },
+        "W": {
+         "manual": 15,
+         "system": 25,
+         "rel_err": 0.667
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 59420.7,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.017,
+       "ci95": [
+        -0.084,
+        0.055
+       ],
+       "manual_total": 1548,
+       "approach_errors": {
+        "E": {
+         "manual": 115,
+         "system": 88,
+         "rel_err": -0.235
+        },
+        "N": {
+         "manual": 679,
+         "system": 715,
+         "rel_err": 0.053
+        },
+        "S": {
+         "manual": 735,
+         "system": 678,
+         "rel_err": -0.078
+        },
+        "W": {
+         "manual": 19,
+         "system": 41,
+         "rel_err": 1.158
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 198,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "pass",
+      "review",
+      "pass"
+     ],
+     "worst_approach": [
+      "seg2:E",
+      -0.346
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 25202.0,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.009,
+       "ci95": [
+        -0.082,
+        0.07
+       ],
+       "manual_total": 1322,
+       "approach_errors": {
+        "E": {
+         "manual": 73,
+         "system": 63,
+         "rel_err": -0.137
+        },
+        "N": {
+         "manual": 770,
+         "system": 764,
+         "rel_err": -0.008
+        },
+        "S": {
+         "manual": 459,
+         "system": 435,
+         "rel_err": -0.052
+        },
+        "W": {
+         "manual": 20,
+         "system": 48,
+         "rel_err": 1.4
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43441.9,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": 0.02,
+       "ci95": [
+        -0.068,
+        0.116
+       ],
+       "manual_total": 941,
+       "approach_errors": {
+        "E": {
+         "manual": 79,
+         "system": 65,
+         "rel_err": -0.177
+        },
+        "N": {
+         "manual": 438,
+         "system": 483,
+         "rel_err": 0.103
+        },
+        "S": {
+         "manual": 412,
+         "system": 384,
+         "rel_err": -0.068
+        },
+        "W": {
+         "manual": 12,
+         "system": 28,
+         "rel_err": 1.333
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 57875.0,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.004,
+       "ci95": [
+        -0.073,
+        0.07
+       ],
+       "manual_total": 1478,
+       "approach_errors": {
+        "E": {
+         "manual": 107,
+         "system": 70,
+         "rel_err": -0.346
+        },
+        "N": {
+         "manual": 633,
+         "system": 665,
+         "rel_err": 0.051
+        },
+        "S": {
+         "manual": 724,
+         "system": 707,
+         "rel_err": -0.023
+        },
+        "W": {
+         "manual": 14,
+         "system": 30,
+         "rel_err": 1.143
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 299,
+     "camera_verdict": "pass",
+     "window_verdicts": [
+      "pass",
+      "pass",
+      "pass"
+     ],
+     "worst_approach": [
+      "seg2:E",
+      -0.185
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26975.3,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.027,
+       "ci95": [
+        -0.095,
+        0.046
+       ],
+       "manual_total": 1474,
+       "approach_errors": {
+        "E": {
+         "manual": 93,
+         "system": 91,
+         "rel_err": -0.022
+        },
+        "N": {
+         "manual": 790,
+         "system": 739,
+         "rel_err": -0.065
+        },
+        "S": {
+         "manual": 564,
+         "system": 535,
+         "rel_err": -0.051
+        },
+        "W": {
+         "manual": 27,
+         "system": 69,
+         "rel_err": 1.556
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 43487.8,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.005,
+       "ci95": [
+        -0.091,
+        0.089
+       ],
+       "manual_total": 941,
+       "approach_errors": {
+        "E": {
+         "manual": 79,
+         "system": 65,
+         "rel_err": -0.177
+        },
+        "N": {
+         "manual": 438,
+         "system": 470,
+         "rel_err": 0.073
+        },
+        "S": {
+         "manual": 412,
+         "system": 372,
+         "rel_err": -0.097
+        },
+        "W": {
+         "manual": 12,
+         "system": 29,
+         "rel_err": 1.417
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 57372.6,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": 0.012,
+       "ci95": [
+        -0.067,
+        0.097
+       ],
+       "manual_total": 1169,
+       "approach_errors": {
+        "E": {
+         "manual": 92,
+         "system": 75,
+         "rel_err": -0.185
+        },
+        "N": {
+         "manual": 453,
+         "system": 497,
+         "rel_err": 0.097
+        },
+        "S": {
+         "manual": 609,
+         "system": 586,
+         "rel_err": -0.038
+        },
+        "W": {
+         "manual": 15,
+         "system": 25,
+         "rel_err": 0.667
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 400,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "review",
+      "review",
+      "pass"
+     ],
+     "worst_approach": [
+      "seg1:S",
+      -0.121
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 26653.8,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.065,
+       "ci95": [
+        -0.131,
+        0.006
+       ],
+       "manual_total": 1486,
+       "approach_errors": {
+        "E": {
+         "manual": 87,
+         "system": 88,
+         "rel_err": 0.011
+        },
+        "N": {
+         "manual": 826,
+         "system": 734,
+         "rel_err": -0.111
+        },
+        "S": {
+         "manual": 545,
+         "system": 497,
+         "rel_err": -0.088
+        },
+        "W": {
+         "manual": 28,
+         "system": 71,
+         "rel_err": 1.536
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 40970.5,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.027,
+       "ci95": [
+        -0.115,
+        0.069
+       ],
+       "manual_total": 878,
+       "approach_errors": {
+        "E": {
+         "manual": 65,
+         "system": 69,
+         "rel_err": 0.062
+        },
+        "N": {
+         "manual": 384,
+         "system": 393,
+         "rel_err": 0.023
+        },
+        "S": {
+         "manual": 413,
+         "system": 363,
+         "rel_err": -0.121
+        },
+        "W": {
+         "manual": 16,
+         "system": 29,
+         "rel_err": 0.812
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 61933.5,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.006,
+       "ci95": [
+        -0.073,
+        0.066
+       ],
+       "manual_total": 1582,
+       "approach_errors": {
+        "E": {
+         "manual": 108,
+         "system": 104,
+         "rel_err": -0.037
+        },
+        "N": {
+         "manual": 653,
+         "system": 700,
+         "rel_err": 0.072
+        },
+        "S": {
+         "manual": 800,
+         "system": 738,
+         "rel_err": -0.077
+        },
+        "W": {
+         "manual": 21,
+         "system": 30,
+         "rel_err": 0.429
+        }
+       }
+      }
+     ]
+    },
+    {
+     "seed": 501,
+     "camera_verdict": "review",
+     "window_verdicts": [
+      "review",
+      "pass",
+      "pass"
+     ],
+     "worst_approach": [
+      "seg2:E",
+      -0.323
+     ],
+     "windows": [
+      {
+       "segment": 0,
+       "start": 28544.7,
+       "dur": 1800.0,
+       "verdict": "review",
+       "total_rel_err": -0.032,
+       "ci95": [
+        -0.105,
+        0.049
+       ],
+       "manual_total": 1238,
+       "approach_errors": {
+        "E": {
+         "manual": 72,
+         "system": 52,
+         "rel_err": -0.278
+        },
+        "N": {
+         "manual": 645,
+         "system": 634,
+         "rel_err": -0.017
+        },
+        "S": {
+         "manual": 504,
+         "system": 468,
+         "rel_err": -0.071
+        },
+        "W": {
+         "manual": 17,
+         "system": 45,
+         "rel_err": 1.647
+        }
+       }
+      },
+      {
+       "segment": 1,
+       "start": 42995.1,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": 0.002,
+       "ci95": [
+        -0.085,
+        0.097
+       ],
+       "manual_total": 936,
+       "approach_errors": {
+        "E": {
+         "manual": 74,
+         "system": 59,
+         "rel_err": -0.203
+        },
+        "N": {
+         "manual": 427,
+         "system": 469,
+         "rel_err": 0.098
+        },
+        "S": {
+         "manual": 419,
+         "system": 378,
+         "rel_err": -0.098
+        },
+        "W": {
+         "manual": 16,
+         "system": 32,
+         "rel_err": 1.0
+        }
+       }
+      },
+      {
+       "segment": 2,
+       "start": 58673.3,
+       "dur": 1800.0,
+       "verdict": "pass",
+       "total_rel_err": -0.008,
+       "ci95": [
+        -0.076,
+        0.065
+       ],
+       "manual_total": 1523,
+       "approach_errors": {
+        "E": {
+         "manual": 124,
+         "system": 84,
+         "rel_err": -0.323
+        },
+        "N": {
+         "manual": 663,
+         "system": 723,
+         "rel_err": 0.09
+        },
+        "S": {
+         "manual": 720,
+         "system": 666,
+         "rel_err": -0.075
+        },
+        "W": {
+         "manual": 16,
+         "system": 38,
+         "rel_err": 1.375
+        }
+       }
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "false_passes": [
+  5
+ ]
+}

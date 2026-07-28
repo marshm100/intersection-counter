@@ -79,3 +79,37 @@ appear nowhere: the gate certifies what ships.
 
 No detection, no replays, no training. SQL + XML + the existing services;
 CPU-minutes per camera. The whole study is offline-recomputable.
+
+---
+
+## PHASE-0 FINDINGS (2026-07-28 — evidence runs/3b_validation/phase0_matrix.json;
+harness scripts/gate3b_phase0.py; 30-min simulated-perfect spot counts x 5 seeds)
+
+The spot-layer matrix names phase 1 precisely:
+
+1. **cam5 FALSE-PASSES at 1/5 seeds** — the dangerous cell is real: three
+   lucky 30-min windows certify a GT-FAIL camera (total 7.2, EB 16.1 /
+   NB 17.3). The mechanism is measured in the same row: the false-pass
+   seed's windows carry a **-18.5% EB approach error inside a passing
+   TOTAL** (and other seeds see EB -23..-35% while totals hover in the
+   passable range). Per-approach blindness (phase-1 candidate c) IS the
+   false-pass mechanism -> the spot verdict must gate approach rows, not
+   just the total.
+2. **cam3 blind-FAILS all seeds** (GT 3.2 peak-window PASS, the
+   corridor's best camera): its 24-h run stratifies into 10 segments and
+   the night windows fail at rel_err ~ -1.0 (system ~0 vs real GT
+   volume). Not a gate defect - a CLAIM-SCOPE mismatch: the gate
+   certifies ALL processed footage; the deliverable claims the study
+   windows. Phase-1 candidate (new, d): segment stratification must be
+   scoped to the DELIVERABLE's reporting windows (trims), with
+   out-of-scope footage excluded from certification (and said so in the
+   claim language).
+3. **cam1/2/4 never certify** (review at every seed; GT passes all
+   three). The eternal-review cell - phase 1 diagnoses per window
+   whether CI width or marginal point error dominates (the JSON carries
+   both), then fixes guidance (longer windows) or verdict semantics.
+
+Still owed in phase 0: the FM51 retrospective (stock-era PM sag - does
+stratification catch the historical false-pass?), and the
+acceptance-layer composition (queue/consistency items) on a scratch DB
+copy with simulated spot rows.
