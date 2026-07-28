@@ -1,0 +1,808 @@
+{
+ "97a7:c1": {
+  "base": {
+   "mae": 4.0,
+   "per_approach": {
+    "E": 21.0,
+    "N": 5.9,
+    "S": 2.4
+   },
+   "abs_err": 542,
+   "net": -0.0009,
+   "cells": {
+    "E left": [
+     111,
+     86
+    ],
+    "E right": [
+     209,
+     191
+    ],
+    "E through": [
+     4,
+     2
+    ],
+    "E u_turn": [
+     1,
+     4
+    ],
+    "N left": [
+     526,
+     382
+    ],
+    "N right": [
+     77,
+     3
+    ],
+    "N through": [
+     1821,
+     2141
+    ],
+    "N u_turn": [
+     3,
+     2
+    ],
+    "S left": [
+     0,
+     1
+    ],
+    "S right": [
+     129,
+     102
+    ],
+    "S through": [
+     1748,
+     1756
+    ],
+    "S u_turn": [
+     0,
+     0
+    ],
+    "W left": [
+     0,
+     0
+    ],
+    "W right": [
+     1,
+     1
+    ],
+    "W through": [
+     38,
+     1
+    ],
+    "W u_turn": [
+     0,
+     0
+    ]
+   }
+  },
+  "lec2": {
+   "mae": 5.2,
+   "per_approach": {
+    "E": 17.4,
+    "N": 8.0,
+    "S": 3.9
+   },
+   "abs_err": 498,
+   "net": -0.0445,
+   "cells": {
+    "E left": [
+     107,
+     86
+    ],
+    "E right": [
+     192,
+     191
+    ],
+    "E through": [
+     3,
+     2
+    ],
+    "E u_turn": [
+     1,
+     4
+    ],
+    "N left": [
+     457,
+     382
+    ],
+    "N right": [
+     25,
+     3
+    ],
+    "N through": [
+     1846,
+     2141
+    ],
+    "N u_turn": [
+     0,
+     2
+    ],
+    "S left": [
+     0,
+     1
+    ],
+    "S right": [
+     124,
+     102
+    ],
+    "S through": [
+     1672,
+     1756
+    ],
+    "S u_turn": [
+     0,
+     0
+    ],
+    "W left": [
+     0,
+     0
+    ],
+    "W right": [
+     1,
+     1
+    ],
+    "W through": [
+     36,
+     1
+    ],
+    "W u_turn": [
+     0,
+     0
+    ]
+   }
+  },
+  "bar": {
+   "1_abs_improves": true,
+   "2_no_cell_degrades": true,
+   "3_certifiability": true,
+   "4_mae_within_03": false
+  },
+  "degraded_cells": [],
+  "mae_worse_approaches": [
+   "N",
+   "S"
+  ],
+  "verdict": "FAIL"
+ },
+ "97a7:c2": {
+  "base": {
+   "mae": 4.1,
+   "per_approach": {
+    "E": 24.8,
+    "N": 13.9,
+    "S": 12.2,
+    "W": 9.8
+   },
+   "abs_err": 4609,
+   "net": -0.0415,
+   "cells": {
+    "E left": [
+     835,
+     1051
+    ],
+    "E right": [
+     1824,
+     1217
+    ],
+    "E through": [
+     179,
+     749
+    ],
+    "E u_turn": [
+     3,
+     3
+    ],
+    "N left": [
+     415,
+     1281
+    ],
+    "N right": [
+     2,
+     78
+    ],
+    "N through": [
+     5113,
+     5029
+    ],
+    "N u_turn": [
+     4,
+     5
+    ],
+    "S left": [
+     937,
+     567
+    ],
+    "S right": [
+     1837,
+     1108
+    ],
+    "S through": [
+     3983,
+     4695
+    ],
+    "S u_turn": [
+     98,
+     15
+    ],
+    "W left": [
+     25,
+     179
+    ],
+    "W right": [
+     764,
+     693
+    ],
+    "W through": [
+     627,
+     698
+    ],
+    "W u_turn": [
+     2,
+     0
+    ]
+   }
+  },
+  "lec2": {
+   "mae": 7.4,
+   "per_approach": {
+    "E": 26.8,
+    "N": 14.6,
+    "S": 11.8,
+    "W": 9.6
+   },
+   "abs_err": 4273,
+   "net": -0.069,
+   "cells": {
+    "E left": [
+     681,
+     1051
+    ],
+    "E right": [
+     1613,
+     1217
+    ],
+    "E through": [
+     157,
+     749
+    ],
+    "E u_turn": [
+     3,
+     3
+    ],
+    "N left": [
+     228,
+     1281
+    ],
+    "N right": [
+     1,
+     78
+    ],
+    "N through": [
+     5222,
+     5029
+    ],
+    "N u_turn": [
+     3,
+     5
+    ],
+    "S left": [
+     820,
+     567
+    ],
+    "S right": [
+     1691,
+     1108
+    ],
+    "S through": [
+     4207,
+     4695
+    ],
+    "S u_turn": [
+     48,
+     15
+    ],
+    "W left": [
+     23,
+     179
+    ],
+    "W right": [
+     753,
+     693
+    ],
+    "W through": [
+     717,
+     698
+    ],
+    "W u_turn": [
+     2,
+     0
+    ]
+   }
+  },
+  "bar": {
+   "1_abs_improves": true,
+   "2_no_cell_degrades": true,
+   "3_certifiability": false,
+   "4_mae_within_03": false
+  },
+  "degraded_cells": [],
+  "mae_worse_approaches": [
+   "E",
+   "N"
+  ],
+  "verdict": "FAIL"
+ },
+ "97a7:c3": {
+  "base": {
+   "mae": 39.7,
+   "per_approach": {
+    "N": 37.0,
+    "S": 34.4
+   },
+   "abs_err": 4709,
+   "net": -0.1011,
+   "cells": {
+    "E left": [
+     362,
+     244
+    ],
+    "E right": [
+     252,
+     178
+    ],
+    "E u_turn": [
+     18,
+     0
+    ],
+    "N left": [
+     105,
+     138
+    ],
+    "N through": [
+     14136,
+     16104
+    ],
+    "N u_turn": [
+     31,
+     10
+    ],
+    "S right": [
+     346,
+     286
+    ],
+    "S through": [
+     14405,
+     16840
+    ],
+    "S u_turn": [
+     36,
+     0
+    ]
+   }
+  },
+  "lec2": {
+   "mae": 40.1,
+   "per_approach": {
+    "N": 36.2,
+    "S": 32.8
+   },
+   "abs_err": 3956,
+   "net": -0.088,
+   "cells": {
+    "E left": [
+     325,
+     244
+    ],
+    "E right": [
+     65,
+     178
+    ],
+    "E u_turn": [
+     18,
+     0
+    ],
+    "N left": [
+     69,
+     138
+    ],
+    "N through": [
+     13830,
+     16104
+    ],
+    "N u_turn": [
+     9,
+     10
+    ],
+    "S right": [
+     340,
+     286
+    ],
+    "S through": [
+     15476,
+     16840
+    ],
+    "S u_turn": [
+     1,
+     0
+    ]
+   }
+  },
+  "bar": {
+   "1_abs_improves": true,
+   "2_no_cell_degrades": false,
+   "3_certifiability": true,
+   "4_mae_within_03": true
+  },
+  "degraded_cells": [
+   [
+    "E right",
+    252,
+    65,
+    178
+   ],
+   [
+    "N left",
+    105,
+    69,
+    138
+   ]
+  ],
+  "mae_worse_approaches": [],
+  "verdict": "FAIL"
+ },
+ "97a7:c4": {
+  "base": {
+   "mae": 4.7,
+   "per_approach": {
+    "N": 4.6,
+    "S": 9.1
+   },
+   "abs_err": 771,
+   "net": 0.0463,
+   "cells": {
+    "E left": [
+     145,
+     64
+    ],
+    "E right": [
+     0,
+     27
+    ],
+    "E u_turn": [
+     0,
+     0
+    ],
+    "N left": [
+     10,
+     60
+    ],
+    "N through": [
+     6695,
+     6698
+    ],
+    "N u_turn": [
+     3,
+     18
+    ],
+    "S right": [
+     654,
+     77
+    ],
+    "S through": [
+     6596,
+     6578
+    ],
+    "S u_turn": [
+     26,
+     2
+    ]
+   }
+  },
+  "lec2": {
+   "mae": 5.4,
+   "per_approach": {
+    "N": 17.1,
+    "S": 5.8
+   },
+   "abs_err": 1807,
+   "net": -0.0585,
+   "cells": {
+    "E left": [
+     133,
+     64
+    ],
+    "E right": [
+     0,
+     27
+    ],
+    "E u_turn": [
+     0,
+     0
+    ],
+    "N left": [
+     6,
+     60
+    ],
+    "N through": [
+     5559,
+     6698
+    ],
+    "N u_turn": [
+     2,
+     18
+    ],
+    "S right": [
+     499,
+     77
+    ],
+    "S through": [
+     6498,
+     6578
+    ],
+    "S u_turn": [
+     23,
+     2
+    ]
+   }
+  },
+  "bar": {
+   "1_abs_improves": false,
+   "2_no_cell_degrades": true,
+   "3_certifiability": false,
+   "4_mae_within_03": false
+  },
+  "degraded_cells": [],
+  "mae_worse_approaches": [
+   "N"
+  ],
+  "verdict": "FAIL"
+ },
+ "97a7:c5": {
+  "base": {
+   "mae": 7.2,
+   "per_approach": {
+    "E": 16.1,
+    "N": 17.3,
+    "S": 5.1
+   },
+   "abs_err": 2423,
+   "net": 0.0677,
+   "cells": {
+    "E left": [
+     370,
+     308
+    ],
+    "E right": [
+     387,
+     594
+    ],
+    "E through": [
+     54,
+     45
+    ],
+    "E u_turn": [
+     11,
+     11
+    ],
+    "N left": [
+     1406,
+     760
+    ],
+    "N right": [
+     9,
+     82
+    ],
+    "N through": [
+     6447,
+     5926
+    ],
+    "N u_turn": [
+     1,
+     4
+    ],
+    "S left": [
+     143,
+     98
+    ],
+    "S right": [
+     352,
+     273
+    ],
+    "S through": [
+     5766,
+     6183
+    ],
+    "S u_turn": [
+     0,
+     22
+    ],
+    "W left": [
+     108,
+     65
+    ],
+    "W right": [
+     248,
+     69
+    ],
+    "W through": [
+     196,
+     76
+    ],
+    "W u_turn": [
+     1,
+     0
+    ]
+   }
+  },
+  "lec2": {
+   "mae": 5.5,
+   "per_approach": {
+    "E": 17.9,
+    "N": 6.6,
+    "S": 5.9
+   },
+   "abs_err": 1313,
+   "net": 0.0448,
+   "cells": {
+    "E left": [
+     365,
+     308
+    ],
+    "E right": [
+     372,
+     594
+    ],
+    "E through": [
+     35,
+     45
+    ],
+    "E u_turn": [
+     11,
+     11
+    ],
+    "N left": [
+     813,
+     760
+    ],
+    "N right": [
+     6,
+     82
+    ],
+    "N through": [
+     6153,
+     5926
+    ],
+    "N u_turn": [
+     0,
+     4
+    ],
+    "S left": [
+     132,
+     98
+    ],
+    "S right": [
+     334,
+     273
+    ],
+    "S through": [
+     6465,
+     6183
+    ],
+    "S u_turn": [
+     0,
+     22
+    ],
+    "W left": [
+     66,
+     65
+    ],
+    "W right": [
+     209,
+     69
+    ],
+    "W through": [
+     204,
+     76
+    ],
+    "W u_turn": [
+     1,
+     0
+    ]
+   }
+  },
+  "bar": {
+   "1_abs_improves": true,
+   "2_no_cell_degrades": true,
+   "3_certifiability": true,
+   "4_mae_within_03": false
+  },
+  "degraded_cells": [],
+  "mae_worse_approaches": [
+   "S",
+   "E"
+  ],
+  "verdict": "FAIL"
+ },
+ "0acb:c2": {
+  "base": {
+   "mae": 5.4,
+   "per_approach": {
+    "E": 35.0,
+    "W": 34.9
+   },
+   "abs_err": 257,
+   "net": 0.0536,
+   "cells": {
+    "E left": [
+     12,
+     41
+    ],
+    "E through": [
+     1575,
+     1700
+    ],
+    "N left": [
+     51,
+     1
+    ],
+    "N right": [
+     66,
+     59
+    ],
+    "W right": [
+     2,
+     4
+    ],
+    "W through": [
+     1760,
+     1664
+    ]
+   }
+  },
+  "lec2": {
+   "mae": 1.8,
+   "per_approach": {
+    "E": 35.3,
+    "W": 32.9
+   },
+   "abs_err": 228,
+   "net": -0.0075,
+   "cells": {
+    "E left": [
+     7,
+     41
+    ],
+    "E through": [
+     1529,
+     1700
+    ],
+    "N left": [
+     25,
+     1
+    ],
+    "N right": [
+     66,
+     59
+    ],
+    "W right": [
+     2,
+     4
+    ],
+    "W through": [
+     1648,
+     1664
+    ]
+   }
+  },
+  "bar": {
+   "1_abs_improves": true,
+   "2_no_cell_degrades": true,
+   "3_certifiability": true,
+   "4_mae_within_03": true
+  },
+  "degraded_cells": [],
+  "mae_worse_approaches": [],
+  "verdict": "PASS"
+ }
+}

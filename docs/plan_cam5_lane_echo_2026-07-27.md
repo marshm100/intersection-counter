@@ -407,3 +407,36 @@ itself (measure-then-apply through the real pass-2, production
 interval-scorer reported alongside, operator ✓) is a separate follow-up.
 FAIL anywhere -> that camera stays base; a cam3 or FM51 failure kills
 the ship set entirely. All numbers land here; negatives included.
+
+### SWEEP VERDICT (2026-07-28 — evidence runs/cam5_wall/sweep_deliverable.json;
+harness scripts/lane_echo_sweep.py, fidelity proven cell-exact vs the
+committed arm evidence before the run)
+
+| camera | abs err | net | MAE | bar | verdict |
+|---|---|---|---|---|---|
+| cam1 | 542→498 | −0.1%→−4.5% | 4.0→5.2 | (4) | FAIL |
+| cam2 | 4609→4273 | −4.2%→−6.9% | 4.1→7.4 | (3)(4) | FAIL |
+| cam3 | 4709→3956 | −10.1%→−8.8% | 39.7→40.1 | (2) | **FAIL — HARD STOP** (E-right +74→−113, N-left −33→−69) |
+| cam4 | 771→**1807** | +4.6%→−5.9% | 4.7→5.4 | (1)(3)(4) | FAIL — the STAT queue-follower trap REALIZED (~1,000 real vehicles eaten; the phase-0 watch item decided) |
+| cam5 | 2423→1313 | +6.8%→+4.5% | 7.2→5.5 | (4) | FAIL (E 16.1→17.9: removing phantom EB-rights that flattered the approach; S +0.8 overshoot) |
+| **FM51 (held-out)** | 257→228 | +5.4%→**−0.8%** | **5.4→1.8** | all pass | **PASS** |
+
+**SHIP SET: EMPTY — the cam3 hard stop kills it per the pre-declared
+terms, FM51's pass notwithstanding.** Under the operator-authorized
+deliverable-truthfulness bar, the frozen LEC2 bundle does NOT generalize
+as a corridor blanket: five cameras fail for four DISTINCT measured
+reasons (compensating-phantom MAE dependence at cam1/cam5; undercount
+deepening at cam2; turn-cell over-removal at cam3; queue-follower STAT
+dedup at cam4 — the dedup-ceiling hazard in new clothing).
+
+**What the FM51 pass means (recorded, not chased):** the mechanism's
+true class is FM51-shaped — far-band flip-heavy sites with no signal
+queues and no compensating-phantom dependence — where it is a clean,
+large win on the held-out site (MAE 5.4→1.8 on the ftv2n replay basis).
+The phase-0 census composition signals (flip share, same-cell echo
+share, STAT-link share) are exactly the blind activation statistics that
+could gate it per-site (evidence-activation C=0.45 precedent). Wiring a
+census-gated activation is a NEW cycle needing its own plan, budget, and
+operator authorization — named here, not started. The LANE+ECHO arc is
+now fully closed: nothing ships, every claim measured, three retirement
+classes and one site-class win on the record.
