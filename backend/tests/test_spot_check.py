@@ -324,3 +324,58 @@ class TestApproachBindingAndScope:
         assert len(after) == 1                             # PM block out of scope
         s, e = after[0]
         assert s >= 599.0 and e <= 1600.0
+
+
+# ---- Stage-4 4.1 tally support (plan_stage4_childtest_ux_2026-07-29) --------
+
+class TestTallySupport:
+    def test_windows_payload_static_floor_and_no_system_numbers(self, spot_project):
+        """The tally meter consumes ONLY this payload before save — the
+        independence rule is enforced by its shape: the static volume
+        floor, and nothing system-derived in the windows."""
+        pid, iid, cid = spot_project
+        r = client.get(
+            f"/api/projects/{pid}/cameras/{cid}/qa/spot-windows").json()
+        assert r["needed_total_for_ci"] >= 100
+        assert r["windows"]
+        for w in r["windows"]:
+            assert set(w) <= {"segment_index", "segment",
+                              "start_seconds", "duration_seconds"}
+
+    def test_save_upserts_by_window(self, spot_project):
+        pid, iid, cid = spot_project
+        url = f"/api/projects/{pid}/cameras/{cid}/qa/spot-counts"
+        client.post(url, json={"start_seconds": 600, "duration_seconds": 600,
+                               "manual_counts": {"S through": 300}})
+        client.post(url, json={"start_seconds": 600, "duration_seconds": 600,
+                               "manual_counts": {"S through": 590,
+                                                 "N through": 555}})
+        client.post(url, json={"start_seconds": 100, "duration_seconds": 60,
+                               "manual_counts": {"S through": 1}})
+        spots = client.get(url).json()["spot_counts"]
+        same = [s for s in spots if s["start_seconds"] == 600]
+        assert len(same) == 1                       # replaced, not stacked
+        assert same[0]["manual_counts"]["S through"] == 590
+        assert len(spots) == 2                      # the other window kept
+
+    def test_dry_run_flow_extend_then_certify(self, spot_project):
+        """The scripted tally flow: save a short accurate count (review +
+        extend guidance), re-save the same window fuller (upsert) — the
+        report reflects the new count."""
+        pid, iid, cid = spot_project
+        url = f"/api/projects/{pid}/cameras/{cid}/qa/spot-counts"
+        r1 = client.post(url, json={
+            "start_seconds": 600, "duration_seconds": 300,
+            "manual_counts": {"S through": 300, "N through": 280}}).json()
+        assert r1["verdict"] in ("review", "pass")
+        assert "approaches" in r1 and r1["total"]["manual"] == 580
+        r2 = client.post(url, json={
+            "start_seconds": 600, "duration_seconds": 600,
+            "manual_counts": {"S through": 640, "N through": 560}}).json()
+        assert r2["total"]["manual"] == 1200
+        assert r2["verdict"] == "pass"              # exact + enough volume
+        spots = client.get(url).json()["spot_counts"]
+        # the 600s re-save OVERLAPS the 300s row -> replaced, one row stands
+        assert len([s for s in spots if s["start_seconds"] == 600]) == 1
+        assert [s for s in spots if s["start_seconds"] == 600][0][
+            "duration_seconds"] == 600

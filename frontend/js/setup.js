@@ -639,6 +639,12 @@ function _qaFmtHms(totalSec) {
 }
 
 async function _renderQaSubTab(host) {
+    if (_qaTally) {                      // the tally screen takes the surface
+        host.innerHTML = _renderTallyScreen();
+        _tallyPaint();
+        _tallyWireVideo();
+        return;
+    }
     host.innerHTML = '<p class="empty-message">Running conservation checks…</p>';
     const iid = _v3OpenIntersectionId;
     let rb = null, cc = null, gate = null, cams = [], spots = [], err = null;
@@ -788,10 +794,14 @@ async function _renderQaSubTab(host) {
                 </div>
             </div>`;
         } else {
-            html += `<div style="margin-top:6px;">
+            html += `<div style="margin-top:6px;display:flex;gap:6px;">
                 <button onclick="v3QaProposeSpot(${cam.camera_id}, 30)"
+                    style="font-size:12px;padding:4px 10px;background:#0ea5e9;color:white;border:none;border-radius:3px;cursor:pointer;">
+                    Count a 30-min window
+                </button>
+                <button onclick="v3QaProposeSpot(${cam.camera_id}, 30, true)"
                     style="font-size:12px;padding:4px 10px;background:white;color:#0ea5e9;border:1px solid #0ea5e9;border-radius:3px;cursor:pointer;">
-                    Propose a 30-min spot window
+                    Enter a paper count
                 </button>
             </div>`;
         }
@@ -803,12 +813,13 @@ async function _renderQaSubTab(host) {
     host.innerHTML = html;
 }
 
-window.v3QaProposeSpot = async function (cameraId, minutes) {
+window.v3QaProposeSpot = async function (cameraId, minutes, manual) {
+    let pick, pw;
     try {
         // Stratified: fetch one window per processed segment and steer the
         // operator to the first segment not yet spot-checked (so a multi-trim run
         // gets the hard PM window sampled, not another easy AM one — §5).
-        const pw = await API.get(
+        pw = await API.get(
             `/api/projects/${_v3Project.project_id}/cameras/${cameraId}/qa/spot-windows?minutes=${minutes}`);
         const windows = pw.windows || [];
         if (!windows.length) { alert(pw.error || 'No processed footage to sample yet.'); return; }
@@ -825,14 +836,299 @@ window.v3QaProposeSpot = async function (cameraId, minutes) {
                 return m >= seg[0] && m < seg[1];
             })) covered.add(i);
         });
-        const pick = windows.find(w => !covered.has(w.segment_index)) || windows[0];
+        pick = windows.find(w => !covered.has(w.segment_index)) || windows[0];
+    } catch (e) {
+        alert('Could not propose a window: ' + (e.message || String(e)));
+        return;
+    }
+    if (manual) {
+        // the secondary path: the classic number grid (paper counts)
         _qaSpotWindow = {
             camera_id: cameraId, start_seconds: pick.start_seconds,
             duration_seconds: pick.duration_seconds,
             _seg: pick.segment_index, _nseg: pw.n_segments,
         };
+        await _renderDetailSubTab();
+        return;
+    }
+    await v3TallyOpen(cameraId, pick, pw);
+};
+
+// --- The tally spot-count screen (Stage-4 4.1, plan_stage4_childtest_ux) ---
+//
+// Count-as-you-watch: the window's raw footage plays on the same screen as
+// big per-movement +1 buttons. INDEPENDENCE RULES (pre-declared): nothing
+// system-derived is shown before save — the live meter is volume-only
+// against the STATIC floor; the verdict + comparisons appear in the
+// post-save report. Keys: up/down select approach, 1-4 count
+// through/left/right/u-turn, Z undo, Space play/pause.
+
+let _qaTally = null;
+
+window.v3TallyOpen = async function (cameraId, pick, pw) {
+    const pid = _v3Project.project_id;
+    let videoId = null, videoDur = null;
+    try {
+        const vids = (await API.get(`/api/projects/${pid}/videos`))
+            .filter(v => v.camera_id === cameraId);
+        const inWin = vids.find(v =>
+            (v.duration_seconds == null) || pick.start_seconds < v.duration_seconds);
+        if (inWin) { videoId = inWin.video_id; videoDur = inWin.duration_seconds; }
+    } catch (e) { /* video optional — counting from an external screen still works */ }
+    const legs = (_v3IntersectionDetail.legs_by_camera &&
+        _v3IntersectionDetail.legs_by_camera[cameraId]) || [];
+    const cards = [...new Set(legs.map(l => l.cardinal_direction))];
+    _qaTally = {
+        cameraId, pid,
+        window: { start: pick.start_seconds, dur: pick.duration_seconds,
+                  seg: pick.segment_index, nseg: pw.n_segments },
+        needed: pw.needed_total_for_ci || 850,
+        cards: (cards.length ? cards : ['N', 'S', 'E', 'W']),
+        counts: {}, undo: [], selRow: 0, report: null,
+        videoId, videoDur, ended: false,
+    };
+    document.addEventListener('keydown', _tallyKeys);
+    await _renderDetailSubTab();
+};
+
+function _tallyExit() {
+    document.removeEventListener('keydown', _tallyKeys);
+    _qaTally = null;
+    _renderDetailSubTab();
+}
+
+const _TALLY_MOVES = ['through', 'left', 'right', 'u_turn'];
+
+function _tallyCell(card, mv) { return `${_v3Bound(card)} ${mv}`; }
+
+function _tallyBump(card, mv) {
+    const t = _qaTally;
+    if (!t || t.report) return;
+    const key = _tallyCell(card, mv);
+    t.counts[key] = (t.counts[key] || 0) + 1;
+    t.undo.push(key);
+    _tallyPaint(key);
+}
+
+function _tallyUndo() {
+    const t = _qaTally;
+    if (!t || t.report || !t.undo.length) return;
+    const key = t.undo.pop();
+    t.counts[key] = Math.max(0, (t.counts[key] || 0) - 1);
+    _tallyPaint(key);
+}
+
+function _tallyPaint(flashKey) {
+    const t = _qaTally;
+    for (const c of t.cards) {
+        for (const mv of _TALLY_MOVES) {
+            const key = _tallyCell(c, mv);
+            const el = document.getElementById(`tally-${c}-${mv}`);
+            if (!el) continue;
+            el.querySelector('.tally-n').textContent = t.counts[key] || 0;
+            if (key === flashKey) {
+                el.style.transform = 'scale(1.08)';
+                setTimeout(() => { el.style.transform = ''; }, 120);
+            }
+        }
+    }
+    const total = Object.values(t.counts).reduce((a, b) => a + b, 0);
+    const meter = document.getElementById('tally-meter');
+    if (meter) {
+        const pct = Math.min(100, Math.round(100 * total / t.needed));
+        meter.innerHTML = `
+            <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <b>Counted: ${total}</b>
+                <span>${t.ended ? 'window ended — save your count'
+                                : 'keep counting to the end of the window'}</span>
+            </div>
+            <div style="height:8px;background:#e2e8f0;border-radius:4px;margin:3px 0;">
+                <div style="height:8px;width:${pct}%;background:#0ea5e9;border-radius:4px;"></div>
+            </div>
+            <div style="font-size:11px;color:#64748b;">Certifying on its own
+                usually takes ~${t.needed} vehicles across your count — short
+                windows may ask to be extended after you save. That is normal.</div>`;
+    }
+}
+
+function _tallyKeys(e) {
+    const t = _qaTally;
+    if (!t || t.report) return;
+    if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        t.selRow = (t.selRow + (e.key === 'ArrowUp' ? -1 : 1)
+                    + t.cards.length) % t.cards.length;
+        document.querySelectorAll('.tally-row').forEach((r, i) =>
+            r.style.background = i === t.selRow ? '#f0f9ff' : '');
+    } else if (['1', '2', '3', '4'].includes(e.key)) {
+        e.preventDefault();
+        _tallyBump(t.cards[t.selRow], _TALLY_MOVES[parseInt(e.key, 10) - 1]);
+    } else if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        _tallyUndo();
+    } else if (e.key === ' ') {
+        const v = document.getElementById('v3-tally-video');
+        if (v) { e.preventDefault(); v.paused ? v.play() : v.pause(); }
+    } else if (e.key === 'Escape') {
+        _tallyExit();
+    }
+}
+
+function _renderTallyScreen() {
+    const t = _qaTally;
+    const w = t.window;
+    const streamUrl = t.videoId != null
+        ? `/api/projects/${t.pid}/videos/${t.videoId}/stream` : null;
+    let html = `<div style="padding:10px;border:1px solid #0ea5e9;border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <b style="font-size:14px;">Count this window — Camera ${t.cameraId}</b>
+            <span style="font-size:12px;color:#475569;">
+                ${_qaFmtHms(w.start)} – ${_qaFmtHms(w.start + w.dur)} (video time)
+                ${w.nseg > 1 ? ` · segment ${w.seg + 1} of ${w.nseg}` : ''}</span>
+        </div>`;
+    if (t.report) {
+        const r = t.report;
+        const vcol = { pass: '#166534', review: '#92400e', fail: '#991b1b' }[r.verdict] || '#475569';
+        html += `<div style="margin-top:8px;padding:8px;border:1px solid #e2e8f0;border-radius:4px;">
+            <div style="font-size:13px;"><b style="color:${vcol};text-transform:uppercase;">${escapeHtml(r.verdict)}</b>
+                <span style="font-size:12px;color:#334155;"> — ${escapeHtml(r.note || '')}</span></div>
+            <table style="font-size:11px;border-collapse:collapse;margin-top:6px;">
+                <tr><th style="text-align:left;padding:1px 8px;">approach</th>
+                    <th>you</th><th>system</th><th>allowed ±</th><th></th></tr>
+                ${(r.approaches || []).map(a => `<tr>
+                    <td style="padding:1px 8px;">${escapeHtml(a.approach)}B</td>
+                    <td style="text-align:center;">${a.manual}</td>
+                    <td style="text-align:center;">${a.system}</td>
+                    <td style="text-align:center;">${a.tolerance_595}</td>
+                    <td style="color:${a.outside_target ? '#991b1b' : '#166534'};">
+                        ${a.outside_target ? 'outside — review' : 'ok'}</td>
+                </tr>`).join('')}
+            </table>
+            <div style="margin-top:8px;display:flex;gap:6px;">
+                <button onclick="v3TallyResume()" style="font-size:12px;padding:5px 10px;
+                    background:white;border:1px solid #0ea5e9;color:#0ea5e9;border-radius:3px;cursor:pointer;">
+                    Keep counting this window</button>
+                <button onclick="v3TallyNext()" style="font-size:12px;padding:5px 10px;
+                    background:#0ea5e9;border:none;color:white;border-radius:3px;cursor:pointer;">
+                    Count the next window</button>
+                <button onclick="v3TallyDone()" style="font-size:12px;padding:5px 10px;
+                    background:white;border:1px solid #d1d5db;color:#6b7280;border-radius:3px;cursor:pointer;">
+                    Done</button>
+            </div></div>`;
+    } else {
+        html += streamUrl ? `
+            <video id="v3-tally-video" src="${streamUrl}" controls preload="metadata"
+                style="width:100%;max-height:340px;background:#000;margin-top:8px;border-radius:4px;"></video>`
+            : `<p class="helper-text" style="margin:8px 0 0;">No playable video for this
+               camera — play the window in your video player and count here.</p>`;
+        html += `<div id="tally-meter" style="margin:8px 0;"></div>
+            <table style="width:100%;border-collapse:separate;border-spacing:4px;">
+                <tr><td></td>${_TALLY_MOVES.map((m, i) =>
+                    `<td style="text-align:center;font-size:11px;color:#64748b;">${m} <b>[${i + 1}]</b></td>`).join('')}</tr>
+                ${t.cards.map((c, ri) => `<tr class="tally-row"
+                        style="${ri === t.selRow ? 'background:#f0f9ff;' : ''}">
+                    <td style="font-size:13px;font-weight:700;padding:0 6px;white-space:nowrap;">${_v3Bound(c)}B</td>
+                    ${_TALLY_MOVES.map(m => `<td style="text-align:center;">
+                        <button id="tally-${escapeHtml(c)}-${m}"
+                            onclick="v3TallyBump('${escapeHtml(c)}','${m}')"
+                            style="width:100%;min-width:72px;padding:14px 0;font-size:18px;
+                                   border:1px solid #cbd5e1;border-radius:6px;background:white;
+                                   cursor:pointer;transition:transform .1s;">
+                            <span class="tally-n">${t.counts[_tallyCell(c, m)] || 0}</span>
+                        </button></td>`).join('')}
+                </tr>`).join('')}
+            </table>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                <span style="font-size:11px;color:#64748b;">
+                    Keys: ↑↓ approach · 1–4 count · Z undo · Space play/pause</span>
+                <div style="display:flex;gap:6px;">
+                    <button onclick="v3TallyUndoBtn()" style="font-size:12px;padding:5px 10px;
+                        background:white;border:1px solid #d1d5db;border-radius:3px;cursor:pointer;">Undo (Z)</button>
+                    <button onclick="v3TallyManual()" style="font-size:12px;padding:5px 10px;
+                        background:white;border:1px solid #d1d5db;color:#6b7280;border-radius:3px;cursor:pointer;">
+                        Enter a paper count instead</button>
+                    <button onclick="v3TallySave()" style="font-size:12px;padding:5px 14px;
+                        background:#0ea5e9;border:none;color:white;border-radius:3px;cursor:pointer;">
+                        Save &amp; compare</button>
+                    <button onclick="v3TallyDone()" style="font-size:12px;padding:5px 10px;
+                        background:white;border:1px solid #d1d5db;color:#6b7280;border-radius:3px;cursor:pointer;">
+                        Cancel</button>
+                </div>
+            </div>`;
+    }
+    html += `</div>`;
+    return html;
+}
+
+function _tallyWireVideo() {
+    const t = _qaTally;
+    const v = document.getElementById('v3-tally-video');
+    if (!v || !t) return;
+    v.addEventListener('loadedmetadata', () => { v.currentTime = t.window.start; });
+    v.addEventListener('timeupdate', () => {
+        if (t.extending) return;         // extend loop: play past the end
+        if (v.currentTime >= t.window.start + t.window.dur && !t.ended) {
+            t.ended = true;
+            v.pause();
+            _tallyPaint();
+        }
+    });
+}
+
+window.v3TallyBump = (c, m) => _tallyBump(c, m);
+window.v3TallyUndoBtn = () => _tallyUndo();
+window.v3TallyDone = () => _tallyExit();
+
+window.v3TallyManual = function () {
+    // hand the window to the classic grid (paper-count path)
+    const t = _qaTally;
+    _qaSpotWindow = { camera_id: t.cameraId, start_seconds: t.window.start,
+                      duration_seconds: t.window.dur,
+                      _seg: t.window.seg, _nseg: t.window.nseg };
+    _tallyExit();
+};
+
+window.v3TallyResume = function () {
+    // the extend-to-certify loop: counting continues PAST the original
+    // window end; the saved duration grows with the playhead and the
+    // backend's upsert-by-overlap replaces the shorter row.
+    const t = _qaTally;
+    t.report = null;
+    t.ended = false;
+    t.extending = true;
+    _renderDetailSubTab();
+};
+
+window.v3TallyNext = async function () {
+    const t = _qaTally;
+    const camId = t.cameraId;
+    _tallyExit();
+    await v3QaProposeSpot(camId, 30);
+};
+
+window.v3TallySave = async function () {
+    const t = _qaTally;
+    const counts = {};
+    for (const [k, v] of Object.entries(t.counts)) if (v > 0) counts[k] = v;
+    if (!Object.keys(counts).length) {
+        alert('Count at least one vehicle first (tap the movement buttons as they pass).');
+        return;
+    }
+    // an extended count saves the grown window (playhead-based when the
+    // footage is on-screen); the backend upsert-by-overlap replaces the
+    // shorter row for this window
+    const vEl = document.getElementById('v3-tally-video');
+    if (t.extending && vEl && vEl.currentTime > t.window.start + t.window.dur) {
+        t.window.dur = Math.round(vEl.currentTime - t.window.start);
+    }
+    try {
+        t.report = await API.post(
+            `/api/projects/${t.pid}/cameras/${t.cameraId}/qa/spot-counts`,
+            { start_seconds: t.window.start, duration_seconds: t.window.dur,
+              manual_counts: counts });
     } catch (e) {
-        alert('Could not propose a window: ' + (e.message || String(e)));
+        alert('Save failed: ' + (e.message || String(e)));
         return;
     }
     await _renderDetailSubTab();

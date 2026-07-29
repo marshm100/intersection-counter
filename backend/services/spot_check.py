@@ -209,7 +209,12 @@ def propose_windows(project_id: str, camera_id: int, minutes: float = 10.0,
             "start_seconds": round(w_start, 1), "duration_seconds": round(w_dur, 1),
         })
     return {"camera_id": camera_id, "n_segments": len(segs), "windows": windows,
-            "processed_segments": [[round(s, 1), round(e, 1)] for s, e in segs]}
+            "processed_segments": [[round(s, 1), round(e, 1)] for s, e in segs],
+            # the STATIC volume floor the tally screen's live meter shows —
+            # deliberately the only certification number available BEFORE a
+            # save (the dynamic extend-to-certify depends on system-vs-manual
+            # agreement and would leak; independence rules, plan_stage4 4.1)
+            "needed_total_for_ci": NEEDED_TOTAL_FOR_CI}
 
 
 def _rec_offset_seconds(project_id: str, camera_id: int) -> int | None:
@@ -270,11 +275,21 @@ def _system_counts(project_id: str, camera_id: int,
 def save_spot_count(project_id: str, camera_id: int, start: float,
                     duration: float, manual_counts: dict[str, int],
                     notes: str = "") -> dict:
-    """Persist a manual spot count and return the comparison report."""
+    """Persist a manual spot count and return the comparison report.
+
+    UPSERT-BY-OVERLAP (Stage-4 4.1): a re-save whose window OVERLAPS a
+    prior row's window REPLACES it — the extend-to-certify loop counts
+    the SAME window longer (duration grows), and stacked overlapping
+    rows would double-cover the segment in the gate. Disjoint windows
+    coexist as before."""
     now = datetime.now(timezone.utc).isoformat()
     conn = get_connection(project_id)
     try:
         with conn:
+            conn.execute(
+                "DELETE FROM spot_counts WHERE camera_id = ? AND "
+                "start_seconds < ? AND (start_seconds + duration_seconds) > ?",
+                (camera_id, start + duration, start))
             conn.execute(
                 "INSERT INTO spot_counts (camera_id, start_seconds, duration_seconds, "
                 "manual_counts, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
