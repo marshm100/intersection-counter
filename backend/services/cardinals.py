@@ -31,7 +31,17 @@ def derive_cardinals(points: dict, north_deg: float) -> dict:
     (plan_stage4_childtest_ux 4.3): leg origin positions in IMAGE
     coordinates (y grows down) + the image-space direction SITE NORTH
     points (degrees, 0 = screen-up, clockwise) -> each leg's cardinal
-    POSITION, snapped 8-way around the legs' centroid.
+    POSITION.
+
+    ASSIGNMENT-BASED, not per-leg snap (6.4 rehearsal finding #1,
+    2026-07-29): on oblique views the image angles between arms are
+    perspective-compressed, and on 3-leg Ts the centroid skews — cam3's
+    correct N/S/W was UNREACHABLE at any dial angle under independent
+    8-way snapping. What perspective cannot distort is the CYCLIC ORDER
+    of the arms around the intersection, so the wizard assigns DISTINCT
+    cardinals preserving that order, minimizing total circular error to
+    the compass slots. Symmetric 4-leg layouts get exactly the old
+    answer; skewed real views get the nearest consistent one.
 
     points: {key: (x, y)}. Returns {key: 'N'|'NE'|...}. Keys pass
     through untouched (the client uses leg indices)."""
@@ -39,14 +49,34 @@ def derive_cardinals(points: dict, north_deg: float) -> dict:
         return {}
     cx = sum(p[0] for p in points.values()) / len(points)
     cy = sum(p[1] for p in points.values()) / len(points)
-    out = {}
+    rel = {}
     for key, (x, y) in points.items():
         dx, dy = x - cx, y - cy
         # 0 = screen-up, clockwise positive (image y is down, so -dy is up)
         bearing = (math.degrees(math.atan2(dx, -dy)) + 360.0) % 360.0
-        rel = (bearing - north_deg) % 360.0
-        out[key] = COMPASS_8[round(rel / 45.0) % 8]
-    return out
+        rel[key] = (bearing - north_deg) % 360.0
+    keys = sorted(rel, key=lambda k: rel[k])
+    n = len(keys)
+    if n > len(COMPASS_8):
+        return {k: COMPASS_8[round(rel[k] / 45.0) % 8] for k in keys}
+
+    def circ(a: float, b: float) -> float:
+        d = abs(a - b) % 360.0
+        return d if d <= 180.0 else 360.0 - d
+
+    from itertools import combinations
+    best: tuple[float, dict] | None = None
+    for slots in combinations(range(8), n):
+        for rot in range(n):              # which leg takes the first slot
+            cost = 0.0
+            assign = {}
+            for i, s in enumerate(slots):
+                k = keys[(rot + i) % n]
+                cost += circ(rel[k], s * 45.0)
+                assign[k] = COMPASS_8[s]
+            if best is None or cost < best[0]:
+                best = (cost, assign)
+    return best[1] if best else {}
 
 
 def bound_approach(cardinal: str | None) -> str:

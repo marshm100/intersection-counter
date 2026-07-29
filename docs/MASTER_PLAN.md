@@ -894,8 +894,18 @@ execution checklist lives in that doc (the operating plan of record):
      97.6 / 99.4 / 100.0 / 98.8 / 95.9 — PASS at cam2+cam3, FAIL at
      cam1/cam4/cam5 with every residual named footage-gated; Stage 4
      does not move it, qualifying footage does; re-runs by one script.
-     Then 6.4 [OP] rehearsal → 6.5 blind study → 100% cell-bin
-     compliance = "we beat it".
+     **6.4 EXECUTED BY THE AGENT VIA PLAYWRIGHT 2026-07-29**
+     (operator-directed; rehearsal_6_4_runbook findings): 9/9 surfaces
+     for real — corridor trims DECLARED (int3 daylight, int4/5 peaks),
+     compass Apply+Save no-op-verified, worklist resolve+undo
+     server-verified, tally/F2/F3/export exercised; THREE findings
+     found + worked off in-block (wizard T-geometry → cyclic
+     assignment; label-only legs save no longer wipes counted events —
+     the FM51-fix use-case would have destroyed counts; rb
+     single-long-trim refinement). The HUMAN slice remains the
+     operator's shorter pass (language feel, real counting, full F2
+     accept). Then 6.5 blind study → 100% cell-bin compliance = "we
+     beat it".
 
 **§1c item (c) MEASURED (2026-07-28 — scripts/rule595_queue_recall.py,
 runs/3b_validation/rule595_queue_recall.json):** of the 5/95-FAILING

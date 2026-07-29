@@ -112,6 +112,71 @@ class TestSaveLegs:
         r = client.get(f"/api/projects/{pid}/cameras/{cam_id}/calibration")
         assert len(r.json()["legs"]) == 1
 
+    def test_label_only_save_preserves_events_and_leg_ids(
+            self, project_with_one_camera):
+        """6.4 rehearsal finding #2: relabeling a PROCESSED camera (the
+        FM51 mislabeled-cardinals fix, the compass wizard's Apply) must
+        not wipe its counted events — same geometry -> in-place update."""
+        from backend.database import get_connection
+
+        pid, cam_id = project_with_one_camera
+        client.put(f"/api/projects/{pid}/cameras/{cam_id}/calibration/legs",
+                   json=_sample_legs())
+        legs0 = client.get(
+            f"/api/projects/{pid}/cameras/{cam_id}/calibration").json()["legs"]
+        conn = get_connection(pid)
+        with conn:
+            conn.execute(
+                "INSERT INTO vehicle_events (camera_id, vehicle_track_id, "
+                "origin_leg_id, destination_leg_id, movement, trajectory_data, "
+                "trajectory_confidence, vehicle_class, detection_confidence, "
+                "timestamp_video, frame_number) VALUES (?, 1, ?, ?, 'through', "
+                "'[]', 0.9, 'car', 0.9, 10.0, 100)",
+                (cam_id, legs0[0]["leg_id"], legs0[1]["leg_id"]))
+        conn.close()
+        relabeled = _sample_legs()
+        relabeled["legs"][0]["cardinal_direction"] = "NE"   # the wizard's edit
+        relabeled["legs"][0]["label"] = "Northeast"
+        r = client.put(f"/api/projects/{pid}/cameras/{cam_id}/calibration/legs",
+                       json=relabeled)
+        assert r.status_code == 200
+        legs1 = r.json()["legs"]
+        assert [l["leg_id"] for l in legs1] == [l["leg_id"] for l in legs0]
+        assert legs1[0]["cardinal_direction"] == "NE"
+        conn = get_connection(pid)
+        n = conn.execute("SELECT COUNT(*) FROM vehicle_events WHERE camera_id=?",
+                         (cam_id,)).fetchone()[0]
+        conn.close()
+        assert n == 1                                   # events SURVIVED
+
+    def test_moved_node_still_wipes(self, project_with_one_camera):
+        from backend.database import get_connection
+
+        pid, cam_id = project_with_one_camera
+        client.put(f"/api/projects/{pid}/cameras/{cam_id}/calibration/legs",
+                   json=_sample_legs())
+        legs0 = client.get(
+            f"/api/projects/{pid}/cameras/{cam_id}/calibration").json()["legs"]
+        conn = get_connection(pid)
+        with conn:
+            conn.execute(
+                "INSERT INTO vehicle_events (camera_id, vehicle_track_id, "
+                "origin_leg_id, destination_leg_id, movement, trajectory_data, "
+                "trajectory_confidence, vehicle_class, detection_confidence, "
+                "timestamp_video, frame_number) VALUES (?, 1, ?, ?, 'through', "
+                "'[]', 0.9, 'car', 0.9, 10.0, 100)",
+                (cam_id, legs0[0]["leg_id"], legs0[1]["leg_id"]))
+        conn.close()
+        moved = _sample_legs()
+        moved["legs"][0]["origin_zone"] = [[140, 80]]     # geometry changed
+        client.put(f"/api/projects/{pid}/cameras/{cam_id}/calibration/legs",
+                   json=moved)
+        conn = get_connection(pid)
+        n = conn.execute("SELECT COUNT(*) FROM vehicle_events WHERE camera_id=?",
+                         (cam_id,)).fetchone()[0]
+        conn.close()
+        assert n == 0                                   # recalibration wipes
+
     def test_empty_legs_rejected(self, project_with_one_camera):
         pid, cam_id = project_with_one_camera
         r = client.put(

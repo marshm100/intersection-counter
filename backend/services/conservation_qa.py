@@ -98,14 +98,30 @@ def _coverage_blocks(project_id: str, intersection_id: int) -> int:
     return blocks
 
 
-def _has_trims(project_id: str, intersection_id: int) -> bool:
+def _has_peak_trims(project_id: str, intersection_id: int) -> bool:
+    """True when declared trims constitute a PEAK-WINDOW claim: several
+    windows, or one short one. A SINGLE continuous trim >= the balance
+    floor (e.g. a declared daylight envelope) is day-shaped — reverse
+    balance stays applicable there (6.4 rehearsal finding, 2026-07-29:
+    accepting int3's 06:00-20:00 daylight trim must not silence its
+    genuine full-day prompt)."""
     conn = get_connection(project_id)
     try:
-        return conn.execute(
-            "SELECT COUNT(*) FROM trims WHERE intersection_id = ?",
-            (intersection_id,)).fetchone()[0] > 0
+        rows = conn.execute(
+            "SELECT start_wallclock, end_wallclock FROM trims "
+            "WHERE intersection_id = ?", (intersection_id,)).fetchall()
     finally:
         conn.close()
+    if not rows:
+        return False
+    if len(rows) > 1:
+        return True
+
+    def secs(hms: str) -> int:
+        h, m, s = (int(x) for x in str(hms).split(":"))
+        return h * 3600 + m * 60 + s
+    a, b = rows[0]
+    return (secs(b) - secs(a)) < MIN_BALANCE_WINDOW_SEC
 
 # Corridor consistency: the same stream measured twice. Mid-block driveways
 # add/remove some vehicles; the corridor's own healthy links run ~5-10%.
@@ -184,7 +200,7 @@ def reverse_balance(project_id: str, intersection_id: int,
     exactly that reason), so those report informational."""
     vols, window = _cardinal_volumes(project_id, intersection_id, _cache)
     short_window = window < MIN_BALANCE_WINDOW_SEC
-    trimmed = _has_trims(project_id, intersection_id)
+    trimmed = _has_peak_trims(project_id, intersection_id)
     n_blocks = _coverage_blocks(project_id, intersection_id)
     if trimmed:
         not_applicable = ("declared trims = a peak-window claim — "

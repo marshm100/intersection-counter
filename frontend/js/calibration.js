@@ -1021,7 +1021,9 @@
             <div style="font-size:12px;margin-bottom:6px;">Turn the dial until
                 the <b>N needle points where the site's north lies</b> in this
                 camera view (check your site plan) — every arm's direction is
-                set from it.</div>
+                set from it. On tilted views one arm can land on the
+                neighboring diagonal — <b>check every label below</b> and fix
+                any odd one with its own dropdown after Apply.</div>
             <div style="display:flex;gap:12px;align-items:center;">
                 <div id="v3-compass-rose" style="width:64px;height:64px;border:2px solid #64748b;
                         border-radius:50%;position:relative;flex:none;">

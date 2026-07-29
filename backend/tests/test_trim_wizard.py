@@ -39,6 +39,18 @@ class TestDeriveCardinals:
     def test_empty_ok(self):
         assert derive_cardinals({}, 0.0) == {}
 
+    def test_oblique_t_is_deterministic_neighbor_slot(self):
+        # cam3's real geometry (6.4 rehearsal finding #1): the true-N arm
+        # sits a full 45 deg off after perspective compression, so the
+        # correct {N,S,W} is unreachable from image bearings alone — the
+        # wizard must return the DETERMINISTIC nearest cyclic assignment
+        # (documented limitation; per-leg override is the recovery).
+        t = {"30": (98.7, 359.8), "31": (337.7, 162.0), "32": (406.7, 343.3)}
+        out = derive_cardinals(t, 204.0)
+        assert out["31"] == "S" and out["32"] == "W"
+        assert out["30"] in ("N", "NE")      # the ambiguous arm, stable
+        assert derive_cardinals(t, 204.0) == out   # deterministic
+
 
 @pytest.fixture()
 def project():

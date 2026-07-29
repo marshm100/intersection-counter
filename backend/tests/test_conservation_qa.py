@@ -115,6 +115,17 @@ class TestReverseBalancePeakAware:
         assert r["applicable"] is False
         assert "disjoint peak blocks" in r["note"]
 
+    def test_single_long_trim_stays_applicable(self, corridor_project):
+        # a declared daylight envelope is day-shaped, not a peak claim
+        pid, (iid, cid, legs), _ = corridor_project
+        _add_events(pid, cid, legs, {("N", "S"): 500, ("S", "N"): 100},
+                    window=12 * 3600)
+        client.post(f"/api/projects/{pid}/intersections/{iid}/trims",
+                    json={"start_wallclock": "06:00:00",
+                          "end_wallclock": "20:00:00"})
+        r = reverse_balance(pid, iid)
+        assert r["applicable"] is True
+
     def test_single_continuous_block_stays_applicable(self, corridor_project):
         pid, (iid, cid, legs), _ = corridor_project
         _add_events(pid, cid, legs, {("N", "S"): 500, ("S", "N"): 100},

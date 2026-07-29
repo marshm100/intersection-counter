@@ -277,37 +277,76 @@ def save_camera_calibration(
 
     conn = get_connection(project_id)
     try:
-        with conn:
-            # Wipe this camera's vehicle events. Match on camera_id when set
-            # AND on origin_leg_id IN (this camera's legs) so we also catch
-            # orphan events written before the camera_id inline-write fix —
-            # those rows have camera_id=NULL but their origin_leg_id still
-            # FK-references a leg we're about to delete, so a plain
-            # `camera_id = ?` wipe leaves them dangling and the leg DELETE
-            # then trips a FOREIGN KEY constraint failure.
-            conn.execute(
-                """DELETE FROM vehicle_events
-                   WHERE camera_id = ?
-                      OR origin_leg_id IN (
-                          SELECT leg_id FROM legs WHERE camera_id = ?
-                      )""",
-                (camera_id, camera_id),
-            )
-            conn.execute("DELETE FROM legs WHERE camera_id = ?", (camera_id,))
-            for leg in body.legs:
+        # LABEL-SAFE PATH (6.4 rehearsal finding #2, 2026-07-29): when the
+        # incoming legs have the SAME GEOMETRY as the stored ones (same
+        # count, same origin-zone points in sort order), only labels /
+        # cardinals / headings changed — none of which invalidates counted
+        # events (they reference leg_ids whose positions did not move). The
+        # FM51 mislabeled-cardinals fix is exactly this case: relabeling a
+        # processed camera must NOT wipe its counts. UPDATE in place,
+        # preserving leg_ids and events. Any positional or count change
+        # falls through to the full recalibration semantics below.
+        existing = conn.execute(
+            "SELECT leg_id, origin_zone FROM legs WHERE camera_id = ? "
+            "ORDER BY sort_order, leg_id", (camera_id,)).fetchall()
+        incoming = sorted(body.legs, key=lambda l: l.sort_order)
+
+        def _same_geometry() -> bool:
+            if len(existing) != len(incoming):
+                return False
+            for (lid, oz), leg in zip(existing, incoming):
+                try:
+                    old = json.loads(oz) if oz else None
+                except (TypeError, ValueError):
+                    return False
+                new = leg.origin_zone
+                if old is None or len(old) != len(new):
+                    return False
+                for (ox, oy), (nx, ny) in zip(old, new):
+                    if abs(ox - nx) > 0.5 or abs(oy - ny) > 0.5:
+                        return False
+            return True
+
+        if _same_geometry():
+            with conn:
+                for (lid, _oz), leg in zip(existing, incoming):
+                    conn.execute(
+                        "UPDATE legs SET label = ?, cardinal_direction = ?, "
+                        "sort_order = ?, reference_heading = ? WHERE leg_id = ?",
+                        (leg.label, leg.cardinal_direction, leg.sort_order,
+                         leg.reference_heading, lid))
+        else:
+            with conn:
+                # Wipe this camera's vehicle events. Match on camera_id when set
+                # AND on origin_leg_id IN (this camera's legs) so we also catch
+                # orphan events written before the camera_id inline-write fix —
+                # those rows have camera_id=NULL but their origin_leg_id still
+                # FK-references a leg we're about to delete, so a plain
+                # `camera_id = ?` wipe leaves them dangling and the leg DELETE
+                # then trips a FOREIGN KEY constraint failure.
                 conn.execute(
-                    "INSERT INTO legs (camera_id, label, cardinal_direction, "
-                    "sort_order, origin_zone, reference_heading) "
-                    "VALUES (?, ?, ?, ?, ?, ?)",
-                    (
-                        camera_id,
-                        leg.label,
-                        leg.cardinal_direction,
-                        leg.sort_order,
-                        json.dumps(leg.origin_zone),
-                        leg.reference_heading,
-                    ),
+                    """DELETE FROM vehicle_events
+                       WHERE camera_id = ?
+                          OR origin_leg_id IN (
+                              SELECT leg_id FROM legs WHERE camera_id = ?
+                          )""",
+                    (camera_id, camera_id),
                 )
+                conn.execute("DELETE FROM legs WHERE camera_id = ?", (camera_id,))
+                for leg in body.legs:
+                    conn.execute(
+                        "INSERT INTO legs (camera_id, label, cardinal_direction, "
+                        "sort_order, origin_zone, reference_heading) "
+                        "VALUES (?, ?, ?, ?, ?, ?)",
+                        (
+                            camera_id,
+                            leg.label,
+                            leg.cardinal_direction,
+                            leg.sort_order,
+                            json.dumps(leg.origin_zone),
+                            leg.reference_heading,
+                        ),
+                    )
         rows = conn.execute(
             "SELECT leg_id, label, cardinal_direction, sort_order, origin_zone, reference_heading "
             "FROM legs WHERE camera_id = ? ORDER BY sort_order",
