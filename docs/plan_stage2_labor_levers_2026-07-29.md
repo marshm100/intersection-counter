@@ -257,6 +257,55 @@ honest statement is that cam2/cam3/cam5's card floors are their raw
 5/95 failure counts, which is Stage-5 (raw compliance) and Stage-6
 (qualifying footage) work, not resolvable by queue hygiene.
 
+## 2.2 + 2.3 VERDICT (2026-07-29 — evidence runs/stage2_labor/
+{ablation,post_sweep_recall}.json; backup review_flags_backup_2026-07-29
+.json; revert = `python scripts/rule595_queue_sweep.py --revert`)
+
+**Frozen config: R5(trims-else-daylight) + R-CAP(K=1) + R2(T0=5).**
+Grid outcomes: T0=15 REJECTED (cam5 overall recall −2.2 — its NB-right
+hole was the only matcher for some failing bins; T0=5 is strictly
+free); K=3 REJECTED (2–5× the survivors for zero card benefit).
+
+**Applied to production via the in-place sweep** (S5 preserved — 9 of
+10 gap flags stay open; the 10th is the impact-5 hole R2 correctly
+closes). Post-sweep re-join on the surviving open set:
+
+| camera | open before | open after | cards | recall Δ | BIG Δ | G1 |
+|---|---|---|---|---|---|---|
+| cam1 | 1,115 | 97 | 97 | 0.0 | 0.0 | PASS |
+| cam2 | 1,140 | 236 | 236 | 0.0 | 0.0 | FAIL |
+| cam3 | 1,740 | 209 | 209 | 0.0 | 0.0 | FAIL |
+| cam4 | 123 | 55 | 55 | 0.0 | 0.0 | PASS |
+| cam5 | 252 | 129 | 129 | 0.0 | 0.0 | FAIL |
+| total | 4,370 | **726** | 726 | — | — | 2/5 |
+
+(The 2.1 commit message said "724 survivors" — arithmetic slip in
+prose; the evidence JSONs and this table are the record: 726.)
+
+- **G2 PASS, exactly**: recall 88.5% / BIG 94.3% overall, every
+  per-camera row byte-flat vs baseline — the cap's recall-invariance
+  held on production, not just in simulation.
+- **G1 PARTIAL (2/5), as pre-registered**: cam2/cam3/cam5 bottom out at
+  their flagged-bin counts (236/209/129) — and cam2's 169 GT-failing
+  bins alone exceed 99. TENS per camera at those sites is a RAW
+  COMPLIANCE problem (Stage 5 walls, Stage 6 footage), not a queue-
+  hygiene problem; the pre-declared fallback shipped (max labor cut at
+  zero recall cost, frontier reported, residual to the operator).
+- Labor: **83.4% of the open workload machine-closed** (3,644 flags:
+  R_cap 3,175 / R5 468 / R2 1), every one visible under its bin card
+  as machine-closed, reopenable, with a plain-language why.
+- **GATE 2.3 MET**: worklist now reads "fix this bin" — one card per
+  suspect cell-bin (`bin|cam|cell|HH:MM`), exemplar impact = the bin's
+  flagged-event mass, big suspicions first (cam2's head: EB-thru hole
+  339 → WB-left hole 70 → S5 WB 50 → EB-thru 16:30 bin 40 — the known
+  EB occlusion-split wall, by name). Scripted dry-run green
+  (test_queue_autoresolve::TestBinCardFlow); future rebuilds emit
+  bin-keyed + auto-resolved queues natively (860 tests).
+
+**STAGE 2 COMPLETE** (2.1 measured; 2.2 shipped under the hard gate
+with the honest partial; 2.3 re-keyed + dry-run). Next per the
+checklist: Stage 3 (census-as-star-rating at ingest).
+
 ## Sequencing + commits
 
 1. Join refactor + parity re-run (recall byte-identical) — part of the

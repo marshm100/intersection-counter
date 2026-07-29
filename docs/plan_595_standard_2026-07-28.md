@@ -228,3 +228,29 @@ plain-language note); DEV projects get the wall chart
 (rule595_compliance.py, both cuts). The export-page compliance panel is
 Stage-4 3e work by design (the child-language traffic-light pass), not
 a 1.1 item. STAGE 1 COMPLETE.
+
+---
+
+## STAGE-2 RECORD (2026-07-29 — steps 2.1 + 2.2 + 2.3 DONE; the full
+record is `plan_stage2_labor_levers_2026-07-29.md`)
+
+- **2.1 precision measured** (runs/stage2_labor/precision.json, join
+  refactored to ONE shared function, recall re-run byte-identical):
+  per-camera precision 54.5–76.8%; the decisive structural finding —
+  BIG failing bins caught ONLY by ≤5-event clusters (cam2 22 / cam5
+  20 / cam4 8) — KILLED wholesale small-cluster resolution pre-ship.
+- **2.2 shipped under the hard gate** (backend/services/
+  queue_autoresolve.py): frozen blind config R5 scope (trims-else-
+  daylight) + R-CAP K=1 exemplar per cell-bin (recall-invariant BY
+  CONSTRUCTION) + R2 holes ≤5; `auto_resolved` = machine state
+  (cleared on rebuild, reopenable, summary-visible). Production sweep
+  (S5-preserving, full backup + revert script): **4,370 → 726 open
+  (83.4% cut), recall 88.5 / BIG 94.3 byte-flat per camera — G2 PASS
+  exactly; G1 honest PARTIAL 2/5** (cam2 236 / cam3 209 / cam5 129 =
+  their flagged-bin floors; cam2's 169 failing bins alone exceed 99 —
+  a raw-compliance residual, named to the operator, not queue work).
+- **2.3 cards re-keyed to the standard's unit**: one card = one
+  suspect cell-bin (`bin|cam|cell|HH:MM`), exemplar impact = the bin's
+  flagged mass, machine-closed members grouped under the same card;
+  scripted dry-run green; rebuilds emit the new shape natively
+  (860 tests, +14). STAGE 2 COMPLETE.

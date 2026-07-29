@@ -1,0 +1,56 @@
+{
+ "cam1": {
+  "open_flags": 97,
+  "open_cards": 97,
+  "recall_pct": 93.1,
+  "big_recall_pct": 100.0,
+  "recall_delta_vs_baseline": 0.0,
+  "big_recall_delta_vs_baseline": 0.0,
+  "g1_flags_pass": true,
+  "g1_cards_pass": true
+ },
+ "cam2": {
+  "open_flags": 236,
+  "open_cards": 236,
+  "recall_pct": 93.5,
+  "big_recall_pct": 93.3,
+  "recall_delta_vs_baseline": 0.0,
+  "big_recall_delta_vs_baseline": 0.0,
+  "g1_flags_pass": false,
+  "g1_cards_pass": false
+ },
+ "cam3": {
+  "open_flags": 209,
+  "open_cards": 209,
+  "recall_pct": 100.0,
+  "big_recall_pct": 100.0,
+  "recall_delta_vs_baseline": 0.0,
+  "big_recall_delta_vs_baseline": 0.0,
+  "g1_flags_pass": false,
+  "g1_cards_pass": false
+ },
+ "cam4": {
+  "open_flags": 55,
+  "open_cards": 55,
+  "recall_pct": 63.2,
+  "big_recall_pct": 84.6,
+  "recall_delta_vs_baseline": 0.0,
+  "big_recall_delta_vs_baseline": 0.0,
+  "g1_flags_pass": true,
+  "g1_cards_pass": true
+ },
+ "cam5": {
+  "open_flags": 129,
+  "open_cards": 129,
+  "recall_pct": 75.3,
+  "big_recall_pct": 85.2,
+  "recall_delta_vs_baseline": 0.0,
+  "big_recall_delta_vs_baseline": 0.0,
+  "g1_flags_pass": false,
+  "g1_cards_pass": false
+ },
+ "_overall": {
+  "open_flags": 726,
+  "g2_pass": true
+ }
+}

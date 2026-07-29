@@ -794,10 +794,20 @@ execution checklist lives in that doc (the operating plan of record):
      ZERO false-pass, cam5 caught 5/5; bin-edge audit = real variance,
      shift-fitting refused; movement×class cells measured: c1 68.1 /
      c2 62.4 / c4 72.8 / c5 79.2%).
-  2. labor levers (queue precision → auto-resolution under the hard
-     gate: cards to TENS while BIG recall ≥94.3% → one card per
-     failing cell-bin) — **NEXT**.
-  3. census-as-star-rating at ingest.
+  2. labor levers — **COMPLETE 2026-07-29**
+     (`plan_stage2_labor_levers_2026-07-29.md`): queue precision
+     measured 54.5–76.8% (a third to half the labor was noise/out-of-
+     scope); R1-wholesale KILLED pre-ship by its own gate (BIG bins
+     caught only by ≤5-event clusters); shipped = R5 scope + R-CAP
+     exemplar (recall-invariant by construction) + R2 tiny-holes, swept
+     production **4,370 → 726 open** (83.4% machine-closed, visible +
+     reopenable) with recall/BIG recall byte-flat at 88.5/94.3; cards
+     re-keyed one-per-cell-bin ("fix this bin", impact = suspected
+     mass). HONEST PARTIAL on "tens per camera": cam1 97 / cam4 55
+     pass; cam2 236 / cam3 209 / cam5 129 bottom out at their
+     flagged-bin floors (cam2's 169 failing bins alone exceed 99) —
+     that residual is Stage-5/6 raw-compliance work, not queue hygiene.
+  3. census-as-star-rating at ingest — **NEXT**.
   4. child-test UX passes (tally counter, one-question cards, cardinal
      wizard, traffic-light export).
   5. raw-compliance cycles (phantom small cells; [OP] census-gated
