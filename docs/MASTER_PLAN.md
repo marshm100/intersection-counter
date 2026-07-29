@@ -822,11 +822,26 @@ execution checklist lives in that doc (the operating plan of record):
      panel live-verified; tier A/B render provisional.
   4. child-test UX passes (tally counter, one-question cards, cardinal
      wizard, traffic-light export).
-  5. raw-compliance cycles (phantom small cells; [OP] census-gated
-     LEC2 authorization).
-  6. footage + THE ACCEPTANCE TEST ([OP] procure qualifying footage —
-     LONG LEAD, start now; interim ≥99% post-review rehearsal; blind
-     study → 100% cell-bin compliance = "we beat it").
+  5. raw-compliance cycles — **5.1 REFRAMED + MEASURED 2026-07-29**
+     (`plan_stage5_phantom_2026-07-29.md`): 5.1-as-blanket was already
+     measured dead by the LEC2 deliverable sweep (recorded); what ran
+     instead = the phantom inventory + post-review CEILINGS (the 6.3
+     pre-measurement): cam1 97.6 / cam2 96.5 / cam3 100.0 / cam4 91.3 /
+     cam5 92.8% — only cam3 clears ≥99% today; THE RECALL GAP is now
+     the binding constraint. cam4's gap = ONE cell (SB-right phantom,
+     20/38 bins, 281 veh, under-caught 13/22 — phantom events are
+     high-confidence, the feeders' blind class). LEC2 improves/closes
+     EVERY phantom cell in the sweep evidence even where its blanket
+     failed. **[OP DECISION PENDING]: authorize the 5.2 census-gated
+     LEC2-under-5/95 cycle (per-site, HARD STOPS pre-declared) and/or
+     the echo_suspect feeder at cam4 (recall route, no count changes)
+     — decision brief in the plan doc.**
+  6. footage + THE ACCEPTANCE TEST — **6.1 DONE 2026-07-29**
+     (runbook §0b: five hard requirements, each traced to a measured
+     wall + procurement guidance; the star rating is the automated
+     check). [OP] 6.2 procurement — LONG LEAD, start now; interim
+     ≥99% post-review rehearsal (6.3 — pre-measured above); blind
+     study → 100% cell-bin compliance = "we beat it".
 
 **§1c item (c) MEASURED (2026-07-28 — scripts/rule595_queue_recall.py,
 runs/3b_validation/rule595_queue_recall.json):** of the 5/95-FAILING

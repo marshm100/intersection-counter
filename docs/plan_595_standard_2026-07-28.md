@@ -284,3 +284,33 @@ record is `plan_stage2_labor_levers_2026-07-29.md`)
   marked PROVISIONAL. Endpoint live-verified on the production
   corridor; rendered-panel screenshot owed from the next operator
   session (studio dry-run). 872 tests (+12). STAGE 3 COMPLETE.
+
+---
+
+## STAGE-5.1 + 6.1 RECORD (2026-07-29 — full record
+`plan_stage5_phantom_2026-07-29.md`; runbook §0b)
+
+- **6.1 DONE**: qualifying-footage spec in the runbook (§0b) — five
+  hard requirements each traced to a measured wall, procurement
+  guidance for [OP] 6.2, the star rating named as the automated check.
+- **5.1 SUPERSESSION RECORDED before re-running anything**: the
+  checklist's "C-proper family corridor-wide" predates (by hours) the
+  LEC2 deliverable sweep that measured the blanket DEAD (5 corridor
+  fails, 4 distinct mechanisms; FM51 PASS 5.4→1.8). Relitigating it
+  blanket-wise is refused.
+- **5.1A the inventory + ceilings (production basis)**: post-review
+  ceilings 97.6 / 96.5 / 100.0 / 91.3 / 92.8% — only cam3 clears the
+  6.3 gate; the recall gap is the binding constraint. cam4 = one cell
+  (SB-right phantom, 281 veh, under-caught because phantom events are
+  high-confidence — the feeders' structural blind class); cam5 =
+  uncaught undercount walls + the WB-phantom class; cam2 =
+  undercount/S3 (footage-gated).
+- **5.1B (replay-cells basis, named)**: LEC2 improves or CLOSES every
+  base phantom-small cell in the sweep evidence (77→25 vs ref 3;
+  u-turns 31→9/36→1; FM51 51→25) — the phantom component works; the
+  blanket died of DIFFERENT cells (cam3 over-removal, cam4 STAT trap).
+- **[OP DECISION PENDING]**: (a) authorize the 5.2 census-gated
+  LEC2-under-5/95 per-site cycle (HARD STOPS pre-declared in the plan
+  doc); and/or (b) the echo_suspect feeder at cam4 (recall route —
+  closes the ceiling gap without touching counts). Decision brief =
+  the plan doc's verdict tables.

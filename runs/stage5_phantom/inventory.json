@@ -1,0 +1,438 @@
+{
+ "A_production": {
+  "cam1": {
+   "bins_scored": 167,
+   "fails": 58,
+   "caught": 54,
+   "raw_compliance_pct": 65.3,
+   "post_review_ceiling_pct": 97.6,
+   "gap_to_6_3_gate": 1.4,
+   "by_class": {
+    "overcount": {
+     "bins": 27,
+     "big": 8,
+     "caught": 26,
+     "abs_delta": 564
+    },
+    "phantom_small": {
+     "bins": 16,
+     "big": 0,
+     "caught": 14,
+     "abs_delta": 129
+    },
+    "undercount": {
+     "bins": 15,
+     "big": 10,
+     "caught": 14,
+     "abs_delta": 439
+    }
+   },
+   "top_offender_cells": [
+    {
+     "cell": "NB thru",
+     "class": "undercount",
+     "bins": 12,
+     "abs_delta": 408
+    },
+    {
+     "cell": "SB thru",
+     "class": "overcount",
+     "bins": 8,
+     "abs_delta": 316
+    },
+    {
+     "cell": "NB left",
+     "class": "overcount",
+     "bins": 12,
+     "abs_delta": 171
+    },
+    {
+     "cell": "NB right",
+     "class": "phantom_small",
+     "bins": 12,
+     "abs_delta": 102
+    },
+    {
+     "cell": "EB right",
+     "class": "overcount",
+     "bins": 4,
+     "abs_delta": 54
+    },
+    {
+     "cell": "EB right",
+     "class": "undercount",
+     "bins": 2,
+     "abs_delta": 22
+    },
+    {
+     "cell": "WB thru",
+     "class": "phantom_small",
+     "bins": 3,
+     "abs_delta": 19
+    },
+    {
+     "cell": "SB right",
+     "class": "overcount",
+     "bins": 2,
+     "abs_delta": 14
+    }
+   ]
+  },
+  "cam2": {
+   "bins_scored": 317,
+   "fails": 169,
+   "caught": 158,
+   "raw_compliance_pct": 46.7,
+   "post_review_ceiling_pct": 96.5,
+   "gap_to_6_3_gate": 2.5,
+   "by_class": {
+    "overcount": {
+     "bins": 68,
+     "big": 11,
+     "caught": 67,
+     "abs_delta": 891
+    },
+    "phantom_small": {
+     "bins": 4,
+     "big": 1,
+     "caught": 3,
+     "abs_delta": 52
+    },
+    "undercount": {
+     "bins": 97,
+     "big": 33,
+     "caught": 88,
+     "abs_delta": 1777
+    }
+   },
+   "top_offender_cells": [
+    {
+     "cell": "SB right",
+     "class": "undercount",
+     "bins": 21,
+     "abs_delta": 464
+    },
+    {
+     "cell": "EB thru",
+     "class": "undercount",
+     "bins": 24,
+     "abs_delta": 410
+    },
+    {
+     "cell": "EB right",
+     "class": "overcount",
+     "bins": 17,
+     "abs_delta": 317
+    },
+    {
+     "cell": "SB thru",
+     "class": "undercount",
+     "bins": 10,
+     "abs_delta": 297
+    },
+    {
+     "cell": "EB left",
+     "class": "undercount",
+     "bins": 17,
+     "abs_delta": 271
+    },
+    {
+     "cell": "NB left",
+     "class": "undercount",
+     "bins": 18,
+     "abs_delta": 234
+    },
+    {
+     "cell": "WB right",
+     "class": "overcount",
+     "bins": 21,
+     "abs_delta": 198
+    },
+    {
+     "cell": "NB thru",
+     "class": "overcount",
+     "bins": 10,
+     "abs_delta": 168
+    }
+   ]
+  },
+  "cam3": {
+   "bins_scored": 423,
+   "fails": 96,
+   "caught": 96,
+   "raw_compliance_pct": 77.3,
+   "post_review_ceiling_pct": 100.0,
+   "gap_to_6_3_gate": -1.0,
+   "by_class": {
+    "overcount": {
+     "bins": 34,
+     "big": 19,
+     "caught": 34,
+     "abs_delta": 797
+    },
+    "phantom_small": {
+     "bins": 23,
+     "big": 5,
+     "caught": 23,
+     "abs_delta": 471
+    },
+    "undercount": {
+     "bins": 39,
+     "big": 30,
+     "caught": 39,
+     "abs_delta": 1381
+    }
+   },
+   "top_offender_cells": [
+    {
+     "cell": "SB thru",
+     "class": "undercount",
+     "bins": 31,
+     "abs_delta": 752
+    },
+    {
+     "cell": "NB thru",
+     "class": "overcount",
+     "bins": 25,
+     "abs_delta": 630
+    },
+    {
+     "cell": "NB thru",
+     "class": "undercount",
+     "bins": 8,
+     "abs_delta": 629
+    },
+    {
+     "cell": "EB thru",
+     "class": "phantom_small",
+     "bins": 20,
+     "abs_delta": 450
+    },
+    {
+     "cell": "SB thru",
+     "class": "overcount",
+     "bins": 9,
+     "abs_delta": 167
+    },
+    {
+     "cell": "SB uturn",
+     "class": "phantom_small",
+     "bins": 2,
+     "abs_delta": 14
+    },
+    {
+     "cell": "EB left",
+     "class": "phantom_small",
+     "bins": 1,
+     "abs_delta": 7
+    }
+   ]
+  },
+  "cam4": {
+   "bins_scored": 161,
+   "fails": 38,
+   "caught": 24,
+   "raw_compliance_pct": 76.4,
+   "post_review_ceiling_pct": 91.3,
+   "gap_to_6_3_gate": 7.7,
+   "by_class": {
+    "overcount": {
+     "bins": 8,
+     "big": 5,
+     "caught": 7,
+     "abs_delta": 189
+    },
+    "phantom_small": {
+     "bins": 22,
+     "big": 4,
+     "caught": 13,
+     "abs_delta": 295
+    },
+    "undercount": {
+     "bins": 8,
+     "big": 4,
+     "caught": 4,
+     "abs_delta": 183
+    }
+   },
+   "top_offender_cells": [
+    {
+     "cell": "SB right",
+     "class": "phantom_small",
+     "bins": 20,
+     "abs_delta": 281
+    },
+    {
+     "cell": "NB thru",
+     "class": "overcount",
+     "bins": 5,
+     "abs_delta": 110
+    },
+    {
+     "cell": "NB thru",
+     "class": "undercount",
+     "bins": 5,
+     "abs_delta": 93
+    },
+    {
+     "cell": "SB thru",
+     "class": "undercount",
+     "bins": 3,
+     "abs_delta": 90
+    },
+    {
+     "cell": "SB thru",
+     "class": "overcount",
+     "bins": 3,
+     "abs_delta": 79
+    },
+    {
+     "cell": "EB left",
+     "class": "phantom_small",
+     "bins": 2,
+     "abs_delta": 14
+    }
+   ]
+  },
+  "cam5": {
+   "bins_scored": 320,
+   "fails": 93,
+   "caught": 70,
+   "raw_compliance_pct": 70.9,
+   "post_review_ceiling_pct": 92.8,
+   "gap_to_6_3_gate": 6.2,
+   "by_class": {
+    "overcount": {
+     "bins": 24,
+     "big": 16,
+     "caught": 20,
+     "abs_delta": 543
+    },
+    "phantom_small": {
+     "bins": 25,
+     "big": 0,
+     "caught": 23,
+     "abs_delta": 201
+    },
+    "undercount": {
+     "bins": 44,
+     "big": 11,
+     "caught": 27,
+     "abs_delta": 640
+    }
+   },
+   "top_offender_cells": [
+    {
+     "cell": "NB thru",
+     "class": "overcount",
+     "bins": 18,
+     "abs_delta": 496
+    },
+    {
+     "cell": "SB thru",
+     "class": "undercount",
+     "bins": 18,
+     "abs_delta": 381
+    },
+    {
+     "cell": "EB right",
+     "class": "undercount",
+     "bins": 16,
+     "abs_delta": 167
+    },
+    {
+     "cell": "WB right",
+     "class": "phantom_small",
+     "bins": 11,
+     "abs_delta": 96
+    },
+    {
+     "cell": "NB left",
+     "class": "undercount",
+     "bins": 7,
+     "abs_delta": 71
+    },
+    {
+     "cell": "WB thru",
+     "class": "phantom_small",
+     "bins": 9,
+     "abs_delta": 70
+    },
+    {
+     "cell": "NB left",
+     "class": "overcount",
+     "bins": 3,
+     "abs_delta": 22
+    },
+    {
+     "cell": "NB right",
+     "class": "undercount",
+     "bins": 3,
+     "abs_delta": 21
+    }
+   ]
+  }
+ },
+ "B_sweep_replay_cells": {
+  "97a7:c1": [
+   {
+    "cell": "N right",
+    "base_ours": 77,
+    "ref": 3,
+    "lec2_ours": 25,
+    "fate": "improved"
+   },
+   {
+    "cell": "W through",
+    "base_ours": 38,
+    "ref": 1,
+    "lec2_ours": 36,
+    "fate": "improved"
+   }
+  ],
+  "97a7:c2": [
+   {
+    "cell": "S u_turn",
+    "base_ours": 98,
+    "ref": 15,
+    "lec2_ours": 48,
+    "fate": "improved"
+   }
+  ],
+  "97a7:c3": [
+   {
+    "cell": "N u_turn",
+    "base_ours": 31,
+    "ref": 10,
+    "lec2_ours": 9,
+    "fate": "closed"
+   },
+   {
+    "cell": "S u_turn",
+    "base_ours": 36,
+    "ref": 0,
+    "lec2_ours": 1,
+    "fate": "closed"
+   }
+  ],
+  "97a7:c4": [
+   {
+    "cell": "S u_turn",
+    "base_ours": 26,
+    "ref": 2,
+    "lec2_ours": 23,
+    "fate": "improved"
+   }
+  ],
+  "97a7:c5": [],
+  "0acb:c2": [
+   {
+    "cell": "N left",
+    "base_ours": 51,
+    "ref": 1,
+    "lec2_ours": 25,
+    "fate": "improved"
+   }
+  ]
+ }
+}
