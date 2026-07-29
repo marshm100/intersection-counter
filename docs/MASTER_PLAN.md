@@ -784,6 +784,28 @@ review layer's validation (are the failures FLAGGED? — unmeasured);
 source-resolution wall: qualifying footage is REQUIRED before the
 guarantee could apply at all.
 
+**THE ADOPTED PLAN (operator directive 2026-07-28): `plan_595_standard_
+2026-07-28.md`** — beat the 5/95 standard; claim = POST-REVIEW 100%
+cell-bin compliance on qualifying footage at ~10× less human labor;
+minimize human reliance, CHILD-TEST every human moment. Six-stage
+execution checklist lives in that doc (the operating plan of record):
+  1. standard into the machinery — **COMPLETE 2026-07-29** (rule
+     service + tests; gate binds by 5/95 tolerance + CI guard — matrix
+     ZERO false-pass, cam5 caught 5/5; bin-edge audit = real variance,
+     shift-fitting refused; movement×class cells measured: c1 68.1 /
+     c2 62.4 / c4 72.8 / c5 79.2%).
+  2. labor levers (queue precision → auto-resolution under the hard
+     gate: cards to TENS while BIG recall ≥94.3% → one card per
+     failing cell-bin) — **NEXT**.
+  3. census-as-star-rating at ingest.
+  4. child-test UX passes (tally counter, one-question cards, cardinal
+     wizard, traffic-light export).
+  5. raw-compliance cycles (phantom small cells; [OP] census-gated
+     LEC2 authorization).
+  6. footage + THE ACCEPTANCE TEST ([OP] procure qualifying footage —
+     LONG LEAD, start now; interim ≥99% post-review rehearsal; blind
+     study → 100% cell-bin compliance = "we beat it").
+
 **§1c item (c) MEASURED (2026-07-28 — scripts/rule595_queue_recall.py,
 runs/3b_validation/rule595_queue_recall.json):** of the 5/95-FAILING
 cell-bins on the production tables, the production flag queue surfaces
