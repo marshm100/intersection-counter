@@ -254,3 +254,33 @@ record is `plan_stage2_labor_levers_2026-07-29.md`)
   flagged mass, machine-closed members grouped under the same card;
   scripted dry-run green; rebuilds emit the new shape natively
   (860 tests, +14). STAGE 2 COMPLETE.
+
+---
+
+## STAGE-3 RECORD (2026-07-29 — 3.1 + 3.2 DONE; full record
+`plan_stage3_star_rating_2026-07-29.md`)
+
+- **3.1 the rating is a service** (backend/services/footage_rating.py):
+  blind tiers — A video metadata (sub-1080p CAPS at ★★★★: the measured
+  resolution wall = Miovision's 5-star precondition, computable), B
+  chain census (frozen STITCH machinery + pinned gates), C production
+  events time-scope-joined to the dump's chains (join validity
+  self-checked; legacy tables detected, never silently miscounted).
+  ONE frozen threshold: same-cell echo 4% — the single census axis the
+  corpus defends (flip-pairs are benign/direction-gate-covered — FM51
+  runs 81% flips and is the cleanest site; tag coverage and
+  fragmentation are geometry-confounded and demoted to reason lines).
+  **GATE run 1 FAILED and the failure was the deliverable**: id-
+  collision event joins manufactured phantom echoes at cam1/cam2;
+  fixed by time-scoped assignment; threshold untouched. **Run 2 PASS
+  6/6** vs the amended pre-declared table (cam4 ★★★ — its phantom
+  35>33 pool seen BLIND; cam5 ★★★; cam1/cam2/cam3/FM51 ★★★★; nobody
+  ★★★★★ below qualifying footage). Pre-registered blind-spots on
+  record: cam2's concurrent splits + cam1's attribution residuals are
+  census-invisible at SD — their per-movement risk rides the measured
+  flag queue (88.5/94.3); concurrent-twin census = the named v2 route.
+- **3.2 ingest UI**: star badge + one-sentence guarantee statement +
+  "Why this rating?" per camera on the intersection card; tier A/B
+  marked PROVISIONAL. Endpoint live-verified on the production
+  corridor; rendered-panel screenshot owed from the next operator
+  session (studio dry-run). 872 tests (+12). STAGE 3 COMPLETE.

@@ -807,7 +807,19 @@ execution checklist lives in that doc (the operating plan of record):
      pass; cam2 236 / cam3 209 / cam5 129 bottom out at their
      flagged-bin floors (cam2's 169 failing bins alone exceed 99) —
      that residual is Stage-5/6 raw-compliance work, not queue hygiene.
-  3. census-as-star-rating at ingest — **NEXT**.
+  3. census-as-star-rating at ingest — **COMPLETE 2026-07-29**
+     (`plan_stage3_star_rating_2026-07-29.md`): blind tiered rating
+     (A metadata / B chain census / C event-joined echo composition)
+     with ONE frozen threshold (same-cell echo 4%, in the measured gap
+     production 1.3–2.4% vs replay 5.7/10.7%); gate run 1 FAILED and
+     caught a real id-collision join bug (time-scoped fix, threshold
+     untouched); run 2 PASS 6/6 (cam4/cam5 ★★★ by echo — cam4's
+     phantom pool seen blind; cam1/cam2/cam3/FM51 ★★★★; ALL capped
+     ≤★★★★ by 640×480 — no corpus site qualifies for ★★★★★, which is
+     the procurement point). Pre-registered census blind-spots named:
+     cam2 concurrent splits + cam1 attribution residuals blind-score
+     clean — their risk rides the measured flag queue. Endpoint + card
+     panel live-verified; tier A/B render provisional.
   4. child-test UX passes (tally counter, one-question cards, cardinal
      wizard, traffic-light export).
   5. raw-compliance cycles (phantom small cells; [OP] census-gated

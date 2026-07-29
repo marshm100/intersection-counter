@@ -185,6 +185,22 @@ touched.
   (cam2 worst); sidecar-cached thereafter. Async compute on ingest is
   a follow-on nicety, not a blocker.
 
+## 3.2 VERDICT (2026-07-29)
+
+Endpoint GET /projects/{pid}/cameras/{cid}/footage-rating live-verified
+against the production corridor (server started clean, port-5000
+discipline observed, stopped after): cam1/cam2/cam3 serve tier-C final
+★★★★, cam4/cam5 tier-B PROVISIONAL ★★★★ (their legacy tables await the
+next pass-2 rejoin — the UI marks provisional). Sidecar caches make
+repeat calls instant. The intersection-card panel ("Footage rating —
+does this footage support the count guarantee?") renders stars + the
+one-sentence statement + a "Why this rating?" details list per camera,
+above the two-pass readiness panel. Honest gap: no browser automation
+in this session, so the rendered-panel screenshot is owed from the
+next operator session (rides the studio dry-run — operator court);
+the panel code is shipped and the endpoint contract it renders is the
+live-verified one. 872 tests green (+12). STAGE 3 COMPLETE.
+
 ## Sequencing + commits
 
 1. Service + metrics + frozen thresholds + unit tests. COMMIT
