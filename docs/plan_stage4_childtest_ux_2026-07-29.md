@@ -187,10 +187,78 @@ count with the reopen note. ZERO API or action change — the full
 suite passed without touching a single test, which is the gate's
 definition of presentation-only. Rendered-surface judgment = 6.4.
 
-## 4.4 (later block; sketch, own pre-declaration when built)
+## 4.4 — TRAFFIC-LIGHT EXPORT SCREEN (this block; pre-declared)
 
-- 4.4 traffic-light export screen: the acceptance items in child
-  language ("what stands between you and export").
+Presentation-only, like 4.2 (the gate data already carries per-
+intersection acceptance items — zero backend change):
+- One literal three-lamp TRAFFIC LIGHT per intersection-day (the lit
+  lamp = the acceptance verdict), name beside it, one-sentence status.
+- "What stands between you and export": the blocking/review items in
+  child language — spot_count → "Count a spot window on the QA tab
+  (the tally screen serves it)"; review_flags → "Work the review
+  cards"; corridor_consistency → "Neighboring intersections disagree —
+  investigate on the QA tab"; reverse_balance → "Directional balance
+  looks off — usually real peaking; confirm on the QA tab"; the
+  bank/classification notes stay as written (already plain). A ship
+  verdict says "Nothing — this one is ready."
+- The project banner, download buttons, draft/override semantics:
+  UNCHANGED.
+- The 5/95 shape reaches this screen through the gate items themselves
+  (the spot verdicts have judged by the 5/95 tolerance since Stage
+  1.2); per-cell panels stay on the QA tab by design.
+
+GATE 4.4 (pre-declared): zero API/behavior change (full suite
+untouched); node syntax check; AND — new for this block, per the
+operator — a PLAYWRIGHT smoke tour of the Stage-4 surfaces against the
+live app on the production project, READ-ONLY (no saves, no accepts,
+no applies): the export traffic lights render; the tally screen opens,
+counts +1/undo, and is CANCELLED; the compass wizard opens, turns, and
+is cancelled; the trims proposal renders for an undeclared
+intersection (NOT accepted — that is the operator's click); a worklist
+bin card renders its question + banner. Screenshots land in
+screenshots/ (the standing owed items). Server via the port-5000
+discipline, stopped after.
+
+## 4.4 + PLAYWRIGHT TOUR VERDICT (2026-07-29 — GATES MET; 889 tests
+untouched)
+
+4.4 shipped presentation-only (the gate payload already carried the
+acceptance items): one three-lamp traffic light per intersection-day,
+one-sentence status, "What stands between you and export" in child
+language per blocking/review item; banner/downloads/draft/override
+semantics untouched.
+
+**The Playwright tour (operator-directed): 7/7 PASS, read-only,**
+against the live app on the production project — screenshots in
+screenshots/ (stage4_41_tally, stage4_42_worklist_card,
+stage4_43_trims_proposal, stage4_43_compass, stage4_44_export_lights,
+and the owed stage3_32_footage_rating):
+- export lights render with child-language items;
+- trims proposal renders for intersection 3 (peaks clipped; NOT
+  accepted — that click is the operator's);
+- footage-rating panel renders (the 3.2 owed screenshot closed);
+- tally screen counts +1 twice, Z-undoes to 1, the meter reads
+  volume-only ("Counted: 1") with the independence assert green (the
+  pre-save DOM contains no system counts), then CANCELS — no save;
+- a worklist card renders its question headline + the machine-closed
+  banner;
+- the compass wizard opens, turns to 90°, previews every leg's
+  corner/bound label, then cancels — no apply.
+
+Incident on the record (memory updated): the first tour ran against a
+STALE ORPHAN uvicorn worker (spawn_main child surviving its killed
+parent, socket inherited, zombie netstat entries pointing at dead
+pids) — frontend .js served fresh masked it while new Python routes
+404'd. The reliable stop is by command-line match
+(start_server|spawn_main), and the identity check after any start is
+openapi.json listing a new-code route. server-process-lifecycle memory
+sharpened.
+
+**THE STAGE-4 BUILD SET IS COMPLETE** (4.1 tally, 4.2 one-question
+cards, 4.3 wizard + auto-trims, 4.4 traffic lights — all
+Playwright-smoked). The REAL gate remains the [OP] 6.4 rehearsal.
+
+## LATER (none — 4.4 closes the Stage-4 build set; the REAL gate is 6.4)
 
 ## Also recorded this block — 6.3 THE INTERIM REHEARSAL IS MEASURED
 

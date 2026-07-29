@@ -840,9 +840,15 @@ execution checklist lives in that doc (the operating plan of record):
      2026-07-29** (presentation-only, 889 tests untouched): one
      question per card kind, the bin banner ("Fix this window ... the
      machine closed K similar items here"), giant question-matched
-     primary answers, queue-wide machine-closed visibility. 4.4
-     traffic-light export = the last pass; the REAL gate for all
-     four = the 6.4 operator rehearsal.
+     primary answers, queue-wide machine-closed visibility. **4.4
+     SHIPPED 2026-07-29** (traffic light per intersection-day + "what
+     stands between you and export" in child language; zero behavior
+     change). **STAGE-4 BUILD SET COMPLETE — and Playwright-smoked
+     7/7 read-only against the live production app** (tally counts +
+     undoes + cancels with the independence assert green; wizard
+     previews + cancels; trims proposal shown, not accepted; export
+     lights + worklist question cards render; the owed 3.2 screenshot
+     closed). The REAL gate = the [OP] 6.4 rehearsal.
   5. raw-compliance cycles — **5.1 REFRAMED + MEASURED 2026-07-29**
      (`plan_stage5_phantom_2026-07-29.md`): 5.1-as-blanket was already
      measured dead by the LEC2 deliverable sweep (recorded); what ran

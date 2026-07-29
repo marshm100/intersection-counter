@@ -115,20 +115,18 @@ async function _loadExportGate(pid) {
         detail = '<ul style="margin:6px 0 0;padding-left:18px;font-weight:400;font-size:13px;">'
             + reasons.map(r => `<li>${escapeHtml(r)}</li>`).join('') + '</ul>';
     }
-    // per-intersection breakdown
+    // per-intersection traffic lights (Stage-4 4.4, plan_stage4_childtest_ux):
+    // one lamp lit per intersection-day + "what stands between you and export"
+    // in child language. Presentation only — same gate data as before.
     let rows = '';
     for (const ix of (g.intersections || [])) {
-        const chip = ix.overall === 'ship' ? '✓ ship'
-            : ix.overall === 'fail' ? '✗ fail' : '• review';
-        const notes = (ix.notes || []).join('; ');
-        rows += `<div style="font-size:12px;color:#374151;">
-            <b>${escapeHtml(ix.name)}</b> — ${chip}${notes ? ' · ' + escapeHtml(notes) : ''}</div>`;
+        rows += _exportLightRow(ix);
     }
     if (banner) {
         banner.innerHTML = `<div style="padding:10px 14px;border-radius:6px;background:${st.bg};color:${st.fg};font-weight:700;">
             ${escapeHtml(st.label)}${detail}
         </div>
-        <div style="margin-top:8px;display:flex;flex-direction:column;gap:2px;">${rows}</div>`;
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">${rows}</div>`;
     }
 
     if (!dl) return;
@@ -145,6 +143,50 @@ async function _loadExportGate(pid) {
         dl.innerHTML = `<button class="btn-proc btn-start" onclick="downloadExcel('${pid}', false)">Download Excel (.xlsx)</button>
             <button class="btn-secondary" style="margin-left:8px;" onclick="downloadPdf('${pid}', false)">Download PDF report</button>`;
     }
+}
+
+// Child-language actions per acceptance item (Stage-4 4.4): what closes it,
+// said the way you'd tell a person, not a log line.
+const _EXPORT_ITEM_WORDS = {
+    spot_count: 'Count a spot window on the QA tab (the tally screen serves it)',
+    review_flags: 'Work the review cards',
+    corridor_consistency: 'Neighboring intersections disagree — investigate on the QA tab',
+    reverse_balance: 'Directional balance looks off — usually real peaking; confirm on the QA tab',
+};
+
+function _exportLightRow(ix) {
+    const v = ix.blocked ? 'fail' : (ix.overall || 'review');
+    const lamp = (color, on) => `<div style="width:14px;height:14px;border-radius:50%;
+        margin:2px auto;background:${on ? color : '#e5e7eb'};
+        ${on ? `box-shadow:0 0 6px ${color};` : ''}"></div>`;
+    const light = `<div style="flex:none;padding:4px;border-radius:6px;background:#1f2937;">
+        ${lamp('#ef4444', v === 'fail')}${lamp('#f59e0b', v === 'review')}${lamp('#22c55e', v === 'ship')}
+    </div>`;
+    const headline = v === 'ship' ? 'Ready to export.'
+        : v === 'fail' ? 'Not ready.' : 'Almost — draft only for now.';
+    let todo = [];
+    for (const n of (ix.notes || [])) todo.push(n);
+    for (const it of (ix.items || [])) {
+        if (it.verdict === 'fail' || it.verdict === 'review') {
+            todo.push(_EXPORT_ITEM_WORDS[it.item] || it.item.replace(/_/g, ' '));
+        }
+    }
+    const list = v === 'ship'
+        ? `<div style="font-size:12px;color:#166534;">Nothing — this one is ready.</div>`
+        : `<div style="font-size:12px;color:#374151;">
+             <b>What stands between you and export:</b>
+             <ul style="margin:2px 0 0;padding-left:18px;">
+                 ${todo.map(t => `<li>${escapeHtml(t)}</li>`).join('') || '<li>see the QA tab</li>'}
+             </ul></div>`;
+    return `<div style="display:flex;gap:10px;align-items:flex-start;padding:8px;
+            border:1px solid #e5e7eb;border-radius:8px;">
+        ${light}
+        <div style="min-width:0;">
+            <div style="font-weight:700;">${escapeHtml(ix.name)}
+                <span style="font-weight:400;color:#6b7280;">— ${headline}</span></div>
+            ${list}
+        </div>
+    </div>`;
 }
 
 function _exportOverride(pid) {
