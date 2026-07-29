@@ -824,8 +824,15 @@ execution checklist lives in that doc (the operating plan of record):
      cam2 concurrent splits + cam1 attribution residuals blind-score
      clean — their risk rides the measured flag queue. Endpoint + card
      panel live-verified; tier A/B render provisional.
-  4. child-test UX passes (tally counter, one-question cards, cardinal
-     wizard, traffic-light export).
+  4. child-test UX passes — **4.1 SHIPPED 2026-07-29**
+     (`plan_stage4_childtest_ux_2026-07-29.md`): the tally spot-count
+     screen (count-as-you-watch, big buttons + keys + undo, live
+     volume-only meter; independence enforced by payload shape — the
+     dynamic extend-to-certify appears only post-save; save
+     upsert-by-overlap carries the extend loop). 4.2 one-question
+     cards / 4.3 cardinal wizard + auto-trims / 4.4 traffic-light
+     export = next blocks; the REAL gate for all four = the 6.4
+     operator rehearsal.
   5. raw-compliance cycles — **5.1 REFRAMED + MEASURED 2026-07-29**
      (`plan_stage5_phantom_2026-07-29.md`): 5.1-as-blanket was already
      measured dead by the LEC2 deliverable sweep (recorded); what ran
@@ -856,9 +863,14 @@ execution checklist lives in that doc (the operating plan of record):
   6. footage + THE ACCEPTANCE TEST — **6.1 DONE 2026-07-29**
      (runbook §0b: five hard requirements, each traced to a measured
      wall + procurement guidance; the star rating is the automated
-     check). [OP] 6.2 procurement — LONG LEAD, start now; interim
-     ≥99% post-review rehearsal (6.3 — pre-measured above); blind
-     study → 100% cell-bin compliance = "we beat it".
+     check). [OP] 6.2 procurement — LONG LEAD, start now. **6.3 the
+     interim rehearsal is MEASURED 2026-07-29** (the ceiling IS the
+     simulated-perfect-reviewer number; plan_stage4 doc records it):
+     97.6 / 99.4 / 100.0 / 98.8 / 95.9 — PASS at cam2+cam3, FAIL at
+     cam1/cam4/cam5 with every residual named footage-gated; Stage 4
+     does not move it, qualifying footage does; re-runs by one script.
+     Then 6.4 [OP] rehearsal → 6.5 blind study → 100% cell-bin
+     compliance = "we beat it".
 
 **§1c item (c) MEASURED (2026-07-28 — scripts/rule595_queue_recall.py,
 runs/3b_validation/rule595_queue_recall.json):** of the 5/95-FAILING
