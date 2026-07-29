@@ -149,7 +149,7 @@
      "seed": 198,
      "camera_verdict": "review",
      "window_verdicts": [
-      "pass",
+      "review",
       "review"
      ],
      "worst_approach": [
@@ -161,7 +161,7 @@
        "segment": 0,
        "start": 25486.1,
        "dur": 1800.0,
-       "verdict": "pass",
+       "verdict": "review",
        "total_rel_err": 0.004,
        "ci95": [
         -0.071,
@@ -1725,8 +1725,8 @@
       "fail",
       "fail",
       "fail",
-      "pass",
-      "pass",
+      "review",
+      "review",
       "pass",
       "fail",
       "fail"
@@ -1885,7 +1885,7 @@
        "segment": 5,
        "start": 23460.8,
        "dur": 2700.0,
-       "verdict": "pass",
+       "verdict": "review",
        "total_rel_err": -0.008,
        "ci95": [
         -0.072,
@@ -1914,7 +1914,7 @@
        "segment": 6,
        "start": 44480.5,
        "dur": 3600.0,
-       "verdict": "pass",
+       "verdict": "review",
        "total_rel_err": 0.027,
        "ci95": [
         -0.04,
@@ -3185,10 +3185,9 @@
   "5": {
    "n_segments": 3,
    "verdict_distribution": {
-    "review": 4,
-    "pass": 1
+    "review": 5
    },
-   "blind_pass_frac": 0.2,
+   "blind_pass_frac": 0.0,
    "gt": {
     "total": 7.2,
     "total_pass": false,
@@ -3198,7 +3197,7 @@
      "SB 5.1"
     ]
    },
-   "FALSE_PASS": true,
+   "FALSE_PASS": false,
    "rows": [
     {
      "seed": 97,
@@ -3436,9 +3435,9 @@
     },
     {
      "seed": 299,
-     "camera_verdict": "pass",
+     "camera_verdict": "review",
      "window_verdicts": [
-      "pass",
+      "review",
       "pass",
       "pass"
      ],
@@ -3450,34 +3449,34 @@
       {
        "segment": 0,
        "start": 26975.3,
-       "dur": 1800.0,
-       "verdict": "pass",
-       "total_rel_err": -0.027,
+       "dur": 2700.0,
+       "verdict": "review",
+       "total_rel_err": -0.024,
        "ci95": [
-        -0.095,
-        0.046
+        -0.082,
+        0.037
        ],
-       "manual_total": 1474,
+       "manual_total": 2083,
        "approach_errors": {
         "E": {
-         "manual": 93,
-         "system": 91,
-         "rel_err": -0.022
+         "manual": 134,
+         "system": 119,
+         "rel_err": -0.112
         },
         "N": {
-         "manual": 790,
-         "system": 739,
-         "rel_err": -0.065
+         "manual": 1104,
+         "system": 1051,
+         "rel_err": -0.048
         },
         "S": {
-         "manual": 564,
-         "system": 535,
+         "manual": 811,
+         "system": 770,
          "rel_err": -0.051
         },
         "W": {
-         "manual": 27,
-         "system": 69,
-         "rel_err": 1.556
+         "manual": 34,
+         "system": 92,
+         "rel_err": 1.706
         }
        }
       },
@@ -3672,7 +3671,7 @@
      "seed": 501,
      "camera_verdict": "review",
      "window_verdicts": [
-      "pass",
+      "review",
       "pass",
       "review"
      ],
@@ -3685,7 +3684,7 @@
        "segment": 0,
        "start": 28544.7,
        "dur": 2700.0,
-       "verdict": "pass",
+       "verdict": "review",
        "total_rel_err": -0.026,
        "ci95": [
         -0.088,
@@ -3788,7 +3787,5 @@
    ]
   }
  },
- "false_passes": [
-  5
- ]
+ "false_passes": []
 }
