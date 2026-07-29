@@ -1338,6 +1338,32 @@ async function _renderCameraCalibration(host, camId) {
 
 // --- Sub-tab: Clip trim -----------------------------------------------
 
+window.v3AcceptTrimProposal = async function (start, end) {
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    try {
+        await API.post(`/api/projects/${pid}/intersections/${iid}/trims`,
+                       { start_wallclock: start, end_wallclock: end });
+    } catch (e) {
+        alert('Could not add the window: ' + (e.message || String(e)));
+        return;
+    }
+    await _renderDetailSubTab();
+};
+
+window.v3AcceptAllTrimProposals = async function () {
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    for (const p of (window._v3TrimProposals || [])) {
+        try {
+            await API.post(`/api/projects/${pid}/intersections/${iid}/trims`,
+                { start_wallclock: p.start_wallclock,
+                  end_wallclock: p.end_wallclock });
+        } catch (e) { /* keep going; the table shows what landed */ }
+    }
+    await _renderDetailSubTab();
+};
+
 async function _renderTrimsSubTab(host) {
     const pid = AppState.currentProject;
     const iid = _v3OpenIntersectionId;
@@ -1360,6 +1386,45 @@ async function _renderTrimsSubTab(host) {
     </div>`;
 
     if (trims.length === 0) {
+        // Auto-trims proposal (Stage-4 4.3): one-click count windows from
+        // footage metadata; rows land as ordinary editable trims.
+        let prop = null;
+        try {
+            prop = await API.get(
+                `/api/projects/${pid}/intersections/${iid}/trims/proposal`);
+        } catch (e) { /* endpoint failure -> plain empty state */ }
+        if (prop && prop.proposals && prop.proposals.length) {
+            const row = (p, i, alt) => `
+                <div style="display:flex;gap:8px;align-items:center;padding:3px 0;">
+                    <span style="min-width:150px;font-size:13px;">
+                        ${p.start_wallclock.slice(0,5)} – ${p.end_wallclock.slice(0,5)}
+                        <span class="helper-text">(${p.kind})</span></span>
+                    <button onclick="v3AcceptTrimProposal('${p.start_wallclock}','${p.end_wallclock}')"
+                        style="font-size:12px;padding:3px 10px;background:${alt ? 'white' : '#0ea5e9'};
+                               color:${alt ? '#0ea5e9' : 'white'};border:1px solid #0ea5e9;
+                               border-radius:3px;cursor:pointer;">Accept</button>
+                </div>`;
+            html += `<div style="margin-top:8px;padding:10px;border:1px solid #0ea5e9;
+                    border-radius:4px;background:#f0f9ff;">
+                <div style="font-size:13px;margin-bottom:6px;">${escapeHtml(prop.note)}</div>
+                ${prop.proposals.map((p, i) => row(p, i, false)).join('')}
+                <div style="margin-top:6px;">
+                    <button onclick="v3AcceptAllTrimProposals()"
+                        style="font-size:12px;padding:4px 12px;background:#0ea5e9;color:white;
+                               border:none;border-radius:3px;cursor:pointer;">Accept all</button>
+                </div>
+                ${prop.alternative_daylight && prop.alternative_daylight.length ? `
+                    <details style="margin-top:6px;font-size:12px;">
+                        <summary style="cursor:pointer;color:#0c4a6e;">…or count everything (daylight)</summary>
+                        ${prop.alternative_daylight.map(p => row(p, 0, true)).join('')}
+                    </details>` : ''}
+                <p class="helper-text" style="margin:6px 0 0;">Accepted windows become
+                    ordinary trims — edit or delete them below any time.</p>
+            </div>`;
+            window._v3TrimProposals = prop.proposals;
+            host.innerHTML = html;
+            return;
+        }
         html += '<p class="empty-message">No trims defined. Add at least one to enable processing.</p>';
         host.innerHTML = html;
         return;

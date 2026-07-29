@@ -65,16 +65,82 @@ the response shape it consumes); full suite green. The rendered-screen
 walkthrough lands in the 6.4 rehearsal (same precedent as 3.2's
 screenshot — no browser automation in these sessions).
 
-## 4.2 / 4.3 / 4.4 (later blocks; sketches, own pre-declarations when built)
+## 4.3 — CARDINAL WIZARD + AUTO-TRIMS (this block; pre-declared)
+
+**Cardinal wizard** (the FM51 mislabeled-cardinals class = a child-test
+failure: N dropdown decisions in a position-vs-bound convention).
+DESIGN ADAPTATION, on the record: the checklist sketch said "against a
+map thumbnail" — the app is OFFLINE BY DESIGN (no map service), so the
+wizard is a rotatable COMPASS over the camera frame: the operator drags
+the compass until its N needle points where the site's north lies in
+this view (they know it from their own plans/maps), then one Apply
+derives EVERY leg's cardinal from its origin-node bearing around the
+legs' centroid (snapped 8-way) and writes through the existing legs
+update path. Guard + verify: the panel immediately shows each leg's
+derived position + bound label ("NE corner → SW-bound approach") for
+one-glance checking; the dropdowns remain for override (the wizard is a
+faster hand on the same fields, not a lock). Client-side geometry only
+— no backend change.
+
+**Auto-trims proposal** (retires the cams-3/4/5 trims nag; tightens R5
+scope, star-rating night handling, spot segments, claim scope).
+Blind-computable from footage metadata alone:
+- covered wall-clock span(s) from the intersection's videos
+  (recording_start + duration; gaps > 20 min split spans);
+- proposal rule (frozen): if the coverage is SHORT (≤ ~4.5 h per
+  span), propose the span(s) themselves — the study IS the recording;
+  if LONG (full-day class), propose the STANDARD TMC peaks
+  (07–09 / 11–13 / 16–18) clipped to coverage, plus an "everything
+  (daylight)" alternative — the corridor's own declared trims are
+  exactly these peaks, and the guarantee excludes night anyway.
+- Child language: "Your footage covers HH:MM–HH:MM. Studies usually
+  count the peaks. Accept these count windows?" — per-row accept +
+  accept-all; rows land as ordinary trims rows (editable/deletable in
+  the same tab afterward; accepting is UNDOABLE by deleting a row).
+- Backend: GET /intersections/{iid}/trims/proposal (pure read);
+  accepts reuse the EXISTING trims-create API row by row.
+
+**GATE 4.3 (pre-declared):** scripted dry-runs — (a) proposal endpoint:
+short-footage → its own span; full-day → the three peaks clipped +
+daylight alternative; no videos → empty, no error; (b) wizard geometry:
+a pure function (bearing + compass rotation → 8-way cardinal) unit-
+tested on a synthetic 4-leg square at several rotations incl. the
+diagonal snap; (c) accepting a proposal produces trims rows that the
+claim-scope consumers see (queue_autoresolve.claim_windows picks them
+up). Full suite green. Rendered-surface walkthrough = the 6.4
+rehearsal, as with 4.1.
+
+## 4.3 VERDICT (2026-07-29 — GATE MET; 889 tests, +12)
+
+- **Cardinal wizard shipped**: one dial ("which way is north in this
+  view?") on the calibration legs panel → live per-leg preview ("Leg 2
+  → NE corner (SW-bound approach)") → Apply writes every leg's
+  cardinal through the normal fields; dropdowns remain for override;
+  nothing saves until the ordinary Save. The geometry is ONE
+  server-side pure function (cardinals.derive_cardinals) — unit-tested
+  on the square (identity + rotation), the diamond (diagonal snap),
+  and a 17° dial error (snaps home). The FM51 mislabeled-cardinals
+  class now takes one action instead of N convention decisions.
+- **Auto-trims shipped**: GET /trims/proposal from footage metadata —
+  short footage proposes its own span ("the recording IS the study");
+  full-day proposes the standard TMC peaks clipped to coverage
+  (partial-day clipping verified: 08:00-only footage yields an
+  08–09 AM peak) with a daylight alternative; no footage answers
+  calmly. Accepting = ordinary POST /trims rows (editable, deletable —
+  undoable by design); the dry-run proves accepted proposals land in
+  queue_autoresolve.claim_windows — the R5/claim-scope consumers see
+  them immediately. The cams-3/4/5 trims declaration is now one click
+  in the operator's next session.
+- Rendered-surface walkthrough rides the 6.4 rehearsal (per 4.1's
+  precedent). Remaining Stage-4: 4.2 one-question cards, 4.4
+  traffic-light export.
+
+## 4.2 / 4.4 (later blocks; sketches, own pre-declarations when built)
 
 - 4.2 one-question cards: the bin-keyed queue (2.3) gets the language
   pass — one question per card kind ("One vehicle or two?", "Did it
   turn left?"), giant guarded buttons, single keys, undo, the stopping
   rule visible. Rides the C-polish keyboard flow.
-- 4.3 cardinal wizard ("tap where north is" against a map thumbnail;
-  the FM51 mislabeled-cardinals class) + auto-trims proposal from
-  footage coverage with one-click accept (also retires the cams-3/4/5
-  trims nag and tightens R5 + the star rating's night scoping).
 - 4.4 traffic-light export screen: the acceptance items in child
   language ("what stands between you and export").
 

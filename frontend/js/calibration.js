@@ -990,8 +990,110 @@
                 <button class="cal-btn cal-btn--danger" onclick="v3CalibrationRemoveLeg(${leg.idx})">Remove</button>
             </div>`;
         }
+        if (_legs.length >= 2) {
+            html += `<div style="margin-top:6px;">
+                <button class="cal-btn cal-btn--sm" onclick="v3CompassOpen()">
+                    Set all directions by compass</button>
+                <div id="v3-compass-wizard" style="display:none;margin-top:6px;
+                    padding:8px;border:1px solid #e2e8f0;border-radius:4px;"></div>
+            </div>`;
+        }
         listDiv.innerHTML = html;
     }
+
+    // --- Cardinal wizard (Stage-4 4.3, plan_stage4_childtest_ux) ---------
+    //
+    // One question: "which way is north in this view?" Turn the dial until
+    // the needle points where the site's north lies on the frame; every
+    // leg's cardinal derives from its position around the centroid
+    // (server-side derive-cardinals = the one source of truth). The
+    // per-leg dropdowns remain for override — the wizard writes the same
+    // fields and nothing is saved until the normal Save.
+
+    let _compassDeg = 0;
+    let _compassPreview = null;
+
+    window.v3CompassOpen = function () {
+        const div = document.getElementById('v3-compass-wizard');
+        if (!div) return;
+        div.style.display = '';
+        div.innerHTML = `
+            <div style="font-size:12px;margin-bottom:6px;">Turn the dial until
+                the <b>N needle points where the site's north lies</b> in this
+                camera view (check your site plan) — every arm's direction is
+                set from it.</div>
+            <div style="display:flex;gap:12px;align-items:center;">
+                <div id="v3-compass-rose" style="width:64px;height:64px;border:2px solid #64748b;
+                        border-radius:50%;position:relative;flex:none;">
+                    <div id="v3-compass-needle" style="position:absolute;left:50%;top:50%;
+                        width:2px;height:26px;background:#dc2626;transform-origin:50% 100%;
+                        transform:translate(-50%,-100%) rotate(0deg);"></div>
+                    <div style="position:absolute;left:50%;top:2px;transform:translateX(-50%);
+                        font-size:9px;color:#dc2626;font-weight:700;">N</div>
+                </div>
+                <div style="flex:1;">
+                    <input type="range" id="v3-compass-slider" min="0" max="359" step="1"
+                        value="${_compassDeg}" style="width:100%;"
+                        oninput="v3CompassTurn(this.value)">
+                    <div id="v3-compass-list" style="font-size:11px;color:#475569;
+                        margin-top:4px;">&nbsp;</div>
+                </div>
+            </div>
+            <div style="margin-top:6px;">
+                <button class="cal-btn cal-btn--primary cal-btn--sm"
+                    onclick="v3CompassApply()">Apply to all legs</button>
+                <button class="cal-btn cal-btn--sm" style="margin-left:6px;"
+                    onclick="v3CompassClose()">Cancel</button>
+            </div>`;
+        v3CompassTurn(_compassDeg);
+    };
+
+    window.v3CompassClose = function () {
+        const div = document.getElementById('v3-compass-wizard');
+        if (div) { div.style.display = 'none'; div.innerHTML = ''; }
+        _compassPreview = null;
+    };
+
+    let _compassTimer = null;
+    window.v3CompassTurn = function (deg) {
+        _compassDeg = parseInt(deg, 10) || 0;
+        const needle = document.getElementById('v3-compass-needle');
+        if (needle) {
+            needle.style.transform =
+                `translate(-50%,-100%) rotate(${_compassDeg}deg)`;
+        }
+        clearTimeout(_compassTimer);
+        _compassTimer = setTimeout(async () => {
+            const points = {};
+            for (const l of _legs) points[l.idx] = l.origin_zone[0];
+            try {
+                _compassPreview = await API.post(
+                    `/api/projects/${_pid}/cameras/${_cid}/calibration/derive-cardinals`,
+                    { north_deg: _compassDeg, points });
+            } catch (e) { _compassPreview = null; return; }
+            const el = document.getElementById('v3-compass-list');
+            if (el && _compassPreview) {
+                el.innerHTML = _legs.map(l => {
+                    const c = _compassPreview.cardinals[l.idx];
+                    const b = _compassPreview.bounds[l.idx];
+                    return `${escapeHtml(l.label)} → <b>${c}</b> corner
+                        (${b}-bound approach)`;
+                }).join(' &middot; ');
+            }
+        }, 150);
+    };
+
+    window.v3CompassApply = function () {
+        if (!_compassPreview) { alert('Turn the dial first.'); return; }
+        for (const l of _legs) {
+            const c = _compassPreview.cardinals[l.idx];
+            if (c) l.cardinal_direction = c;
+        }
+        v3CompassClose();
+        _redraw();
+        _updateLegList();
+        _updateStatus();
+    };
 
     function _updateStatus() {
         const el = document.getElementById('v3-calib-status');

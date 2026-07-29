@@ -31,6 +31,14 @@ class CalibrationSaveRequest(BaseModel):
     legs: List[LegInput]
 
 
+class DeriveCardinalsBody(BaseModel):
+    """The cardinal wizard (Stage-4 4.3): image-space leg positions +
+    the direction site north points in this view (0 = screen-up,
+    clockwise degrees). Stateless — works on unsaved legs."""
+    north_deg: float
+    points: dict[str, List[float]]   # key -> [x, y]
+
+
 # --- Path (polyline) CRUD models ---
 
 VALID_MOVEMENTS = {"through", "left", "right", "u_turn"}
@@ -214,6 +222,31 @@ def get_camera_calibration(project_id: str, camera_id: int):
             "reference_heading": row[5],
         })
     return {"legs": legs}
+
+
+@router.post("/projects/{project_id}/cameras/{camera_id}/calibration/derive-cardinals")
+def post_derive_cardinals(project_id: str, camera_id: int,
+                          body: DeriveCardinalsBody):
+    """The cardinal wizard's Apply (Stage-4 4.3): one compass setting →
+    every leg's cardinal POSITION (snapped 8-way around the centroid),
+    with the bound-approach label for one-glance verification. Pure —
+    nothing is saved; the client writes through the normal legs PUT."""
+    from backend.services.cardinals import bound_approach, derive_cardinals
+
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    pts = {}
+    for k, p in body.points.items():
+        if len(p) != 2:
+            raise HTTPException(status_code=422,
+                detail=f"point {k} must be [x, y]")
+        pts[k] = (float(p[0]), float(p[1]))
+    if len(pts) < 2:
+        raise HTTPException(status_code=422,
+            detail="need at least two leg positions")
+    cards = derive_cardinals(pts, body.north_deg)
+    return {"cardinals": cards,
+            "bounds": {k: bound_approach(v) for k, v in cards.items()}}
 
 
 @router.put("/projects/{project_id}/cameras/{camera_id}/calibration/legs")

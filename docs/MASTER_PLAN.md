@@ -829,10 +829,16 @@ execution checklist lives in that doc (the operating plan of record):
      screen (count-as-you-watch, big buttons + keys + undo, live
      volume-only meter; independence enforced by payload shape — the
      dynamic extend-to-certify appears only post-save; save
-     upsert-by-overlap carries the extend loop). 4.2 one-question
-     cards / 4.3 cardinal wizard + auto-trims / 4.4 traffic-light
-     export = next blocks; the REAL gate for all four = the 6.4
-     operator rehearsal.
+     upsert-by-overlap carries the extend loop). **4.3 SHIPPED
+     2026-07-29**: the cardinal wizard (one dial -> every leg's
+     cardinal via ONE server-side pure function; dropdowns stay for
+     override; kills the FM51 mislabeled-cardinals class) + auto-trims
+     proposal (footage metadata -> one-click count windows: short
+     footage = its own span, full-day = the standard peaks clipped +
+     daylight alternative; accepted rows reach claim_windows — the
+     cams-3/4/5 trims declaration is now one click). 4.2 one-question
+     cards / 4.4 traffic-light export = next blocks; the REAL gate for
+     all four = the 6.4 operator rehearsal.
   5. raw-compliance cycles — **5.1 REFRAMED + MEASURED 2026-07-29**
      (`plan_stage5_phantom_2026-07-29.md`): 5.1-as-blanket was already
      measured dead by the LEC2 deliverable sweep (recorded); what ran

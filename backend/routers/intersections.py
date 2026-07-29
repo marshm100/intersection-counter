@@ -546,6 +546,20 @@ def get_trims(project_id: str, intersection_id: int):
     return list_trims(project_id, intersection_id)
 
 
+@router.get("/projects/{project_id}/intersections/{intersection_id}/trims/proposal")
+def get_trims_proposal(project_id: str, intersection_id: int):
+    """Auto-trims proposal from footage metadata (Stage-4 4.3): the
+    covered wall-clock spans + one-click count-window suggestions
+    (short footage → the recording itself; full-day → the standard TMC
+    peaks clipped to coverage, with a daylight alternative). Accepting
+    a row = the ordinary POST /trims; everything stays editable."""
+    from backend.services.trim_proposal import propose_trims
+
+    _require_project(project_id)
+    _require_intersection(project_id, intersection_id)
+    return propose_trims(project_id, intersection_id)
+
+
 def _validate_trim(start_wallclock: str, end_wallclock: str) -> None:
     """Basic HH:MM:SS shape + start < end check. Coverage validation runs
     separately in the coverage-report endpoint and at process time."""
