@@ -443,6 +443,7 @@ async function _renderIntersectionDetail(host) {
     ).join('') + '</div>';
 
     html += `<div id="v3-detail-subcontent"></div>`;
+    html += `<div id="v3-footage-rating"></div>`;
     html += `<div id="v3-twopass-plan"></div>`;
     html += `<div class="isect-detail-footer">
         <button class="btn-confirm-process" onclick="v3ConfirmProcess()">Confirm &amp; process</button>
@@ -451,7 +452,65 @@ async function _renderIntersectionDetail(host) {
     host.innerHTML = html;
 
     await _renderDetailSubTab();
-    _renderTwoPassPlan();   // fire-and-forget; empty when the flag is off
+    _renderTwoPassPlan();     // fire-and-forget; empty when the flag is off
+    _renderFootageRating();   // fire-and-forget; per-camera star ratings
+}
+
+// --- Footage star rating (stage 3.2, plan_stage3_star_rating) ------------
+//
+// One glance = stars + one sentence per camera; one click (the details
+// arrow) = the whys in plain words. Tier A/B ratings are PROVISIONAL
+// (metadata / census-pending); tier C is the full census verdict.
+
+function _starRow(r) {
+    const n = r.stars;
+    const stars = n == null ? '·····'
+        : '★'.repeat(n) + '<span style="opacity:.25;">' + '★'.repeat(5 - n) + '</span>';
+    const provisional = (r.tier === 'A' || r.tier === 'B')
+        ? ' <span style="font-size:11px;color:#92400e;background:#fef3c7;' +
+          'padding:0 6px;border-radius:8px;font-weight:700;">provisional</span>'
+        : '';
+    const reasons = (r.reasons || []).map(x =>
+        `<li style="margin:2px 0;">${escapeHtml(x)}</li>`).join('');
+    return `<div style="padding:4px 0;border-top:1px solid #f1f5f9;">
+        <div style="display:flex;gap:10px;align-items:baseline;font-size:12px;">
+            <span style="min-width:80px;font-weight:700;">Camera ${r.camera_id}</span>
+            <span style="color:#b45309;font-size:14px;letter-spacing:1px;">${stars}</span>
+            <span style="font-weight:700;">${escapeHtml(r.label || '')}</span>${provisional}
+        </div>
+        <div style="font-size:12px;color:#334155;margin:2px 0 0 90px;">
+            ${escapeHtml(r.statement || '')}</div>
+        ${reasons ? `<details style="margin:2px 0 0 90px;font-size:11px;color:#475569;">
+            <summary style="cursor:pointer;">Why this rating?</summary>
+            <ul style="margin:4px 0 0 14px;padding:0;">${reasons}</ul>
+        </details>` : ''}
+    </div>`;
+}
+
+async function _renderFootageRating() {
+    const host = document.getElementById('v3-footage-rating');
+    if (!host) return;
+    const pid = AppState.currentProject;
+    const iid = _v3OpenIntersectionId;
+    let cams;
+    try {
+        cams = await API.get(`/api/projects/${pid}/intersections/${iid}/cameras`);
+    } catch (e) { return; }
+    if (!cams || !cams.length) return;
+    const rows = [];
+    for (const c of cams) {
+        try {
+            rows.push(await API.get(
+                `/api/projects/${pid}/cameras/${c.camera_id}/footage-rating`));
+        } catch (e) { /* per-camera failure: skip the row, keep the panel */ }
+    }
+    if (!rows.length) return;
+    host.innerHTML = `<div style="margin:10px 0 0;padding:8px 12px;
+        border:1px solid #e2e8f0;border-radius:6px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:2px;">
+            Footage rating — does this footage support the count guarantee?</div>
+        ${rows.map(_starRow).join('')}
+    </div>`;
 }
 
 // --- Two-pass readiness (stage 3.4) -------------------------------------

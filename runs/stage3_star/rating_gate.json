@@ -1,0 +1,177 @@
+{
+ "cam1": {
+  "stars": 4,
+  "want": 4,
+  "tier": "C",
+  "label": "Strong",
+  "echo_share": 0.0239,
+  "flip_share": 0.0239,
+  "entry_coverage": 0.315,
+  "multi_chain_share": 0.17,
+  "event_join_unmapped_share": 0.0,
+  "variants": [
+   "study_0700"
+  ],
+  "night_share": 0.417,
+  "reasons": [
+   "640x480 is below qualifying (1080p-class) resolution \u2014 the full per-movement guarantee needs better footage (measured wall, not a policy choice)",
+   "42% of the footage is night \u2014 those hours are excluded from the guarantee",
+   "32% of tracked vehicles show their approach entry (camera angle/depth)",
+   "17% of vehicles fragment into multiple tracks"
+  ],
+  "seconds": 4.7,
+  "effective_stars": 4,
+  "pass": true
+ },
+ "cam2": {
+  "stars": 4,
+  "want": 4,
+  "tier": "C",
+  "label": "Strong",
+  "echo_share": 0.0132,
+  "flip_share": 0.0163,
+  "entry_coverage": 0.644,
+  "multi_chain_share": 0.152,
+  "event_join_unmapped_share": 0.0,
+  "variants": [
+   "study_0700",
+   "study_1100",
+   "study_1600"
+  ],
+  "night_share": 0.417,
+  "reasons": [
+   "640x480 is below qualifying (1080p-class) resolution \u2014 the full per-movement guarantee needs better footage (measured wall, not a policy choice)",
+   "42% of the footage is night \u2014 those hours are excluded from the guarantee",
+   "64% of tracked vehicles show their approach entry (camera angle/depth)",
+   "15% of vehicles fragment into multiple tracks"
+  ],
+  "seconds": 68.2,
+  "effective_stars": 4,
+  "pass": true
+ },
+ "cam3": {
+  "stars": 4,
+  "want": 4,
+  "tier": "C",
+  "label": "Strong",
+  "echo_share": 0.0217,
+  "flip_share": 0.0125,
+  "entry_coverage": 0.268,
+  "multi_chain_share": 0.072,
+  "event_join_unmapped_share": 0.0,
+  "variants": [
+   "study_0000"
+  ],
+  "night_share": 0.417,
+  "reasons": [
+   "640x480 is below qualifying (1080p-class) resolution \u2014 the full per-movement guarantee needs better footage (measured wall, not a policy choice)",
+   "42% of the footage is night \u2014 those hours are excluded from the guarantee",
+   "27% of tracked vehicles show their approach entry (camera angle/depth)",
+   "7% of vehicles fragment into multiple tracks"
+  ],
+  "seconds": 18.5,
+  "effective_stars": 4,
+  "pass": true
+ },
+ "cam4": {
+  "stars": 4,
+  "want": 3,
+  "tier": "B",
+  "label": "Strong",
+  "echo_share": null,
+  "flip_share": null,
+  "entry_coverage": 0.404,
+  "multi_chain_share": 0.199,
+  "event_join_unmapped_share": 0.37,
+  "variants": [
+   "study_0700",
+   "study_1100",
+   "study_1600"
+  ],
+  "night_share": 0.417,
+  "reasons": [
+   "640x480 is below qualifying (1080p-class) resolution \u2014 the full per-movement guarantee needs better footage (measured wall, not a policy choice)",
+   "42% of the footage is night \u2014 those hours are excluded from the guarantee",
+   "40% of tracked vehicles show their approach entry (camera angle/depth)",
+   "20% of vehicles fragment into multiple tracks",
+   "count-echo census unavailable on this table (legacy basis \u2014 will compute on next pass-2)"
+  ],
+  "seconds": 11.2,
+  "phase0_replay_basis": {
+   "echo_share": 0.0854,
+   "flip_share": 0.0086,
+   "n_events": 14150
+  },
+  "phase0_stars": 3,
+  "effective_stars": 3,
+  "pass": true
+ },
+ "cam5": {
+  "stars": 4,
+  "want": 3,
+  "tier": "B",
+  "label": "Strong",
+  "echo_share": null,
+  "flip_share": null,
+  "entry_coverage": 0.482,
+  "multi_chain_share": 0.195,
+  "event_join_unmapped_share": 0.391,
+  "variants": [
+   "study_0700",
+   "study_1100",
+   "study_1600"
+  ],
+  "night_share": 0.417,
+  "reasons": [
+   "640x480 is below qualifying (1080p-class) resolution \u2014 the full per-movement guarantee needs better footage (measured wall, not a policy choice)",
+   "42% of the footage is night \u2014 those hours are excluded from the guarantee",
+   "48% of tracked vehicles show their approach entry (camera angle/depth)",
+   "20% of vehicles fragment into multiple tracks",
+   "count-echo census unavailable on this table (legacy basis \u2014 will compute on next pass-2)"
+  ],
+  "seconds": 21.2,
+  "phase0_replay_basis": {
+   "echo_share": 0.0565,
+   "flip_share": 0.0159,
+   "n_events": 5361
+  },
+  "phase0_stars": 3,
+  "effective_stars": 3,
+  "pass": true
+ },
+ "fm51": {
+  "stars": 4,
+  "want": 4,
+  "tier": "B",
+  "label": "Strong",
+  "echo_share": null,
+  "flip_share": null,
+  "entry_coverage": 0.038,
+  "multi_chain_share": 0.392,
+  "event_join_unmapped_share": 0.87,
+  "variants": [
+   "ftv1_am",
+   "ftv2n_pm"
+  ],
+  "night_share": 0.417,
+  "reasons": [
+   "640x480 is below qualifying (1080p-class) resolution \u2014 the full per-movement guarantee needs better footage (measured wall, not a policy choice)",
+   "42% of the footage is night \u2014 those hours are excluded from the guarantee",
+   "4% of tracked vehicles show their approach entry (camera angle/depth)",
+   "39% of vehicles fragment into multiple tracks",
+   "count-echo census unavailable on this table (legacy basis \u2014 will compute on next pass-2)"
+  ],
+  "seconds": 7.4,
+  "phase0_replay_basis": {
+   "echo_share": 0.0197,
+   "flip_share": 0.2148,
+   "n_events": 3655
+  },
+  "phase0_stars": 4,
+  "effective_stars": 4,
+  "pass": true
+ },
+ "_verdict": {
+  "pass": true
+ }
+}

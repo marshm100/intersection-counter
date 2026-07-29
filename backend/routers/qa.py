@@ -34,6 +34,22 @@ def _require_project(project_id: str) -> None:
         raise HTTPException(status_code=404, detail="Project not found")
 
 
+@router.get("/projects/{project_id}/cameras/{camera_id}/footage-rating")
+def get_footage_rating(project_id: str, camera_id: int, refresh: bool = False):
+    """Stage-3 star rating (plan_stage3_star_rating_2026-07-29): does
+    this camera's footage support the 5/95 guarantee? Blind signals
+    only, tiered (A metadata / B chain census / C event-joined census);
+    tier A/B is PROVISIONAL — the UI says so. Sidecar-cached; pass
+    refresh=true to force recompute (e.g. after a pass-2)."""
+    from backend.services.footage_rating import rate_camera
+
+    _require_project(project_id)
+    if get_camera(project_id, camera_id) is None:
+        raise HTTPException(status_code=404,
+            detail=f"camera {camera_id} not found")
+    return rate_camera(project_id, camera_id, use_cache=not refresh)
+
+
 @router.get("/projects/{project_id}/intersections/{intersection_id}/qa/conservation")
 def get_conservation_qa(project_id: str, intersection_id: int):
     _require_project(project_id)
