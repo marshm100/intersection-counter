@@ -876,6 +876,15 @@ execution checklist lives in that doc (the operating plan of record):
      future candidate). LEC2 dead at BOTH bars; census-gated
      activation MOOT; raw-compliance on current footage is exhausted
      at measured-safe mechanisms — the raw route is Stage-6 footage.
+     **The authorized cam5 NEAR-GAP cycle CLOSED 2026-07-29**
+     (plan_cam5_neargap: phase-0 attribution decisive — R manufactures
+     all 3 SB-thru over-bins and R_off STRICTLY DOMINATES the bundle
+     (76.8 vs 76.1, new-BIG halved); the 3 NB-thru bins are E's
+     fragment-follower over-collapse; both constant-free narrowings
+     measured dead (keep-fulls null, max-concurrency worse); NOTHING
+     SHIPS per the gates, budget spent; residual joins the
+     source-resolution wall family; R_off-partial apply = an explicit
+     operator bar decision on record, not a default).
   6. footage + THE ACCEPTANCE TEST — **6.1 DONE 2026-07-29**
      (runbook §0b: five hard requirements, each traced to a measured
      wall + procurement guidance; the star rating is the automated

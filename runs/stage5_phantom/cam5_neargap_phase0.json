@@ -1,0 +1,377 @@
+{
+ "base_compliance_pct": 63.0,
+ "arms": {
+  "full": {
+   "compliance_pct": 76.1,
+   "fixed": 51,
+   "broken": 9,
+   "new_big": [
+    "16:00 S through",
+    "08:15 N through",
+    "07:30 N through",
+    "07:00 S through",
+    "08:00 N through",
+    "11:00 S through"
+   ],
+   "undercount": 491,
+   "targets": {
+    "07:30 N through": {
+     "ours": 312,
+     "ref": 344,
+     "big_fail": true
+    },
+    "08:00 N through": {
+     "ours": 261,
+     "ref": 284,
+     "big_fail": true
+    },
+    "08:15 N through": {
+     "ours": 229,
+     "ref": 263,
+     "big_fail": true
+    },
+    "07:00 S through": {
+     "ours": 205,
+     "ref": 173,
+     "big_fail": true
+    },
+    "11:00 S through": {
+     "ours": 196,
+     "ref": 166,
+     "big_fail": true
+    },
+    "16:00 S through": {
+     "ours": 375,
+     "ref": 321,
+     "big_fail": true
+    }
+   },
+   "gates": {
+    "G1": true,
+    "G2": false,
+    "G3": true,
+    "G4b": true
+   },
+   "all_pass": false
+  },
+  "E_off": {
+   "compliance_pct": 62.7,
+   "fixed": 9,
+   "broken": 9,
+   "new_big": [
+    "17:00 S through",
+    "11:45 N through",
+    "17:15 N through",
+    "16:15 S through",
+    "12:00 S through",
+    "07:45 N through",
+    "16:00 S through",
+    "12:30 S through",
+    "07:00 S through",
+    "07:15 N through"
+   ],
+   "undercount": 346,
+   "targets": {
+    "07:30 N through": {
+     "ours": 345,
+     "ref": 344,
+     "big_fail": false
+    },
+    "08:00 N through": {
+     "ours": 291,
+     "ref": 284,
+     "big_fail": false
+    },
+    "08:15 N through": {
+     "ours": 275,
+     "ref": 263,
+     "big_fail": false
+    },
+    "07:00 S through": {
+     "ours": 211,
+     "ref": 173,
+     "big_fail": true
+    },
+    "11:00 S through": {
+     "ours": 202,
+     "ref": 166,
+     "big_fail": true
+    },
+    "16:00 S through": {
+     "ours": 391,
+     "ref": 321,
+     "big_fail": true
+    }
+   },
+   "gates": {
+    "G1": false,
+    "G2": false,
+    "G3": false,
+    "G4b": true
+   },
+   "all_pass": false
+  },
+  "L_off": {
+   "compliance_pct": 71.5,
+   "fixed": 39,
+   "broken": 12,
+   "new_big": [
+    "17:00 S through",
+    "16:15 S through",
+    "12:00 S through",
+    "16:00 S through",
+    "08:15 S through",
+    "12:45 S through",
+    "07:45 S through",
+    "08:15 N through",
+    "07:30 N through",
+    "11:30 S through"
+   ],
+   "undercount": 1106,
+   "targets": {
+    "07:30 N through": {
+     "ours": 310,
+     "ref": 344,
+     "big_fail": true
+    },
+    "08:00 N through": {
+     "ours": 261,
+     "ref": 284,
+     "big_fail": true
+    },
+    "08:15 N through": {
+     "ours": 228,
+     "ref": 263,
+     "big_fail": true
+    },
+    "07:00 S through": {
+     "ours": 189,
+     "ref": 173,
+     "big_fail": false
+    },
+    "11:00 S through": {
+     "ours": 176,
+     "ref": 166,
+     "big_fail": false
+    },
+    "16:00 S through": {
+     "ours": 344,
+     "ref": 321,
+     "big_fail": true
+    }
+   },
+   "gates": {
+    "G1": true,
+    "G2": false,
+    "G3": false,
+    "G4b": false
+   },
+   "all_pass": false
+  },
+  "C_off": {
+   "compliance_pct": 70.1,
+   "fixed": 33,
+   "broken": 10,
+   "new_big": [
+    "07:45 N through",
+    "16:00 S through",
+    "08:15 N through",
+    "07:30 N through",
+    "07:00 S through",
+    "08:00 N through",
+    "11:00 S through"
+   ],
+   "undercount": 549,
+   "targets": {
+    "07:30 N through": {
+     "ours": 300,
+     "ref": 344,
+     "big_fail": true
+    },
+    "08:00 N through": {
+     "ours": 254,
+     "ref": 284,
+     "big_fail": true
+    },
+    "08:15 N through": {
+     "ours": 223,
+     "ref": 263,
+     "big_fail": true
+    },
+    "07:00 S through": {
+     "ours": 205,
+     "ref": 173,
+     "big_fail": true
+    },
+    "11:00 S through": {
+     "ours": 196,
+     "ref": 166,
+     "big_fail": true
+    },
+    "16:00 S through": {
+     "ours": 375,
+     "ref": 321,
+     "big_fail": true
+    }
+   },
+   "gates": {
+    "G1": true,
+    "G2": false,
+    "G3": false,
+    "G4b": true
+   },
+   "all_pass": false
+  },
+  "R_off": {
+   "compliance_pct": 76.8,
+   "fixed": 52,
+   "broken": 8,
+   "new_big": [
+    "08:15 N through",
+    "07:30 N through",
+    "08:00 N through"
+   ],
+   "undercount": 492,
+   "targets": {
+    "07:30 N through": {
+     "ours": 312,
+     "ref": 344,
+     "big_fail": true
+    },
+    "08:00 N through": {
+     "ours": 261,
+     "ref": 284,
+     "big_fail": true
+    },
+    "08:15 N through": {
+     "ours": 229,
+     "ref": 263,
+     "big_fail": true
+    },
+    "07:00 S through": {
+     "ours": 181,
+     "ref": 173,
+     "big_fail": false
+    },
+    "11:00 S through": {
+     "ours": 176,
+     "ref": 166,
+     "big_fail": false
+    },
+    "16:00 S through": {
+     "ours": 340,
+     "ref": 321,
+     "big_fail": false
+    }
+   },
+   "gates": {
+    "G1": true,
+    "G2": false,
+    "G3": true,
+    "G4b": true
+   },
+   "all_pass": false
+  },
+  "it1_Roff_Efulls": {
+   "compliance_pct": 76.8,
+   "fixed": 52,
+   "broken": 8,
+   "new_big": [
+    "08:15 N through",
+    "07:30 N through",
+    "08:00 N through"
+   ],
+   "undercount": 492,
+   "targets": {
+    "07:30 N through": {
+     "ours": 312,
+     "ref": 344,
+     "big_fail": true
+    },
+    "08:00 N through": {
+     "ours": 261,
+     "ref": 284,
+     "big_fail": true
+    },
+    "08:15 N through": {
+     "ours": 229,
+     "ref": 263,
+     "big_fail": true
+    },
+    "07:00 S through": {
+     "ours": 181,
+     "ref": 173,
+     "big_fail": false
+    },
+    "11:00 S through": {
+     "ours": 176,
+     "ref": 166,
+     "big_fail": false
+    },
+    "16:00 S through": {
+     "ours": 340,
+     "ref": 321,
+     "big_fail": false
+    }
+   },
+   "gates": {
+    "G1": true,
+    "G2": false,
+    "G3": true,
+    "G4b": true
+   },
+   "all_pass": false
+  },
+  "it2_Roff_Ekconc": {
+   "compliance_pct": 74.5,
+   "fixed": 44,
+   "broken": 7,
+   "new_big": [
+    "16:00 S through",
+    "08:15 N through",
+    "07:30 N through",
+    "08:00 N through"
+   ],
+   "undercount": 468,
+   "targets": {
+    "07:30 N through": {
+     "ours": 317,
+     "ref": 344,
+     "big_fail": true
+    },
+    "08:00 N through": {
+     "ours": 264,
+     "ref": 284,
+     "big_fail": true
+    },
+    "08:15 N through": {
+     "ours": 232,
+     "ref": 263,
+     "big_fail": true
+    },
+    "07:00 S through": {
+     "ours": 181,
+     "ref": 173,
+     "big_fail": false
+    },
+    "11:00 S through": {
+     "ours": 178,
+     "ref": 166,
+     "big_fail": false
+    },
+    "16:00 S through": {
+     "ours": 342,
+     "ref": 321,
+     "big_fail": true
+    }
+   },
+   "gates": {
+    "G1": true,
+    "G2": false,
+    "G3": true,
+    "G4b": true
+   },
+   "all_pass": false
+  }
+ }
+}
