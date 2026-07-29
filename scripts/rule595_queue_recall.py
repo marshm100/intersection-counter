@@ -42,6 +42,52 @@ OUT = Path("runs/3b_validation/rule595_queue_recall.json")
 BIG = 20
 
 
+def flag_matches_bin(f: dict, bin_hm: str, cell: str, rec: float) -> bool:
+    """THE join between a queue flag and a 5/95 cell-bin — shared by the
+    recall script (this file) and the Stage-2 precision/ablation scripts
+    (plan_stage2_labor_levers_2026-07-29) so the two directions cannot
+    drift. Flag dict keys: subtype, i0, i1, appr, mv, ev_ts."""
+    # vocabulary bridge: cells are "NB thru" (bound+B, short
+    # movement); flags store approach='N', movement='through'.
+    b_appr, b_mv = cell.split(" ", 1)
+    b_appr = b_appr.rstrip("B")
+    b_mv = {"thru": "through", "uturn": "u_turn"}.get(b_mv, b_mv)
+    if f["appr"] and f["appr"] != b_appr:
+        return False
+    if f["mv"] and f["mv"] != b_mv:
+        return False
+    h, m = int(bin_hm[:2]), int(bin_hm[3:])
+    wall0 = h * 3600 + m * 60
+    v0, v1 = wall0 - rec, wall0 + 900 - rec           # bin in video secs
+    if f["i0"] is not None and f["i1"] is not None:
+        return f["i0"] < v1 and f["i1"] > v0
+    if f["ev_ts"] is not None:
+        return v0 <= f["ev_ts"] < v1
+    return True                                        # cell/camera-scoped
+
+
+def load_open_flags(conn, cam: int) -> list[dict]:
+    """The open queue for one camera in join shape (shared with Stage 2).
+    'Open' = anything not terminally worked, same as the recall basis."""
+    flags = []
+    for (flag_id, kind, subtype, event_id, i0, i1, appr, mv, impact) in conn.execute(
+            "SELECT flag_id, kind, subtype, event_id, interval_start_seconds, "
+            "interval_end_seconds, approach, movement, impact FROM review_flags "
+            "WHERE camera_id=? AND (status IS NULL OR status NOT IN "
+            "('resolved', 'dismissed'))", (cam,)):
+        ev_ts = None
+        if event_id is not None:
+            row = conn.execute(
+                "SELECT timestamp_video FROM vehicle_events WHERE "
+                "event_id=?", (event_id,)).fetchone()
+            ev_ts = row[0] if row else None
+        flags.append({"flag_id": flag_id, "kind": kind, "subtype": subtype,
+                      "event_id": event_id, "i0": i0, "i1": i1,
+                      "appr": appr, "mv": mv, "impact": impact,
+                      "ev_ts": ev_ts})
+    return flags
+
+
 def main() -> int:
     conn = sqlite3.connect(f"data/projects/{PROJECT}/project.db")
     result = {}
@@ -57,44 +103,12 @@ def main() -> int:
         fails = [r for r in score(ours, mio, minutes) if not r["ok"]]
 
         rec = _rec_offset_seconds(PROJECT, cam) or 0
-        flags = []
-        for (kind, subtype, event_id, i0, i1, appr, mv) in conn.execute(
-                "SELECT kind, subtype, event_id, interval_start_seconds, "
-                "interval_end_seconds, approach, movement FROM review_flags "
-                "WHERE camera_id=? AND (status IS NULL OR status NOT IN "
-                "('resolved', 'dismissed'))", (cam,)):
-            ev_ts = None
-            if event_id is not None:
-                row = conn.execute(
-                    "SELECT timestamp_video FROM vehicle_events WHERE "
-                    "event_id=?", (event_id,)).fetchone()
-                ev_ts = row[0] if row else None
-            flags.append({"subtype": subtype, "i0": i0, "i1": i1,
-                          "appr": appr, "mv": mv, "ev_ts": ev_ts})
-
-        def caught_by(f, bin_hm, cell):
-            # vocabulary bridge: cells are "NB thru" (bound+B, short
-            # movement); flags store approach='N', movement='through'.
-            b_appr, b_mv = cell.split(" ", 1)
-            b_appr = b_appr.rstrip("B")
-            b_mv = {"thru": "through", "uturn": "u_turn"}.get(b_mv, b_mv)
-            if f["appr"] and f["appr"] != b_appr:
-                return False
-            if f["mv"] and f["mv"] != b_mv:
-                return False
-            h, m = int(bin_hm[:2]), int(bin_hm[3:])
-            wall0 = h * 3600 + m * 60
-            v0, v1 = wall0 - rec, wall0 + 900 - rec       # bin in video secs
-            if f["i0"] is not None and f["i1"] is not None:
-                return f["i0"] < v1 and f["i1"] > v0
-            if f["ev_ts"] is not None:
-                return v0 <= f["ev_ts"] < v1
-            return True                                    # cell/camera-scoped
+        flags = load_open_flags(conn, cam)
 
         rows = []
         for r in fails:
             hits = [f["subtype"] for f in flags
-                    if caught_by(f, r["bin"], r["cell"])]
+                    if flag_matches_bin(f, r["bin"], r["cell"], rec)]
             rows.append({**{k: r[k] for k in ("bin", "cell", "ours", "ref")},
                          "delta": r["ours"] - r["ref"],
                          "caught": bool(hits),
