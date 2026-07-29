@@ -1,0 +1,67 @@
+[
+ {
+  "iid": 1,
+  "rb_before": "fail",
+  "rb_after": "info",
+  "overall_after": "review",
+  "items_after": {
+   "corridor_consistency": "warn",
+   "reverse_balance": "info",
+   "spot_count": "review",
+   "review_flags": "ok"
+  },
+  "rb_note": "declared trims = a peak-window claim \u2014 directional peaking is expected; informational only"
+ },
+ {
+  "iid": 2,
+  "rb_before": "fail",
+  "rb_after": "info",
+  "overall_after": "fail",
+  "items_after": {
+   "corridor_consistency": "fail",
+   "reverse_balance": "info",
+   "spot_count": "review",
+   "review_flags": "ok"
+  },
+  "rb_note": "declared trims = a peak-window claim \u2014 directional peaking is expected; informational only"
+ },
+ {
+  "iid": 3,
+  "rb_before": "fail",
+  "rb_after": "fail",
+  "overall_after": "fail",
+  "items_after": {
+   "corridor_consistency": "fail",
+   "reverse_balance": "fail",
+   "spot_count": "review",
+   "review_flags": "ok"
+  },
+  "rb_note": null
+ },
+ {
+  "iid": 4,
+  "rb_before": "fail",
+  "rb_after": "info",
+  "overall_after": "fail",
+  "items_after": {
+   "corridor_consistency": "fail",
+   "reverse_balance": "info",
+   "spot_count": "review",
+   "review_flags": "review"
+  },
+  "rb_note": "coverage is 3 disjoint peak blocks \u2014 directional peaking is expected; informational only"
+ },
+ {
+  "iid": 5,
+  "rb_before": "fail",
+  "rb_after": "info",
+  "overall_after": "review",
+  "items_after": {
+   "corridor_consistency": "ok",
+   "reverse_balance": "info",
+   "spot_count": "review",
+   "review_flags": "ok"
+  },
+  "rb_note": "coverage is 3 disjoint peak blocks \u2014 directional peaking is expected; informational only"
+ }
+]

@@ -60,6 +60,52 @@ REVERSE_WARN = 0.25
 REVERSE_FAIL = 0.50
 MIN_CELL_VOLUME = 20          # ignore cells smaller than this (noise floor)
 MIN_BALANCE_WINDOW_SEC = 6 * 3600
+# Peak-aware applicability (plan_reverse_balance_2026-07-29): span is the
+# wrong question; coverage SHAPE is the right one. Occupancy is bucketed at
+# 15 min; a hole > BALANCE_GAP_SPLIT_SEC splits blocks; declared trims or
+# multi-block coverage = a peak-window claim where directional imbalance is
+# expected traffic -> informational. The split threshold is MEASURED, not
+# the 20-min spot convention: overnight ZERO-TRAFFIC lulls on a processed
+# full-day run reach 53 min (int3, 2026-07-29) while true processing gaps
+# are >= 120 min (int4/int5) — 90 min separates the classes with margin
+# both ways (a 20-min split shredded int3 into 8 phantom blocks and wrongly
+# demoted the one full-day camera; plan doc verdict).
+BALANCE_BUCKET_SEC = 15 * 60
+BALANCE_GAP_SPLIT_SEC = 90 * 60
+
+
+def _coverage_blocks(project_id: str, intersection_id: int) -> int:
+    """Number of continuous processed-coverage blocks at this intersection
+    (15-min occupancy buckets; holes > BALANCE_GAP_SPLIT_SEC split).
+    0 = no events."""
+    conn = get_connection(project_id)
+    try:
+        buckets = [r[0] for r in conn.execute(
+            "SELECT DISTINCT CAST(e.timestamp_video / ? AS INTEGER) "
+            "FROM vehicle_events e JOIN cameras c ON c.camera_id = e.camera_id "
+            "WHERE c.intersection_id = ? AND e.rejected = 0 "
+            "AND e.timestamp_video IS NOT NULL ORDER BY 1",
+            (BALANCE_BUCKET_SEC, intersection_id))]
+    finally:
+        conn.close()
+    if not buckets:
+        return 0
+    allowed_gap = max(1, int(BALANCE_GAP_SPLIT_SEC // BALANCE_BUCKET_SEC))
+    blocks = 1
+    for prev, cur in zip(buckets, buckets[1:]):
+        if cur - prev > allowed_gap:
+            blocks += 1
+    return blocks
+
+
+def _has_trims(project_id: str, intersection_id: int) -> bool:
+    conn = get_connection(project_id)
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM trims WHERE intersection_id = ?",
+            (intersection_id,)).fetchone()[0] > 0
+    finally:
+        conn.close()
 
 # Corridor consistency: the same stream measured twice. Mid-block driveways
 # add/remove some vehicles; the corridor's own healthy links run ~5-10%.
@@ -127,9 +173,32 @@ def _cardinal_volumes(project_id: str, intersection_id: int,
 
 def reverse_balance(project_id: str, intersection_id: int,
                     _cache: dict | None = None) -> dict:
-    """3.1 — per-intersection reverse-movement balance report."""
+    """3.1 — per-intersection reverse-movement balance report.
+
+    PEAK-AWARE APPLICABILITY (plan_reverse_balance_2026-07-29): binding
+    verdicts require a claim scope that is genuinely continuous-day-
+    shaped — no declared trims (trims = an explicit peak-window claim),
+    a SINGLE continuous coverage block, and the >=6 h floor. Over peak
+    windows the AM-in/PM-out asymmetry is real traffic (the acceptance
+    sim measured this check red on all five corridor intersections for
+    exactly that reason), so those report informational."""
     vols, window = _cardinal_volumes(project_id, intersection_id, _cache)
     short_window = window < MIN_BALANCE_WINDOW_SEC
+    trimmed = _has_trims(project_id, intersection_id)
+    n_blocks = _coverage_blocks(project_id, intersection_id)
+    if trimmed:
+        not_applicable = ("declared trims = a peak-window claim — "
+                          "directional peaking is expected; informational only")
+    elif n_blocks > 1:
+        not_applicable = (f"coverage is {n_blocks} disjoint peak blocks — "
+                          "directional peaking is expected; informational only")
+    elif short_window:
+        not_applicable = (f"window {window/3600:.1f}h < "
+                          f"{MIN_BALANCE_WINDOW_SEC/3600:.0f}h — directional "
+                          f"peaking dominates short windows; informational only")
+    else:
+        not_applicable = None
+    short_window = not_applicable is not None
     pairs, seen = [], set()
     for (a, b), n in sorted(vols.items(), key=lambda kv: -kv[1]):
         if (a, b) in seen or a == b:
@@ -161,9 +230,7 @@ def reverse_balance(project_id: str, intersection_id: int,
         "intersection_id": intersection_id,
         "window_seconds": round(window),
         "applicable": not short_window,
-        "note": (None if not short_window else
-                 f"window {window/3600:.1f}h < {MIN_BALANCE_WINDOW_SEC/3600:.0f}h — "
-                 "directional peaking dominates short windows; informational only"),
+        "note": not_applicable,
         "pairs": pairs,
     }
 

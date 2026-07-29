@@ -77,6 +77,52 @@ def corridor_project():
     client.delete(f"/api/projects/{pid}")
 
 
+class TestReverseBalancePeakAware:
+    """plan_reverse_balance_2026-07-29: binding verdicts need a
+    continuous-day-shaped claim scope."""
+
+    def test_declared_trims_demote_to_informational(self, corridor_project):
+        pid, (iid, cid, legs), _ = corridor_project
+        _add_events(pid, cid, legs, {("N", "S"): 500, ("S", "N"): 100},
+                    window=12 * 3600)
+        client.post(f"/api/projects/{pid}/intersections/{iid}/trims",
+                    json={"start_wallclock": "07:00:00",
+                          "end_wallclock": "09:00:00"})
+        r = reverse_balance(pid, iid)
+        assert r["applicable"] is False
+        assert "peak-window claim" in r["note"]
+        assert all(p["verdict"] == "info" for p in r["pairs"])
+
+    def test_disjoint_peak_blocks_demote_to_informational(self, corridor_project):
+        pid, (iid, cid, legs), _ = corridor_project
+        conn = get_connection(pid)
+        with conn:
+            i = 0
+            for lo in (7 * 3600, 11 * 3600, 16 * 3600):   # three 2h peaks
+                for k in range(120):
+                    ts = lo + k * 55.0
+                    a, b = (("N", "S") if k % 3 else ("S", "N"))
+                    conn.execute(
+                        "INSERT INTO vehicle_events (camera_id, vehicle_track_id, "
+                        "origin_leg_id, destination_leg_id, movement, "
+                        "trajectory_data, trajectory_confidence, vehicle_class, "
+                        "detection_confidence, timestamp_video, frame_number) "
+                        "VALUES (?, ?, ?, ?, 'through', '[]', 1.0, 'car', 0.9, "
+                        "?, ?)", (cid, i, legs[a], legs[b], ts, int(ts * 10)))
+                    i += 1
+        conn.close()
+        r = reverse_balance(pid, iid)
+        assert r["applicable"] is False
+        assert "disjoint peak blocks" in r["note"]
+
+    def test_single_continuous_block_stays_applicable(self, corridor_project):
+        pid, (iid, cid, legs), _ = corridor_project
+        _add_events(pid, cid, legs, {("N", "S"): 500, ("S", "N"): 100},
+                    window=12 * 3600)
+        r = reverse_balance(pid, iid)
+        assert r["applicable"] is True
+
+
 class TestReverseBalance:
     def test_short_window_is_informational(self, corridor_project):
         pid, (iid, cid, legs), _ = corridor_project
