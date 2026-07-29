@@ -127,7 +127,7 @@ def main() -> int:
         for fid, ej in conn.execute(
                 "SELECT flag_id, evidence_json FROM review_flags WHERE "
                 "camera_id=? AND (status IS NULL OR status NOT IN "
-                "('resolved','dismissed'))", (cam,)):
+                "('resolved','dismissed','auto_resolved'))", (cam,)):
             try:
                 severity[fid] = float((json.loads(ej) or {}).get("severity", 0.0))
             except (TypeError, ValueError):

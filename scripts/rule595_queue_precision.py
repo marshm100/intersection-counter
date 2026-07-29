@@ -62,8 +62,8 @@ def main() -> int:
         flags = load_open_flags(conn, cam)
         evidence = {fid: json.loads(ej) if ej else {} for fid, ej in conn.execute(
             "SELECT flag_id, evidence_json FROM review_flags WHERE camera_id=? "
-            "AND (status IS NULL OR status NOT IN ('resolved','dismissed'))",
-            (cam,))}
+            "AND (status IS NULL OR status NOT IN "
+            "('resolved','dismissed','auto_resolved'))", (cam,))}
 
         # footprints
         foot: dict[int, list] = {}

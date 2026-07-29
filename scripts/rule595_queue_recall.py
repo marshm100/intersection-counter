@@ -68,13 +68,15 @@ def flag_matches_bin(f: dict, bin_hm: str, cell: str, rec: float) -> bool:
 
 def load_open_flags(conn, cam: int) -> list[dict]:
     """The open queue for one camera in join shape (shared with Stage 2).
-    'Open' = anything not terminally worked, same as the recall basis."""
+    'Open' = anything not terminally worked and not machine-closed
+    (auto_resolved = Stage-2 rules; excluded from the operator workload
+    and therefore from the queue's credit here)."""
     flags = []
     for (flag_id, kind, subtype, event_id, i0, i1, appr, mv, impact) in conn.execute(
             "SELECT flag_id, kind, subtype, event_id, interval_start_seconds, "
             "interval_end_seconds, approach, movement, impact FROM review_flags "
             "WHERE camera_id=? AND (status IS NULL OR status NOT IN "
-            "('resolved', 'dismissed'))", (cam,)):
+            "('resolved', 'dismissed', 'auto_resolved'))", (cam,)):
         ev_ts = None
         if event_id is not None:
             row = conn.execute(

@@ -1761,7 +1761,10 @@ _FLAG_FIELDS = (
     "created_at", "resolved_at",
 )
 
-_FLAG_TERMINAL_STATUSES = ("accepted", "dismissed", "resolved")
+# auto_resolved is MACHINE state (queue_autoresolve rules): terminal for
+# resolved_at stamping, but cleared+re-derived on rebuild and NOT counted
+# as operator-worked by the feeders (self-healing; reopenable).
+_FLAG_TERMINAL_STATUSES = ("accepted", "dismissed", "resolved", "auto_resolved")
 _FLAG_STATUSES = ("open",) + _FLAG_TERMINAL_STATUSES
 
 
@@ -1830,20 +1833,23 @@ def insert_flags(project_id: str, intersection_id: int, flags: list[dict]) -> in
     rows = []
     for f in flags:
         ev = f.get("evidence")
+        status = f.get("status", "open")
         rows.append((
             intersection_id, f.get("camera_id"), f["kind"], f["subtype"], f.get("event_id"),
             f.get("interval_start_seconds"), f.get("interval_end_seconds"),
             f.get("approach"), f.get("movement"), float(f.get("impact", 1.0)),
             f.get("reason", ""), json.dumps(ev) if ev is not None else None,
-            f.get("batch_key"), f.get("status", "open"), now))
+            f.get("batch_key"), status, now,
+            now if status in _FLAG_TERMINAL_STATUSES else None))
     conn = get_connection(project_id)
     try:
         conn.executemany(
             """INSERT INTO review_flags
                (intersection_id, camera_id, kind, subtype, event_id,
                 interval_start_seconds, interval_end_seconds, approach, movement,
-                impact, reason, evidence_json, batch_key, status, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                impact, reason, evidence_json, batch_key, status, created_at,
+                resolved_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             rows)
         conn.commit()
         return len(rows)
@@ -1909,13 +1915,16 @@ def update_flag_status(project_id: str, flag_id: int, status: str) -> None:
 
 
 def clear_open_flags(project_id: str, intersection_id: int) -> int:
-    """Delete this intersection's OPEN flags (the idempotent-rebuild primitive).
-    Worked flags (accepted/dismissed/resolved) are kept as history. Returns the
-    number deleted."""
+    """Delete this intersection's OPEN and auto_resolved flags (the
+    idempotent-rebuild primitive) — both are machine state, re-derived by
+    the feeders + auto-resolution rules. Operator-worked flags
+    (accepted/dismissed/resolved) are kept as history. Returns the number
+    deleted."""
     conn = get_connection(project_id)
     try:
         cur = conn.execute(
-            "DELETE FROM review_flags WHERE intersection_id = ? AND status = 'open'",
+            "DELETE FROM review_flags WHERE intersection_id = ? "
+            "AND status IN ('open', 'auto_resolved')",
             (intersection_id,),
         )
         conn.commit()
@@ -1955,6 +1964,9 @@ def flag_summary(project_id: str, intersection_id: int) -> dict:
         "accepted": by_status.get("accepted", 0),
         "dismissed": by_status.get("dismissed", 0),
         "resolved": by_status.get("resolved", 0),
+        # machine-closed (queue_autoresolve): shown so the operator can see
+        # and audit what the rules decided for them (child-test visibility)
+        "auto_resolved": by_status.get("auto_resolved", 0),
         "by_kind": {k: n for k, n, _imp in kind_rows},
         # Per-kind OPEN impact — the gate needs suspected_gap impact (estimated
         # missed vehicles) separately from uncertain_event count, since their

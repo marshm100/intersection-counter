@@ -226,6 +226,9 @@ def feed_uncertain_events(project_id: str, intersection_id: int) -> list[dict]:
             "camera_id": r["camera_id"], "event_id": r["event_id"],
             "approach": approach, "movement": r["movement"], "impact": 1.0,
             "reason": reason, "evidence": evidence, "batch_key": batch_key,
+            # helper for queue_autoresolve (popped before insert): saves a
+            # re-query of every flagged event's timestamp at rebuild time
+            "_ev_ts": r["timestamp_video"],
         }))
 
     candidates.sort(key=lambda sc: -sc[0])   # worst-first -> earlier created_at -> sorts first
@@ -321,12 +324,26 @@ def rebuild_flags(project_id: str, intersection_id: int,
     context and inserted atomically with the feeders' — the S5
     merge_borderline rows from the pass-2 turn merge (A4a), whose raw
     pre-merge counts exist only at combine time. A manual rebuild (the
-    router) has no merge context, so S5 flags refresh on pass-2 runs only."""
+    router) has no merge context, so S5 flags refresh on pass-2 runs only.
+
+    Before insert, the Stage-2 auto-resolution rules run over the fresh
+    set (queue_autoresolve: scope / bin-exemplar cap / tiny holes) and
+    the 5/95 bin re-key is applied — machine-resolved flags land with
+    status='auto_resolved' (visible + reopenable, never operator-worked)."""
+    from backend.services import queue_autoresolve
+
     clear_open_flags(project_id, intersection_id)
     flags: list[dict] = []
     flags += feed_uncertain_events(project_id, intersection_id)
     flags += feed_suspected_gaps(project_id, intersection_id)
     flags += list(extra_flags or [])
+    conn = get_connection(project_id)
+    try:
+        auto_counts = queue_autoresolve.apply_to_feeder_dicts(
+            conn, intersection_id, flags)
+    finally:
+        conn.close()
     insert_flags(project_id, intersection_id, flags)   # one transaction, not N commits
     summary = flag_summary(project_id, intersection_id)
-    return {"created": len(flags), **summary}
+    return {"created": len(flags), "auto_resolved_by_rule": auto_counts,
+            **summary}
