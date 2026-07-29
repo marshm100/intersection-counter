@@ -135,12 +135,60 @@ rehearsal, as with 4.1.
   precedent). Remaining Stage-4: 4.2 one-question cards, 4.4
   traffic-light export.
 
-## 4.2 / 4.4 (later blocks; sketches, own pre-declarations when built)
+## 4.2 — ONE-QUESTION CARDS (this block; pre-declared)
 
-- 4.2 one-question cards: the bin-keyed queue (2.3) gets the language
-  pass — one question per card kind ("One vehicle or two?", "Did it
-  turn left?"), giant guarded buttons, single keys, undo, the stopping
-  rule visible. Rides the C-polish keyboard flow.
+A LANGUAGE + GROUPING pass over the existing worklist — the actions,
+keys, undo stack, batch machinery, and stopping-rule sidebar all stand
+(C-polish, proven); what changes is what the operator READS and how the
+answers are presented:
+
+1. **One question headlines every card**, by subtype:
+   low_det_conf "Is this a real vehicle?" · ambiguous_dest "Which way
+   did it go?" · ambiguous_origin "Where did it come from?" ·
+   echo_suspect "Are these separate vehicles?" · bank_coverage_hole
+   "Is this movement really this small?" · merge_borderline "Fragments
+   or separate vehicles?" · interval gaps "Did the system miss
+   vehicles here?" The feeder's reason line stays as the small-print
+   explainer beneath.
+2. **The bin banner** (the 2.3 frame made visible): cards keyed
+   `bin|cam|cell|HH:MM` open with "Fix this window: NB left ·
+   07:15–07:30" + "up to N counts ride on this window" (the exemplar's
+   cluster mass) + "the machine closed K similar items here"
+   (cluster_n − live members) — child-test visibility of the Stage-2
+   auto-resolution.
+3. **Answers grouped by the question**: the PRIMARY answer(s) render
+   as giant buttons (the existing actions behind them — Enter/Del for
+   the real-vehicle question, 1–4 for the direction questions);
+   secondary corrections and dismiss/skip stay small beneath. No new
+   actions, no new keys — remapped presentation only, so the 6.4
+   rehearsal judges language, not a new interaction model.
+4. **Queue-wide machine-closed visibility**: the worklist banner gains
+   one line when auto_resolved > 0 ("the machine closed N items —
+   each card shows its own").
+
+GATE 4.2 (pre-declared): pure presentation — ZERO API/behavior change
+(the existing worklist tests must pass untouched); a question-mapping
+unit is exercised via the existing enriched-flag fixtures if any test
+renders cards (else the mapping ships as reviewed code — it is a
+string table); full suite green. Rendered-surface judgment = 6.4.
+
+## 4.2 VERDICT (2026-07-29 — GATE MET; 889 tests untouched, node
+syntax-checked)
+
+Shipped as pre-declared, presentation-only: one question headlines
+every card (subtype table); the bin banner surfaces the 2.3 frame
+("Fix this window: NB left · 07:15–07:30 · up to N counts ride on
+this window · the machine closed K similar items here"); primary
+answers render giant and match the question (Enter/Del for
+is-it-real, 1–4 for which-way; echo_suspect gap cards get
+duplicate-language actions); dismiss/skip/batch/undo unchanged
+beneath; the worklist banner announces the queue-wide machine-closed
+count with the reopen note. ZERO API or action change — the full
+suite passed without touching a single test, which is the gate's
+definition of presentation-only. Rendered-surface judgment = 6.4.
+
+## 4.4 (later block; sketch, own pre-declaration when built)
+
 - 4.4 traffic-light export screen: the acceptance items in child
   language ("what stands between you and export").
 

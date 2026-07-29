@@ -135,13 +135,63 @@ function _wlRender() {
 }
 
 function _wlBannerHtml() {
-    if (!_wlGate) return '';
-    if (_wlGate.overall === 'ship') {
-        return `<div style="margin:8px 0;padding:10px 14px;border-radius:6px;background:#dcfce7;
+    let html = '';
+    if (_wlGate && _wlGate.overall === 'ship') {
+        html += `<div style="margin:8px 0;padding:10px 14px;border-radius:6px;background:#dcfce7;
             color:#166534;font-weight:700;">✓ Ready to export — within the ±5% bar.
             <span style="font-weight:400;">Remaining flags are optional polish.</span></div>`;
     }
-    return '';
+    // Stage-2 auto-resolution, visible (child test): the machine's work is
+    // announced, and each bin card names its own closed members.
+    if (_wlSummary && _wlSummary.auto_resolved > 0) {
+        html += `<div style="margin:8px 0;padding:6px 14px;border-radius:6px;background:#f1f5f9;
+            color:#475569;font-size:12px;">The machine closed
+            <b>${_wlSummary.auto_resolved}</b> items on its own (out-of-window,
+            redundant-for-a-bin, tiny holes) — each card shows its own, and any
+            of them can be reopened.</div>`;
+    }
+    return html;
+}
+
+// --- One-question cards (Stage-4 4.2, plan_stage4_childtest_ux) -------------
+//
+// One question per card kind; the feeder's reason stays as small print.
+// Presentation only: the actions, keys, undo, and batch machinery are the
+// proven C-polish flow underneath.
+
+const _WL_QUESTIONS = {
+    low_det_conf: 'Is this a real vehicle?',
+    ambiguous_dest: 'Which way did it go?',
+    ambiguous_origin: 'Where did it come from?',
+    echo_suspect: 'Are these separate vehicles?',
+    bank_coverage_hole: 'Is this movement really this small?',
+    merge_borderline: 'Fragments or separate vehicles?',
+};
+
+function _wlQuestionFor(f) {
+    return _WL_QUESTIONS[f.subtype] ||
+        (f.kind === 'suspected_gap' ? 'Did the system miss vehicles here?'
+                                    : 'Does this look right?');
+}
+
+function _wlBinBannerHtml(f) {
+    // batch_key `bin|cam|N-left|07:15` -> "Fix this window: NB left · 07:15–07:30"
+    const m = /^bin\|\d+\|([A-Z?]+)-([a-z_?]+)\|(\d\d):(\d\d)$/.exec(f.batch_key || '');
+    if (!m) return '';
+    const [, appr, mv, hh, mm] = m;
+    const t0 = `${hh}:${mm}`;
+    const endMin = (parseInt(hh, 10) * 60 + parseInt(mm, 10) + 15);
+    const t1 = `${String(Math.floor(endMin / 60) % 24).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}`;
+    const clusterN = (f.evidence && f.evidence.bin_cluster_n) || null;
+    const live = _wlGroupSize() || 1;
+    const closed = clusterN ? Math.max(0, clusterN - live) : 0;
+    return `<div style="margin:0 0 8px;padding:6px 10px;border-radius:6px;background:#eff6ff;
+            border:1px solid #bfdbfe;font-size:12px;color:#1e40af;">
+        <b>Fix this window:</b> ${escapeHtml(appr)}B ${escapeHtml(mv.replace('_', '-'))}
+        · ${t0}–${t1}
+        ${clusterN ? ` · up to <b>${clusterN}</b> counts ride on this window` : ''}
+        ${closed ? ` · the machine closed ${closed} similar item${closed > 1 ? 's' : ''} here` : ''}
+    </div>`;
 }
 
 function _wlGroupSize() {
@@ -167,11 +217,14 @@ function _wlMainHtml() {
              color:#3730a3;font-size:11px;font-weight:700;">×${card.flags.length} similar
              — viewing ${_wlInner + 1}</span>`
         : '';
-    const head = `<div style="display:flex;justify-content:space-between;align-items:baseline;">
-            <div style="font-weight:700;">${approach} ${escapeHtml((f.subtype || '').replace(/_/g, ' '))}${groupChip}</div>
+    const head = `${_wlBinBannerHtml(f)}
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <div style="font-weight:700;font-size:16px;">${escapeHtml(_wlQuestionFor(f))}${groupChip}</div>
             <div class="helper-text">card ${_wlPos + 1} of ${_wlCards.length} (${_wlList.length} flags)</div>
         </div>
-        <div style="font-size:13px;color:#374151;margin:4px 0 8px;">${escapeHtml(f.reason || '')}</div>`;
+        <div class="helper-text" style="margin:2px 0 8px;">${approach}
+            ${escapeHtml((f.subtype || '').replace(/_/g, ' '))} —
+            ${escapeHtml(f.reason || '')}</div>`;
     const loopBadge = f.kind === 'uncertain_event' && f.clip
         ? `<div style="position:absolute;left:6px;top:6px;padding:2px 8px;border-radius:10px;
              background:rgba(0,0,0,0.55);color:#e5e7eb;font-size:11px;">&#8635; looping clip</div>`
@@ -202,16 +255,7 @@ function _wlUncertainHtml(f) {
             <span class="helper-text"> (det ${pct(ev.detection_confidence)} ·
             traj ${pct(ev.trajectory_confidence)} · dest ${pct(ev.destination_confidence)})</span>
         </div>${top2}
-        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
-            <button onclick="_wlAccept()"><b>Enter</b> Accept</button>
-            <button onclick="_wlSetMovement('through')"><b>1</b> Through</button>
-            <button onclick="_wlSetMovement('left')"><b>2</b> Left</button>
-            <button onclick="_wlSetMovement('right')"><b>3</b> Right</button>
-            <button onclick="_wlSetMovement('u_turn')"><b>4</b> U-turn</button>
-            <button onclick="_wlReject()"><b>Del</b> Reject phantom</button>
-            <button class="btn-secondary" onclick="_wlDismiss()"><b>D</b> Dismiss</button>
-            <button class="btn-secondary" onclick="_wlSkip()"><b>&rarr;</b> Skip</button>
-        </div>
+        ${_wlAnswerRowsHtml(f)}
         ${_wlGroupSize() > 1 ? `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb;">
             <button onclick="_wlBatch('resolved')"><b>B</b> Resolve all ${_wlGroupSize()} like this</button>
             <button class="btn-secondary" onclick="_wlBatch('dismissed')">Dismiss all</button>
@@ -225,12 +269,71 @@ function _wlUncertainHtml(f) {
         </div>` : ''}`;
 }
 
+// The primary answer(s) match the card's question and render BIG; the
+// corrections and escape hatches stay small beneath. Same actions, same
+// keys, same undo — presentation only (plan_stage4 4.2 rule 3).
+const _WL_BIG = 'padding:12px 20px;font-size:15px;font-weight:700;' +
+                'border-radius:8px;cursor:pointer;';
+
+function _wlAnswerRowsHtml(f) {
+    let primary, secondary;
+    if (f.subtype === 'low_det_conf') {
+        primary = `
+            <button onclick="_wlAccept()" style="${_WL_BIG}background:#dcfce7;border:2px solid #16a34a;">
+                Yes — keep it <b>(Enter)</b></button>
+            <button onclick="_wlReject()" style="${_WL_BIG}background:#fee2e2;border:2px solid #dc2626;">
+                No — remove it <b>(Del)</b></button>`;
+        secondary = `
+            <span class="helper-text">or correct its direction:</span>
+            <button onclick="_wlSetMovement('through')"><b>1</b> Through</button>
+            <button onclick="_wlSetMovement('left')"><b>2</b> Left</button>
+            <button onclick="_wlSetMovement('right')"><b>3</b> Right</button>
+            <button onclick="_wlSetMovement('u_turn')"><b>4</b> U-turn</button>`;
+    } else if (f.subtype === 'ambiguous_dest' || f.subtype === 'ambiguous_origin') {
+        primary = `
+            <button onclick="_wlSetMovement('through')" style="${_WL_BIG}border:2px solid #0ea5e9;background:#f0f9ff;">
+                Through <b>(1)</b></button>
+            <button onclick="_wlSetMovement('left')" style="${_WL_BIG}border:2px solid #0ea5e9;background:#f0f9ff;">
+                Left <b>(2)</b></button>
+            <button onclick="_wlSetMovement('right')" style="${_WL_BIG}border:2px solid #0ea5e9;background:#f0f9ff;">
+                Right <b>(3)</b></button>
+            <button onclick="_wlSetMovement('u_turn')" style="${_WL_BIG}border:2px solid #0ea5e9;background:#f0f9ff;">
+                U-turn <b>(4)</b></button>`;
+        secondary = `
+            <button onclick="_wlAccept()"><b>Enter</b> The guess is right</button>
+            <button onclick="_wlReject()"><b>Del</b> Not a vehicle</button>`;
+    } else {
+        primary = `
+            <button onclick="_wlAccept()" style="${_WL_BIG}background:#dcfce7;border:2px solid #16a34a;">
+                Looks right <b>(Enter)</b></button>
+            <button onclick="_wlReject()" style="${_WL_BIG}background:#fee2e2;border:2px solid #dc2626;">
+                Remove it <b>(Del)</b></button>`;
+        secondary = `
+            <button onclick="_wlSetMovement('through')"><b>1</b> Through</button>
+            <button onclick="_wlSetMovement('left')"><b>2</b> Left</button>
+            <button onclick="_wlSetMovement('right')"><b>3</b> Right</button>
+            <button onclick="_wlSetMovement('u_turn')"><b>4</b> U-turn</button>`;
+    }
+    return `
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;">${primary}</div>
+        <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+            ${secondary}
+            <button class="btn-secondary" onclick="_wlDismiss()"><b>D</b> Dismiss</button>
+            <button class="btn-secondary" onclick="_wlSkip()"><b>&rarr;</b> Skip</button>
+            <span class="helper-text">Z undoes anything</span>
+        </div>`;
+}
+
 function _wlGapHtml(f) {
     const c = f.clip || {};
     return `
         <div style="margin-top:8px;font-size:13px;">
-            <b>Interval review.</b> Scrub the window and add any vehicles the system missed
-            on the ${escapeHtml(f.approach || '')}B approach.
+            ${f.subtype === 'echo_suspect'
+                ? `<b>Double-count check.</b> Scrub the window — where the same vehicle
+                   was counted twice on the ${escapeHtml(f.approach || '')}B approach,
+                   open the Review screen for this movement and reject the duplicates.`
+                : `<b>Interval review.</b> Scrub the window and add any vehicles the system missed
+                   on the ${escapeHtml(f.approach || '')}B approach.`}
         </div>
         <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
             <input id="wl-scrub" type="range" min="${Math.floor(c.start_seconds || 0)}"
@@ -242,9 +345,13 @@ function _wlGapHtml(f) {
         <div id="wl-add-form"></div>
         <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
             <button onclick="_wlToggleAdd()"><b>A</b> Add missed</button>
-            <button onclick="_wlResolveGap()"><b>Enter</b> Done — looks counted</button>
-            <button class="btn-secondary" onclick="_wlDismiss()"><b>D</b> Dismiss (real low volume)</button>
+            <button onclick="_wlResolveGap()" style="${_WL_BIG}background:#dcfce7;border:2px solid #16a34a;">
+                ${f.subtype === 'echo_suspect' ? 'Done — duplicates handled'
+                                               : 'Done — looks counted'} <b>(Enter)</b></button>
+            <button class="btn-secondary" onclick="_wlDismiss()"><b>D</b> Dismiss
+                ${f.subtype === 'echo_suspect' ? '(they are separate vehicles)' : '(real low volume)'}</button>
             <button class="btn-secondary" onclick="_wlSkip()"><b>&rarr;</b> Skip</button>
+            <span class="helper-text">Z undoes anything</span>
         </div>`;
 }
 

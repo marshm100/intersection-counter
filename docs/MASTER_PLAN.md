@@ -836,9 +836,13 @@ execution checklist lives in that doc (the operating plan of record):
      proposal (footage metadata -> one-click count windows: short
      footage = its own span, full-day = the standard peaks clipped +
      daylight alternative; accepted rows reach claim_windows — the
-     cams-3/4/5 trims declaration is now one click). 4.2 one-question
-     cards / 4.4 traffic-light export = next blocks; the REAL gate for
-     all four = the 6.4 operator rehearsal.
+     cams-3/4/5 trims declaration is now one click). **4.2 SHIPPED
+     2026-07-29** (presentation-only, 889 tests untouched): one
+     question per card kind, the bin banner ("Fix this window ... the
+     machine closed K similar items here"), giant question-matched
+     primary answers, queue-wide machine-closed visibility. 4.4
+     traffic-light export = the last pass; the REAL gate for all
+     four = the 6.4 operator rehearsal.
   5. raw-compliance cycles — **5.1 REFRAMED + MEASURED 2026-07-29**
      (`plan_stage5_phantom_2026-07-29.md`): 5.1-as-blanket was already
      measured dead by the LEC2 deliverable sweep (recorded); what ran
