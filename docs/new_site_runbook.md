@@ -10,6 +10,55 @@ phase3_conservation_qa_2026-06-12.md (QA checks), backend/services/spot_check.py
 - Camera video on disk, named so the filename parser extracts camera/date/start time
   (`<cam>_<seq>_<YYYYMMDD>_<HHMMSS> <Intersection Name>.mp4`).
 - The app: `py start_server.py` → http://127.0.0.1:5000.
+- Footage that meets §0b below, if the deliverable claims the per-movement guarantee.
+
+## 0b. Qualifying footage — the guarantee's precondition (Stage-6.1, 2026-07-29)
+
+The 5/95 per-movement guarantee (per movement cell per 15-min bin: ref ≤100 → ±5 veh;
+>100 → ≥95%) is conditional on footage quality — exactly as Miovision conditions their
+guarantee on 5-star video. These are OUR measured requirements, not aspiration: each
+traces to a wall we hit and could not engineer around on sub-spec footage. The app
+computes a star rating per camera at ingest (intersection card → "Footage rating");
+sub-spec footage caps at ★★★★ and the guarantee tier (★★★★★) is unreachable — the
+rating is the automated check of this section.
+
+**Hard requirements (the guarantee does not apply without all of these):**
+
+1. **Resolution ≥1080p-class.** The measured wall, three independent mechanism
+   families deep: far-field vehicle crops at 640×480 carry no identity signal (ReID
+   twin spike AUC 0.399), concurrent occlusion twins have no image-space
+   discriminator, and formation-limited movements (cam5-EB class) stay unresolvable.
+   640×480 is what every legacy study in the corpus used; none of them qualifies.
+2. **Daylight only.** Night / low-light / heavy glare bins are excluded from the
+   guarantee (the industry's own exclusion). Watch for low-sun glare ON A SINGLE
+   APPROACH — the FM51 PM miss (−12 to −20% for 90 minutes) was exactly this and is
+   invisible in a quick footage glance; prefer study windows that keep the sun high
+   or behind the camera.
+3. **Vantage: high mount, whole intersection + approach entries in frame.** The
+   intersection box AND each approach's entry visibly upstream of the movement
+   divergence (at least a few car lengths before the stop bar). The corridor's
+   oblique low mounts birth far-field tracks 6.7× deeper into the frame than they
+   die — vehicles appear only mid-intersection, entries are never observed, and
+   whole movement classes become structurally unattributable (cam5's 45% stub
+   class). If an approach's entry is not in frame, its movements are not
+   guaranteed.
+4. **Minimize cross-traffic occlusion.** A view where a high-volume through stream
+   passes between the camera and an opposing approach manufactures concurrent
+   ID-splits (the cam2 EB double-count class — the one failure the blind censuses
+   cannot see). Corner-mounted, elevated views beat edge-on views.
+5. **Fixed camera, continuous coverage.** No pans/zooms mid-study; footage covers
+   the declared trims plus ~2 min padding each side (the two-pass edge pad).
+   ≥10 fps (the corpus baseline; the pipeline is validated at 10–25 fps).
+
+**Procurement guidance (feeds [OP] 6.2 — the acceptance-test study):**
+ask for 1080p or 4K fixed-mount recording, mounted high (light pole / mast arm
+height, not tripod height), corner vantage covering all approaches' entries,
+daylight study windows (avoid dawn/dusk peaks pointing into the sun), standard
+TMC windows (AM + midday + PM peaks) with padding. Any modern traffic camera or
+temporary pole unit meets this; the constraint is the mount, not the sensor.
+After ingest, the star rating on the intersection card tells you within minutes
+whether the footage supports the guarantee — check it BEFORE committing to the
+full study processing.
 
 ## 1. Project + calibration (~30–45 min per camera, once per site)
 
