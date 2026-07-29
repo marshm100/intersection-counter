@@ -245,6 +245,52 @@ table's measured gap, never per-site). Production application per
 shipping camera = measure-then-apply through the real pass-2 with the
 operator's per-camera ✓ — NOT this block.
 
+## 5.2 VERDICT (2026-07-29 — evidence runs/stage5_phantom/
+lec2_595_judgment.json; replayed-minutes basis, cam3 daylight cut;
+no replays re-derived, constants frozen, no refitting)
+
+**SHIP SET: EMPTY. All six sites FAIL the pre-declared customer-bar
+gates — including FM51.**
+
+| site | 5/95 base→lec2 | fixed | broken | new BIG | undercount Δ | failed gates |
+|---|---|---|---|---|---|---|
+| cam1 | 59.3→70.1 | 14 | 4 | 2 | +41 | G2 G3 G4b |
+| cam2 | 41.6→42.1 | 16 | 12 | 12 | +169 | G2 G3 G4b |
+| cam3 | 76.4→82.2 | 38 | 9 | 5 | −544 | G2 G3 **G4a hard-stop** |
+| cam4 | 72.1→**65.7** | 7 | 16 | 19 | **+1,048** | G1 G2 G3 G4b |
+| cam5 | 63.0→76.1 | 51 | 9 | **6** | −287 | **G2 only** |
+| FM51 | 65.4→**62.9** | 7 | 4 | 0 | +83 | G1 G3 G4b |
+
+- **The headline negative: FM51's deliverable-sweep win (MAE 5.4→1.8)
+  does not survive the customer bar.** The bundle improves the day
+  AGGREGATE while breaking individual bins (compliance down 2.5 pts,
+  broken 4 vs fixed 7, real vehicles removed: undercount +83). The
+  5/95 standard's per-bin structure punishes exactly what MAE forgives
+  — the operator's bar change caught a mechanism the old bar would
+  have shipped at its one "good" site.
+- **G4b (the eaten-vehicle detector) measured the cam4 STAT trap at
+  +1,048 undercount — the "~1,000 real vehicles" of the deliverable
+  sweep, now counted exactly.** cam3's hard-stop cells confirmed worse
+  at bin level (G4a). The priors held.
+- **The one named near-miss: cam5** — massive bin-level win (63.0→76.1,
+  fixed 51 vs broken 9, undercount DOWN 287, its phantom closure real
+  at per-bin granularity) failing ONLY on 6 newly-created BIG bins.
+  If any future cycle revisits this family, the target is those 6 bins
+  (plausibly the R-resurrection or C-reroute components concentrating
+  mass); own plan + budget, not this block.
+- **Census-gated activation: MOOT** — there is nothing to activate
+  anywhere. The 5.2 question the operator authorized is ANSWERED, in
+  the negative, with numbers.
+
+**CONSEQUENCE:** the LEC2 bundle is now measured dead at BOTH bars
+(deliverable sweep: 5/6 fail; customer bar: 6/6). Retirement is total;
+the revival-ready code stays on the shelf with this verdict attached.
+Raw-compliance gains on current footage are exhausted at measured-safe
+mechanisms; the remaining raw route is qualifying footage (Stage 6),
+exactly as the walls said. The corridor's claim machinery now rests on:
+raw compliance as-is + the queue (ceilings 97.6/99.4/100.0/98.8/95.9)
++ the operator review — and the acceptance test on procured footage.
+
 ## Sequencing + commits
 
 1. Inventory script + run → verdict here. COMMIT "Step 5.1A — phantom

@@ -279,7 +279,11 @@ The §2c architecture went from plan to product in one week. Full trail:
   revival-ready, two named candidates)**, **bank-hole path-fill at
   fragment-heavy cameras (cam5: drawn ×2 2026-07-09/10, fitted corpus ×1
   2026-07-27 — the approach-level gain was phantom cancellation;
-  plan_cam5_eb_bankhole VERDICT)**.
+  plan_cam5_eb_bankhole VERDICT)**, **LEC2 at the CUSTOMER bar
+  (2026-07-29: per-bin 5/95 judgment, ship set EMPTY 6/6 — FM51's
+  aggregate MAE win exposed as bin-broken; cam4 STAT trap measured
+  +1,048; cam5 near-miss 6-new-BIG named; plan_stage5_phantom 5.2
+  VERDICT — the bundle is dead at both bars)**.
 
 ---
 
@@ -832,10 +836,23 @@ execution checklist lives in that doc (the operating plan of record):
      20/38 bins, 281 veh, under-caught 13/22 — phantom events are
      high-confidence, the feeders' blind class). LEC2 improves/closes
      EVERY phantom cell in the sweep evidence even where its blanket
-     failed. **[OP DECISION PENDING]: authorize the 5.2 census-gated
-     LEC2-under-5/95 cycle (per-site, HARD STOPS pre-declared) and/or
-     the echo_suspect feeder at cam4 (recall route, no count changes)
-     — decision brief in the plan doc.**
+     failed. **BOTH DECISIONS EXECUTED 2026-07-29 (operator: "go and
+     authorized"):** (b) echo_suspect S6 feeder SHIPPED (census
+     per-cell echo detail + tier-C runtime feeder + production
+     backfill) — ceilings now **97.6 / 99.4 / 100.0 / 98.8 / 95.9**
+     (cam4 gate 98.8≥96.5 PASS; cam2 clears the ≥99 interim bar; one
+     breached-with-cause component on record: cam2 +6 cards vs ≤3,
+     because its three smallest echo pools ARE its three missed-BIG
+     cells — trim measured at −2.9 ceiling, restored, operator may
+     revert). (a) the 5.2 LEC2-under-5/95 judgment RAN TO A DECISIVE
+     NEGATIVE: **ship set EMPTY, 6/6 sites fail the customer bar —
+     including FM51**, whose MAE 5.4→1.8 sweep win breaks bins
+     underneath (65.4→62.9 compliance); the eaten-vehicle detector
+     measured cam4's STAT trap at +1,048 undercount exactly; cam5 the
+     one near-miss (63.0→76.1, failing only 6 new BIG bins — named
+     future candidate). LEC2 dead at BOTH bars; census-gated
+     activation MOOT; raw-compliance on current footage is exhausted
+     at measured-safe mechanisms — the raw route is Stage-6 footage.
   6. footage + THE ACCEPTANCE TEST — **6.1 DONE 2026-07-29**
      (runbook §0b: five hard requirements, each traced to a measured
      wall + procurement guidance; the star rating is the automated
