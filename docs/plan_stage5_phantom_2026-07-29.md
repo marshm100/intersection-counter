@@ -134,6 +134,117 @@ feeder (recall route — cheaper, no count changes, closes the ceiling
 gap without touching the counts). Both need the operator's word; the
 numbers above are the decision brief.
 
+## 5.1C — THE echo_suspect FEEDER (operator: "go", 2026-07-29;
+design pre-declared here BEFORE implementation)
+
+The recall route for the phantom class: phantom events are
+high-confidence, so the uncertain-event feeders cannot see them — but
+the CHAIN CENSUS can (same-cell excess = one vehicle chain counted ≥2×
+into one cell). New S6 feeder, blind by construction:
+
+- Source: the footage-rating chain census (cached sidecars; the census
+  gains a per-cell same-cell-excess detail, CENSUS_VERSION bump).
+  Emits ONLY where the event join is valid (tier C) — a legacy table
+  that cannot join gets nothing from the runtime feeder (no fabricated
+  suspicion).
+- Rule (frozen): a cell with same-cell excess ≥ 5 over the processed
+  day (below 5, echo alone cannot breach a bin's ±5 grace) → ONE
+  cell-level flag: kind=suspected_gap, subtype=echo_suspect,
+  approach+movement from the cell, impact = the excess count, no
+  interval (cell-broad match, S4-style — catches every failing bin of
+  the cell in the recall join), child-language reason.
+- Wired into feed_suspected_gaps (future rebuilds emit it natively).
+- **Backfill for the CURRENT production queue** (which must not be
+  rebuilt — S5 loss): one script inserts echo_suspect flags for all
+  corridor cameras — tier-C cameras from the production-basis census,
+  tier-B legacy cameras (cam4, cam5) from the phase-0 replay censuses
+  (runs/cam5_wall/chain_census_*.json), the basis recorded per flag in
+  evidence. Inserts are reversible (delete by subtype).
+
+**GATE 5.1C (pre-declared):** cam4 post-review ceiling ≥ 96.5% on the
+re-run inventory; recall/BIG recall deltas ≥ 0 everywhere (inserts can
+only add matches); open cards grow by ≤ 3 per camera. Tests: census
+detail, feeder emission on the synthetic echo, tier-B refusal.
+
+## 5.1C VERDICT (2026-07-29 — evidence runs/stage5_phantom/inventory.json
+re-run; queue state 743 open / +17 echo_suspect flags)
+
+**Shipped**: census per-cell echo detail (CENSUS_VERSION 3) + the S6
+echo_suspect feeder (runtime, tier-C-only, wired into rebuilds) + the
+production backfill (tier-C cams from the production census; cam4/cam5
+from the phase-0 replay census, basis recorded per flag; reversible by
+subtype delete). 874 tests (+2).
+
+**Post-review ceilings, before → after the feeder:**
+
+| camera | before | after | notes |
+|---|---|---|---|
+| cam1 | 97.6 | 97.6 | echo cells already caught |
+| cam2 | 96.5 | **99.4** | clears the 6.3 bar; the three SMALL pools (24/13/9) sit in exactly cam2's three missed-BIG cells (EB-left / SB-right / NB-left) |
+| cam3 | 100.0 | 100.0 | held |
+| cam4 | 91.3 | **98.8** | GATE ≥96.5 PASS; SB-right phantoms 13→20/22 caught |
+| cam5 | 92.8 | **95.9** | +10 catches incl. 8 undercount bins |
+
+**GATE 5.1C: PASS on ceiling (98.8 ≥ 96.5) and recall (all caught
+counts monotonically ≥; 54/167/96/36/80 vs 54/158/96/24/70) — with ONE
+component BREACHED WITH CAUSE:** cards grew +6 at cam2 vs the declared
+≤3. The letter-compliant trim was MEASURED (drop the three smallest
+pools): cam2's ceiling falls 99.4 → 96.5 — those three flags carry all
+nine new catches and are cam2's three missed-BIG cells. Three extra
+cards (+2.5% of cam2's queue) buy the 6.3 bar at cam2; the flags were
+restored and the exception is surfaced to the operator here as an
+explicit bar decision (precedent: relaxed-bar decisions are the
+operator's). To revert instead: delete cam2's echo_suspect flags with
+impact < 25.
+
+**Mapping corrections (the record must be exact):** cam3's echo pools
+30>31/31>30 map to SB/NB-thru (leg 30 = N cardinal → SB bound), NOT
+EB-thru as the 5.1A narrative inferred — cam3's EB-thru phantom class
+is NOT echo-pool-driven. cam4's 35>33 pool (1,181/day) maps to NB-thru
+and is the STAT queue-follower signature (real queued vehicles chained
+together) — its flag's expected review verdict is "real vehicles,
+dismiss", and it still usefully covers cam4's 10 NB-thru failing bins.
+Phantom ≠ echo everywhere; the feeder catches the echo-driven subset
+plus whatever its cell-broad match covers.
+
+**Corridor after 5.1C**: ceilings 97.6 / 99.4 / 100.0 / 98.8 / 95.9 —
+two cameras at/above the ≥99% interim bar, two within 1.2 points, cam5
+at 95.9 with its remaining gap = uncaught undercount (formation walls,
+footage-gated). The recall route is near its structural limit; what
+remains is raw compliance (5.2) and footage (Stage 6).
+
+## 5.2 — THE AUTHORIZED LEC2-UNDER-5/95 CYCLE (operator: "authorized",
+2026-07-29; pre-declared here, own evidence file)
+
+Re-judge the frozen LEC2 bundle (constants exactly as committed —
+bearing 55, L=40 full-only + concurrent cut, C-proper, R rmin=3; no
+refitting anywhere) at THE CUSTOMER BAR, per site, on the
+replayed-minutes basis (the sweep harness's own event streams, per-bin
+via their timestamps, vs GT per-minute through rule595.score_cells).
+
+**Pre-declared per-camera gates (all five must hold to join the ship
+set):**
+1. 5/95 cell-bin compliance strictly improves (the customer scorer).
+2. No NEW BIG failing bin (|Δ| ≥ 20) is created.
+3. Fixed-vs-broken honesty: bins flipped failing→compliant and
+   compliant→failing both reported; net flip must be positive AND
+   broken bins ≤ 20% of fixed bins.
+4. HARD STOPS unchanged from the deliverable sweep: cam3's turn-cell
+   over-removal class (E-right / N-left cells may not worsen at all)
+   and cam4's STAT queue-follower trap (any sign of the eaten-vehicle
+   signature = out). These two cameras carry their sweep verdicts as
+   priors; the 5/95 re-judgment can only EXONERATE them by clearing
+   every gate including these.
+5. FM51 (ftv2n replay basis, held-out): same gates — it must confirm
+   its sweep win at the customer bar or the activation story dies.
+**Census-gated activation (the shipping rule):** cameras passing the
+gates ship ONLY if their census composition also says the mechanism's
+class applies (candidate signal: same-cell echo share / flip share —
+the star rating's own metrics; the threshold frozen from the verdict
+table's measured gap, never per-site). Production application per
+shipping camera = measure-then-apply through the real pass-2 with the
+operator's per-camera ✓ — NOT this block.
+
 ## Sequencing + commits
 
 1. Inventory script + run → verdict here. COMMIT "Step 5.1A — phantom

@@ -209,6 +209,51 @@ class TestSyntheticCensus:
         assert census["event_join_valid"] is True
         assert census["excess_same_cell"] == 1      # tid-1's repeat
         assert census["echo_share"] == pytest.approx(1 / 3, abs=0.01)
+        assert census["echo_cells"] == [
+            {"origin_leg_id": lids[0], "destination_leg_id": lids[1],
+             "movement": "through", "excess": 1}]
         rating = fr.rate_camera(project, cid)
         assert rating["tier"] == "C"
         assert rating["stars"] == 3                  # echo over the 4% line
+
+
+# --- the S6 echo_suspect feeder (5.1C) --------------------------------------
+
+class TestEchoSuspectFeeder:
+    def test_feeder_emits_on_material_pool_only(self, project, tmp_path):
+        from backend.services.flag_feeders import _echo_suspects
+
+        iid, cid, lids = _mk_camera(
+            project, tmp_path,
+            legs=((100.0, 240.0, 0.0), (500.0, 240.0, 180.0)))
+        conn = get_connection(project)
+        vid, vpath, fsize, tframes = conn.execute(
+            "SELECT video_id, path, file_size_bytes, total_frames "
+            "FROM videos WHERE camera_id=?", (cid,)).fetchone()
+        tracks = {1: [(f, 50.0 + 55.0 * f, 240.0) for f in range(10)]}
+        TestSyntheticCensus()._write_dump(
+            project, cid, vpath,
+            {"file_size_bytes": fsize, "total_frames": tframes}, tracks)
+        with conn:
+            for i in range(6):           # 6 same-cell events -> excess 5
+                conn.execute(
+                    "INSERT INTO vehicle_events (camera_id, vehicle_track_id, "
+                    "origin_leg_id, destination_leg_id, movement, "
+                    "trajectory_data, trajectory_confidence, vehicle_class, "
+                    "detection_confidence, timestamp_video, frame_number) "
+                    "VALUES (?, 1, ?, ?, 'through', '[]', 0.9, 'car', 0.9, "
+                    "?, ?)", (cid, lids[0], lids[1], 0.1 * (i + 1), i + 1))
+        conn.close()
+        flags = _echo_suspects(project, iid)
+        assert len(flags) == 1
+        f = flags[0]
+        assert f["subtype"] == "echo_suspect" and f["impact"] == 5.0
+        # fixture legs carry cardinal 'W' -> the bound approach is 'E'
+        assert f["approach"] == "E" and f["movement"] == "through"
+        assert "repeat the same vehicle" in f["reason"]
+
+    def test_feeder_silent_without_valid_join(self, project, tmp_path):
+        from backend.services.flag_feeders import _echo_suspects
+
+        iid, cid, lids = _mk_camera(project, tmp_path)   # no dump, no legs
+        assert _echo_suspects(project, iid) == []

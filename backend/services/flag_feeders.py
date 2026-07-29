@@ -256,6 +256,69 @@ def feed_suspected_gaps(project_id: str, intersection_id: int) -> list[dict]:
         f.pop("_intersection_id", None)
         flags.append(f)
     flags += _bank_coverage_holes(project_id, intersection_id)
+    flags += _echo_suspects(project_id, intersection_id)
+    return flags
+
+
+# S6 — a cell whose chain census shows a same-cell echo pool (one vehicle
+# chain counted >=2x into one cell) this large is systematically
+# phantom-inflated. Below 5/day, echo alone cannot breach a bin's +/-5
+# grace; at or above it, the pool is exactly the class the uncertain-event
+# feeders CANNOT see (phantom events are high-confidence tracks) — the
+# cam4 SB-right 20-vs-0 lesson (plan_stage5_phantom_2026-07-29, 5.1C).
+ECHO_CELL_MIN_EXCESS = 5.0
+
+
+def _echo_suspects(project_id: str, intersection_id: int) -> list[dict]:
+    """S6 — echo-pool cells from the footage-rating chain census
+    (cached sidecars; blind: dump chains x production events, time-scoped
+    join). Emits ONE cell-level flag per qualifying cell, and ONLY where
+    the census's event join is valid (tier C) — a legacy table that
+    cannot join gets no fabricated suspicion (its backfill path is the
+    phase-0 replay census, scripts/echo_suspect_backfill.py)."""
+    from backend.services.footage_rating import rate_camera
+
+    conn = get_connection(project_id)
+    try:
+        cams = [r[0] for r in conn.execute(
+            "SELECT camera_id FROM cameras WHERE intersection_id = ?",
+            (intersection_id,)).fetchall()]
+        card = {lid: (cd or "").strip().upper() for lid, cd in conn.execute(
+            "SELECT leg_id, cardinal_direction FROM legs")}
+        label = {lid: lb for lid, lb in conn.execute(
+            "SELECT leg_id, label FROM legs")}
+    finally:
+        conn.close()
+
+    flags: list[dict] = []
+    for cam in cams:
+        try:
+            census = rate_camera(project_id, cam)["metrics"]["census"]
+        except Exception:
+            continue                     # rating unavailable: no suspicion
+        if not census or not census.get("event_join_valid"):
+            continue
+        for c in census.get("echo_cells", []):
+            if c["excess"] < ECHO_CELL_MIN_EXCESS:
+                continue
+            o, d, mv = (c["origin_leg_id"], c["destination_leg_id"],
+                        c["movement"])
+            ap = bound_approach(card.get(o, ""))
+            flags.append({
+                "kind": "suspected_gap", "subtype": "echo_suspect",
+                "camera_id": cam, "approach": ap, "movement": mv,
+                "impact": float(c["excess"]),
+                "reason": (f"{ap}B {mv} ({label.get(o, o)} -> "
+                           f"{label.get(d, d)}): about {int(c['excess'])} "
+                           f"counts this day repeat the same vehicle "
+                           f"(track-fragment echo) — this movement can "
+                           f"read HIGHER than reality. Review its failing "
+                           f"bins; reject the duplicate events."),
+                "evidence": {"origin_leg_id": o, "destination_leg_id": d,
+                             "same_cell_excess": c["excess"],
+                             "basis": "production_chain_census"},
+                "batch_key": None,
+            })
     return flags
 
 

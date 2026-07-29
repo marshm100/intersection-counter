@@ -81,10 +81,10 @@
   "cam2": {
    "bins_scored": 317,
    "fails": 169,
-   "caught": 158,
+   "caught": 167,
    "raw_compliance_pct": 46.7,
-   "post_review_ceiling_pct": 96.5,
-   "gap_to_6_3_gate": 2.5,
+   "post_review_ceiling_pct": 99.4,
+   "gap_to_6_3_gate": -0.4,
    "by_class": {
     "overcount": {
      "bins": 68,
@@ -101,7 +101,7 @@
     "undercount": {
      "bins": 97,
      "big": 33,
-     "caught": 88,
+     "caught": 97,
      "abs_delta": 1777
     }
    },
@@ -231,27 +231,27 @@
   "cam4": {
    "bins_scored": 161,
    "fails": 38,
-   "caught": 24,
+   "caught": 36,
    "raw_compliance_pct": 76.4,
-   "post_review_ceiling_pct": 91.3,
-   "gap_to_6_3_gate": 7.7,
+   "post_review_ceiling_pct": 98.8,
+   "gap_to_6_3_gate": 0.2,
    "by_class": {
     "overcount": {
      "bins": 8,
      "big": 5,
-     "caught": 7,
+     "caught": 8,
      "abs_delta": 189
     },
     "phantom_small": {
      "bins": 22,
      "big": 4,
-     "caught": 13,
+     "caught": 20,
      "abs_delta": 295
     },
     "undercount": {
      "bins": 8,
      "big": 4,
-     "caught": 4,
+     "caught": 8,
      "abs_delta": 183
     }
    },
@@ -297,15 +297,15 @@
   "cam5": {
    "bins_scored": 320,
    "fails": 93,
-   "caught": 70,
+   "caught": 80,
    "raw_compliance_pct": 70.9,
-   "post_review_ceiling_pct": 92.8,
-   "gap_to_6_3_gate": 6.2,
+   "post_review_ceiling_pct": 95.9,
+   "gap_to_6_3_gate": 3.1,
    "by_class": {
     "overcount": {
      "bins": 24,
      "big": 16,
-     "caught": 20,
+     "caught": 22,
      "abs_delta": 543
     },
     "phantom_small": {
@@ -317,7 +317,7 @@
     "undercount": {
      "bins": 44,
      "big": 11,
-     "caught": 27,
+     "caught": 35,
      "abs_delta": 640
     }
    },

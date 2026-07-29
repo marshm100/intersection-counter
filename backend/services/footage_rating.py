@@ -68,7 +68,7 @@ ECHO_SHARE_FAIR = 0.04
 JOIN_VALID_MAX_UNMAPPED = 0.20   # event-id join validity for tier C
 MIN_TRACK_POINTS = 5
 # Bump when the census computation changes — invalidates sidecar caches.
-CENSUS_VERSION = 2
+CENSUS_VERSION = 3
 
 STATEMENTS = {
     5: "Guarantee-ready: the 5/95 per-movement guarantee applies after review.",
@@ -175,10 +175,11 @@ def chain_census(project_id: str, camera_id: int) -> dict | None:
         if not variants or gates is None or not vids:
             return None
         fps = float(vids[0]["fps"] or 10.0)
-        events = [(int(t), o, d, float(ts)) for t, o, d, ts in conn.execute(
+        events = [(int(t), o, d, float(ts), mv)
+                  for t, o, d, ts, mv in conn.execute(
             "SELECT vehicle_track_id, origin_leg_id, destination_leg_id, "
-            "timestamp_video FROM vehicle_events WHERE camera_id = ? AND "
-            "COALESCE(rejected, 0) = 0 AND vehicle_track_id IS NOT NULL "
+            "timestamp_video, movement FROM vehicle_events WHERE camera_id = ? "
+            "AND COALESCE(rejected, 0) = 0 AND vehicle_track_id IS NOT NULL "
             "AND timestamp_video IS NOT NULL", (camera_id,))]
     finally:
         conn.close()
@@ -217,7 +218,7 @@ def chain_census(project_id: str, camera_id: int) -> dict | None:
     chosen = []
     for g in groups:
         def _join_score(va):
-            return sum(1 for t, _o, _d, ts in events
+            return sum(1 for t, _o, _d, ts, _mv in events
                        if _covered(va, ts) and t in va["tids"])
         chosen.append(max(g, key=_join_score))
 
@@ -227,8 +228,9 @@ def chain_census(project_id: str, camera_id: int) -> dict | None:
            "events_uncovered": 0,
            "excess_events": 0, "excess_flip": 0, "excess_same_cell": 0,
            "excess_cross": 0}
+    echo_by_cell: Counter = Counter()     # (o, d, mv) -> same-cell excess
     agg["events_uncovered"] = sum(
-        1 for _t, _o, _d, ts in events
+        1 for _t, _o, _d, ts, _mv in events
         if not any(_covered(va, ts) for va in chosen))
     for va in chosen:
         tracks: dict[int, list] = defaultdict(list)
@@ -248,7 +250,7 @@ def chain_census(project_id: str, camera_id: int) -> dict | None:
         agg["multi_chains"] += sum(1 for m in chains.values() if len(m) > 1)
 
         ev_chain: dict[int, list] = defaultdict(list)
-        for t, o, d, ts in events:
+        for t, o, d, ts, mv in events:
             if not _covered(va, ts):
                 continue                  # other window / uncovered
             if t not in va["tids"]:
@@ -259,15 +261,17 @@ def chain_census(project_id: str, camera_id: int) -> dict | None:
                 agg["events_unmapped"] += 1
                 continue
             agg["events_joined"] += 1
-            ev_chain[ci].append((o, d))
+            ev_chain[ci].append((o, d, mv))
         for evs in ev_chain.values():
             if len(evs) < 2:
                 continue
             agg["excess_events"] += len(evs) - 1
-            cells = {(o, d) for o, d in evs}
+            cells = {(o, d) for o, d, _mv in evs}
             flips = {(o, d) for o, d in cells if (d, o) in cells}
             if len(cells) == 1:
                 agg["excess_same_cell"] += len(evs) - 1
+                o, d, mv = evs[0]
+                echo_by_cell[(o, d, mv)] += len(evs) - 1
             elif flips:
                 agg["excess_flip"] += len(evs) - 1
             else:
@@ -292,6 +296,12 @@ def chain_census(project_id: str, camera_id: int) -> dict | None:
         agg["flip_share"] = round(agg["excess_flip"] / joined, 4)
     else:
         agg["echo_share"] = agg["flip_share"] = None
+    # per-cell same-cell pools — the echo_suspect feeder's input
+    agg["echo_cells"] = [
+        {"origin_leg_id": o, "destination_leg_id": d, "movement": mv,
+         "excess": n}
+        for (o, d, mv), n in sorted(echo_by_cell.items(),
+                                    key=lambda kv: -kv[1])[:12]]
     return agg
 
 
