@@ -47,6 +47,52 @@ def score(ours, ref, minutes):
     return score_cells(ours, ref, minutes)
 
 
+_FHWA_TO_LMA = {**{k: "Lights" for k in (1, 2, 3)},
+                **{k: "Mediums" for k in (4, 5, 6, 7)},
+                **{k: "Articulated" for k in range(8, 14)}}
+
+
+def load_miovision_by_class(cam):
+    """{minute: {(dir, mv, lma): n}} — the standard's 'any given
+    classification' granularity (plan_595_standard step 1.1)."""
+    from datetime import datetime
+    import parse_miovision_xml as MIO
+    data = MIO.parse_by_class(cam)
+    labels = MIO.slot_labels(data["movements"], cam)
+    out = defaultdict(lambda: defaultdict(int))
+    for tm, by_cls in data["per_min"].items():
+        t = datetime.fromisoformat(tm).time()
+        for cls, vols in by_cls.items():
+            for i, v in enumerate(vols):
+                if v:
+                    d = labels[i][0].strip().split()[0].upper()
+                    out[t][(d, labels[i][1], cls)] += v
+    return out
+
+
+def load_ours_by_class(cam):
+    from datetime import datetime
+    import sqlite3
+    c = sqlite3.connect("data/projects/97a7849a/project.db")
+    leg_dir = {lid: T._CARD_TO_DIR.get((card or "").strip().upper())
+               for lid, card in c.execute(
+                   "SELECT leg_id,cardinal_direction FROM legs WHERE camera_id=?",
+                   (cam,))}
+    norm = {"through": "thru", "u_turn": "uturn"}
+    out = defaultdict(lambda: defaultdict(int))
+    for olid, mv, ts, fh in c.execute(
+            "SELECT origin_leg_id, movement, timestamp_real, fhwa_class "
+            "FROM vehicle_events WHERE camera_id=? AND COALESCE(rejected,0)=0",
+            (cam,)):
+        d = leg_dir.get(olid)
+        if ts and d:
+            key = datetime.fromisoformat(ts).time().replace(second=0, microsecond=0)
+            cls = _FHWA_TO_LMA.get(fh, "Lights")
+            out[key][(d, norm.get(mv, mv), cls)] += 1
+    c.close()
+    return out
+
+
 def main() -> int:
     result = {}
     for cam, hours in CORRIDOR.items():
@@ -67,6 +113,14 @@ def main() -> int:
                        for h in range(lo, hi) for m in range(60)]
             rows = score(ours, mio, minutes)
             result[f"cam{cam}"] = compliance(rows)
+            crows = score(load_ours_by_class(cam),
+                          load_miovision_by_class(cam), minutes)
+            result[f"cam{cam}"]["classes"] = compliance(crows)
+            print(f"[595] cam{cam} CLASS cells: "
+                  f"{result[f'cam{cam}']['classes']['pct']}% "
+                  f"({result[f'cam{cam}']['classes']['compliant']}"
+                  f"/{result[f'cam{cam}']['classes']['cells_scored']})",
+                  flush=True)
             print(f"[595] cam{cam}: {result[f'cam{cam}']['pct']}% "
                   f"({result[f'cam{cam}']['compliant']}/{result[f'cam{cam}']['cells_scored']}) "
                   f"worst={result[f'cam{cam}']['worst'][:2]}", flush=True)

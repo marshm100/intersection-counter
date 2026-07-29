@@ -218,3 +218,13 @@ Estimated build effort: ~8-13 focused sessions + the three [OP] moments
   numbers byte-identical: 65.3/46.7/77.3/76.4/70.9/70.3). OWED from
   1.1: movement x class cells (parse_by_class + fhwa buckets) and the
   export-side compliance report surface — next block.
+
+**1.1 CLOSED (2026-07-29):** movement x class cells measured
+(parse_by_class + FHWA->L/M/A; corridor class-cell compliance: cam1
+68.1 / cam2 62.4 / cam4 72.8 / cam5 79.2% — class splitting moves more
+cells under the +/-5 grace). Report surfaces scoped: BLIND sites get
+the gate's 5/95 spot rows (live since 1.2 — tolerance_595 + binding +
+plain-language note); DEV projects get the wall chart
+(rule595_compliance.py, both cuts). The export-page compliance panel is
+Stage-4 3e work by design (the child-language traffic-light pass), not
+a 1.1 item. STAGE 1 COMPLETE.

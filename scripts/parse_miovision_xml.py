@@ -81,6 +81,45 @@ def parse(camera_id: int | None = None) -> dict:
     return {"per_min": dict(per_min), "movements": movements}
 
 
+# Miovision Group names -> the deliverable's L/M/A buckets (mirrors
+# audit_fm51's mapping; unknown groups fold into Lights).
+MIO_GROUP_TO_LMA = {
+    "Lights": "Lights", "Light": "Lights", "Cars": "Lights",
+    "Mediums": "Mediums", "Medium": "Mediums",
+    "Single-Unit Trucks": "Mediums", "Buses": "Mediums",
+    "Articulated Trucks": "Articulated", "Articulated": "Articulated",
+}
+
+
+def parse_by_class(camera_id: int | None = None) -> dict:
+    """Like parse() but keeps the vehicle-class dimension
+    (plan_595_standard step 1.1 — the customer standard is per
+    'classification'): {"per_min": {minute_iso: {lma_class: [vols per
+    slot]}}, "movements": [...]}. Groups map to L/M/A via
+    MIO_GROUP_TO_LMA."""
+    root = _root(camera_id)
+    s = lambda t: t.split("}")[-1]
+    movements = []
+    for m in (x for x in root.iter() if s(x.tag) == "Movement"):
+        movements.append((m.findtext("Name"),
+                          int(m.findtext("InApproachIndex")),
+                          int(m.findtext("OutApproachIndex"))))
+    n = len(movements)
+    per_min: dict[str, dict[str, list[int]]] = defaultdict(
+        lambda: defaultdict(lambda: [0] * n))
+    for g in (x for x in root.iter() if s(x.tag) == "Group"):
+        gname = g.findtext("Name") or g.get("Name") or "Lights"
+        cls = MIO_GROUP_TO_LMA.get(gname, "Lights")
+        for b in (x for x in g.iter() if s(x.tag) == "Bin"):
+            tm = b.findtext("Time")
+            vols = [int(v.text) for v in b.find("volumes")]
+            acc = per_min[tm][cls]
+            for i, v in enumerate(vols):
+                acc[i] += v
+    return {"per_min": {k: dict(v) for k, v in per_min.items()},
+            "movements": movements}
+
+
 # slot -> (approach_name, movement_label) using Name T/R/L + InApproachIndex
 def slot_labels(movements, camera_id: int | None = None):
     appr = APPROACH if camera_id is None else approaches(camera_id)
