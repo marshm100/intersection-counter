@@ -142,6 +142,13 @@ V2_DEMOTION_RATIO = 2.0
 # same-cell rejects keep the volume gate's excess semantics). Default OFF.
 V2_MERGE_RESCUE = _os2.environ.get("V2_MERGE_RESCUE", "0") in ("1", "true", "on")
 
+# V2 time-local allocation (block-2 item 4): LEDGERED-DEAD 2026-08-06 —
+# segment-level strict-census mixes inherit the segment's recall bias
+# (PM dest-29 segments lean EB because SB-thru fulls are starved there;
+# passes any count floor). Window-global supports average the bias out.
+# Kept for the record; never enable without a debiasing design.
+V2_TIMELOCAL = _os2.environ.get("V2_TIMELOCAL", "0") in ("1", "true", "on")
+
 
 def get_processing_mode_config(mode: str | None) -> dict:
     """Return the config dict for `mode`, falling back to default on unknown."""

@@ -224,6 +224,9 @@ class ProcessingPipeline:
         # (origin,dest) cells -> demote FRACTION (dose); direct claims in
         # them take the supports allocation. Empty = byte-identical.
         self._demoted_cells: dict[tuple, float] = {}
+        # item 4: per-15-min-segment origin mixes for the sampler
+        # ({"f_lo", "seg_frames", "supports": {(dest,seg): {origin: n}}})
+        self._demotion_timelocal: dict | None = None
 
         # Components (lazy-loaded to avoid loading YOLO in tests)
         self._detector: VehicleDetector | None = None
@@ -1444,6 +1447,18 @@ class ProcessingPipeline:
                     if cur is None or w > (float(cur["path"].get(
                             "supporting_count") or 0) + 1.0):
                         best_by[leg] = c
+                # item 4 — TIME-LOCAL mix: the event's own 15-min segment's
+                # strict-census origin counts (add-one) override the window
+                # weights when the segment holds enough evidence (>=30;
+                # 8 admitted PM's fragment-starved unrepresentative mixes
+                # — item-4 gate failure, one declared floor correction).
+                tl = self._demotion_timelocal
+                if tl and dest_pin is not None:
+                    seg = int((frame_number - tl["f_lo"]) / tl["seg_frames"])
+                    seg_mix = tl["supports"].get((int(dest_pin), seg))
+                    if seg_mix and sum(seg_mix.values()) >= 30:
+                        totals = {leg: float(seg_mix.get(leg, 0)) + 1.0
+                                  for leg in totals}
                 z = sum(totals.values())
                 marg = {leg: w / z for leg, w in totals.items()} if z else {}
                 tid = int(track_id)

@@ -433,7 +433,7 @@ def strict_full_census(project_id: str, camera_id: int, rows: np.ndarray,
             continue
         o, d = int(o), int(d)
         out[(o, d)] = out.get((o, d), 0) + 1
-        full_by_tid[int(tid)] = (o, d)
+        full_by_tid[int(tid)] = (o, d, float(_of) if _of is not None else None)
         early = [(x, y) for _f, x, y in tr[:12]]
         d_own = min((_mean_dist(p, early) for p in chans.get(o, [])),
                     default=float("inf"))
@@ -1036,6 +1036,24 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                                   / direct[cell]))
             for cell in flooded}
         if flooded:
+            # TIME-LOCAL allocation mix (block-2 item 4): per-15-min-segment
+            # origin proportions from the BASE dump's strict-census fulls
+            # (scale-1 per segment by construction; add-one smoothed;
+            # sampler falls back to window-global bank supports when a
+            # segment is thin). Bins-only change by design.
+            seg_frames = 900.0 * fps
+            seg_supports: dict = {}
+            for _tid, g in _full_map.items():
+                if g[2] is None:
+                    continue
+                seg = int((g[2] - f_lo) / seg_frames)
+                key = (int(g[1]), seg)
+                seg_supports.setdefault(key, {})
+                seg_supports[key][int(g[0])] = \
+                    seg_supports[key].get(int(g[0]), 0) + 1
+            timelocal = ({"f_lo": float(f_lo), "seg_frames": seg_frames,
+                          "supports": seg_supports}
+                         if getattr(_cfg, "V2_TIMELOCAL", False) else None)
             ev_final = ("on" if (activation and activation.get("activated"))
                         else ("probe" if activation is not None else None))
             logger.info("two-pass cam%s %s: demotion re-replay, cells=%s",
@@ -1043,7 +1061,8 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
             stats = replay_camera(project_id, camera_id, variant=variant,
                                   out_db=out_db, should_cancel=should_cancel,
                                   evidence_mode=ev_final,
-                                  demoted_cells=demote_frac)
+                                  demoted_cells=demote_frac,
+                                  demotion_timelocal=timelocal)
         demotion = {"cells": sorted(list(c) for c in flooded),
                     "dose": {f"{k[0]}->{k[1]}": round(v, 3)
                              for k, v in sorted(demote_frac.items())},
@@ -1091,10 +1110,10 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                     "WHERE camera_id=? AND COALESCE(rejected,0)=1",
                     (camera_id,)).fetchall():
                 g = full_map2.get(int(ev["vehicle_track_id"]))
-                if not g or g == (ev["origin_leg_id"],
-                                  ev["destination_leg_id"]):
+                if not g or g[:2] == (ev["origin_leg_id"],
+                                      ev["destination_leg_id"]):
                     continue
-                o_g, d_g = g
+                o_g, d_g = g[0], g[1]
                 if o_g not in legs_r or d_g not in legs_r:
                     continue
                 mv = derive_movement(legs_r[o_g], legs_r[d_g], all_legs_r)
