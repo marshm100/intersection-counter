@@ -136,6 +136,12 @@ TWO_PASS_ENABLED = _os2.environ.get("TWO_PASS_ENABLED", "1") in ("1", "true", "o
 V2_DEMOTION_ENABLED = _os2.environ.get("V2_DEMOTION", "0") in ("1", "true", "on")
 V2_DEMOTION_RATIO = 2.0
 
+# V2 merge rescue (block-2 item 1): merged-away turns whose tracks are
+# gate-verified FULL journeys in a DIFFERENT cell reclassify to the gate
+# cell instead of being deleted (gate evidence outranks the volume prior;
+# same-cell rejects keep the volume gate's excess semantics). Default OFF.
+V2_MERGE_RESCUE = _os2.environ.get("V2_MERGE_RESCUE", "0") in ("1", "true", "on")
+
 
 def get_processing_mode_config(mode: str | None) -> dict:
     """Return the config dict for `mode`, falling back to default on unknown."""

@@ -426,12 +426,14 @@ def strict_full_census(project_id: str, camera_id: int, rows: np.ndarray,
     out: dict[tuple, int] = {}
     conf_n: dict[int, int] = {}
     conf_r: dict[int, int] = {}
-    for tr in tracks.values():
+    full_by_tid: dict[int, tuple] = {}
+    for tid, tr in tracks.items():
         o, d, _of, _df, _op, _dp, tag = classify(tr, gates, fps)
         if tag != "full":
             continue
         o, d = int(o), int(d)
         out[(o, d)] = out.get((o, d), 0) + 1
+        full_by_tid[int(tid)] = (o, d)
         early = [(x, y) for _f, x, y in tr[:12]]
         d_own = min((_mean_dist(p, early) for p in chans.get(o, [])),
                     default=float("inf"))
@@ -441,7 +443,7 @@ def strict_full_census(project_id: str, camera_id: int, rows: np.ndarray,
         if d_riv < d_own:
             conf_r[o] = conf_r.get(o, 0) + 1
     confusion = {o: conf_r.get(o, 0) / n for o, n in conf_n.items() if n}
-    return out, confusion
+    return out, confusion, full_by_tid
 
 
 def run_pass1(project_id: str, camera_id: int, *, variant: str,
@@ -999,8 +1001,8 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                                              base_variant))
             if (_btdir / "count.txt").exists():
                 census_rows = load_dump(_btdir)
-        strict, confusion = strict_full_census(project_id, camera_id,
-                                               census_rows, fps)
+        strict, confusion, _full_map = strict_full_census(
+            project_id, camera_id, census_rows, fps)
         # ENTANGLEMENT CONDITION (day-6b selector fix): only origins whose
         # own genuine fulls MAJORITY-read as a rival's lanes are demotable —
         # a ratio flag on a clean-geometry origin is recall STARVATION, and
@@ -1063,6 +1065,49 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                     conserve)
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
                                expected_by_cell=expected)
+    # V2 MERGE RESCUE (block-2 item 1, diagnosis 2026-08-06): a merged-away
+    # turn whose track is a GATE-VERIFIED FULL JOURNEY in a DIFFERENT cell
+    # was a misclassified real vehicle (35 gate-verified SB-thrus deleted as
+    # SB-right excess on the extended dev dump) — reclassify to the gate
+    # cell instead of deleting. Same-cell rejects stay rejected (the volume
+    # gate's genuine-excess semantics intact). Gate evidence outranks the
+    # volume prior. Census from the REPLAYED variant's own rows here (the
+    # journeys being rescued are this dump's).
+    from backend import config as _cfg
+    if getattr(_cfg, "V2_MERGE_RESCUE", False):
+        _strict2, _conf2, full_map2 = strict_full_census(
+            project_id, camera_id, rows, fps)
+        conn_r = sqlite3.connect(out_db)
+        conn_r.row_factory = sqlite3.Row
+        legs_r = {r["leg_id"]: dict(r) for r in conn_r.execute(
+            "SELECT * FROM legs WHERE camera_id=?", (camera_id,))}
+        all_legs_r = list(legs_r.values())
+        from backend.services.trajectory_classifier import derive_movement
+        rescued = 0
+        with conn_r:
+            for ev in conn_r.execute(
+                    "SELECT event_id, vehicle_track_id, origin_leg_id, "
+                    "destination_leg_id FROM vehicle_events "
+                    "WHERE camera_id=? AND COALESCE(rejected,0)=1",
+                    (camera_id,)).fetchall():
+                g = full_map2.get(int(ev["vehicle_track_id"]))
+                if not g or g == (ev["origin_leg_id"],
+                                  ev["destination_leg_id"]):
+                    continue
+                o_g, d_g = g
+                if o_g not in legs_r or d_g not in legs_r:
+                    continue
+                mv = derive_movement(legs_r[o_g], legs_r[d_g], all_legs_r)
+                conn_r.execute(
+                    "UPDATE vehicle_events SET rejected=0, origin_leg_id=?, "
+                    "destination_leg_id=?, movement=? WHERE event_id=?",
+                    (o_g, d_g, mv, ev["event_id"]))
+                rescued += 1
+        conn_r.close()
+        merge["rescued_cross_cell"] = rescued
+        logger.info("two-pass cam%s %s: merge-rescue reclassified %s "
+                    "gate-verified cross-cell rejects", camera_id, variant,
+                    rescued)
 
     result = {
         "camera_id": camera_id, "intersection_id": intersection_id,
