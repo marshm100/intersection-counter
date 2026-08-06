@@ -87,7 +87,8 @@ def _row_to_tracked(row) -> dict:
 def replay_camera(project_id: str, camera_id: int, *, variant: str,
                   out_db: str | Path, start_frame: int | None = None,
                   end_frame: int | None = None, bank: dict | None = None,
-                  should_cancel=None, evidence_mode: str | None = None) -> dict:
+                  should_cancel=None, evidence_mode: str | None = None,
+                  demoted_cells: set | None = None) -> dict:
     """Replay a camera's raw-track dump through the production chain into
     `out_db` (a copy of project.db with this camera's events replaced — the
     established retrack working-DB pattern). Returns run stats.
@@ -170,6 +171,12 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         evidence_mode=evidence_mode)
     pipe._v3_camera_id = camera_id
     pipe._v3_trim_id = None
+    if demoted_cells:
+        # set -> full demotion (frac 1.0); dict -> per-cell dose fractions
+        if isinstance(demoted_cells, dict):
+            pipe._demoted_cells = dict(demoted_cells)
+        else:
+            pipe._demoted_cells = {c: 1.0 for c in demoted_cells}
     if bank is not None:
         # Injected candidates must not perturb the origin-evidence gate
         # geometry — gates stay pinned to the camera's DB-applied paths.

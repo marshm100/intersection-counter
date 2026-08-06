@@ -220,6 +220,10 @@ class ProcessingPipeline:
         self._paths: list[dict] = list(paths) if paths else []
         self._tracker_backend = tracker_backend
         self._tracker_kwargs = dict(tracker_kwargs) if tracker_kwargs else {}
+        # V2 census-ratio demotion (config.V2_DEMOTION_ENABLED): flooded
+        # (origin,dest) cells -> demote FRACTION (dose); direct claims in
+        # them take the supports allocation. Empty = byte-identical.
+        self._demoted_cells: dict[tuple, float] = {}
 
         # Components (lazy-loaded to avoid loading YOLO in tests)
         self._detector: VehicleDetector | None = None
@@ -1404,6 +1408,74 @@ class ProcessingPipeline:
                             dest_tie_marg = marg
                             posterior_source = "dest_tie"
                             self.n_posterior_dest += 1
+
+            # V2 census-ratio demotion (plan_v2_week1_verdict day-6b): a
+            # claim landing in a FLOODED cell (direct mass >> gate-evidence
+            # census; set threaded in by pass-2) may not assert directly —
+            # it takes the branch1 posterior over the admitted candidates.
+            # _demoted_cells empty (default) = this block never runs.
+            if (self._demoted_cells and posterior_source is None
+                    and (joint.get("origin_leg_id"),
+                         joint.get("destination_leg_id"))
+                    in self._demoted_cells):
+                # Pool = BANK PATHS into the event's destination — NOT the
+                # scorer's admitted set (day-6b: truncated flood tracks admit
+                # ONLY the flooded origin's paths — the rival's coverage fails
+                # because of the truncation itself, so admitted-set posteriors
+                # re-elect the flood; rescue_supports precedent for reading
+                # the bank directly). SUPPORTS-ONLY weights (shape dropped),
+                # DETERMINISTIC per-track sampling (Knuth hash, replay-
+                # stable) so per-cell counts land on the corpus proportions.
+                dest_pin = (gate_dest if gate_dest is not None
+                            else joint.get("destination_leg_id"))
+                pool = [{"path": p, "cost": joint.get("distance"),
+                         "coverage": joint.get("coverage")}
+                        for p in self._paths
+                        if p.get("destination_leg_id") == dest_pin]
+                totals: dict = {}
+                best_by: dict = {}
+                for c in pool:
+                    leg = c["path"].get("origin_leg_id")
+                    if leg is None:
+                        continue
+                    w = float(c["path"].get("supporting_count") or 0) + 1.0
+                    totals[leg] = totals.get(leg, 0.0) + w
+                    cur = best_by.get(leg)
+                    if cur is None or w > (float(cur["path"].get(
+                            "supporting_count") or 0) + 1.0):
+                        best_by[leg] = c
+                z = sum(totals.values())
+                marg = {leg: w / z for leg, w in totals.items()} if z else {}
+                tid = int(track_id)
+                u_dose = ((tid * 40503) % 65536) / 65536.0
+                frac = self._demoted_cells.get(
+                    (joint.get("origin_leg_id"),
+                     joint.get("destination_leg_id")), 0.0)
+                if marg and u_dose < frac:
+                    u = ((tid * 2654435761) % 4294967296) / 4294967296.0
+                    o_star, acc = None, 0.0
+                    for leg in sorted(marg):
+                        acc += marg[leg]
+                        if u <= acc:
+                            o_star = leg
+                            break
+                    if o_star is None:
+                        o_star = max(marg, key=marg.get)
+                    win = best_by[o_star]
+                    joint = {
+                        **joint,
+                        "origin_leg_id": win["path"].get("origin_leg_id"),
+                        "destination_leg_id": win["path"].get("destination_leg_id"),
+                        "movement_label": win["path"].get("movement_label"),
+                        "path_id": win["path"].get("path_id"),
+                        "distance": win["cost"],
+                        "coverage": win["coverage"],
+                    }
+                    origin_post_json = json.dumps(
+                        {str(l): round(p, 4) for l, p in marg.items()})
+                    origin_margin_val = posterior_margin(marg)
+                    posterior_source = "demoted"
+                    self.n_demoted = getattr(self, "n_demoted", 0) + 1
 
             if joint.get("destination_leg_id") is not None:
                 polyline_dest = joint

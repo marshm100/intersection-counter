@@ -48,6 +48,10 @@ site where Miovision never ran?"* If no, it's research, not product.
   generalization.
 - **Audit tooling:** `scripts/triangulate_manual.py` (vs manual), `scripts/audit_fm51.py`
   (vs Miovision XML, reusable for any site), `scripts/interval_metric.py` (the metric below).
+- **Blind product test EXECUTED (2026-07-31/08-01)** — the product run cold regressed vs
+  the curated tables on every re-derived camera; three root causes measured; the campaign
+  and bar are REDEFINED in **§2e (AUTHORITATIVE)** — no-footage directive, referee-based
+  "not fail" criterion, Pipeline V2 assemble-then-count.
 
 ---
 
@@ -283,7 +287,136 @@ The §2c architecture went from plan to product in one week. Full trail:
   (2026-07-29: per-bin 5/95 judgment, ship set EMPTY 6/6 — FM51's
   aggregate MAE win exposed as bin-broken; cam4 STAT trap measured
   +1,048; cam5 near-miss 6-new-BIG named; plan_stage5_phantom 5.2
-  VERDICT — the bundle is dead at both bars)**.
+  VERDICT — the bundle is dead at both bars)**, **far-band appearance
+  twin-test (2026-07-28 spike: osnet AUC 0.399 at 10–30 px — embeddings
+  measure where/how-big, not what; appearance stays near-field-only)**,
+  **externally-evidenced dead ends (2026-08-03 research sweep — do not
+  spike these: SAHI tiling at VGA source; GAN/video SR as detection
+  preprocessor (≈ interpolation + temporal flicker); feature-level video
+  detection (TransVOD/SELSA/YOLOV class — 0–9 AP below 16 px))**.
+
+---
+
+## 2e. Blind product test → no-footage directive → PIPELINE V2 (2026-07-31 → 08-03) — AUTHORITATIVE
+
+**The blind product test (2026-07-31/08-01).** All 5 cams, declared trims,
+product UI only (operator-shaped, zero hand-holding), scored vs Mio only
+after completion. Result: fresh run 57.4 / 46.7(bug-blocked, prior tables)
+/ 64.1-daylight / 73.8 / 67.1 %-bins vs the curated 65.3 / 46.7 / 77.3 /
+76.4 / 70.9 — the product run cold LOST ground on every re-derived camera.
+Root causes measured: (1) uniform two-pass apply overrode the per-camera
+dispositions (cam4 HOLD, cam1-PM live-table) — the campaign's judgment
+lives in docs, not the product; (2) int3 detect-at-ingest ran the current
+ft basis against the 07-24 disposition (cam3 daylight 77.3→64.1 — extends
+the ft2-rebaseline finding to cam3); (3) NEW BUG: cached pass-2 re-apply
+fails across schema migration ("no such column origin_posterior_json";
+pass2:'current' ignores schema version) — int2 left in Error as evidence.
+Rollback available per-camera from backups/ — OPERATOR DECISION PENDING.
+Evidence: rule595.json (+ _pre_blindrun_baseline), blindrun_* screenshots.
+
+**Operator directives (2026-08-03, final):**
+- **NO FOOTAGE UPGRADE EXISTS.** 640×480 is the terrain. Stage-6
+  procurement (plan_595 item 6.2) is DEAD; runbook §0b demoted to
+  reference. plan_miovision_replacement Phase 2 DEAD.
+- **"NOT FAIL" = REACH OR EXCEED MIOVISION'S ACCURACY STANDARD**, judged
+  by an INDEPENDENT MANUAL REFEREE (never Mio-as-truth): per camera-day,
+  (i) referee-bin error ≤ theirs, (ii) 5/95 hit-rate ≥ theirs, (iii) at
+  measured labor. Their measured mark on this corridor: 2.8% interval MAE
+  (cam1 hand-count). Ours once beat it (−1.5/+2.2% net, same referee).
+
+**The regrounding (docs/plan_no_footage_regrounding_2026-08-03.md).**
+Every retired mechanism shares one root: irreversible LOCAL decisions
+with frozen constants, repaired downstream. ft2 proved detection recall
+is not the bottleneck — ASSOCIATION is (density ×2 → every weak camera
+worse in its own signature). The untried family: GLOBAL OFFLINE
+ASSOCIATION. Pass-2 is already offline; it just replays online logic.
+
+**External research (4 sweeps, 2026-08-03 —
+docs/research_synthesis_pipeline_v2_2026-08-03.md, citations there):**
+1. I-24 MOTION: fragment stitching via min-cost circulation, MOTION-ONLY
+   costs, no training, CPU, 47.9 fragments/vehicle — industrial proof.
+   Blind spot (stopped vehicles 0.04→0.52 switches) fixable by a
+   zero-velocity link hypothesis. Our far-band ReID negative is moot —
+   the best traffic stitcher is appearance-free.
+2. AIC winners: the counting margin is the ASSIGNMENT layer (gate-lines
+   86.4 → soft partial-trajectory prototype matching 93.4, Baidu
+   ablation); YOLOv4-tiny took 2nd 2021 — detector size was never the
+   bar; thresholds from the window's own statistics (DiDi) = the
+   anti-frozen-constant pattern, published.
+3. Detection: stability > recall. REPP-class offline tubelet rescoring
+   (+6.5 mAP, +10.8 on the flicker split, 2.6 ms/frame CPU);
+   scale-matched 1280 on upscaled frames (+25% rel at tiny sizes);
+   motion-mask fusion recovers movers below the CNN floor.
+4. Miovision ±5/95 is a SERVICE SLA (patent US8204955B2: human
+   exception-queue QA is pipeline design; unassisted AI measured 15–24%
+   err, MDOT SPR-1741; guarantee = their 1080p at ≥21 ft, night
+   excluded). NO vendor does ±5/95 unattended on 640×480 oblique.
+   Pipeline+worked-queue is the industry's winning shape — bar is
+   delivered-vs-delivered.
+5. Corridor LINK CROSS-VALIDATION (adjacent intersections agree ±5/95 on
+   common links) is standard vendor QA; we hold 5 adjacent ints and use
+   the overlap only as dedup — a free GT-free failure-finder.
+
+**PIPELINE V2 — assemble-then-count (the campaign):**
+S0 detections (existing caches; B-upgrades later) → S1 tubelet
+stabilization (REPP-class, center-distance link, trainable from
+synthetic fragmentation of our own tracklets — no GT) → S2 pass-1
+tracklets (unchanged) → S3 split + structural pre-merge of CONCURRENT
+twins (time-overlap+IoU; pairwise channels stay dead) → S4 GLOBAL
+ASSEMBLY: tracklet-graph min-cost flow (OR-Tools, <1 min/window), entry/
+exit/STOP-zone arcs derived from the window's own endpoints, link cost =
+min(const-velocity cone, ZERO-VELOCITY hypothesis), α/β self-calibrated
+per window, heading gate; solver may DROP phantoms → S5 movement
+assignment: entry→exit legs for complete chains; residual partials via
+KDE/completeness likelihood vs prototypes clustered from the window's
+own complete chains (fitted, never drawn — standing rule intact) → S6
+conservation QA + NEW corridor link cross-check → S7 review layer +
+targeted human fill (perception-invisible residuals: "tally this bin"
+cards; labor bounded to flagged BIG deltas).
+
+**Sequencing + pre-declared gates (supersedes §4 order):**
+- W1-D1: gta-link baseline on cached tracklets; synthetic-fragmentation
+  re-stitch-recall instrument (the no-GT progress meter).
+- W1-D2..5: MCF assembly prototype, dev cams. **G-A1** cam2 EB
+  split-flood halved, no NB/SB regression. **G-A2** cam1-PM 5/95 to AM
+  level.
+- W2–3: **G-A3** frozen solve, zero per-camera edits, 5 cams + FM51
+  held-out, NO regression vs curated tables (the box-clip killer gate,
+  applied on purpose). Then S1 under it. **G-A4** ft2 re-detect under
+  the solver at cam2/cam3 (07-24 disposition re-test).
+- Workstream B (after G-A3 only): 1280 scale-matched fine-tune, far-ROI
+  crops, motion fusion — each through the apply gate. Measured dead, do
+  NOT revisit: SAHI at VGA source, GAN/video SR (≈interpolation +
+  flicker), feature-level VOD (0–9 AP at <16 px).
+- Workstream C (parallel from W1, solver-independent): corridor
+  link-conservation scorer; close the 3 named BIG-recall gaps (cam2
+  S3-blocked, cam4 SB-right phantom, cam5 EB-right formation);
+  "tally-this-bin" card kind.
+- Product (parallel): schema-version fingerprint fix (+ regression
+  test); DISPOSITIONS as product state; blind-guard APPLY GATE (litmus
+  made mechanical); [OP] rollback decision on the blind-run tables.
+- Gate for G1-closure: re-run the 07-31 blind product test verbatim —
+  product must reproduce ≥ curated scores with zero hand-holding.
+- Acceptance (6.5 reshaped): blind study on unseen clips of OUR footage
+  class, operator-run, Mio ordered on the SAME clips, both scored vs
+  the manual referee; PASS = (i)–(iii) every camera-day.
+
+**Failure honesty:** global solvers' new failure mode is OVER-MERGING
+(undercount) and confidently-wrong permutations in stopped queues —
+defenses: split-before-connect, zero-velocity hypothesis, G-A3
+no-regression tripwires, D1's re-stitch-recall instrument. If G-A1/G-A2
+fail, the plan returns to the drawing board and says so.
+
+**WEEK-1 VERDICT (2026-08-04 — `plan_v2_week1_verdict.md`): G-A1 FAILED
+on blind held-outs** (fixed-threshold assembly overshoots at PM density;
+ratio-mode is precise but low-volume; co-life-IoU twin pre-merge = the
+FOURTH dead pairwise channel on far-band twins). Harness delivered +
+replay parity proven (+4.9 dev shows the architecture works). RE-ORDER:
+(1) structural twin test (continuation-competition — the one untried
+channel), (2) **Workstream B moves AHEAD of further assembly policy**
+(input quality is the measured binding constraint: cam2's big residuals
+are recall walls no assembly can count), (3) queue-order constraints,
+then G-A1 re-attempt, same blind protocol.
 
 ---
 
@@ -480,6 +613,10 @@ trusted top-down), and the FM51 operator-prep gap (§2 #3). Frontend: `frontend/
 ---
 
 ## 4. Sequencing (re-ordered 2026-07-08 post-Gate-B — see §2c verdict)
+
+**[2026-08-03: the FORWARD sequencing now lives in §2e (Pipeline V2
+campaign + gates). This section remains as the historical record of the
+shipped arc; items below marked DONE stay authoritative as records.]**
 
 0. **F1 — calibration clean surface + layers + drawn-direct channels (SHIPPED 2026-07-07).**
    Stale top-down overlays stripped, per-leg × per-type layer matrix, review-first stepper; and
@@ -888,7 +1025,12 @@ execution checklist lives in that doc (the operating plan of record):
   6. footage + THE ACCEPTANCE TEST — **6.1 DONE 2026-07-29**
      (runbook §0b: five hard requirements, each traced to a measured
      wall + procurement guidance; the star rating is the automated
-     check). [OP] 6.2 procurement — LONG LEAD, start now. **6.3 the
+     check). ~~[OP] 6.2 procurement — LONG LEAD, start now.~~
+     **[6.2 DEAD 2026-08-03 — operator directive: no footage upgrade
+     exists, 640×480 is the terrain. The raw-compliance route is now
+     the §2e Pipeline-V2 campaign; §0b demoted to reference. The 6.5
+     acceptance test survives, reshaped in §2e: unseen clips of OUR
+     footage class, both deliverables scored vs a manual referee.]** **6.3 the
      interim rehearsal is MEASURED 2026-07-29** (the ceiling IS the
      simulated-perfect-reviewer number; plan_stage4 doc records it):
      97.6 / 99.4 / 100.0 / 98.8 / 95.9 — PASS at cam2+cam3, FAIL at

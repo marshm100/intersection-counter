@@ -126,6 +126,16 @@ DEFAULT_PROCESSING_MODE = "accurate"
 import os as _os2
 TWO_PASS_ENABLED = _os2.environ.get("TWO_PASS_ENABLED", "1") in ("1", "true", "on")
 
+# V2 census-ratio-conditioned claim demotion (plan_v2_week1_verdict day-6b,
+# counterfactually validated 2026-08-05): cells whose DIRECT-attributed mass
+# exceeds V2_DEMOTION_RATIO x the gate-evidence census are flooded by
+# origin misattribution (cam2 EB-right 220/54 = 4.1 vs healthy EB-left
+# 121/149 = 0.8); their direct claims re-route through the branch1
+# posterior. Default OFF — dev-measurement flag until the blind held-out
+# gate passes. Ratio is a structural constant (ledger), NOT per-camera.
+V2_DEMOTION_ENABLED = _os2.environ.get("V2_DEMOTION", "0") in ("1", "true", "on")
+V2_DEMOTION_RATIO = 2.0
+
 
 def get_processing_mode_config(mode: str | None) -> dict:
     """Return the config dict for `mode`, falling back to default on unknown."""

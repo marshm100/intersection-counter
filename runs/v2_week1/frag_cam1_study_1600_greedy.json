@@ -1,0 +1,64 @@
+{
+ "table": "runs/v2_week1/tracklets_cam1_study_1600.npz",
+ "stitcher": "greedy",
+ "cal": {
+  "alpha": 3.0,
+  "beta": 51.388353106146155,
+  "zv_radius": 20.074867248535156,
+  "v_stop": 8.0,
+  "v_noise": 18.811359405517578,
+  "a_allow": 30.92812156677246
+ },
+ "calibration": {
+  "0.5": {
+   "n": 382,
+   "median_px": 7.918325424194336
+  },
+  "1.0": {
+   "n": 364,
+   "median_px": 23.89809799194336
+  },
+  "2.0": {
+   "n": 297,
+   "median_px": 70.60295104980469
+  },
+  "5.0": {
+   "n": 68,
+   "median_px": 245.6682357788086
+  },
+  "10.0": {
+   "n": 8,
+   "median_px": 170.6481170654297
+  }
+ },
+ "gap_classes": {
+  "0.5": {
+   "donors": 83,
+   "recall": 0.3855421686746988,
+   "cut_welds": 6,
+   "cut_precision": 0.8421052631578947,
+   "ambient_outer_links": 4
+  },
+  "2.0": {
+   "donors": 84,
+   "recall": 0.2857142857142857,
+   "cut_welds": 10,
+   "cut_precision": 0.7058823529411765,
+   "ambient_outer_links": 4
+  },
+  "10.0": {
+   "donors": 67,
+   "recall": 0.208955223880597,
+   "cut_welds": 10,
+   "cut_precision": 0.5833333333333334,
+   "ambient_outer_links": 3
+  },
+  "60.0": {
+   "donors": 7,
+   "recall": 0.14285714285714285,
+   "cut_welds": 1,
+   "cut_precision": 0.5,
+   "ambient_outer_links": 0
+  }
+ }
+}

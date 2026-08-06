@@ -372,6 +372,78 @@ def census_expecteds(project_id: str, camera_id: int, rows: np.ndarray,
     return cell_census(tracks.values(), gates, fps)
 
 
+def strict_full_census(project_id: str, camera_id: int, rows: np.ndarray,
+                       fps: float) -> dict:
+    """FULL gate-to-gate journeys per cell (classify tag=='full') — the
+    V2-demotion selector's census. cell_census's partial-evidence credits
+    are too loose for flood detection (day-6b: cam2 28->29 loose census
+    >=110 vs 54 strict fulls masked the 4.1x flood ratio)."""
+    from backend.database import list_paths_for_camera
+    from backend.services.entry_gates import build_gates, classify
+    conn = get_connection(project_id)
+    mouths, heads = {}, {}
+    for lid, oz, rh in conn.execute(
+            "SELECT leg_id, origin_zone, reference_heading FROM legs "
+            "WHERE camera_id = ?", (camera_id,)):
+        if oz:
+            z = json.loads(oz)
+            mouths[lid] = tuple(z[0])
+            heads[lid] = rh
+    conn.close()
+    if not mouths:
+        return {}
+    gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
+                        heads)
+    if not gates:
+        return {}
+    tracks: dict[int, list] = {}
+    for r in rows:
+        tracks.setdefault(int(r[0]), []).append(
+            (float(r[1]), float(r[2]), float(r[3])))
+    # channel families by origin, for the entanglement measure
+    paths = list_paths_for_camera(project_id, camera_id)
+    chans: dict[int, list] = {}
+    for p in paths:
+        if p.get("polyline"):
+            chans.setdefault(int(p["origin_leg_id"]), []).append(p["polyline"])
+
+    def _mean_dist(poly, pts):
+        best = [float("inf")] * len(pts)
+        for i in range(len(poly) - 1):
+            ax, ay = poly[i]
+            bx, by = poly[i + 1]
+            vx, vy = bx - ax, by - ay
+            L2 = vx * vx + vy * vy
+            if L2 < 1e-9:
+                continue
+            for k, (px, py) in enumerate(pts):
+                t = max(0.0, min(1.0, ((px - ax) * vx + (py - ay) * vy) / L2))
+                d = ((px - (ax + t * vx)) ** 2 + (py - (ay + t * vy)) ** 2) ** 0.5
+                if d < best[k]:
+                    best[k] = d
+        return sum(best) / len(best) if best else float("inf")
+
+    out: dict[tuple, int] = {}
+    conf_n: dict[int, int] = {}
+    conf_r: dict[int, int] = {}
+    for tr in tracks.values():
+        o, d, _of, _df, _op, _dp, tag = classify(tr, gates, fps)
+        if tag != "full":
+            continue
+        o, d = int(o), int(d)
+        out[(o, d)] = out.get((o, d), 0) + 1
+        early = [(x, y) for _f, x, y in tr[:12]]
+        d_own = min((_mean_dist(p, early) for p in chans.get(o, [])),
+                    default=float("inf"))
+        d_riv = min((_mean_dist(p, early) for ol, ps in chans.items()
+                     if ol != o for p in ps), default=float("inf"))
+        conf_n[o] = conf_n.get(o, 0) + 1
+        if d_riv < d_own:
+            conf_r[o] = conf_r.get(o, 0) + 1
+    confusion = {o: conf_r.get(o, 0) / n for o, n in conf_n.items() if n}
+    return out, confusion
+
+
 def run_pass1(project_id: str, camera_id: int, *, variant: str,
               start_frame: int, end_frame: int, backend: str | None = None,
               resume: bool = True, progress=None, should_cancel=None) -> dict:
@@ -894,6 +966,93 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     else:
         stats = replay_camera(project_id, camera_id, variant=variant,
                               out_db=out_db, should_cancel=should_cancel)
+    # V2 census-ratio demotion (config flag, default OFF): measure per-cell
+    # DIRECT-attributed mass from the first replay against the gate-evidence
+    # census; flooded cells re-replay with their direct claims demoted to
+    # the branch1 posterior. GT-free throughout (census = gate evidence).
+    demotion = None
+    from backend import config as _cfg
+    if getattr(_cfg, "V2_DEMOTION_ENABLED", False) and expected:
+        _c = sqlite3.connect(out_db)
+        direct = {(int(o), int(d)): int(n) for o, d, n in _c.execute(
+            "SELECT origin_leg_id, destination_leg_id, COUNT(*) "
+            "FROM vehicle_events WHERE camera_id=? AND "
+            "COALESCE(rejected,0)=0 AND posterior_source IS NULL "
+            "AND origin_leg_id IS NOT NULL AND destination_leg_id IS NOT NULL "
+            "GROUP BY 1,2", (camera_id,))}
+        _c.close()
+        ratio = getattr(_cfg, "V2_DEMOTION_RATIO", 2.0)
+        # Census from the UNEXTENDED base dump when replaying a derived
+        # variant (stack verdict 2026-08-05: extension COMPLETES the
+        # flood's false-origin tracks into legitimate-looking fulls and
+        # poisons the flooded cell's census -> dose under-fires; the base
+        # dump is extension-proof; r_clean absorbs extension's global
+        # direct-count inflation on the clean cells).
+        census_rows = rows
+        base_variant = variant
+        for _pref in ("v2c_", "v2a_", "v2b_", "v2d_"):
+            if variant.startswith(_pref):
+                base_variant = variant[len(_pref):]
+                break
+        if base_variant != variant:
+            _btdir = tracks_dir(parquet_path(project_id, camera_id, chash,
+                                             base_variant))
+            if (_btdir / "count.txt").exists():
+                census_rows = load_dump(_btdir)
+        strict, confusion = strict_full_census(project_id, camera_id,
+                                               census_rows, fps)
+        # ENTANGLEMENT CONDITION (day-6b selector fix): only origins whose
+        # own genuine fulls MAJORITY-read as a rival's lanes are demotable —
+        # a ratio flag on a clean-geometry origin is recall STARVATION, and
+        # demoting starved cells smears real events (SB-right -34 lesson).
+        # CONTRAST GUARD (cam1 transfer verdict 2026-08-05): the confusion
+        # measure SATURATES on oblique geometry (cam1: 3 of 4 origins read
+        # 0.73-1.0 — that is the measure's ceiling, not selectivity; cam2's
+        # true signature is ONE origin 0.98 vs median 0.08). Demotion needs
+        # an entangled origin against OTHERWISE-CLEAN geometry; saturated
+        # cameras stand down entirely.
+        conf_vals = sorted(confusion.values())
+        others_med = (conf_vals[len(conf_vals) // 2 - 1]
+                      if len(conf_vals) >= 2 else 1.0)
+        contrast_ok = others_med < 0.25
+        flooded = {cell for cell, nd in direct.items()
+                   if contrast_ok and confusion.get(cell[0], 0.0) > 0.5
+                   and nd > ratio * max(float(strict.get(cell, 0)), 1.0)}
+        # DOSE (held-out verdict 2026-08-05: binary demotion overshoots
+        # small-excess windows — PM EB-right +85 -> -177): the CLEAN
+        # origins' own direct/strict ratio is the window's recall-inflation
+        # factor; a flooded cell keeps that many directs per strict full
+        # and demotes only the EXCESS, sampled deterministically per track.
+        clean_ratios = [nd / max(float(strict.get(c, 0)), 1.0)
+                        for c, nd in direct.items()
+                        if confusion.get(c[0], 0.0) <= 0.5
+                        and strict.get(c, 0) >= 20 and nd >= 20]
+        import statistics as _st
+        r_clean = (_st.median(clean_ratios) if clean_ratios else 1.0)
+        demote_frac = {
+            cell: max(0.0, 1.0 - (r_clean * max(float(strict.get(cell, 0)), 1.0)
+                                  / direct[cell]))
+            for cell in flooded}
+        if flooded:
+            ev_final = ("on" if (activation and activation.get("activated"))
+                        else ("probe" if activation is not None else None))
+            logger.info("two-pass cam%s %s: demotion re-replay, cells=%s",
+                        camera_id, variant, sorted(flooded))
+            stats = replay_camera(project_id, camera_id, variant=variant,
+                                  out_db=out_db, should_cancel=should_cancel,
+                                  evidence_mode=ev_final,
+                                  demoted_cells=demote_frac)
+        demotion = {"cells": sorted(list(c) for c in flooded),
+                    "dose": {f"{k[0]}->{k[1]}": round(v, 3)
+                             for k, v in sorted(demote_frac.items())},
+                    "r_clean": round(r_clean, 3),
+                    "direct": {f"{k[0]}->{k[1]}": v for k, v in
+                               sorted(direct.items())},
+                    "census_strict": {f"{k[0]}->{k[1]}": v for k, v in
+                                      sorted(strict.items())},
+                    "confusion": {str(k): round(v, 3)
+                                  for k, v in sorted(confusion.items())},
+                    "ratio": ratio}
     # Conservation pass (posterior half iteration 3): at most one counted
     # event per fragment chain, additive loses to legacy — BEFORE the merge
     # so the volume gate polices turns over de-duplicated counts.
@@ -917,6 +1076,8 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         # Evidence-activation decision (None when the flag is off) — the
         # operator-visible record of the blind coverage census + outcome.
         "evidence_activation": activation,
+        # Census-ratio demotion record (None when V2_DEMOTION off).
+        "demotion": demotion,
     }
     stats_p.write_text(json.dumps({"dump_meta": meta,
                                    "calib_fingerprint": fingerprint,

@@ -1,8 +1,8 @@
 {
  "cam1": {
-  "cells_scored": 169,
-  "compliant": 97,
-  "pct": 57.4,
+  "cells_scored": 167,
+  "compliant": 109,
+  "pct": 65.3,
   "worst": [
    {
     "bin": "17:45",
@@ -54,9 +54,9 @@
    }
   ],
   "classes": {
-   "cells_scored": 293,
-   "compliant": 188,
-   "pct": 64.2,
+   "cells_scored": 288,
+   "compliant": 196,
+   "pct": 68.1,
    "worst": [
     {
      "bin": "08:30",
@@ -221,28 +221,10 @@
  },
  "cam3": {
   "full_day": {
-   "cells_scored": 636,
-   "compliant": 379,
-   "pct": 59.6,
+   "cells_scored": 580,
+   "compliant": 399,
+   "pct": 68.8,
    "worst": [
-    {
-     "bin": "06:30",
-     "cell": "EB thru",
-     "ours": 193,
-     "ref": 0
-    },
-    {
-     "bin": "06:30",
-     "cell": "NB thru",
-     "ours": 141,
-     "ref": 326
-    },
-    {
-     "bin": "06:45",
-     "cell": "NB thru",
-     "ours": 191,
-     "ref": 366
-    },
     {
      "bin": "05:45",
      "cell": "NB thru",
@@ -250,91 +232,109 @@
      "ref": 175
     },
     {
-     "bin": "06:15",
-     "cell": "EB thru",
-     "ours": 166,
-     "ref": 0
+     "bin": "06:00",
+     "cell": "NB thru",
+     "ours": 43,
+     "ref": 209
+    },
+    {
+     "bin": "21:30",
+     "cell": "NB thru",
+     "ours": 0,
+     "ref": 130
+    },
+    {
+     "bin": "20:45",
+     "cell": "SB thru",
+     "ours": 10,
+     "ref": 137
+    },
+    {
+     "bin": "05:30",
+     "cell": "NB thru",
+     "ours": 0,
+     "ref": 126
+    },
+    {
+     "bin": "21:00",
+     "cell": "SB thru",
+     "ours": 3,
+     "ref": 129
+    },
+    {
+     "bin": "05:15",
+     "cell": "NB thru",
+     "ours": 1,
+     "ref": 122
     },
     {
      "bin": "15:30",
      "cell": "NB thru",
-     "ours": 189,
+     "ours": 233,
      "ref": 354
-    },
-    {
-     "bin": "06:45",
-     "cell": "EB thru",
-     "ours": 164,
-     "ref": 0
-    },
-    {
-     "bin": "07:30",
-     "cell": "EB thru",
-     "ours": 147,
-     "ref": 0
     }
    ]
   },
   "daylight_only": {
-   "cells_scored": 479,
-   "compliant": 307,
-   "pct": 64.1,
+   "cells_scored": 423,
+   "compliant": 327,
+   "pct": 77.3,
    "worst": [
     {
-     "bin": "06:30",
-     "cell": "EB thru",
-     "ours": 193,
-     "ref": 0
-    },
-    {
-     "bin": "06:30",
+     "bin": "06:00",
      "cell": "NB thru",
-     "ours": 141,
-     "ref": 326
-    },
-    {
-     "bin": "06:45",
-     "cell": "NB thru",
-     "ours": 191,
-     "ref": 366
-    },
-    {
-     "bin": "06:15",
-     "cell": "EB thru",
-     "ours": 166,
-     "ref": 0
+     "ours": 43,
+     "ref": 209
     },
     {
      "bin": "15:30",
      "cell": "NB thru",
-     "ours": 189,
+     "ours": 233,
      "ref": 354
     },
     {
-     "bin": "06:45",
+     "bin": "06:15",
+     "cell": "NB thru",
+     "ours": 165,
+     "ref": 282
+    },
+    {
+     "bin": "06:15",
      "cell": "EB thru",
-     "ours": 164,
+     "ours": 103,
      "ref": 0
     },
     {
-     "bin": "07:30",
+     "bin": "06:30",
+     "cell": "NB thru",
+     "ours": 252,
+     "ref": 326
+    },
+    {
+     "bin": "06:00",
      "cell": "EB thru",
-     "ours": 147,
+     "ours": 65,
      "ref": 0
     },
     {
-     "bin": "07:15",
+     "bin": "06:30",
      "cell": "EB thru",
-     "ours": 139,
+     "ours": 63,
      "ref": 0
+    },
+    {
+     "bin": "15:15",
+     "cell": "NB thru",
+     "ours": 259,
+     "ref": 311
     }
    ]
   }
  },
  "cam4": {
-  "cells_scored": 172,
-  "compliant": 127,
-  "pct": 73.8,
+  "cells_scored": 161,
+  "compliant": 123,
+  "pct": 76.4,
   "worst": [
    {
     "bin": "08:00",
@@ -349,18 +349,6 @@
     "ref": 396
    },
    {
-    "bin": "17:45",
-    "cell": "SB right",
-    "ours": 41,
-    "ref": 6
-   },
-   {
-    "bin": "17:30",
-    "cell": "SB right",
-    "ours": 37,
-    "ref": 4
-   },
-   {
     "bin": "16:30",
     "cell": "SB thru",
     "ours": 401,
@@ -373,21 +361,33 @@
     "ref": 341
    },
    {
-    "bin": "17:00",
+    "bin": "16:15",
     "cell": "SB right",
-    "ours": 36,
-    "ref": 4
+    "ours": 35,
+    "ref": 7
+   },
+   {
+    "bin": "17:30",
+    "cell": "SB thru",
+    "ours": 408,
+    "ref": 436
+   },
+   {
+    "bin": "17:00",
+    "cell": "SB thru",
+    "ours": 308,
+    "ref": 334
    },
    {
     "bin": "16:15",
-    "cell": "SB right",
-    "ours": 38,
-    "ref": 7
+    "cell": "SB thru",
+    "ours": 346,
+    "ref": 321
    }
   ],
   "classes": {
-   "cells_scored": 287,
-   "compliant": 209,
+   "cells_scored": 265,
+   "compliant": 193,
    "pct": 72.8,
    "worst": [
     {
@@ -403,18 +403,6 @@
      "ref": 431
     },
     {
-     "bin": "17:45",
-     "cell": "SB right Lights",
-     "ours": 40,
-     "ref": 6
-    },
-    {
-     "bin": "17:30",
-     "cell": "SB right Lights",
-     "ours": 36,
-     "ref": 4
-    },
-    {
      "bin": "17:00",
      "cell": "NB thru Lights",
      "ours": 300,
@@ -427,24 +415,36 @@
      "ref": 328
     },
     {
-     "bin": "16:15",
-     "cell": "SB right Lights",
-     "ours": 36,
+     "bin": "07:15",
+     "cell": "NB thru Lights",
+     "ours": 348,
+     "ref": 375
+    },
+    {
+     "bin": "07:30",
+     "cell": "SB thru Mediums",
+     "ours": 29,
+     "ref": 2
+    },
+    {
+     "bin": "07:45",
+     "cell": "SB thru Mediums",
+     "ours": 34,
      "ref": 7
     },
     {
-     "bin": "17:00",
+     "bin": "16:15",
      "cell": "SB right Lights",
-     "ours": 32,
-     "ref": 4
+     "ours": 33,
+     "ref": 7
     }
    ]
   }
  },
  "cam5": {
-  "cells_scored": 316,
-  "compliant": 212,
-  "pct": 67.1,
+  "cells_scored": 320,
+  "compliant": 227,
+  "pct": 70.9,
   "worst": [
    {
     "bin": "17:30",
@@ -473,7 +473,7 @@
    {
     "bin": "16:30",
     "cell": "NB thru",
-    "ours": 347,
+    "ours": 346,
     "ref": 310
    },
    {
@@ -489,15 +489,15 @@
     "ref": 245
    },
    {
-    "bin": "17:30",
+    "bin": "17:45",
     "cell": "NB thru",
-    "ours": 329,
-    "ref": 296
+    "ours": 255,
+    "ref": 222
    }
   ],
   "classes": {
-   "cells_scored": 557,
-   "compliant": 441,
+   "cells_scored": 538,
+   "compliant": 426,
    "pct": 79.2,
    "worst": [
     {
