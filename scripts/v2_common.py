@@ -442,6 +442,125 @@ def table_from_pieces(pieces: list, fps: float, meta: dict) -> dict:
     return t
 
 
+def fifo_links(t: dict, cal: dict, existing: list[tuple[int, int]],
+               min_wait_s: float = 20.0, max_wait_s: float = 120.0):
+    """Block-2 item 3 — QUEUE-ORDER (FIFO) links for the red-light class.
+
+    The ZV cone cannot pick among co-located queue neighbors; ORDER can:
+    within a stop zone and lane, vehicles leave in the order they arrived.
+    Stop zones = spatial clusters of slow endpoints (grid hash, cell
+    3*zv_radius); lanes = clusters of perpendicular offset along the
+    zone's principal axis (merge distance 1.5*zv_radius); per lane,
+    queue-entering ENDS (end speed < v_stop) pair with queue-leaving
+    STARTS in strict arrival order within [min_wait, max_wait] seconds.
+    Existing (motion-evidence) links take precedence; FIFO fills holes.
+    """
+    fps = t["fps"]
+    v_stop, zr = cal["v_stop"], cal["zv_radius"]
+    end_v = np.hypot(t["vx1"], t["vy1"])
+    start_v = np.hypot(t["vx0"], t["vy0"])
+    # enders: tracks vanishing SLOW (entering the queue). starters: tracks
+    # BORN in the stop zone regardless of speed — re-acquisition happens at
+    # green, moving (day-1 instrument finding of this item); membership in
+    # the zone is the queue-exit evidence, not start speed.
+    enders = np.where(end_v < v_stop)[0]
+    starters = np.arange(t["n"])
+    if not len(enders) or not len(starters):
+        return []
+    used_end = {i for i, _ in existing}
+    used_start = {j for _, j in existing}
+
+    # grid-hash clustering of all queue endpoints
+    cell = 3.0 * zr
+    pts = []
+    for i in enders:
+        pts.append((float(t["x1"][i]), float(t["y1"][i]), int(i), 0))
+    for j in starters:
+        pts.append((float(t["x0"][j]), float(t["y0"][j]), int(j), 1))
+    grid: dict[tuple, list] = {}
+    for x, y, idx, kind in pts:
+        grid.setdefault((int(x // cell), int(y // cell)), []).append(
+            (x, y, idx, kind))
+    # union adjacent grid cells into zones
+    parent: dict[tuple, tuple] = {k: k for k in grid}
+
+    def find(k):
+        while parent[k] != k:
+            parent[k] = parent[parent[k]]
+            k = parent[k]
+        return k
+
+    for gx, gy in list(grid):
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                nb = (gx + dx, gy + dy)
+                if nb in grid:
+                    ra, rb = find((gx, gy)), find(nb)
+                    if ra != rb:
+                        parent[rb] = ra
+    zones: dict[tuple, list] = {}
+    for k, members in grid.items():
+        zones.setdefault(find(k), []).extend(members)
+
+    links = []
+    for members in zones.values():
+        if len(members) < 4:
+            continue
+        P = np.array([(m[0], m[1]) for m in members])
+        mu = P.mean(0)
+        C = np.cov((P - mu).T) if len(P) > 2 else np.eye(2)
+        w, V = np.linalg.eigh(C)
+        axis, perp = V[:, -1], V[:, 0]
+        offs = (P - mu) @ perp
+        order = np.argsort(offs)
+        # lanes: split sorted perpendicular offsets at gaps > 1.5*zv_radius
+        lanes: list[list[int]] = [[]]
+        for oi, k in enumerate(order):
+            if lanes[-1] and (offs[k] - offs[order[oi - 1]]) > 1.5 * zr:
+                lanes.append([])
+            lanes[-1].append(k)
+        for lane in lanes:
+            le = sorted((float(t["f1"][members[k][2]]), members[k][2])
+                        for k in lane if members[k][3] == 0
+                        and members[k][2] not in used_end)
+            ls = sorted((float(t["f0"][members[k][2]]), members[k][2])
+                        for k in lane if members[k][3] == 1
+                        and members[k][2] not in used_start)
+            # CYCLE-AWARE (iteration 3): order holds within ONE signal
+            # cycle, not across the window — segment arrivals into bursts
+            # (inter-end gap < 30 s) and departures into discharge bursts
+            # (inter-start gap < 10 s); pair burst -> first discharge
+            # burst after it, rank-to-rank.
+            def bursts(seq, gap_s):
+                out, cur = [], []
+                for f, i in seq:
+                    if cur and (f - cur[-1][0]) > gap_s * fps:
+                        out.append(cur)
+                        cur = []
+                    cur.append((f, i))
+                if cur:
+                    out.append(cur)
+                return out
+            ab = bursts(le, 30.0)
+            db = bursts(ls, 10.0)
+            di = 0
+            for burst in ab:
+                last_end = burst[-1][0]
+                while di < len(db) and db[di][0][0] <= last_end + min_wait_s * fps:
+                    di += 1
+                if di >= len(db):
+                    break
+                disc = db[di]
+                if disc[0][0] - last_end > max_wait_s * fps:
+                    continue
+                for rank in range(min(len(burst), len(disc))):
+                    ei, sj = burst[rank][1], disc[rank][1]
+                    if ei != sj:
+                        links.append((int(ei), int(sj)))
+                di += 1
+    return links
+
+
 def chains_from_links(n: int, links: list[tuple[int, int]]):
     """links (i->j, each endpoint used once) -> list of ordered chains."""
     nxt = {i: j for i, j in links}

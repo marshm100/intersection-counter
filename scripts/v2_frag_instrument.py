@@ -174,7 +174,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("table")
     ap.add_argument("--stitcher", default="greedy",
-                    choices=["greedy", "mcf", "assign"])
+                    choices=["greedy", "mcf", "assign", "fifo"])
     args = ap.parse_args()
     t = load_table(args.table)
     rng = np.random.default_rng(SEED)
@@ -185,6 +185,20 @@ def main() -> int:
         from v2_baseline_greedy import stitch_greedy
         def run(tbl):
             return stitch_greedy(tbl, cal)[1]
+    elif args.stitcher == "fifo":
+        from v2_baseline_greedy import stitch_greedy
+        from v2_common import chains_from_links, fifo_links
+        def run(tbl):
+            # FIFO FIRST (iteration 4): order evidence outranks pairwise
+            # ZV proximity at long gaps — ratio-ZV was consuming queue
+            # endpoints with co-located-neighbor welds before FIFO ran.
+            fl = fifo_links(tbl, cal, [])
+            used_e = {i for i, _ in fl}
+            used_s = {j for _, j in fl}
+            rl, _ = stitch_greedy(tbl, cal)
+            merged = list(fl) + [(i, j) for i, j in rl
+                                 if i not in used_e and j not in used_s]
+            return chains_from_links(tbl["n"], merged)
     elif args.stitcher == "mcf":
         from v2_assemble import stitch_mcf
         def run(tbl):
