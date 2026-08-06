@@ -92,11 +92,27 @@ def endpoint_state(tr, fps, head):
     return row, v
 
 
-def extend(row0, v, dets, frame_of, claimed, fps, direction):
-    """Walk from an endpoint; returns extension rows (list of 8-col)."""
+def extend(row0, v, dets, frame_of, claimed, fps, direction,
+           heading_lock=False):
+    """Walk from an endpoint; returns extension rows (list of 8-col).
+
+    BACKWARD walks (direction=-1) are HEADING-LOCKED (block-2 item 2,
+    provenance verdict 2026-08-06: 46% of extended W-origin fulls had NO
+    W-origin in the base dump — backward walks curved across the conflict
+    zone and MANUFACTURED entries, incl. 10 base SB-thru fulls). Approach
+    roads are straight: every accepted backward step's forward-sense
+    direction must stay within HEAD_CONE_DEG of the track's entry heading.
+    """
+    HEAD_CONE_DEG = 50.0
     f = int(row0[1])
     cx, cy, w, h = float(row0[2]), float(row0[3]), float(row0[4]), float(row0[5])
     vx, vy = v[0] * direction, v[1] * direction
+    head_n = None
+    if heading_lock and direction < 0:
+        hv = np.hypot(v[0], v[1])
+        if hv > 1e-6:
+            head_n = (v[0] / hv, v[1] / hv)
+    cos_lim = float(np.cos(np.radians(HEAD_CONE_DEG)))
     ext, miss, hits = [], 0, 0
     tid = float(row0[0])
     cap = int(EXT_CAP_S * fps)
@@ -104,6 +120,7 @@ def extend(row0, v, dets, frame_of, claimed, fps, direction):
     for step in range(1, cap):
         f2 = f + step * direction
         se = frame_of.get(f2)
+        prev_x, prev_y = cx, cy
         cx, cy = cx + vx, cy + vy
         if se is None:
             miss += 1
@@ -122,8 +139,18 @@ def extend(row0, v, dets, frame_of, claimed, fps, direction):
         gate = GATE_DIAG * float(np.hypot(w, h)) + GATE_VEL * float(
             np.hypot(vx, vy)) * (miss + 1)
         d = np.hypot(cand[:, 1] - cx, cand[:, 2] - cy)
+        if head_n is not None:
+            # forward-sense step = (previous position - candidate); must
+            # align with the entry heading — kill curving backward walks
+            sxv = prev_x - cand[:, 1]
+            syv = prev_y - cand[:, 2]
+            sl = np.hypot(sxv, syv)
+            cosv = np.where(sl > 1e-6,
+                            (sxv * head_n[0] + syv * head_n[1]) / np.maximum(sl, 1e-9),
+                            1.0)
+            d = np.where(cosv >= cos_lim, d, np.inf)
         j = int(np.argmin(d))
-        if d[j] > max(gate, 6.0):
+        if not np.isfinite(d[j]) or d[j] > max(gate, 6.0):
             miss += 1
             if miss > miss_cap:
                 break
@@ -160,6 +187,10 @@ def main() -> int:
     ap.add_argument("--cache", required=True)
     ap.add_argument("--directions", default="both",
                     choices=["both", "fwd", "bwd"])
+    ap.add_argument("--heading-lock", action="store_true",
+                    help="50-deg backward heading cone (block-2 item-2 "
+                         "verdict: PM +2.1 but dev -3.1, gate FAILED; "
+                         "default OFF)")
     args = ap.parse_args()
     t0 = time.time()
 
@@ -195,7 +226,8 @@ def main() -> int:
         eh, et = [], []
         if args.directions in ("both", "bwd"):
             row_h, v_h = endpoint_state(tr, fps, head=True)
-            eh = extend(row_h, v_h, dets, frame_of, claimed, fps, -1)
+            eh = extend(row_h, v_h, dets, frame_of, claimed, fps, -1,
+                        heading_lock=args.heading_lock)
         if args.directions in ("both", "fwd"):
             row_t, v_t = endpoint_state(tr, fps, head=False)
             et = extend(row_t, v_t, dets, frame_of, claimed, fps, +1)
