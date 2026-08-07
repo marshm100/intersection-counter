@@ -184,3 +184,56 @@ reports 'stale' on mismatch instead of feeding a doomed apply.
 5. scripts/v2_apply_gate_validate.py -> runs/v2_week1/
    apply_gate_validation.json + score cross-check; verdict section
    appended here; handoff refreshed (commit 5).
+
+
+## BLOCK VERDICT (2026-08-07, same session — all three gates PASS)
+
+**GATE-AG1 PASS: 11/11 binding blind windows (12/12 including the cam2
+dev window), through the SHIPPED adjudicator** (adjudicate_apply fed by
+gate_census_inputs — the exact product path, record=False), zero
+Miovision inside the gate; the committed score JSONs checked verdicts
+only afterward. Evidence: runs/v2_week1/apply_gate_validation.json.
+Every stand-down's recorded reasons land in the law's failure families:
+cam1 saturated_geometry (+ event_flood; 0700 also no_headroom), cam2
+study_1600 no_headroom + event_flood (caught twice at the knife-edge),
+cam4 no_headroom + event_flood, cam5 event_flood. Every apply is a pure
+gate_pass. The three shipped wins the gate authorizes: cam2 0700/1100
+and cam3 daylight (+8.5, the campaign's largest).
+
+**GATE-AG2 PASS**: full suite green on the final tree (919 tests; the
+one legitimate breakage — test_create_database's table inventory — was
+the two new tables, assertion extended). Legacy behavior preserved where
+the gate abstains: fresh windows apply ungated (rule 1), no-geometry
+cameras apply ungated (rule 2), APPLY_GATE=0 reverts to unconditional
+apply.
+
+**GATE-AG3 PASS**: schema_fingerprint + sidecar_reusable shipped; the
+drifted-sidecar case reports 'stale' end-to-end (red before the fix by
+the old predicate's construction — dump_meta+calib only). int2's Error
+card cause is closed: the next process run recomputes instead of dying.
+
+Scope guard held: no production applies ran; the only production-DB
+change is the additive empty dispositions/apply_adjudications tables via
+the idempotent schema (what any connection performs). V2 mechanism flags
+remain default-OFF; APPLY_GATE defaults ON as product architecture.
+
+**What the product now enforces**: uniform two-pass apply can no longer
+overwrite curated judgment — an operator 'hold' blocks, and an 'auto'
+window must WIN its window under the blind guards, with every
+adjudication in the audit trail. The blind-product-test wounds 1 and 3
+are closed at the architecture level; wound 2 (detect-basis vs
+disposition) is naturally absorbed: a re-derived table that regresses now
+stands down instead of shipping.
+
+**NEXT (in order)**:
+1. FM51 held-out adjudication (project 0acb12c0) joins the validation set
+   — the pre-committed out-of-sample test of h/F before any flag-posture
+   change.
+2. The bundle rides the gate: enabling the V2 flags for a corridor
+   re-process becomes safe-by-construction (cam2+cam3 apply, cam1/4/5
+   stand down) — OPERATOR decision, now enforceable in product.
+3. G1-closure: re-run the 07-31 blind product test verbatim; the gate +
+   dispositions must reproduce >= curated scores with zero hand-holding.
+4. Operator decisions still open: push the branch; blind-run rollback
+   (partially superseded — cam3's V2 path now exceeds both prior states
+   and the gate adjudicates any future candidate).
