@@ -1,0 +1,164 @@
+{
+ "v2": {
+  "cells_scored": 68,
+  "compliant": 41,
+  "pct": 60.3,
+  "worst": [
+   {
+    "bin": "07:30",
+    "cell": "NB thru",
+    "ours": 599,
+    "ref": 399
+   },
+   {
+    "bin": "07:15",
+    "cell": "NB thru",
+    "ours": 558,
+    "ref": 381
+   },
+   {
+    "bin": "08:15",
+    "cell": "NB thru",
+    "ours": 487,
+    "ref": 320
+   },
+   {
+    "bin": "08:00",
+    "cell": "NB thru",
+    "ours": 457,
+    "ref": 291
+   },
+   {
+    "bin": "07:45",
+    "cell": "NB thru",
+    "ours": 539,
+    "ref": 376
+   },
+   {
+    "bin": "08:45",
+    "cell": "NB thru",
+    "ours": 437,
+    "ref": 281
+   },
+   {
+    "bin": "07:00",
+    "cell": "NB thru",
+    "ours": 501,
+    "ref": 347
+   },
+   {
+    "bin": "08:30",
+    "cell": "NB thru",
+    "ours": 467,
+    "ref": 318
+   }
+  ]
+ },
+ "production": {
+  "cells_scored": 57,
+  "compliant": 43,
+  "pct": 75.4,
+  "worst": [
+   {
+    "bin": "08:00",
+    "cell": "NB thru",
+    "ours": 327,
+    "ref": 291
+   },
+   {
+    "bin": "07:45",
+    "cell": "SB thru",
+    "ours": 305,
+    "ref": 283
+   },
+   {
+    "bin": "08:15",
+    "cell": "NB thru",
+    "ours": 342,
+    "ref": 320
+   },
+   {
+    "bin": "08:45",
+    "cell": "NB thru",
+    "ours": 300,
+    "ref": 281
+   },
+   {
+    "bin": "08:00",
+    "cell": "SB right",
+    "ours": 15,
+    "ref": 1
+   },
+   {
+    "bin": "07:45",
+    "cell": "SB right",
+    "ours": 14,
+    "ref": 2
+   },
+   {
+    "bin": "07:45",
+    "cell": "EB left",
+    "ours": 11,
+    "ref": 0
+   },
+   {
+    "bin": "07:00",
+    "cell": "SB right",
+    "ours": 14,
+    "ref": 5
+   }
+  ]
+ },
+ "totals": {
+  "EB_left": [
+   15,
+   44,
+   67
+  ],
+  "EB_right": [
+   6,
+   4,
+   0
+  ],
+  "EB_thru": [
+   0,
+   6,
+   7
+  ],
+  "EB_uturn": [
+   0,
+   4,
+   0
+  ],
+  "NB_left": [
+   20,
+   36,
+   1
+  ],
+  "NB_thru": [
+   2713,
+   4045,
+   2779
+  ],
+  "NB_uturn": [
+   0,
+   83,
+   1
+  ],
+  "SB_right": [
+   22,
+   65,
+   89
+  ],
+  "SB_thru": [
+   1957,
+   2058,
+   2002
+  ],
+  "SB_uturn": [
+   0,
+   13,
+   10
+  ]
+ }
+}

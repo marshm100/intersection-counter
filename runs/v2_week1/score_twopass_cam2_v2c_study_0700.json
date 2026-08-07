@@ -1,8 +1,8 @@
 {
  "v2": {
   "cells_scored": 113,
-  "compliant": 62,
-  "pct": 54.9,
+  "compliant": 63,
+  "pct": 55.8,
   "worst": [
    {
     "bin": "07:45",
@@ -17,16 +17,16 @@
     "ref": 69
    },
    {
+    "bin": "08:30",
+    "cell": "EB right",
+    "ours": 42,
+    "ref": 11
+   },
+   {
     "bin": "07:30",
     "cell": "NB thru",
     "ours": 326,
     "ref": 296
-   },
-   {
-    "bin": "08:30",
-    "cell": "EB right",
-    "ours": 41,
-    "ref": 11
    },
    {
     "bin": "07:00",
@@ -37,20 +37,20 @@
    {
     "bin": "08:15",
     "cell": "EB right",
-    "ours": 36,
+    "ours": 37,
     "ref": 8
+   },
+   {
+    "bin": "08:45",
+    "cell": "EB right",
+    "ours": 39,
+    "ref": 11
    },
    {
     "bin": "07:15",
     "cell": "NB thru",
     "ours": 351,
     "ref": 324
-   },
-   {
-    "bin": "07:15",
-    "cell": "SB thru",
-    "ours": 148,
-    "ref": 175
    }
   ]
  },
@@ -117,7 +117,7 @@
   ],
   "EB_right": [
    167,
-   320,
+   332,
    309
   ],
   "EB_thru": [
@@ -162,12 +162,12 @@
   ],
   "SB_thru": [
    1384,
-   1263,
+   1291,
    1282
   ],
   "SB_uturn": [
    1,
-   13,
+   15,
    7
   ],
   "WB_left": [
@@ -182,7 +182,7 @@
   ],
   "WB_thru": [
    267,
-   287,
+   288,
    286
   ],
   "WB_uturn": [

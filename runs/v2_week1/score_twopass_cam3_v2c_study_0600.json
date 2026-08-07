@@ -1,0 +1,164 @@
+{
+ "v2": {
+  "cells_scored": 464,
+  "compliant": 337,
+  "pct": 72.6,
+  "worst": [
+   {
+    "bin": "16:15",
+    "cell": "NB thru",
+    "ours": 370,
+    "ref": 250
+   },
+   {
+    "bin": "16:30",
+    "cell": "NB thru",
+    "ours": 448,
+    "ref": 343
+   },
+   {
+    "bin": "06:00",
+    "cell": "NB thru",
+    "ours": 310,
+    "ref": 209
+   },
+   {
+    "bin": "09:00",
+    "cell": "NB thru",
+    "ours": 281,
+    "ref": 183
+   },
+   {
+    "bin": "12:45",
+    "cell": "NB thru",
+    "ours": 269,
+    "ref": 175
+   },
+   {
+    "bin": "09:30",
+    "cell": "NB thru",
+    "ours": 257,
+    "ref": 171
+   },
+   {
+    "bin": "15:30",
+    "cell": "NB thru",
+    "ours": 268,
+    "ref": 354
+   },
+   {
+    "bin": "08:15",
+    "cell": "NB thru",
+    "ours": 388,
+    "ref": 304
+   }
+  ]
+ },
+ "production": {
+  "cells_scored": 479,
+  "compliant": 307,
+  "pct": 64.1,
+  "worst": [
+   {
+    "bin": "06:30",
+    "cell": "EB thru",
+    "ours": 193,
+    "ref": 0
+   },
+   {
+    "bin": "06:30",
+    "cell": "NB thru",
+    "ours": 141,
+    "ref": 326
+   },
+   {
+    "bin": "06:45",
+    "cell": "NB thru",
+    "ours": 191,
+    "ref": 366
+   },
+   {
+    "bin": "06:15",
+    "cell": "EB thru",
+    "ours": 166,
+    "ref": 0
+   },
+   {
+    "bin": "15:30",
+    "cell": "NB thru",
+    "ours": 189,
+    "ref": 354
+   },
+   {
+    "bin": "06:45",
+    "cell": "EB thru",
+    "ours": 164,
+    "ref": 0
+   },
+   {
+    "bin": "07:30",
+    "cell": "EB thru",
+    "ours": 147,
+    "ref": 0
+   },
+   {
+    "bin": "07:15",
+    "cell": "EB thru",
+    "ours": 139,
+    "ref": 0
+   }
+  ]
+ },
+ "totals": {
+  "EB_left": [
+   196,
+   331,
+   359
+  ],
+  "EB_right": [
+   155,
+   278,
+   245
+  ],
+  "EB_thru": [
+   0,
+   26,
+   4224
+  ],
+  "EB_uturn": [
+   0,
+   7,
+   66
+  ],
+  "NB_left": [
+   114,
+   184,
+   27
+  ],
+  "NB_thru": [
+   13756,
+   16666,
+   10935
+  ],
+  "NB_uturn": [
+   8,
+   162,
+   11
+  ],
+  "SB_right": [
+   247,
+   374,
+   304
+  ],
+  "SB_thru": [
+   14385,
+   15523,
+   12493
+  ],
+  "SB_uturn": [
+   0,
+   258,
+   120
+  ]
+ }
+}

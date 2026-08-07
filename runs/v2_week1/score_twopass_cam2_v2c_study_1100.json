@@ -1,8 +1,8 @@
 {
  "v2": {
-  "cells_scored": 112,
-  "compliant": 56,
-  "pct": 50.0,
+  "cells_scored": 113,
+  "compliant": 57,
+  "pct": 50.4,
   "worst": [
    {
     "bin": "11:15",
@@ -117,7 +117,7 @@
   ],
   "EB_right": [
    351,
-   408,
+   415,
    416
   ],
   "EB_thru": [
@@ -167,7 +167,7 @@
   ],
   "SB_uturn": [
    2,
-   3,
+   5,
    3
   ],
   "WB_left": [
