@@ -102,6 +102,32 @@ def calib_fingerprint(project_id: str, camera_id: int) -> str:
     return hashlib.sha256(blob.encode()).hexdigest()
 
 
+def schema_fingerprint(project_id: str) -> str:
+    """Digest of the vehicle_events schema pass 2 writes through (ordered
+    PRAGMA column names). The reuse sidecar keys on this alongside the calib
+    fingerprint: a working DB computed before a schema migration must be
+    RECOMPUTED, never re-applied — _apply_window_events INSERT-SELECTs
+    project.db's live column list against the attached working DB, so a
+    pre-migration one dies with "no such column ..." (int2's Error card,
+    blind product test 2026-07-31)."""
+    conn = get_connection(project_id)
+    try:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(vehicle_events)")]
+    finally:
+        conn.close()
+    return hashlib.sha256(",".join(cols).encode()).hexdigest()
+
+
+def sidecar_reusable(prior: dict, meta: dict, calib_fp: str,
+                     schema_fp: str) -> bool:
+    """One source of truth for 'this pass-2 sidecar still describes reality':
+    same dump, same operator state, same vehicle_events schema. Legacy
+    sidecars missing a key fail closed (recompute once, then carry it)."""
+    return (prior.get("dump_meta") == meta
+            and prior.get("calib_fingerprint") == calib_fp
+            and prior.get("schema_fingerprint") == schema_fp)
+
+
 def _trim_datetimes(trim: dict, rec_start: datetime) -> tuple[datetime, datetime]:
     """Trim wallclock HH:MM:SS → datetimes on the recording's date. '24:00:00'
     and end-before-start both mean 'past midnight' (next day)."""
@@ -219,6 +245,7 @@ def plan_intersection(project_id: str, intersection_id: int,
     workdir = Path(workdir)
     plan = derive_windows(project_id, intersection_id)
     fp_cache: dict[int, str] = {}
+    schema_fp: str | None = None
     for w in plan:
         cid = w["camera_id"]
         try:
@@ -237,8 +264,9 @@ def plan_intersection(project_id: str, intersection_id: int,
                 meta = json.loads((tracks_dir(pq) / "meta.json").read_text())
                 if cid not in fp_cache:
                     fp_cache[cid] = calib_fingerprint(project_id, cid)
-                if (prior.get("dump_meta") == meta
-                        and prior.get("calib_fingerprint") == fp_cache[cid]):
+                if schema_fp is None:
+                    schema_fp = schema_fingerprint(project_id)
+                if sidecar_reusable(prior, meta, fp_cache[cid], schema_fp):
                     w["pass2"] = "current"
                 else:
                     w["pass2"] = "stale"
@@ -891,12 +919,12 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
     fingerprint = calib_fingerprint(project_id, camera_id)
+    schema_fp = schema_fingerprint(project_id)
     out_db = workdir / f"twopass_cam{camera_id}_{variant}.db"
     stats_p = workdir / f"twopass_cam{camera_id}_{variant}.stats.json"
     if out_db.exists() and stats_p.exists():
         prior = json.loads(stats_p.read_text())
-        if (prior.get("dump_meta") == meta
-                and prior.get("calib_fingerprint") == fingerprint):
+        if sidecar_reusable(prior, meta, fingerprint, schema_fp):
             logger.info("two-pass cam%s %s: reusing computed working DB", camera_id, variant)
             result = prior["result"]
             result["reused"] = True
@@ -1145,6 +1173,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     }
     stats_p.write_text(json.dumps({"dump_meta": meta,
                                    "calib_fingerprint": fingerprint,
+                                   "schema_fingerprint": schema_fp,
                                    "result": result},
                                   default=str, indent=1))
     if not apply:

@@ -180,6 +180,82 @@ class TestCalibFingerprint:
         assert f2 != f1
 
 
+class TestSchemaFingerprint:
+    """Schema-drift fix (plan_v2_apply_gate_2026-08-07 GATE-AG3): a pass-2
+    sidecar computed before a vehicle_events migration must never be reused
+    — re-applying its working DB dies inside _apply_window_events with
+    "no such column ..." (int2's Error card, blind product test 07-31)."""
+
+    def test_reuse_fails_closed_across_schema_drift(self, proj):
+        from backend.services.two_pass import (
+            calib_fingerprint, schema_fingerprint, sidecar_reusable)
+        iid, cid = _mk_cam(proj, video={
+            "path": "x.mp4", "fps": 10.0, "total_frames": 100,
+            "recording_start_datetime": "2026-05-12T00:00:00"})
+        meta = {"format": 2, "frames": [0, 100], "complete": True}
+        calib = calib_fingerprint(proj, cid)
+        schema = schema_fingerprint(proj)
+        good = {"dump_meta": meta, "calib_fingerprint": calib,
+                "schema_fingerprint": schema}
+        assert sidecar_reusable(good, meta, calib, schema)
+        # pre-migration sidecar: same dump + same operator state, old schema
+        old = dict(good, schema_fingerprint="pre-migration-digest")
+        assert not sidecar_reusable(old, meta, calib, schema)
+        # legacy sidecar (key absent entirely) fails closed -> recompute once
+        legacy = {"dump_meta": meta, "calib_fingerprint": calib}
+        assert not sidecar_reusable(legacy, meta, calib, schema)
+
+    def test_schema_fingerprint_tracks_migration(self, proj):
+        # adding a column — exactly what the try/except migrations do —
+        # must change the digest
+        from backend.services.two_pass import schema_fingerprint
+        f0 = schema_fingerprint(proj)
+        assert f0 == schema_fingerprint(proj)          # deterministic
+        conn = get_connection(proj)
+        with conn:
+            conn.execute(
+                "ALTER TABLE vehicle_events ADD COLUMN _drift_probe TEXT")
+        conn.close()
+        assert schema_fingerprint(proj) != f0
+
+    def test_plan_reports_stale_on_schema_drift(self, proj, tmp_path):
+        # end-to-end through plan_intersection: a 'current' window turns
+        # 'stale' the moment the sidecar's schema fingerprint stops matching
+        # the live DB — instead of feeding a doomed cached apply.
+        from backend.database import add_trim
+        from backend.services.detection_cache import parquet_path
+        from backend.services.pass2_replay import tracks_dir
+        from backend.services.two_pass import (
+            calib_fingerprint, plan_intersection, schema_fingerprint)
+        chash = "ab" * 16
+        iid, cid = _mk_cam(proj, video={
+            "path": "x.mp4", "fps": 10.0, "total_frames": 864046,
+            "recording_start_datetime": "2026-05-12T00:00:02",
+            "content_hash": chash})
+        add_trim(proj, iid, "07:00:00", "09:00:00")    # -> study_0700
+        pq = parquet_path(proj, cid, chash, "study_0700")
+        tdir = tracks_dir(pq)
+        tdir.mkdir(parents=True)
+        meta = {"format": 2, "frames": [251980, 323980], "complete": True,
+                "backend": "bytetrack"}
+        (tdir / "meta.json").write_text(json.dumps(meta))
+        np.save(tdir / "rows.npy", np.zeros((1, 8), dtype=np.float32))
+        (tdir / "count.txt").write_text("1")
+        sidecar = {"dump_meta": meta,
+                   "calib_fingerprint": calib_fingerprint(proj, cid),
+                   "schema_fingerprint": schema_fingerprint(proj),
+                   "result": {}}
+        stats_p = tmp_path / f"twopass_cam{cid}_study_0700.stats.json"
+        stats_p.write_text(json.dumps(sidecar))
+        w = plan_intersection(proj, iid, tmp_path)
+        assert [x["pass2"] for x in w] == ["current"]
+
+        sidecar["schema_fingerprint"] = "pre-migration-digest"
+        stats_p.write_text(json.dumps(sidecar))
+        w = plan_intersection(proj, iid, tmp_path)
+        assert [x["pass2"] for x in w] == ["stale"]
+
+
 class _StubDetector:
     """Deterministic detector: one moving box per frame, fails on demand."""
     calls: list = []
