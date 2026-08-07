@@ -39,7 +39,9 @@ def test_create_database():
     assert 'channels' in tables              # Phase 2.1: operator-drawn channels
     assert 'spot_counts' in tables           # Phase 4: manual spot-count validation
     assert 'review_flags' in tables          # Phase B: two-feeder review flag queue
-    assert len(tables) == 15
+    assert 'dispositions' in tables          # Phase-1 apply gate: operator judgment as state
+    assert 'apply_adjudications' in tables   # Phase-1 apply gate: audit trail
+    assert len(tables) == 17
 
 def test_wal_mode():
     conn = get_connection(TEST_PROJECT)

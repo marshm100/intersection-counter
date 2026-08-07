@@ -164,12 +164,16 @@ def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
     def _s5_union_if_needed():
         # One rebuild with ALL applied windows' S5 rows (plan_C_polish §B).
         # Single-window runs keep the per-window rebuild's identical result.
-        if body.apply and len(results) > 1:
+        # APPLIED only: a window the apply gate stood down on keeps its
+        # incumbent's flags — its working DB's S5 rows must not leak in
+        # (plan_v2_apply_gate_2026-08-07).
+        applied = [r for r in results if r.get("applied")]
+        if body.apply and len(applied) > 1:
             with _lock:
                 j = _jobs.get(key)
                 if j is not None:
                     j["stage"] = "s5-union"
-            rebuild_s5_union(project_id, intersection_id, results)
+            rebuild_s5_union(project_id, intersection_id, applied)
 
     try:
         set_v3_run_state(project_id, intersection_id, "running")

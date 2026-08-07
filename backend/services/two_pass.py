@@ -930,8 +930,9 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
             result["reused"] = True
             if not apply:
                 return result
-            return _finish_apply(project_id, camera_id, intersection_id,
-                                 out_db, f_lo, f_hi, fps, result)
+            return _gated_finish_apply(project_id, camera_id, intersection_id,
+                                       variant, out_db, f_lo, f_hi, fps,
+                                       result, chash)
 
     # --- 1. corpus bank: discovery over the dump's own tracks ---------------
     if should_cancel is not None and should_cancel():
@@ -1044,7 +1045,9 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         conf_vals = sorted(confusion.values())
         others_med = (conf_vals[len(conf_vals) // 2 - 1]
                       if len(conf_vals) >= 2 else 1.0)
-        contrast_ok = others_med < 0.25
+        # Shared constant with the apply gate (one contrast ceiling,
+        # plan_v2_apply_gate_2026-08-07); value unchanged (0.25).
+        contrast_ok = others_med < getattr(_cfg, "APPLY_GATE_SATURATION", 0.25)
         flooded = {cell for cell, nd in direct.items()
                    if contrast_ok and confusion.get(cell[0], 0.0) > 0.5
                    and nd > ratio * max(float(strict.get(cell, 0)), 1.0)}
@@ -1178,8 +1181,9 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                                   default=str, indent=1))
     if not apply:
         return result
-    return _finish_apply(project_id, camera_id, intersection_id,
-                         out_db, f_lo, f_hi, fps, result)
+    return _gated_finish_apply(project_id, camera_id, intersection_id,
+                               variant, out_db, f_lo, f_hi, fps, result,
+                               chash)
 
 
 def rebuild_s5_union(project_id: str, intersection_id: int,
@@ -1236,6 +1240,67 @@ def _rotate_backups(bdir: Path, keep: int = BACKUP_KEEP) -> None:
             logger.info("backup rotation: removed %s", old.name)
         except OSError:
             pass
+
+
+def gate_census_inputs(project_id: str, camera_id: int, chash: str,
+                       variant: str, fps: float) -> tuple[dict, dict]:
+    """The apply gate's blind inputs for one window: (gate-evidence census,
+    per-origin confusion), computed on the BASE dump (the demotion
+    selector's extension-proof principle: a derived variant's own extension
+    rows must not vouch for the events they created). Falls back to the
+    variant's own dump if no base exists; ({}, {}) when neither does —
+    the gate then abstains (not_adjudicable). Shared by the product apply
+    path and the offline validation harness (one source of truth)."""
+    base_variant = variant
+    for _pref in ("v2c_", "v2a_", "v2b_", "v2d_"):
+        if variant.startswith(_pref):
+            base_variant = variant[len(_pref):]
+            break
+    census_rows = None
+    for cand_variant in dict.fromkeys((base_variant, variant)):
+        _tdir = tracks_dir(parquet_path(project_id, camera_id, chash,
+                                        cand_variant))
+        if (_tdir / "count.txt").exists():
+            census_rows = load_dump(_tdir)
+            break
+    if census_rows is None:
+        return {}, {}
+    census = census_expecteds(project_id, camera_id, census_rows, fps)
+    _sf = strict_full_census(project_id, camera_id, census_rows, fps)
+    confusion = _sf[1] if isinstance(_sf, tuple) else {}
+    return census, confusion
+
+
+def _gated_finish_apply(project_id: str, camera_id: int, intersection_id: int,
+                        variant: str, out_db: Path, f_lo: int, f_hi: int,
+                        fps: float, result: dict, chash: str) -> dict:
+    """Adjudicate candidate (working DB) vs incumbent (project.db) for this
+    window under the blind guards, then apply only on an 'apply' decision
+    (plan_v2_apply_gate_2026-08-07 — every apply must win its window).
+    Abstentions (fresh window, no census) keep the legacy apply behavior;
+    stand-downs return the measured result with applied=False and the
+    verdict in result['apply_gate'] + the apply_adjudications trail."""
+    from backend import config as _cfg
+    from backend.services.apply_gate import adjudicate_apply
+    if not getattr(_cfg, "APPLY_GATE_ENABLED", True):
+        return _finish_apply(project_id, camera_id, intersection_id,
+                             out_db, f_lo, f_hi, fps, result)
+    census, confusion = gate_census_inputs(project_id, camera_id, chash,
+                                           variant, fps)
+    verdict = adjudicate_apply(
+        project_id, camera_id, variant,
+        incumbent_db=get_db_path(project_id), candidate_db=out_db,
+        t_lo=f_lo / fps, t_hi=f_hi / fps, census=census, confusion=confusion)
+    result = dict(result)
+    result["apply_gate"] = verdict
+    if verdict["decision"] != "apply":
+        result["applied"] = False
+        logger.info("two-pass cam%s %s: apply gate STAND-DOWN (%s) — "
+                    "incumbent table kept", camera_id, variant,
+                    ",".join(verdict["reasons"]))
+        return result
+    return _finish_apply(project_id, camera_id, intersection_id,
+                         out_db, f_lo, f_hi, fps, result)
 
 
 def _finish_apply(project_id: str, camera_id: int, intersection_id: int,

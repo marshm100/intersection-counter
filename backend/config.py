@@ -149,6 +149,19 @@ V2_MERGE_RESCUE = _os2.environ.get("V2_MERGE_RESCUE", "0") in ("1", "true", "on"
 # Kept for the record; never enable without a debiasing design.
 V2_TIMELOCAL = _os2.environ.get("V2_TIMELOCAL", "0") in ("1", "true", "on")
 
+# Phase-1 APPLY GATE (plan_v2_apply_gate_2026-08-07): per-window
+# candidate-vs-incumbent adjudication under the blind guards — an apply
+# must WIN its window; stand-downs keep the incumbent table and land in
+# the apply_adjudications audit trail. Product architecture (default ON;
+# env kill-switch reverts to unconditional apply). Constants pre-declared
+# in the plan doc, validated 12/12 blind on the v2_week1 pairs; the
+# saturation ceiling is the demotion contrast guard's shipped 0.25,
+# hoisted here so both mechanisms share one constant.
+APPLY_GATE_ENABLED = _os2.environ.get("APPLY_GATE", "1") in ("1", "true", "on")
+APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
+APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
+APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)
+
 
 def get_processing_mode_config(mode: str | None) -> dict:
     """Return the config dict for `mode`, falling back to default on unknown."""
