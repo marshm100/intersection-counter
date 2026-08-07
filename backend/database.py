@@ -306,6 +306,37 @@ CREATE TABLE IF NOT EXISTS review_flags (
     FOREIGN KEY (intersection_id) REFERENCES intersections(intersection_id),
     FOREIGN KEY (camera_id)       REFERENCES cameras(camera_id)
 );
+
+-- Per-window apply dispositions (Phase-1 apply gate, plan_v2_apply_gate_
+-- 2026-08-07): the campaign's per-camera judgment as PRODUCT STATE. The
+-- 07-31 blind product test's root cause 1 was uniform two-pass apply
+-- overriding curated per-camera dispositions that lived only in docs.
+-- No row = 'auto' (the gate adjudicates). 'hold' = operator judgment:
+-- never auto-apply this window. 'force_once' = operator-approved apply
+-- that bypasses the gate exactly once, then reverts to 'auto'.
+CREATE TABLE IF NOT EXISTS dispositions (
+    camera_id   INTEGER NOT NULL,
+    variant     TEXT NOT NULL,
+    disposition TEXT NOT NULL DEFAULT 'auto'
+                CHECK (disposition IN ('auto','hold','force_once')),
+    note        TEXT NOT NULL DEFAULT '',
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (camera_id, variant),
+    FOREIGN KEY (camera_id) REFERENCES cameras(camera_id)
+);
+
+-- Apply-gate audit trail: one row per adjudication, either direction, so
+-- the gate's behavior is reviewable from the product without the docs.
+CREATE TABLE IF NOT EXISTS apply_adjudications (
+    adjudication_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id       INTEGER NOT NULL,
+    variant         TEXT NOT NULL,
+    decision        TEXT NOT NULL,      -- apply | stand_down
+    reasons_json    TEXT NOT NULL,      -- JSON list: every failed guard (or the pass/bypass reason)
+    metrics_json    TEXT NOT NULL,      -- JSON: census_total, R_inc, R_cand, flood_share_cand, d_cov, saturation
+    created_at      TEXT NOT NULL,
+    FOREIGN KEY (camera_id) REFERENCES cameras(camera_id)
+);
 """
 
 # Indexes are kept out of SCHEMA because they reference columns added by the
@@ -1340,6 +1371,87 @@ def clear_v3_run_state(project_id: str, intersection_id: int) -> None:
             (intersection_id,),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def get_disposition(project_id: str, camera_id: int, variant: str) -> str:
+    """The operator's apply disposition for one camera window. No row =
+    'auto' (the apply gate adjudicates)."""
+    conn = get_connection(project_id)
+    try:
+        row = conn.execute(
+            "SELECT disposition FROM dispositions WHERE camera_id = ? "
+            "AND variant = ?", (camera_id, variant)).fetchone()
+        return row[0] if row else "auto"
+    finally:
+        conn.close()
+
+
+def set_disposition(project_id: str, camera_id: int, variant: str,
+                    disposition: str, note: str = "") -> None:
+    """Upsert one window's disposition ('auto' | 'hold' | 'force_once').
+    Setting 'auto' with an empty note deletes the row (the default needs
+    no storage and the table stays a list of real judgments)."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_connection(project_id)
+    try:
+        if disposition == "auto" and not note:
+            conn.execute(
+                "DELETE FROM dispositions WHERE camera_id = ? AND variant = ?",
+                (camera_id, variant))
+        else:
+            conn.execute(
+                """INSERT INTO dispositions
+                     (camera_id, variant, disposition, note, updated_at)
+                   VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(camera_id, variant) DO UPDATE SET
+                     disposition = excluded.disposition,
+                     note = excluded.note,
+                     updated_at = excluded.updated_at""",
+                (camera_id, variant, disposition, note, now))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def record_adjudication(project_id: str, camera_id: int, variant: str,
+                        decision: str, reasons: list, metrics: dict) -> None:
+    """Append one apply-gate adjudication to the audit trail."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_connection(project_id)
+    try:
+        conn.execute(
+            "INSERT INTO apply_adjudications (camera_id, variant, decision, "
+            "reasons_json, metrics_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (camera_id, variant, decision, json.dumps(reasons),
+             json.dumps(metrics), now))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_adjudications(project_id: str, camera_id: int | None = None,
+                       variant: str | None = None) -> list[dict]:
+    """The audit trail, newest first, optionally filtered."""
+    q = ("SELECT camera_id, variant, decision, reasons_json, metrics_json, "
+         "created_at FROM apply_adjudications")
+    conds, params = [], []
+    if camera_id is not None:
+        conds.append("camera_id = ?")
+        params.append(camera_id)
+    if variant is not None:
+        conds.append("variant = ?")
+        params.append(variant)
+    if conds:
+        q += " WHERE " + " AND ".join(conds)
+    q += " ORDER BY adjudication_id DESC"
+    conn = get_connection(project_id)
+    try:
+        return [{"camera_id": c, "variant": v, "decision": d,
+                 "reasons": json.loads(r), "metrics": json.loads(m),
+                 "created_at": t}
+                for c, v, d, r, m, t in conn.execute(q, params)]
     finally:
         conn.close()
 
