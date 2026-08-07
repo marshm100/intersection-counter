@@ -98,9 +98,37 @@ class TestAdjudicateCounts:
         d, r, m = adjudicate_counts({}, _spread(500, 500), CENSUS, 0.9)
         assert (d, r) == ("apply", ["fresh_window"])   # even saturated/flooded
 
-    def test_no_census_abstains_to_legacy_apply(self):
+    def test_absent_census_cannot_adjudicate_so_incumbent_stands(self):
+        # FM51 PM's exact shape: gates drawn, nothing crosses them, an
+        # incumbent table already there. Fail-CLOSED (the default): an
+        # unmeasurable window cannot be won, so it is not applied.
         from backend.services.apply_gate import adjudicate_counts
         d, r, _ = adjudicate_counts(_spread(50, 50), _spread(60, 60), {}, 0.0)
+        assert (d, r) == ("stand_down", ["census_degenerate"])
+
+    def test_degenerate_census_detected_by_overclaim_bound(self):
+        # FM51 AM measured: census 341 vs incumbent 1607 (R_inc +371%) —
+        # the census sees a fifth of the traffic, so it is not an envelope
+        # and none of the volume guards mean what they claim to mean.
+        from backend.services.apply_gate import adjudicate_counts
+        census = {(1, 2): 200.0, (2, 1): 141.0}
+        d, r, m = adjudicate_counts(_spread(1000, 607), _spread(1100, 680),
+                                    census, 0.0)
+        assert (d, r) == ("stand_down", ["census_degenerate"])
+        assert m["R_inc"] > 1.0
+
+    def test_fresh_window_still_applies_under_degenerate_census(self):
+        # a brand-new window has no incumbent to protect: rule 1 wins and
+        # a site whose gates do not engage still processes normally
+        from backend.services.apply_gate import adjudicate_counts
+        d, r, _ = adjudicate_counts({}, _spread(1100, 680), {}, 0.0)
+        assert (d, r) == ("apply", ["fresh_window"])
+
+    def test_fail_open_env_restores_unverified_apply(self, monkeypatch):
+        import backend.services.apply_gate as AG
+        monkeypatch.setattr(AG, "APPLY_GATE_FAIL_OPEN", True)
+        d, r, _ = AG.adjudicate_counts(_spread(50, 50), _spread(60, 60),
+                                       {}, 0.0)
         assert (d, r) == ("apply", ["not_adjudicable"])
 
     def test_gate_pass(self):

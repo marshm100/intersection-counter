@@ -20,7 +20,10 @@ sys.path.insert(0, ".")
 
 from backend.services.two_pass import run_pass2        # noqa: E402
 
-WORKDIR = "data/projects/97a7849a/_replay_scratch/v2_week1"
+def default_workdir(project: str) -> str:
+    """Per-project scratch (the corridor's path is unchanged by this: it
+    resolves to the same data/projects/97a7849a/_replay_scratch/v2_week1)."""
+    return f"data/projects/{project}/_replay_scratch/v2_week1"
 
 
 def main() -> int:
@@ -28,10 +31,13 @@ def main() -> int:
     ap.add_argument("--project", default="97a7849a")
     ap.add_argument("--camera", type=int, required=True)
     ap.add_argument("--variant", required=True)
+    ap.add_argument("--workdir", default=None,
+                    help="override the per-project scratch dir")
     args = ap.parse_args()
+    workdir = args.workdir or default_workdir(args.project)
     t0 = time.time()
     res = run_pass2(args.project, args.camera, variant=args.variant,
-                    workdir=WORKDIR, apply=False)
+                    workdir=workdir, apply=False)
     rep = res.get("replay", {})
     mrg = res.get("merge", {})
     print(f"[pass2] cam{args.camera} {args.variant}: tracks={rep.get('tracks')} "

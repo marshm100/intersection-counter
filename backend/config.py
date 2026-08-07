@@ -161,6 +161,23 @@ APPLY_GATE_ENABLED = _os2.environ.get("APPLY_GATE", "1") in ("1", "true", "on")
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
 APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
 APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)
+# CENSUS ADEQUACY (the FM51 held-out finding, 2026-08-07). Every guard above
+# reads the gate-evidence census as the window's volume ENVELOPE. That is a
+# PRECONDITION, not a given: at FM51 the entry gates barely engage (blind
+# evidence coverage 0.031/0.012 vs the corridor's 0.43-0.49 and the shipped
+# 0.45 activation bar), so the census saw 21% of counted traffic in one
+# window and NOTHING in the other. Bound measured, not tuned: the corridor's
+# 12 validation windows sit at incumbent/census -11.9%..+4.7%, FM51 at +371%
+# — a 20x gap either side of this bound.
+APPLY_GATE_MAX_OVERCLAIM = 1.0
+# What to do when the census cannot adjudicate (degenerate or absent) AND an
+# incumbent table exists. Default FAIL-CLOSED: the gate's contract is that
+# every apply WINS its window, and an unmeasurable window cannot be won, so
+# the incumbent stands and the operator decides (disposition 'force_once').
+# Fresh windows are unaffected — they apply at rule 1, before this. Set
+# APPLY_GATE_FAIL_OPEN=1 for the old behavior (unverified applies proceed).
+APPLY_GATE_FAIL_OPEN = _os2.environ.get("APPLY_GATE_FAIL_OPEN", "0") in (
+    "1", "true", "on")
 
 
 def get_processing_mode_config(mode: str | None) -> dict:

@@ -32,21 +32,24 @@ def camera_xml(camera_id: int) -> Path:
 XML = camera_xml(1)  # cam1 default (per-camera approach maps differ — see camera_xml)
 
 
-def _root(camera_id: int | None):
+def _root(camera_id: int | None, xml_path: Path | None = None):
     """Parse a camera's Miovision XML to an ElementTree root.
-    camera_id None -> the module-default XML (cam1), for legacy callers."""
-    xml = XML if camera_id is None else camera_xml(camera_id)
+    camera_id None -> the module-default XML (cam1), for legacy callers.
+    xml_path wins outright — how a HELD-OUT site (outside the Sunnyvale
+    corridor folder this module's resolver knows) supplies its own export."""
+    xml = xml_path or (XML if camera_id is None else camera_xml(camera_id))
     txt = xml.read_text(encoding="utf-8-sig")
     txt = re.sub(r"<\?xml[^>]*\?>", "", txt, count=1).lstrip()
     return ET.fromstring(txt)
 
 
-def approaches(camera_id: int | None = None) -> dict[int, str]:
+def approaches(camera_id: int | None = None,
+               xml_path: Path | None = None) -> dict[int, str]:
     """{approach_idx: approach Name} read straight from the camera's XML
     <Approaches> (e.g. {0:'SB N Belt Line Rd', ...}). Data-driven — the per-
     camera approach order and count (3 for a T, 4 for a 4-way) come from the
     file, not a hardcoded table."""
-    root = _root(camera_id)
+    root = _root(camera_id, xml_path)
     return {i: a.findtext("Name")
             for i, a in enumerate(root.find("Approaches").findall("Approach"))}
 
@@ -55,11 +58,13 @@ def approaches(camera_id: int | None = None) -> dict[int, str]:
 APPROACH = approaches(None)
 
 
-def parse(camera_id: int | None = None) -> dict:
+def parse(camera_id: int | None = None,
+          xml_path: Path | None = None) -> dict:
     """Return {minute_iso: [count per slot]} summed over vehicle classes, plus
     .movements = [(name, in_idx, out_idx)] for each slot. Slot count follows the
-    camera's movement count (9 for a T-intersection, 16 for a 4-way)."""
-    root = _root(camera_id)
+    camera's movement count (9 for a T-intersection, 16 for a 4-way).
+    xml_path: an explicit export (held-out sites outside the corridor)."""
+    root = _root(camera_id, xml_path)
     s = lambda t: t.split("}")[-1]
 
     movements = []
@@ -121,8 +126,10 @@ def parse_by_class(camera_id: int | None = None) -> dict:
 
 
 # slot -> (approach_name, movement_label) using Name T/R/L + InApproachIndex
-def slot_labels(movements, camera_id: int | None = None):
-    appr = APPROACH if camera_id is None else approaches(camera_id)
+def slot_labels(movements, camera_id: int | None = None,
+                xml_path: Path | None = None):
+    appr = (approaches(camera_id, xml_path) if xml_path is not None
+            else APPROACH if camera_id is None else approaches(camera_id))
     NAME = {"T": "thru", "R": "right", "L": "left", "U": "uturn"}
     labels = []
     for name, i_in, i_out in movements:

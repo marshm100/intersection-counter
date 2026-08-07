@@ -1,0 +1,48 @@
+{
+ "summary": {
+  "project": "0acb12c0",
+  "binding_correct": 1,
+  "binding_total": 2,
+  "all_correct": 1,
+  "all_total": 2
+ },
+ "pairs": [
+  {
+   "window": "cam2 ftv2n_am",
+   "binding": true,
+   "decision": "stand_down",
+   "reasons": [
+    "census_degenerate"
+   ],
+   "metrics": {
+    "census_total": 341,
+    "inc_total": 1607,
+    "cand_total": 1780,
+    "saturation": 0.0,
+    "R_inc": 3.7126
+   },
+   "score_incumbent": 87.5,
+   "score_candidate": 68.6,
+   "expected": "stand_down",
+   "correct": true
+  },
+  {
+   "window": "cam2 ftv2n_pm",
+   "binding": true,
+   "decision": "stand_down",
+   "reasons": [
+    "census_degenerate"
+   ],
+   "metrics": {
+    "census_total": 0,
+    "inc_total": 2041,
+    "cand_total": 2356,
+    "saturation": 1.0
+   },
+   "score_incumbent": 65.0,
+   "score_candidate": 69.9,
+   "expected": "apply",
+   "correct": false
+  }
+ ]
+}

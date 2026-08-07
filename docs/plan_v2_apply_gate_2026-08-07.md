@@ -44,9 +44,14 @@ DECISION (evaluate all guards, record every failure; apply only if none):
    consumed after one use.
 1. sum(I) == 0 -> APPLY (fresh_window): an empty incumbent has nothing to
    defend; first processing keeps its legacy behavior. Metrics recorded.
-2. T == 0 (no drawn gates/paths -> no census) -> APPLY (not_adjudicable):
-   the gate abstains rather than freezing re-processing on cameras without
-   geometry; curated-judgment protection there is the operator disposition.
+2. CENSUS ADEQUACY — T == 0, or R_inc > APPLY_GATE_MAX_OVERCLAIM (the
+   census cannot be an envelope for what is counted) -> STAND DOWN
+   (census_degenerate). [REVISED by the FM51 held-out verdict below: this
+   rule originally read "-> APPLY (not_adjudicable)", i.e. fail-OPEN, and
+   FM51 showed that silently ships unverified overwrites at any site whose
+   gate evidence is degenerate. Fail-open is still available via
+   APPLY_GATE_FAIL_OPEN=1. Fresh windows are unaffected: rule 1 precedes
+   this one.]
 3. saturation >= APPLY_GATE_SATURATION (0.25, the shipped contrast-guard
    constant, hoisted to config and shared) -> STAND DOWN
    (saturated_geometry).
@@ -61,7 +66,8 @@ DECISION (evaluate all guards, record every failure; apply only if none):
 
 Constants (pre-declared here, frozen before implementation):
 APPLY_GATE_HEADROOM = 0.03, APPLY_GATE_FLOOD_MAX = 0.15,
-APPLY_GATE_SATURATION = 0.25 (existing). Directional sanity: the rule is
+APPLY_GATE_SATURATION = 0.25 (existing); APPLY_GATE_MAX_OVERCLAIM = 1.0
+added post-FM51 (measured bound, see that verdict). Directional sanity: the rule is
 asymmetric by design — swapping candidate and incumbent at a window the
 gate applied must yield stand-down (headroom vanishes), so the gate cannot
 be walked back to a starved table by re-running it.
@@ -226,9 +232,9 @@ disposition) is naturally absorbed: a re-derived table that regresses now
 stands down instead of shipping.
 
 **NEXT (in order)**:
-1. FM51 held-out adjudication (project 0acb12c0) joins the validation set
-   — the pre-committed out-of-sample test of h/F before any flag-posture
-   change.
+1. ~~FM51 held-out adjudication~~ — DONE, same session; see the FM51
+   verdict section below. It did not validate h/F; it found a
+   PRECONDITION and a fail-open defect, both now fixed.
 2. The bundle rides the gate: enabling the V2 flags for a corridor
    re-process becomes safe-by-construction (cam2+cam3 apply, cam1/4/5
    stand down) — OPERATOR decision, now enforceable in product.
@@ -237,3 +243,97 @@ stands down instead of shipping.
 4. Operator decisions still open: push the branch; blind-run rollback
    (partially superseded — cam3's V2 path now exceeds both prior states
    and the gate adjudicates any future candidate).
+
+
+## FM51 HELD-OUT VERDICT (2026-08-07, same session) — the constants are
+## still unvalidated out-of-sample; the block's real product is a
+## PRECONDITION and a fail-open fix
+
+Held-out site: FM51-CORD4699 (project 0acb12c0, camera 2, Wise County —
+zero corridor knowledge, its own Miovision export). The G-A3 recipe
+verbatim (runs/v2_week1/fm51_chain.ps1): control (flags OFF), endpoint
+extension, candidate (bundle flags ON), scratch-only, both study windows.
+Evidence: runs/v2_week1/apply_gate_validation_fm51.json + the four
+score_*_ftv2n_* JSONs.
+
+**Scoring prerequisite, derived not assumed.** FM51's Mio export is a T
+(approaches SB FM 51 / NB FM 51 / WB Co Rd 4699) while the camera's
+operator compass is rotated a uniform +90 degrees (labels W/E/S sit on
+the true S/N/E arms). The leg->approach map was pinned by TURN
+HANDEDNESS plus magnitude, independently in BOTH windows (ours S->E is a
+right == Mio 'WB R->SB', 51/46 AM and 16/13 PM; ours E->S is a left ==
+Mio 'SB L->WB', 9/11 and 23/30; ours S->W is a left == Mio 'WB L->NB',
+1/1) — a falsifiable structural test, not volume fitting. The uniform
+rotation across all three arms is what makes it a compass-calibration
+offset rather than mislabeling. Leg 4 (SE) is a driveway the export has
+no approach for: unscoreable, dropped identically on both sides.
+OPERATOR NOTE (out of scope here, worth a ticket): that rotation means
+FM51's TMC export would carry wrong NB/SB/EB/WB direction NAMES —
+movements and volumes are unaffected (our turn handedness matches Mio
+exactly), only the labels.
+
+**THE FINDING: the gate's blind census does not transfer to this site.**
+Every guard reads the gate-evidence census as the window's volume
+envelope. At FM51 the entry gates barely engage: 86% of AM tracks and
+94% of PM tracks never cross one (54 full journeys of 2604 at AM, ZERO
+of 3250 at PM), and the arterial pair carrying ~90% of the traffic has
+no census entry at all. The pipeline's own blind coverage measure says
+so independently — 0.031 (AM) and 0.012 (PM) against the shipped 0.45
+evidence-activation bar, where the corridor sits at 0.43-0.49. Counting
+itself is healthy there (control scores 87.5 / 65.0); it is the
+gate-evidence CHANNEL that is degenerate, and the apply gate consumed it
+anyway.
+
+**What the first run actually did (before the fix):** AM stand_down via
+no_headroom/event_flood/no_recovery — the right answer, but computed
+from R_inc = +371%, which does not mean "the incumbent over-claims by
+371%", it means the census sees a fifth of the traffic. PM apply via
+`not_adjudicable` — the right answer purely by the fail-open default,
+since the census was empty. 2/2 by outcome, 0/2 by reasoning. Reporting
+that as an out-of-sample PASS would have been false.
+
+**The defect that exposed:** rule 2's abstention was fail-OPEN. At a
+site where the census is broken, the gate silently applied whatever the
+pipeline produced — the exact unverified overwrite it exists to prevent.
+This was not hypothetical: FM51's AM candidate is **-18.9 points**, and
+its census was 54 crossings away from being empty like PM's. The old
+design ships that regression on the coin flip.
+
+**The fix (shipped this session):**
+- CENSUS ADEQUACY precondition — absent census, or an incumbent/census
+  ratio implying the census is not an envelope, is now detected and
+  recorded as `census_degenerate` instead of being fed to the volume
+  guards. Bound MEASURED, not tuned: corridor windows sit at
+  incumbent/census -11.9%..+4.7%, FM51 at +371% — APPLY_GATE_MAX_OVERCLAIM
+  = 1.0 sits ~20x from either side.
+- FAIL-CLOSED by default (APPLY_GATE_FAIL_OPEN=1 restores the old
+  behavior): an unmeasurable window cannot be won, so the incumbent
+  stands and the operator decides via `force_once`. Fresh windows are
+  unaffected — they apply at rule 1, before this test.
+
+**Result after the fix.** Corridor: 11/11 binding UNCHANGED (verdicts
+and reasons byte-identical; the evidence JSON gains only a `project`
+key) — the precondition never fires on a healthy site. FM51: AM
+stand_down `census_degenerate` (CORRECT, now for the right reason), PM
+stand_down `census_degenerate` (a MISS against the score truth: the
+candidate was +4.9 there). So FM51 is 1/2 by outcome and 2/2 by honest
+reasoning. The two error classes are not symmetric: this miss FORGOES a
+gain, where the fail-open path RISKED SHIPPING a -18.9 regression.
+
+**Status of the pre-committed out-of-sample test: NOT SATISFIED.** h and
+F remain validated in-sample only — FM51 never exercised them, because
+it never got past the precondition. The gate is now honest about the
+sites it cannot judge, which is strictly better than a false PASS, but
+the constants still need a held-out site whose gate evidence is healthy.
+
+**NEXT, revised:**
+1. A held-out window with a WORKING census is still owed. Two routes,
+   cheapest first: (a) FM51's sibling camera 3 (FM51-FM2123, same
+   project, uncalibrated today — needs legs/paths drawn before it can
+   produce evidence); (b) re-examine FM51 cam2's leg geometry — the
+   arterial mouths sit 77 px apart near the frame top and the census
+   misses the arterial entirely, so this may be a fixable CALIBRATION
+   problem rather than a site property. (b) is diagnostic work with a
+   second payoff: it would tell us whether "gates barely engage" is a
+   drawing error the product should surface to operators.
+2. Only after that: flag posture / bundle-rides-the-gate / G1-closure.

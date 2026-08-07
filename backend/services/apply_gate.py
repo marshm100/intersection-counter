@@ -28,8 +28,10 @@ import sqlite3
 from pathlib import Path
 
 from backend.config import (
+    APPLY_GATE_FAIL_OPEN,
     APPLY_GATE_FLOOD_MAX,
     APPLY_GATE_HEADROOM,
+    APPLY_GATE_MAX_OVERCLAIM,
     APPLY_GATE_SATURATION,
 )
 from backend.database import (
@@ -82,17 +84,25 @@ def adjudicate_counts(inc: dict, cand: dict, census: dict,
     if n_inc == 0:
         # nothing to defend: first processing keeps its legacy behavior
         return "apply", ["fresh_window"], metrics
-    if t <= 0:
-        # no drawn gates/paths -> no census -> the gate abstains rather
-        # than freezing re-processing; protection there = dispositions
-        return "apply", ["not_adjudicable"], metrics
+    # CENSUS ADEQUACY precondition (FM51 held-out finding): every guard
+    # below reads the census as this window's volume envelope. Absent, or
+    # accounting for so little of the counted traffic that it cannot be
+    # one, there is nothing to adjudicate against — and "apply anyway"
+    # would ship exactly the unverified overwrite the gate exists to stop
+    # (FM51's own AM candidate was -18.9 points).
+    if t > 0:
+        metrics["R_inc"] = round(n_inc / t - 1, 4)
+    if t <= 0 or n_inc / t - 1 > APPLY_GATE_MAX_OVERCLAIM:
+        if APPLY_GATE_FAIL_OPEN:
+            return "apply", ["not_adjudicable"], metrics
+        return "stand_down", ["census_degenerate"], metrics
 
     cells = set(inc) | set(cand) | set(census)
     exc_i = sum(max(0.0, inc.get(c, 0) - census.get(c, 0.0)) for c in cells)
     exc_c = sum(max(0.0, cand.get(c, 0) - census.get(c, 0.0)) for c in cells)
     d_cov = (n_cand - exc_c) - (n_inc - exc_i)
     metrics.update({
-        "R_inc": round(n_inc / t - 1, 4), "R_cand": round(n_cand / t - 1, 4),
+        "R_cand": round(n_cand / t - 1, 4),
         "flood_share_inc": round(exc_i / t, 4),
         "flood_share_cand": round(exc_c / t, 4), "d_cov": round(d_cov)})
 
