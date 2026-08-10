@@ -149,6 +149,18 @@ V2_MERGE_RESCUE = _os2.environ.get("V2_MERGE_RESCUE", "0") in ("1", "true", "on"
 # Kept for the record; never enable without a debiasing design.
 V2_TIMELOCAL = _os2.environ.get("V2_TIMELOCAL", "0") in ("1", "true", "on")
 
+# V2 track-derived GATE ORIENTATION (plan_v2_gate_axis_2026-08-10): the
+# gate at a leg mouth must lie ACROSS the road, and both operator-drawn
+# sources for that direction are measured unreliable (channel tangents
+# 23.8-55.0 deg off actual travel on the CORRIDOR, worse at FM51;
+# reference_heading 20-58 deg off elsewhere). With this on, the axis is
+# estimated from the window's own tracks instead — axial (doubled-angle)
+# averaging, since mouth traffic is bidirectional — and only where the
+# support floor is met; every other leg keeps the shipped behavior
+# byte-identically. Default OFF until G-OR1..4 pass. OFFLINE paths only:
+# the live first pass has no completed track set and is untouched.
+V2_GATE_AXIS = _os2.environ.get("V2_GATE_AXIS", "0") in ("1", "true", "on")
+
 # Phase-1 APPLY GATE (plan_v2_apply_gate_2026-08-07): per-window
 # candidate-vs-incumbent adjudication under the blind guards — an apply
 # must WIN its window; stand-downs keep the incumbent table and land in

@@ -1093,8 +1093,14 @@ class ProcessingPipeline:
             # themselves. The fill-arm confound (origin_evidenced 4691->2628
             # from one added path's mouth tangents) is why this is separate.
             gate_paths = getattr(self, "_gate_paths", None) or self._paths
-            self._entry_gates = build_gates(mouths, gate_paths or [], heads) \
-                if mouths else {}
+            # _gate_axes: track-derived road axes, INJECTED by a caller that
+            # holds a complete track set (pass-2 replay). Never derived here
+            # — the live first pass has no finished tracks when gates are
+            # first needed, and lazy derivation would make gate geometry
+            # depend on arrival order, the instability this method guards.
+            self._entry_gates = build_gates(
+                mouths, gate_paths or [], heads,
+                leg_axes=getattr(self, "_gate_axes", None)) if mouths else {}
         return self._entry_gates
 
     def _gate_evidence(self, vehicle: dict) -> tuple[int | None, int | None, str | None]:

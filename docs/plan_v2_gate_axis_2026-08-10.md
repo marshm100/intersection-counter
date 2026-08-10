@@ -27,6 +27,15 @@ Neither source dominates; they fail in different places and at cam4 leg
 TRACKS' OWN travel axis — it is the yardstick every number above was
 measured against. This block derives the gate orientation from it.
 
+> **[SUPERSEDED — read the BLOCK VERDICT first.] The table above is
+> WRONG.** It was computed with a naive mean of unit displacement
+> vectors, which cancels on bidirectional mouth traffic. Under the
+> correct axial estimator the corridor figures largely dissolve (cam2 leg
+> 29: 55.0 -> 1.6 deg; cam4 leg 33: 49.4 -> 3.1-6.6 deg; FM51 leg 2: 85.4
+> -> 13.2 deg). It is kept here, uncorrected, because it is what the block
+> was launched on; the verdict section carries the corrected numbers and
+> the premise it refutes.
+
 ## Why this is worth a block (the prize, sized honestly)
 
 Gate evidence feeds four shipped consumers: merge expecteds
@@ -126,3 +135,73 @@ operator can see when a camera cannot produce gate evidence. Today both
 the evidence channel and the apply gate stand down silently — the same
 "judgment lives in docs, not the product" failure the 07-31 blind test
 punished.
+
+
+## BLOCK VERDICT (2026-08-10) — G-OR1 FAILED. Mechanism LEDGERED, and the
+## diagnosis that motivated it is CORRECTED
+
+**G-OR1 FAIL, decisively.** Track-derived orientation vs the shipped
+channel tangents, full gate-to-gate journeys per window
+(runs/v2_week1/gate_axis_measurement.json):
+
+  cam1 0700 1154->1257 (+8.9%)   cam1 1600 2719->2736 (+0.6%)
+  cam2 0700 3474->3439 (-1.0%)   cam2 1100 2428->2456 (+1.2%)
+  cam2 1600 3354->3251 (-3.1%)
+  **cam3 0600 17035->3132 (-81.6%)**
+  cam4 0700/1100/1600 +3.7% / +0.9% / +0.8%
+  cam5 0700/1100/1600 -0.5% / +0.0% / +0.1%
+  FM51 AM 54->61, PM 0->18 (from a base that is broken either way)
+
+The gate said no camera may lose more than 2% and at least one must gain
+5%. cam3 loses 81.6%. LEDGERED: V2_GATE_AXIS stays default OFF, the code
+stays for the record (the V2_TIMELOCAL precedent). G-OR4 (determinism +
+candidate-independence) passes in unit tests; G-OR2/G-OR3 were never
+reached because G-OR1 is the entry gate.
+
+**WHY it fails is the block's real product: "perpendicular to local
+travel" is REFUTED as the design target.** At cam3 the derived axis
+matches measured travel EXACTLY (0.0 deg by construction, axial
+concentration 0.91-0.94 over n=36212 tracks at leg 31) while the shipped
+channel tangents sit 12-21 deg off it — and the "wrong" gates produce
+17035 full journeys against 3132. The tag redistribution names the
+mechanism: entry_only jumps 4140 -> 13055 while full collapses, i.e.
+tracks still enter but no longer reach an exit gate. A gate square to
+the local motion of nearby traffic is NOT the same object as a gate
+across the roadway at the mouth line, and the difference is worth 5.4x
+on this camera. Nothing in this block justifies preferring the former.
+
+**CORRECTION to the 2026-08-10 FM51 geometry diagnosis (important).**
+The orientation-error table that motivated this block — "channel tangents
+23.8-55.0 deg off actual travel on the corridor" — was computed with a
+NAIVE MEAN of unit displacement vectors. Mouth traffic is bidirectional,
+so that estimator partially cancels and is invalid; this block's own
+mechanism section is where the correct (axial) estimator got written
+down. Recomputed axially, the corridor gates are nearly right and the
+reported errors largely dissolve:
+
+  claim (naive)                 corrected (axial)
+  cam2 leg 29  55.0 deg    ->   0.2-1.6 deg
+  cam2 leg 28  23.8 deg    ->   13.3-13.5 deg
+  cam4 leg 33  49.4 deg    ->   3.1-6.6 deg
+  FM51 leg 2   85.4 deg    ->   13.2 deg
+  FM51 leg 1   77.9 deg    ->   50.0 deg (still a genuine outlier)
+
+Surviving outliers worth a future look, on the corrected measure only:
+FM51 leg 1 (50 deg) and cam1 legs 22/25 (42 / 88 deg). The claim that
+"the corridor's gates are misoriented too" does NOT survive; it was an
+artifact of my estimator, and the earlier FM51 write-up is amended by
+this section rather than rewritten, so the error stays on the record.
+
+**Consequences.**
+1. Gate orientation is NOT a live accuracy lever. cam3 was the prize
+   (0.431 vs the 0.45 activation bar) and this mechanism moves it the
+   wrong way (coverage 0.456 -> 0.349 on the same proxy).
+2. Any future attempt must first DEFINE the target orientation properly —
+   the roadway's local tangent at the mouth line, from a fitted
+   centreline — and must not use "mean local motion" as ground truth. A
+   radius sweep (90/60/40/25/15 px) shows the motion axis does not
+   converge on the channel tangent and moves in different directions at
+   different legs, so it is not a stable target at all.
+3. The FM51 conclusion is unchanged and independently supported: its
+   binding constraint is track length (3.6% of tracks long enough), not
+   orientation.

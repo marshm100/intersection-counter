@@ -184,6 +184,16 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         # Injected candidates must not perturb the origin-evidence gate
         # geometry — gates stay pinned to the camera's DB-applied paths.
         pipe._gate_paths = list_paths_for_camera(project_id, camera_id)
+    # Track-derived gate axes (V2_GATE_AXIS; None when off). Computed HERE,
+    # from the complete dump this replay is about to feed, and injected —
+    # the pipeline never derives them itself (plan_v2_gate_axis_2026-08-10).
+    from backend.services.two_pass import _tracks_from_rows, gate_axes_for
+    _mouths = {lg["leg_id"]: tuple(lg["origin_zone"][0])
+               for lg in legs if lg.get("origin_zone")}
+    if _mouths:
+        _axes = gate_axes_for(_mouths, _tracks_from_rows(rows).values())
+        if _axes:
+            pipe._gate_axes = _axes
 
     # --- the post-tracker per-frame loop, replicated verbatim ---------------
     # (pipeline._process_frame after tracker.update: vehicle accumulation +

@@ -17,6 +17,63 @@ import math
 GATE_PAD_PX = 30.0     # beyond the channels' lane spread, each side
 GATE_MIN_HALF = 45.0   # floor so a one-lane leg still has a usable gate
 
+# Track-derived gate orientation (plan_v2_gate_axis_2026-08-10). The gate
+# must lie ACROSS the road; the shipped source for that direction is the
+# mean of the operator's channel tangents at the mouth, and it is measured
+# unreliable (FM51 legs 1/2 at 77.9/85.4 deg from actual travel; corridor
+# cam2 leg 29 at 55.0, cam4 leg 33 at 49.4). These constants govern
+# deriving the axis from the window's own tracks instead.
+AXIS_RADIUS_PX = 90.0     # neighbourhood around the mouth
+AXIS_MIN_DISP_PX = 8.0    # ignore parked/jitter tracks
+AXIS_MIN_TRACKS = 30      # support floor
+AXIS_MIN_R = 0.30         # axial concentration floor (resultant length)
+
+
+def derive_gate_axes(legs, tracks, radius_px: float = AXIS_RADIUS_PX,
+                     min_tracks: int = AXIS_MIN_TRACKS,
+                     min_r: float = AXIS_MIN_R) -> dict:
+    """{leg_id: (ax, ay)} road AXIS at each mouth, from the tracks' own
+    motion. Unit vector, sign meaningless (an axis, not a direction).
+
+    Traffic through a mouth is BIDIRECTIONAL, so averaging displacement
+    vectors cancels inbound against outbound. This uses the axial
+    estimator instead: average (cos 2t, sin 2t) and halve, which is
+    invariant to each track's direction sign by construction. A leg is
+    OMITTED (caller falls back to the channel tangents) unless it has
+    min_tracks contributors and resultant length >= min_r — a mouth whose
+    traffic has no dominant axis must not have one invented for it.
+
+    Pure function of (mouths, tracks, constants): no bank, no candidate
+    paths, so injecting or ablating candidates cannot rotate a gate (the
+    stability rule pipeline._gate_paths exists to protect).
+    """
+    out = {}
+    for leg, mouth in legs.items():
+        sx = sy = 0.0
+        n = 0
+        for tr in tracks:
+            near = [p for p in tr
+                    if math.hypot(p[-2] - mouth[0], p[-1] - mouth[1]) <= radius_px]
+            if len(near) < 2:
+                continue
+            dx = near[-1][-2] - near[0][-2]
+            dy = near[-1][-1] - near[0][-1]
+            L = math.hypot(dx, dy)
+            if L < AXIS_MIN_DISP_PX:
+                continue
+            t = math.atan2(dy / L, dx / L)
+            sx += math.cos(2.0 * t)
+            sy += math.sin(2.0 * t)
+            n += 1
+        if n < min_tracks:
+            continue
+        r = math.hypot(sx, sy) / n          # axial concentration in [0,1]
+        if r < min_r:
+            continue
+        t2 = math.atan2(sy / n, sx / n) / 2.0
+        out[leg] = (math.cos(t2), math.sin(t2))
+    return out
+
 
 def _closest_on_polyline(poly, pt):
     """(closest point, unit tangent, distance) of poly to pt."""
@@ -37,7 +94,7 @@ def _closest_on_polyline(poly, pt):
     return best
 
 
-def build_gates(legs, bank_paths, leg_head=None):
+def build_gates(legs, bank_paths, leg_head=None, leg_axes=None):
     """{leg_id: (p1, p2, inward_normal)} — gate segment + which way is 'in'.
 
     Orientation: mean of the leg's channels' local tangents at their closest
@@ -45,7 +102,13 @@ def build_gates(legs, bank_paths, leg_head=None):
     Span: the channels' closest points projected on the gate direction give the
     lane spread; pad + floor. Inward normal points at the mouth centroid.
     A leg with NO channels in the bank (e.g. cam1's zero-traffic driveway leg)
-    falls back to the operator's reference_heading for the road direction."""
+    falls back to the operator's reference_heading for the road direction.
+
+    leg_axes: optional {leg_id: (ax, ay)} road axes measured from the
+    window's own tracks (derive_gate_axes). Where a leg has one it REPLACES
+    the channel-tangent direction — the drawn artifacts are measured
+    unreliable — while span, inward sign and de-overlap are unchanged.
+    Legs absent from the map keep the channel-tangent behavior exactly."""
     centroid = (sum(m[0] for m in legs.values()) / len(legs),
                 sum(m[1] for m in legs.values()) / len(legs))
     gates = {}
@@ -66,8 +129,11 @@ def build_gates(legs, bank_paths, leg_head=None):
             hd = math.radians(float((leg_head or {}).get(leg) or 0.0))
             # reference_heading: 0=N, clockwise; screen y grows downward
             tangents = [(math.sin(hd), -math.cos(hd))]
-        tx = sum(t[0] for t in tangents) / len(tangents)
-        ty = sum(t[1] for t in tangents) / len(tangents)
+        if (leg_axes or {}).get(leg):
+            tx, ty = leg_axes[leg]
+        else:
+            tx = sum(t[0] for t in tangents) / len(tangents)
+            ty = sum(t[1] for t in tangents) / len(tangents)
         n = math.hypot(tx, ty) or 1.0
         tx, ty = tx / n, ty / n                     # mean road direction
         gx, gy = -ty, tx                            # gate = perpendicular

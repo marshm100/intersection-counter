@@ -336,6 +336,29 @@ def conserve_replay_additions(db: str | Path, camera_id: int,
             "rejected_vs_additive": n_additive_dupe}
 
 
+def gate_axes_for(mouths: dict, tracks) -> dict | None:
+    """Track-derived road axes for gate orientation, or None when the
+    V2_GATE_AXIS flag is off (then build_gates keeps its channel-tangent
+    behavior byte-identically). One place so every offline consumer —
+    conserve_pass, census_expecteds, strict_full_census and the pass-2
+    replay injection — derives gates the same way from the same dump."""
+    from backend import config as _cfg
+    if not getattr(_cfg, "V2_GATE_AXIS", False):
+        return None
+    from backend.services.entry_gates import derive_gate_axes
+    return derive_gate_axes(mouths, tracks)
+
+
+def _tracks_from_rows(rows: np.ndarray) -> dict:
+    """{track_id: [(frame, x, y), ...]} — the shape the gate/census helpers
+    consume."""
+    tracks: dict[int, list] = {}
+    for r in rows:
+        tracks.setdefault(int(r[0]), []).append(
+            (float(r[1]), float(r[2]), float(r[3])))
+    return tracks
+
+
 def conserve_pass(project_id: str, camera_id: int, rows: np.ndarray,
                   fps: float, out_db: str | Path) -> dict:
     """Convenience wrapper for run_pass2 + the ablation harness: build the
@@ -355,14 +378,11 @@ def conserve_pass(project_id: str, camera_id: int, rows: np.ndarray,
     conn.close()
     if not mouths:
         return {"skipped": "no leg mouths"}
+    tracks = _tracks_from_rows(rows)
     gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
-                        heads)
+                        heads, leg_axes=gate_axes_for(mouths, tracks.values()))
     if not gates:
         return {"skipped": "no gates"}
-    tracks: dict[int, list] = {}
-    for r in rows:
-        tracks.setdefault(int(r[0]), []).append(
-            (float(r[1]), float(r[2]), float(r[3])))
     chain_map = build_chain_map(tracks, gates, fps)
     return conserve_replay_additions(out_db, camera_id, chain_map)
 
@@ -389,14 +409,11 @@ def census_expecteds(project_id: str, camera_id: int, rows: np.ndarray,
     conn.close()
     if not mouths:
         return {}
+    tracks = _tracks_from_rows(rows)
     gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
-                        heads)
+                        heads, leg_axes=gate_axes_for(mouths, tracks.values()))
     if not gates:
         return {}
-    tracks: dict[int, list] = {}
-    for r in rows:
-        tracks.setdefault(int(r[0]), []).append(
-            (float(r[1]), float(r[2]), float(r[3])))
     return cell_census(tracks.values(), gates, fps)
 
 
@@ -420,14 +437,11 @@ def strict_full_census(project_id: str, camera_id: int, rows: np.ndarray,
     conn.close()
     if not mouths:
         return {}
+    tracks = _tracks_from_rows(rows)
     gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
-                        heads)
+                        heads, leg_axes=gate_axes_for(mouths, tracks.values()))
     if not gates:
         return {}
-    tracks: dict[int, list] = {}
-    for r in rows:
-        tracks.setdefault(int(r[0]), []).append(
-            (float(r[1]), float(r[2]), float(r[3])))
     # channel families by origin, for the entanglement measure
     paths = list_paths_for_camera(project_id, camera_id)
     chans: dict[int, list] = {}

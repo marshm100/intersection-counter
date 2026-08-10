@@ -226,3 +226,87 @@ def test_gate_evidence_dump_fidelity_n500():
         if checked >= 500:
             break
     assert checked >= 500
+
+
+class TestDeriveGateAxes:
+    """Track-derived gate orientation (plan_v2_gate_axis_2026-08-10)."""
+
+    def _traffic(self, n, x0, y0, dx, dy, sign=1):
+        """n straight tracks through (x0,y0) along (dx,dy)."""
+        out = []
+        for i in range(n):
+            off = (i % 5) - 2                      # a little lane spread
+            pts = [(float(k), x0 + off + sign*dx*k/4.0,
+                    y0 + off + sign*dy*k/4.0) for k in range(5)]
+            out.append(pts)
+        return out
+
+    def test_axis_recovered_from_straight_traffic(self):
+        from backend.services.entry_gates import derive_gate_axes
+        # leg 1's mouth at (50,0); road runs N-S (0,1) in screen coords
+        tracks = self._traffic(40, 50.0, 0.0, 0.0, 20.0)
+        axes = derive_gate_axes({1: (50.0, 0.0)}, tracks)
+        ax, ay = axes[1]
+        assert abs(abs(ay) - 1.0) < 0.05 and abs(ax) < 0.05
+
+    def test_bidirectional_traffic_does_not_cancel(self):
+        """The reason for axial (doubled-angle) averaging: inbound and
+        outbound vectors are antiparallel, so a naive vector mean would
+        cancel to noise and hand the gate a meaningless direction."""
+        from backend.services.entry_gates import derive_gate_axes
+        tracks = (self._traffic(30, 50.0, 0.0, 0.0, 20.0, sign=1)
+                  + self._traffic(30, 50.0, 0.0, 0.0, 20.0, sign=-1))
+        # the naive estimator these tracks defeat
+        import math
+        vx = vy = 0.0
+        for t in tracks:
+            dx, dy = t[-1][1]-t[0][1], t[-1][2]-t[0][2]
+            L = math.hypot(dx, dy)
+            vx += dx/L
+            vy += dy/L
+        assert math.hypot(vx/len(tracks), vy/len(tracks)) < 0.1   # cancelled
+        # the axial estimator still recovers the road axis
+        ax, ay = derive_gate_axes({1: (50.0, 0.0)}, tracks)[1]
+        assert abs(abs(ay) - 1.0) < 0.05 and abs(ax) < 0.05
+
+    def test_support_floor_omits_thin_and_incoherent_mouths(self):
+        from backend.services.entry_gates import derive_gate_axes
+        # too few tracks -> omitted (caller keeps channel tangents)
+        assert derive_gate_axes({1: (50.0, 0.0)},
+                                self._traffic(5, 50.0, 0.0, 0.0, 20.0)) == {}
+        # plenty of tracks but no dominant axis -> omitted
+        import math
+        spun = []
+        for i in range(60):
+            a = 2*math.pi*i/60.0
+            spun.append([(float(k), 50.0 + 20*k*math.cos(a)/4.0,
+                          0.0 + 20*k*math.sin(a)/4.0) for k in range(5)])
+        assert derive_gate_axes({1: (50.0, 0.0)}, spun) == {}
+
+    def test_axes_are_deterministic(self):
+        from backend.services.entry_gates import derive_gate_axes
+        tracks = self._traffic(40, 50.0, 0.0, 3.0, 20.0)
+        a = derive_gate_axes({1: (50.0, 0.0)}, tracks)
+        b = derive_gate_axes({1: (50.0, 0.0)}, list(reversed(tracks)))
+        assert a[1] == pytest.approx(b[1], abs=1e-12)
+
+    def test_build_gates_uses_axis_and_leaves_other_legs_alone(self):
+        from backend.services.entry_gates import build_gates
+        base = build_gates(LEGS, PATHS, HEAD)
+        # rotate leg 1's road axis 90 degrees vs its channel (which is N-S)
+        rotated = build_gates(LEGS, PATHS, HEAD, leg_axes={1: (1.0, 0.0)})
+        assert rotated[1] != base[1]
+        for leg in (2, 3, 4):
+            assert rotated[leg] == base[leg]
+
+    def test_candidate_paths_cannot_rotate_a_derived_axis(self):
+        """G-OR4(b): the axis is a pure function of mouths+tracks, so
+        injecting an extra candidate path leaves it untouched (the
+        fill-arm confound rule that pipeline._gate_paths protects)."""
+        from backend.services.entry_gates import derive_gate_axes
+        tracks = self._traffic(40, 50.0, 0.0, 0.0, 20.0)
+        before = derive_gate_axes({1: (50.0, 0.0)}, tracks)
+        # derive_gate_axes takes no paths at all — the property is structural
+        import inspect
+        assert "path" not in inspect.signature(derive_gate_axes).parameters
+        assert before == derive_gate_axes({1: (50.0, 0.0)}, tracks)
