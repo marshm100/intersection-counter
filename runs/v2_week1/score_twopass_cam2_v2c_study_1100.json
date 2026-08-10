@@ -55,57 +55,57 @@
   ]
  },
  "production": {
-  "cells_scored": 105,
-  "compliant": 45,
-  "pct": 42.9,
+  "cells_scored": 113,
+  "compliant": 57,
+  "pct": 50.4,
   "worst": [
    {
     "bin": "11:15",
+    "cell": "NB thru",
+    "ours": 154,
+    "ref": 117
+   },
+   {
+    "bin": "11:15",
     "cell": "SB right",
-    "ours": 16,
+    "ours": 17,
     "ref": 53
+   },
+   {
+    "bin": "11:00",
+    "cell": "NB thru",
+    "ours": 146,
+    "ref": 114
    },
    {
     "bin": "12:15",
     "cell": "SB right",
-    "ours": 21,
+    "ours": 25,
     "ref": 56
    },
    {
     "bin": "11:45",
-    "cell": "SB right",
-    "ours": 21,
-    "ref": 51
-   },
-   {
-    "bin": "11:00",
-    "cell": "SB right",
-    "ours": 18,
-    "ref": 43
-   },
-   {
-    "bin": "11:00",
     "cell": "NB thru",
-    "ours": 137,
-    "ref": 114
-   },
-   {
-    "bin": "11:30",
-    "cell": "NB thru",
-    "ours": 163,
-    "ref": 142
-   },
-   {
-    "bin": "11:45",
-    "cell": "EB thru",
-    "ours": 4,
-    "ref": 25
+    "ours": 181,
+    "ref": 152
    },
    {
     "bin": "12:00",
+    "cell": "NB thru",
+    "ours": 186,
+    "ref": 157
+   },
+   {
+    "bin": "11:45",
     "cell": "SB right",
-    "ours": 28,
-    "ref": 49
+    "ours": 23,
+    "ref": 51
+   },
+   {
+    "bin": "12:15",
+    "cell": "NB thru",
+    "ours": 176,
+    "ref": 148
    }
   ]
  },
@@ -113,77 +113,77 @@
   "EB_left": [
    326,
    275,
-   247
+   275
   ],
   "EB_right": [
    351,
    415,
-   416
+   415
   ],
   "EB_thru": [
    176,
    70,
-   65
+   70
   ],
   "EB_uturn": [
    0,
    5,
-   0
+   5
   ],
   "NB_left": [
    450,
    338,
-   328
+   338
   ],
   "NB_right": [
    28,
    2,
-   1
+   2
   ],
   "NB_thru": [
    1105,
    1329,
-   1251
+   1329
   ],
   "NB_uturn": [
    5,
    12,
-   3
+   12
   ],
   "SB_left": [
    145,
    190,
-   192
+   190
   ],
   "SB_right": [
    388,
    197,
-   185
+   197
   ],
   "SB_thru": [
    1064,
    1142,
-   1071
+   1142
   ],
   "SB_uturn": [
    2,
    5,
-   3
+   5
   ],
   "WB_left": [
    63,
    32,
-   30
+   32
   ],
   "WB_right": [
    144,
    196,
-   198
+   196
   ],
   "WB_thru": [
    196,
    217,
-   212
+   217
   ],
   "WB_uturn": [
    0,
