@@ -255,6 +255,36 @@ class TestSchemaFingerprint:
         w = plan_intersection(proj, iid, tmp_path)
         assert [x["pass2"] for x in w] == ["stale"]
 
+    def test_plan_surfaces_gate_evidence_coverage(self, proj, tmp_path):
+        # The operator-visible readout: a camera whose gates barely engage
+        # (FM51 measured 0.031 against the 0.45 bar) must be visible as
+        # such, not silently unjudgeable.
+        from backend.database import add_trim
+        from backend.services.detection_cache import parquet_path
+        from backend.services.pass2_replay import tracks_dir
+        from backend.services.two_pass import (
+            calib_fingerprint, plan_intersection, schema_fingerprint)
+        chash = "cd" * 16
+        iid, cid = _mk_cam(proj, video={
+            "path": "x.mp4", "fps": 10.0, "total_frames": 864046,
+            "recording_start_datetime": "2026-05-12T00:00:02",
+            "content_hash": chash})
+        add_trim(proj, iid, "07:00:00", "09:00:00")
+        tdir = tracks_dir(parquet_path(proj, cid, chash, "study_0700"))
+        tdir.mkdir(parents=True)
+        meta = {"format": 2, "frames": [251980, 323980], "complete": True}
+        (tdir / "meta.json").write_text(json.dumps(meta))
+        np.save(tdir / "rows.npy", np.zeros((1, 8), dtype=np.float32))
+        (tdir / "count.txt").write_text("1")
+        ev = {"coverage": 0.031, "threshold": 0.45, "activated": False}
+        (tmp_path / f"twopass_cam{cid}_study_0700.stats.json").write_text(
+            json.dumps({"dump_meta": meta,
+                        "calib_fingerprint": calib_fingerprint(proj, cid),
+                        "schema_fingerprint": schema_fingerprint(proj),
+                        "result": {"evidence_activation": ev}}))
+        w = plan_intersection(proj, iid, tmp_path)
+        assert w[0]["evidence"] == ev
+
 
 class _StubDetector:
     """Deterministic detector: one moving box per frame, fails on demand."""

@@ -542,6 +542,21 @@ function _tpPass2Badge(w) {
     return _tpBadge('pass-2 pending', 'dim');
 }
 
+// Gate-evidence coverage: the share of this window's tracks that cross the
+// drawn leg gates. Below the activation bar the evidence gate stands down
+// and the apply gate cannot adjudicate the window at all — previously both
+// happened silently, so a camera whose gates barely engage looked identical
+// to a healthy one.
+function _tpEvidenceBadge(w) {
+    const e = w.evidence;
+    if (!e || typeof e.coverage !== 'number') return '';
+    const pct = Math.round(e.coverage * 100);
+    if (e.activated) return _tpBadge(`gate evidence ${pct}%`, 'ok');
+    const bar = Math.round((e.threshold || 0) * 100);
+    return _tpBadge(`gate evidence ${pct}% (needs ${bar}%)`,
+                    e.coverage < (e.threshold || 0) / 2 ? 'bad' : 'warn');
+}
+
 async function _renderTwoPassPlan() {
     const host = document.getElementById('v3-twopass-plan');
     if (!host) return;
@@ -568,7 +583,7 @@ async function _renderTwoPassPlan() {
             padding:2px 0;">
             <span style="min-width:220px;">Camera ${w.camera_id} · ${escapeHtml(w.variant)}
                 (${escapeHtml(w.start_wallclock)}–${escapeHtml(w.end_wallclock)})</span>
-            ${_tpDumpBadge(w)} ${_tpPass2Badge(w)}
+            ${_tpDumpBadge(w)} ${_tpPass2Badge(w)} ${_tpEvidenceBadge(w)}
         </div>`;
     }
     html += `</div>`;

@@ -50,6 +50,20 @@ UNCHANGED (the precondition never fires on a healthy site). FM51 is now
 reasoning — both windows now say "I cannot judge this" instead of
 guessing.
 
+## AMENDMENT (2026-08-10, gate-axis block): part of the geometry
+## diagnosis below is CORRECTED
+
+The section below reports gates "78-85 deg off travel" at FM51 and
+implies the corridor is similarly misoriented. Those angles came from a
+NAIVE mean of displacement vectors, which cancels on bidirectional mouth
+traffic. Recomputed with the correct axial estimator: FM51 leg 2 is 13.2
+deg (not 85.4), cam2 leg 29 is 1.6 (not 55.0), cam4 leg 33 is 3.1-6.6
+(not 49.4). **"The corridor's gates are misoriented too" does not
+survive.** FM51 leg 1 (50 deg) and cam1 legs 22/25 (42/88 deg) remain
+genuine outliers. Everything else below — the track-length finding, which
+is what actually binds — stands and was independently measured. Full
+correction: plan_v2_gate_axis_2026-08-10.md verdict.
+
 ## FM51 cam2 GEOMETRY: DIAGNOSED 2026-08-10 — not fixable by redrawing
 
 Full evidence in plan_v2_apply_gate_2026-08-07.md. Short version: the
@@ -85,14 +99,17 @@ C. **Proceed corridor-only**: keep V2 flags OFF, treat the gate as
    re-process, G1-closure) on that basis — accepting that h/F have no
    out-of-sample backing.
 
-Cheap and independent of the above, worth doing either way:
-- **Surface gate-evidence coverage per camera in the UI.** The number is
-  already computed every run (FM51 0.031 vs the 0.45 requirement); today
-  both the V2 evidence channel and the apply gate stand down silently, so
-  an operator cannot tell a camera is unjudgeable.
-- **Harden build_gates' orientation** (fan-spread test -> reference_heading
-  fallback, or circular median): measured numbers are in the plan doc;
-  needs its own pre-declared gate since it moves corridor cells too.
+Both riders are now DONE (2026-08-10):
+- Gate-evidence coverage is SHIPPED in the two-pass readiness panel. It
+  immediately shows three corridor windows sitting within 0.02 of the
+  0.45 activation bar and standing down (cam3 0.431, cam4 study_1100
+  0.442, cam5 study_1100 0.441) — previously invisible.
+- Gate-orientation hardening was BUILT, MEASURED and LEDGERED DEAD:
+  plan_v2_gate_axis_2026-08-10.md. It fails its entry gate at cam3
+  (full journeys -81.6%) and, more importantly, refutes its own premise —
+  "perpendicular to local travel" is NOT the right gate criterion, and
+  the orientation-error table that motivated it was an artifact of a
+  naive (non-axial) estimator. V2_GATE_AXIS stays default OFF.
 
 ## Operator decisions open
 

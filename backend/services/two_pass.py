@@ -270,6 +270,14 @@ def plan_intersection(project_id: str, intersection_id: int,
                     w["pass2"] = "current"
                 else:
                     w["pass2"] = "stale"
+                # Blind gate-evidence coverage from the last run's sidecar —
+                # free here (the file is already open) and the ONLY place an
+                # operator can see that a camera cannot produce gate evidence.
+                # Below the bar, the evidence channel and the apply gate both
+                # stand down; until now they did so silently (FM51 measured
+                # 0.031 against 0.45, and nothing said so).
+                w["evidence"] = (prior.get("result") or {}).get(
+                    "evidence_activation")
             except Exception:
                 w["pass2"] = "stale"
     return plan
