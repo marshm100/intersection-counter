@@ -337,3 +337,71 @@ the constants still need a held-out site whose gate evidence is healthy.
    second payoff: it would tell us whether "gates barely engage" is a
    drawing error the product should surface to operators.
 2. Only after that: flag posture / bundle-rides-the-gate / G1-closure.
+
+
+## FM51 cam2 GEOMETRY DIAGNOSIS (2026-08-10) — NOT a calibration problem;
+## the site cannot produce gate-to-gate journeys at this view scale
+
+The FM51 verdict left one question: is the degenerate census a fixable
+CALIBRATION error (mouths drawn badly) or a property of the site? Answer,
+measured: **primarily the site.** Redrawing will not deliver the healthy
+held-out census the campaign needs, so the next block must not be spent
+there.
+
+**PRIMARY CAUSE (binding) — the intersection is far larger than a track's
+life.** A full journey needs a track spanning mouth-to-mouth: 312 px at
+FM51 cam2, in a view where vehicles move ~36 px/s. That is ~8.7 s of
+UNBROKEN tracking. The median FM51 track lives 2.7 s / 96 px, so only
+**3.6% of tracks are even long enough to be a full journey** — against
+41-58% at the corridor (cam4 428 px median vs a 271 px separation; cam5
+41.5%; cam2 44.2%). Not a detector artifact: all three dump bases on disk
+agree (ftv1 108 px, ftv1n 108 px, ftv2n 96 px). The only lever that moves
+it is ENDPOINT EXTENSION — median span 96 -> 253 px, long-enough share
+3.6% -> 21%, blind coverage 0.031 -> 0.197 — still less than half the
+0.45 bar.
+
+**SECONDARY CAUSE (real, fragile, not sufficient) — both arterial gates
+lie nearly ALONG the road.** The gate normal should point the way traffic
+travels; measured against actual travel it is 77.9 deg (leg 1) and 85.4
+deg (leg 2), versus 0.1 deg on the minor leg — which is the one leg whose
+crossings work (46 of 54 approaches cross, 85%). Cause: build_gates
+averages the CHANNEL TANGENTS at the mouth, and FM51's five channels fan
+33-89 deg there, so their mean carries no road direction. Consequence:
+57-61% of vehicles that reach the arterial gate DRIFT out of its lateral
+span instead of crossing (corridor drift: 0-29 tracks, ~0%).
+PROBE (offline, nothing shipped): re-deriving orientation from the
+operator's reference_heading — the fallback build_gates already uses for
+channel-less legs — lifts FM51 AM coverage 0.041 -> 0.135 only, TRADES
+full journeys for entry-only (full 54 -> 19), does nothing at PM
+(0.022 -> 0.019), and is a wash on the corridor (cam2 full +196, cam4
+-88, cam5 -32). So it is a genuine robustness defect worth its own
+measured block — a fan-spread test falling back to the heading, or a
+circular median instead of a mean — but it is NOT the fix, and it must
+not ride in on this evidence.
+
+**Exonerated / minor.** The de-overlap pass never fired at FM51 (gates
+full length); it is the CORRIDOR that gets shrunk (leg 29 by 49%) while
+staying healthy. Mouth PLACEMENT is largely right: leg 1 sits 4.5 px from
+the empirical entry cluster, leg 3 6.2 px; only leg 2 is drawn ~47-61 px
+outside the traffic band, toward the frame edge.
+
+**CONSEQUENCES**
+1. `census_degenerate` at FM51 is CORRECT and permanent for this site
+   class. The apply gate's fail-closed default is the right behavior
+   there; the gate simply cannot adjudicate wide/distant views whose
+   intersections span many track-lifetimes.
+2. The held-out validation of h/F still needs a site of the corridor's
+   view class. FM51 cam3 is NOT a cheap substitute: it has no legs, no
+   channels, and no detections at all — calibration plus a full detect +
+   pass-1 + pass-2 run, on the same road type that just failed. Treat
+   "which footage to onboard next" as an operator question, not a
+   scheduling one.
+3. PRODUCT GAP worth closing cheaply and independently: nothing surfaces
+   "this camera cannot produce gate evidence" to the operator. The V2
+   evidence channel stands down silently, and now so does the apply gate.
+   A per-camera coverage readout (the number already computed every run,
+   0.031 here vs 0.45 required) would turn an invisible limitation into
+   an honest one.
+4. Research direction, named not started: blind adjudication that does
+   NOT require gate-to-gate journeys would extend the gate to this site
+   class. Nothing in the current guard battery does that.

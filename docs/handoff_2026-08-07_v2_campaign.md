@@ -50,25 +50,49 @@ UNCHANGED (the precondition never fires on a healthy site). FM51 is now
 reasoning — both windows now say "I cannot judge this" instead of
 guessing.
 
-## THE NEXT BLOCK (start here): a held-out window with a WORKING census
+## FM51 cam2 GEOMETRY: DIAGNOSED 2026-08-10 — not fixable by redrawing
 
-h and F are STILL in-sample only — FM51 never exercised them. Two
-routes, cheapest first:
-1. **Diagnose FM51 cam2's geometry** (do this first — it is cheap and
-   has a second payoff). Its two arterial mouths sit ~77 px apart near
-   the frame top and the census misses the arterial pair entirely, which
-   smells like a CALIBRATION problem rather than a site property. If so,
-   redrawing gives a working held-out census AND tells us the product
-   should surface "your gates barely engage" to operators (today only
-   the V2 evidence channel notices, silently).
-2. **FM51 camera 3** (FM51-FM2123, same project/day, currently no legs
-   or paths) — a genuinely fresh calibration + dump + pass-2, i.e. a
-   clean held-out site if cam2's geometry proves unfixable.
+Full evidence in plan_v2_apply_gate_2026-08-07.md. Short version: the
+degenerate census is a SITE-SCALE property, not a calibration error. A
+full journey needs 312 px of unbroken tracking where vehicles move ~36
+px/s (~8.7 s); the median track lives 2.7 s / 96 px, so only 3.6% of
+tracks are long enough (corridor: 41-58%). Identical across all three
+detector bases on disk, so it is not a recipe artifact; endpoint
+extension is the only real lever (96 -> 253 px, coverage 0.031 ->
+0.197, still under the 0.45 bar). A SECOND, genuine defect was found on
+the way: both arterial gates sit 78-85 deg off the travel direction
+(build_gates averages channel tangents, and FM51's fan 33-89 deg), so
+57-61% of vehicles drift out of the span instead of crossing — but
+re-deriving orientation from reference_heading only reaches coverage
+0.135 and is a wash on the corridor, so it is a separate measured block,
+not a fix. Do NOT spend the next block redrawing FM51.
 
-Only AFTER a healthy held-out adjudication: flag posture,
-bundle-rides-the-gate corridor re-process (cam2+cam3 apply, cam1/4/5
-stand down), and G1-closure (re-run the 07-31 blind product test
-verbatim; product must reproduce >= curated scores cold).
+## THE NEXT BLOCK: an OPERATOR decision, not a scheduling one
+
+h and F are STILL in-sample only, and the project has no processed
+held-out site that CAN validate them. The options, honestly costed:
+
+A. **Onboard a held-out site of the corridor's view class** (the only
+   route to a real out-of-sample test). Needs footage where the
+   intersection spans a few track-lifetimes, not ~9 s of them. This is a
+   "which footage do we onboard next" question for the operator.
+B. **FM51 camera 3** — NOT a cheap substitute: no legs, no channels, no
+   detections at all, and it is the same road type that just failed.
+   Calibration + detect + pass-1 + pass-2 for an unknown payoff.
+C. **Proceed corridor-only**: keep V2 flags OFF, treat the gate as
+   corridor-validated with `census_degenerate` as its honest boundary,
+   and take the two remaining corridor items (bundle-rides-the-gate
+   re-process, G1-closure) on that basis — accepting that h/F have no
+   out-of-sample backing.
+
+Cheap and independent of the above, worth doing either way:
+- **Surface gate-evidence coverage per camera in the UI.** The number is
+  already computed every run (FM51 0.031 vs the 0.45 requirement); today
+  both the V2 evidence channel and the apply gate stand down silently, so
+  an operator cannot tell a camera is unjudgeable.
+- **Harden build_gates' orientation** (fan-spread test -> reference_heading
+  fallback, or circular median): measured numbers are in the plan doc;
+  needs its own pre-declared gate since it moves corridor cells too.
 
 ## Operator decisions open
 
