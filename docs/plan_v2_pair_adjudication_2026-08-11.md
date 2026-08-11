@@ -139,6 +139,81 @@ the block must say so rather than imply independence it does not have.
    guards), with its own pre-declared gates in a follow-on block. NOT in
    this block — this block only answers whether a blind selector exists.
 
+## G-P1 VERDICT (2026-08-11) — FAILED. BLOCK STOPPED, SELECTOR LEDGERED.
+
+`scripts/v2_pair_selector_probe.py`, all 12 windows, arms B (pair on) and
+C (pair off) already on disk. No pass-2 runs, no backend change — the cheap
+kill worked as designed.
+
+  window            hours   gapB    gapC   gapC-gapB  5/95 delta  sign  n
+  cam1 study_0700   07-09  0.247   0.225    -0.022       -9.3      OK   2
+  cam1 study_1600   16-18  0.135   0.041    -0.095       -2.2      OK   2
+  cam2 study_0700   07-09  0.194   0.195    +0.001       +2.2      OK   4
+  cam2 study_1100   11-13  0.201   0.069    -0.132       +8.4    MISS   4
+  cam2 study_1600   16-18  0.071   0.089    +0.017       -0.8    MISS   4
+  cam3 study_0600   peaks  0.170   0.160    -0.009      +11.5    MISS   4
+  cam4 study_0700   07-09  0.216   0.092    -0.123       +2.5    MISS   4
+  cam4 study_1100   11-13  0.201   0.091    -0.110       +7.0    MISS   4
+  cam4 study_1600   16-18  0.210   0.102    -0.108       -8.5      OK   4
+  cam5 study_0700   07-09  0.114   0.077    -0.038       -7.7      OK   2
+  cam5 study_1100   11-13  0.159   0.116    -0.043       -4.2      OK   2
+  cam5 study_1600   16-18  0.125   0.095    -0.031      -13.2      OK   2
+
+  G-P1 sign agreement 7/12          (gate >= 9/12)        FAIL
+       on |delta| >= 7.0  4/7       (gate ALL)            FAIL
+  G-P2 Spearman rho -0.210          (gate >= +0.60)       FAIL
+
+**LEDGERED: corridor link agreement does not track attribution quality at
+window scale on this corridor.** 7/12 is barely above the 6/12 chance line,
+and it misses on cam3 (+11.5), cam2 study_1100 (+8.4) and cam4 study_1100
+(+7.0) — three of the five windows a selector would exist to FIND.
+
+**HOW it fails is more useful than that it fails.** `gapC - gapB` is
+NEGATIVE at 10 of 12 windows: turning the pair ON makes link agreement
+worse almost EVERYWHERE, whether the pair helps accuracy or hurts it. That
+is a systematic bias, not a noisy signal. The mechanism is visible in what
+the pair does: it BINDS origins to gate-evidenced legs, which shifts the
+per-cardinal in/out balance in one direction; corridor links compare
+exactly that balance. **The signal measures how much the origin
+distribution MOVED, not whether it moved in the right direction.** Any
+future selector built on cardinal in/out balance inherits this defect —
+that is the transferable finding, and it disqualifies a family, not just
+one metric.
+
+Two method notes worth keeping, both measured here and both non-obvious:
+- UNSCOPED corridor links are dominated by COVERAGE, not counting: on
+  production the shipped check reports 0.58-0.64 gaps on every link
+  touching intersection 3, purely because cam3 is the 24-hour camera
+  (34955 events) and its neighbours cover only peaks. Anyone using
+  `corridor_consistency` to compare RUNS rather than to flag a site must
+  scope it, and must scope it on `timestamp_real` — `_cardinal_volumes`
+  uses `timestamp_video`, which is not comparable across cameras with
+  different recording starts.
+- Per-hour coverage (production): cam1/2/4/5 carry events only in 07-09,
+  11-13, 16-18; cam3 carries 06-20. cam3's study_0600 is therefore
+  scoreable against neighbours ONLY on the peak overlap, which is what the
+  probe does rather than dropping the window that carries the prize.
+
+**Consequences.**
+1. `EVIDENCE_ACTIVATION_COVERAGE = 0.45` STANDS as the honest best
+   available rule. It is unchanged, and Block 0's finding that it is
+   mostly right (correctly denying cam1 and cam5) is what makes that
+   acceptable rather than merely unavoidable.
+2. cam3's +11.5 remains real and remains unreachable blind. It is reachable
+   only via extension's coverage lift, which costs -3.0 there — a net +8.5,
+   which is exactly what production already has. **The corridor is at its
+   measured optimum under the current mechanisms**; there is no free +11.5.
+3. The block does NOT proceed to the adjudicator wiring (sequencing step 3
+   was pre-conditioned on G-P1/G-P2 passing).
+
+**Untried, and deliberately NOT pursued in this block** (the gate said
+stop, and pre-declared gates that get relitigated in the same breath stop
+meaning anything): `reverse_balance` as an alternative blind signal. It is
+per-intersection rather than cross-intersection, so it does not obviously
+inherit the cardinal-balance defect above — but it needs its own block with
+its own pre-declared gates, and it should only be spent if something makes
+the pair worth chasing again.
+
 ## Explicitly NOT in scope
 
 Changing `EVIDENCE_ACTIVATION_COVERAGE`. Changing any flag default.
