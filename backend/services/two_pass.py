@@ -344,6 +344,32 @@ def conserve_replay_additions(db: str | Path, camera_id: int,
             "rejected_vs_additive": n_additive_dupe}
 
 
+def posterior_extras_enabled(activation: dict | None) -> bool:
+    """Do the posterior EXTRAS — census_expecteds + conserve_pass — run?
+
+    Block D1. Those two were retired as blind five-camera defaults per the
+    two-iteration budget for ONE stated reason: not blind-deployable where
+    evidence coverage is low (plan_conservation_pass_2026-07-15: "the
+    mechanism family is REAL: cam2 9.1 -> 3.3-3.5% ... NOT blind-deployable
+    where evidence coverage is low (36-60%)"). The ACTIVATION PRECONDITION is
+    the decider for exactly that question, and it shipped 2026-07-27 — but it
+    governs the REPLAY only, so the extras kept their own always-off flag and
+    conserve_pass has never actually run in the campaign.
+
+    CONSERVE_ON_ACTIVATION ON: the extras follow the per-window activation
+    decision. OFF (default): this is exactly ORIGIN_POSTERIOR_ENABLED, so the
+    shipped path is byte-identical. `activation` is None when
+    EVIDENCE_ACTIVATION_ENABLED is off — then there is no decision to follow
+    and the extras stay off unless the posterior flag forces them.
+    """
+    if ORIGIN_POSTERIOR_ENABLED:
+        return True
+    from backend import config as _cfg
+    if not getattr(_cfg, "CONSERVE_ON_ACTIVATION", False):
+        return False
+    return bool(activation and activation.get("activated"))
+
+
 def gate_axes_for(mouths: dict, tracks) -> dict | None:
     """Track-derived road axes for gate orientation, or None when the
     V2_GATE_AXIS flag is off (then build_gates keeps its channel-tangent
@@ -967,25 +993,9 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         out=str(workdir / f"twopass_bank_cam{camera_id}_{variant}.json"),
         start_hms=start_hms, minutes=window_seconds / 60.0,
         tracks=_dump_tracks_pointlists(rows))
-    # Scale-1 merge expecteds. Posterior half ON: per-cell observed n from
-    # GATE EVIDENCE over the dump (census_expecteds — the bank builder's own
-    # shape assignment is flip-prone and starved stolen cells; measured 17/14
-    # genuine box-full EB-lefts merge-rejected per held-out window). Flag
-    # OFF: the legacy corpus-QA derivation, byte-identical (any admission
-    # status — a rejected path's traffic still counts toward the gate's
-    # expectation — falling back to admitted-path supports; the A4a recipe).
-    expected: dict[tuple, float] = {}
-    if ORIGIN_POSTERIOR_ENABLED:
-        expected = census_expecteds(project_id, camera_id, rows, fps)
-    if not expected:
-        for cell in bank_res.get("qa", {}).get("cells", []):
-            m = _CELL_RE.match(cell.get("cell", ""))
-            if m and "n" in cell:
-                key = (int(m.group(1)), int(m.group(2)))
-                expected[key] = max(expected.get(key, 0.0), float(cell["n"]))
-        for p in bank_res["paths"]:
-            key = (p["origin_leg_id"], p["destination_leg_id"])
-            expected.setdefault(key, float(p.get("supporting_count", 0)))
+    # (Merge expecteds are computed AFTER the replay — they now depend on the
+    # activation decision. Nothing between here and there consumes them: the
+    # only readers are the demotion block and merge_replay_turns, both below.)
 
     # --- 2+3. replay-classify (APPLIED bank), then the turn merge ------------
     # Variant in the name: a study day runs one pass-2 per trim window and the
@@ -1019,6 +1029,35 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     else:
         stats = replay_camera(project_id, camera_id, variant=variant,
                               out_db=out_db, should_cancel=should_cancel)
+
+    # POSTERIOR EXTRAS gate (block D1). census_expecteds + conserve_pass were
+    # retired for ONE reason — not blind-deployable at low evidence coverage —
+    # and the activation precondition is the decider for exactly that. With
+    # CONSERVE_ON_ACTIVATION the extras follow the per-window activation
+    # decision; with it OFF this reduces to ORIGIN_POSTERIOR_ENABLED and the
+    # shipped path is byte-identical.
+    posterior_extras = posterior_extras_enabled(activation)
+
+    # Scale-1 merge expecteds. Posterior half ON: per-cell observed n from
+    # GATE EVIDENCE over the dump (census_expecteds — the bank builder's own
+    # shape assignment is flip-prone and starved stolen cells; measured 17/14
+    # genuine box-full EB-lefts merge-rejected per held-out window). Flag
+    # OFF: the legacy corpus-QA derivation, byte-identical (any admission
+    # status — a rejected path's traffic still counts toward the gate's
+    # expectation — falling back to admitted-path supports; the A4a recipe).
+    expected: dict[tuple, float] = {}
+    if posterior_extras:
+        expected = census_expecteds(project_id, camera_id, rows, fps)
+    if not expected:
+        for cell in bank_res.get("qa", {}).get("cells", []):
+            m = _CELL_RE.match(cell.get("cell", ""))
+            if m and "n" in cell:
+                key = (int(m.group(1)), int(m.group(2)))
+                expected[key] = max(expected.get(key, 0.0), float(cell["n"]))
+        for p in bank_res["paths"]:
+            key = (p["origin_leg_id"], p["destination_leg_id"])
+            expected.setdefault(key, float(p.get("supporting_count", 0)))
+
     # V2 census-ratio demotion (config flag, default OFF): measure per-cell
     # DIRECT-attributed mass from the first replay against the gate-evidence
     # census; flooded cells re-replay with their direct claims demoted to
@@ -1130,7 +1169,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     # Conservation pass (posterior half iteration 3): at most one counted
     # event per fragment chain, additive loses to legacy — BEFORE the merge
     # so the volume gate polices turns over de-duplicated counts.
-    if ORIGIN_POSTERIOR_ENABLED:
+    if posterior_extras:
         conserve = conserve_pass(project_id, camera_id, rows, fps, out_db)
         stats["conservation"] = conserve
         logger.info("two-pass cam%s %s: conservation %s", camera_id, variant,

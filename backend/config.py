@@ -435,6 +435,27 @@ ORIGIN_POSTERIOR_ENABLED = _os.environ.get(
 EVIDENCE_ACTIVATION_ENABLED = _os.environ.get(
     "EVIDENCE_ACTIVATION_ENABLED", "1") in ("1", "true", "on")
 EVIDENCE_ACTIVATION_COVERAGE = 0.45
+
+# --- Posterior EXTRAS under the activation precondition (block D1, ----------
+# docs/plan_v2_conserve_activation_2026-08-11.md). The conservation pass
+# (at most one counted event per fragment CHAIN) and census_expecteds were
+# retired as blind five-camera defaults per the two-iteration budget for ONE
+# stated reason: not blind-deployable where evidence coverage is low
+# (plan_conservation_pass_2026-07-15 — "the mechanism family is REAL: cam2
+# 9.1 -> 3.3-3.5%... NOT blind-deployable where evidence coverage is low
+# (36-60%)"). The activation precondition above is exactly the decider for
+# that, and it shipped 2026-07-27 — but it governs the REPLAY only (see the
+# note above: the extras "stay keyed on their own flags; phase 1 never
+# measured them"), so conserve_pass has never actually run. Confirmed: no
+# `conservation` key in ANY block-0 arm sidecar.
+#
+# ON: the extras follow the per-window ACTIVATION decision instead of the
+# raw ORIGIN_POSTERIOR_ENABLED flag. OFF (default): byte-identical to today.
+# NOTE the extras only bite where the pair is ON — conserve_replay_additions
+# rejects only posterior-sourced events (_ADDITIVE), so on an all-direct
+# replay it is a strict no-op by design.
+CONSERVE_ON_ACTIVATION = _os.environ.get(
+    "CONSERVE_ON_ACTIVATION", "0") in ("1", "true", "on")
 # The two fit-then-frozen constants (stage 4 fits them on cam2 study_0700
 # ONLY; env overrides exist for that sweep and nothing else):
 # margin floor — an origin posterior whose top-2 margin falls below this is
