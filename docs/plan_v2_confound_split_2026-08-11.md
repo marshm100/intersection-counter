@@ -734,6 +734,107 @@ measuring it.
    to non-full tracks should PRESERVE the coverage lift (those tracks were
    not full, so they still get extended) while removing the -3.0.
 
+## ARM E VERDICT — `--skip-full` LEDGERED: correct by design, ineffective
+## in fact (2026-08-11)
+
+Ran on the three zero-demotion windows under arm C's exact environment.
+Skip rates: cam1 study_0700 1154/6728 (17%), cam1 study_1600 2719/8938
+(30%), cam4 study_1100 1875/4970 (38%).
+
+  window            A       C      E     E vs C   recl.drop  new kept
+  cam1 study_0700  60.5    54.1   56.9    +2.8      -12%       100%
+  cam1 study_1600  54.5    45.8   46.2    +0.4      -21%        99%
+  cam4 study_1100  69.4    57.4   54.7    -2.7      -25%        97%
+
+Against the three PRE-DECLARED predictions:
+
+1. "Reclassification drops >=70% at every camera" — **FAILED.** It drops
+   12 / 21 / 25%.
+2. "At least 80% of newly-counted tracks survive" — **PASSED** decisively
+   (100 / 99 / 97%). The rule is harmless to recovery, exactly as argued.
+3. "5/95 improves where extension is currently negative" — **FAILED.**
+   Mixed: +2.8, +0.4, and -2.7 at cam4, which is also the camera with the
+   highest already-full fraction (38%).
+
+**LEDGERED. `--skip-full` stays in the script, default OFF** (the
+V2_TIMELOCAL / V2_GATE_AXIS precedent: the code stays for the record).
+
+**WHY it failed is the useful part, and it corrects the hypothesis that
+motivated it.** The reclassified tracks were mostly NOT `full` in the base
+dump, so the tag gate never applied to them. The damage is therefore NOT
+"extension rewrites already-complete journeys" — it is **extension
+COMPLETING PARTIAL journeys onto different gates than their partial
+evidence implied.** Those tracks were already counted (via the fallback
+chain or the posterior on partial evidence) with one origin/destination,
+and completion gives them another. The tag `full` is the wrong predicate;
+the right one is "already produced a counted event", which a dump
+transform cannot know without running pass-2 first — so a tag-based gate
+in the producer cannot express it.
+
+**Better-targeted successor, already implemented, not yet run:**
+`--directions fwd`. A BACKWARD walk changes a track's first gate crossing
+(its ORIGIN); a FORWARD walk changes its last (its DESTINATION). At cam1
+study_1600 the measured flows split ~116 origin-changes vs ~69
+dest-changes, so forward-only removes the larger share BY CONSTRUCTION
+rather than by threshold. The day-5 addendum already recorded that
+forward-only keeps most of the NB-left recall gain (348 -> 380 of 413),
+so the recall cost is bounded and known. That is the next experiment.
+
+## ARM F VERDICT — forward-only is the BEST extension variant measured,
+## and still not shippable at cam1/cam4 (2026-08-11). EXTENSION LINE CLOSED.
+
+  window            A       C(both)  E(skip)  F(fwd)   F vs C   F vs A
+  cam1 study_0700  60.5      54.1     56.9     55.1     +1.0     -5.4
+  cam1 study_1600  54.5      45.8     46.2     55.4     +9.6     +0.9
+  cam4 study_1100  69.4      57.4     54.7     64.0     +6.6     -5.4
+
+The origin/destination diagnosis is CONFIRMED by construction: a backward
+walk changes a track's first gate crossing, and removing backward walks
+recovers most of the loss — cam1 study_1600 flips from -8.7 to POSITIVE,
+cam4 study_1100 halves from -12.0 to -5.4. This is the defect
+`--heading-lock` was built for and failed to fix on aggregate 5/95; with
+the mechanism named, the blunt instrument (drop backward walks) beats the
+subtle one (constrain the cone) at every window.
+
+  window            arm  events   new   stopped  reclass
+  cam1 study_0700    A    4600
+                     C    4875    724     449      344
+                     F    4755    421     266      260
+  cam1 study_1600    A    5778
+                     C    6015    806     569      411
+                     F    5870    488     396      237
+  cam4 study_1100    A    3335
+                     C    3754    543     124      157
+                     F    3542    256      49      128
+
+**Read this honestly: forward-only keeps only 47-61% of the newly-counted
+tracks while cutting reclassification 18-42%.** Part of its 5/95 gain is
+simply DOING LESS — fewer events, fewer phantom slots (scored cells
+109->98, 118->112, 54->50). It is not a clean separation of good from bad;
+it is a smaller dose of both, whose net on this metric happens to be
+better.
+
+**THE DECIDING NUMBER: at 2 of 3 windows, NO EXTENSION AT ALL still beats
+forward-only** (cam1 study_0700 60.5 vs 55.1; cam4 study_1100 69.4 vs
+64.0). Only cam1 study_1600 turns net-positive (+0.9). The apply gate
+would stand these down exactly as it does today.
+
+**EXTENSION LINE CLOSED for cam1/cam4/cam5.** Three variants measured
+(both-directions, skip-full, forward-only); the best of them is still
+net-negative where the campaign already stands down. Extension's shippable
+value is confined to cam2 (+1.8..+7.5, already applied) and — per the
+Block-0 headline — to its role as a COVERAGE LEVER at cam3, where the
++11.5 belongs to the evidence pair rather than to extension itself.
+`--directions fwd` stays available and is the variant to use if extension
+is ever revived; the default stays `both` so the shipped/validated path is
+unchanged.
+
+**Where the campaign goes instead.** The measured prize is the evidence
+pair (+11.5 cam3, +8.4/+2.2 cam2, +7.0/+2.5 cam4), currently reachable
+only as a side effect of a mechanism that costs -3.0 at the very window
+where the prize is largest. Making the pair a per-window adjudicated
+candidate under the existing apply gate is the next block.
+
 ## G-C2: PASS (verified, not asserted)
 All runs `apply=False` into `_replay_scratch/v2_confound/`. Checked after
 the clean-window arms: cam2 `study_1600` over its exact dump window
