@@ -191,8 +191,30 @@ def main() -> int:
                     help="50-deg backward heading cone (block-2 item-2 "
                          "verdict: PM +2.1 but dev -3.1, gate FAILED; "
                          "default OFF)")
+    ap.add_argument("--skip-full", action="store_true",
+                    help="do NOT extend a track that is already tag 'full' "
+                         "in the BASE dump. Rationale: the confound-split "
+                         "block measured extension REWRITING the origin/dest "
+                         "attribution of 5-7%% of already-counted tracks "
+                         "(cam1 study_1600: 411 reclassified, e.g. "
+                         "(22,23,through)->(24,23,left) x56). track_chains "
+                         "already refuses to touch a completed journey for "
+                         "the same reason ('a full journey never chains'). "
+                         "Default OFF so the shipped path stays byte-"
+                         "identical to the validated v2c artifacts.")
+    ap.add_argument("--out-prefix", default=None,
+                    help="output variant prefix (default v2c_, or v2e_ when "
+                         "--skip-full). NEVER let a variant-changing run "
+                         "overwrite v2c_: that slot is a single mutable "
+                         "path and a heading-lock run already clobbered a "
+                         "stack run there once (hlock vs stack logs).")
     args = ap.parse_args()
     t0 = time.time()
+    prefix = args.out_prefix or ("v2e_" if args.skip_full else "v2c_")
+    if args.skip_full and prefix == "v2c_":
+        print("refusing: --skip-full must not write the v2c_ slot "
+              "(pass --out-prefix)")
+        return 2
 
     tdir = TP.tracks_dir(TP._camera_parquet(args.project, args.camera,
                                             args.variant))
@@ -219,10 +241,43 @@ def main() -> int:
         idx = ord_f[s:e]
         claimed[fval] = rows[idx][:, 2:4].astype(np.float32)
 
+    # BASE-dump gate tags, when --skip-full. Computed from the SAME pinned
+    # geometry track_chains/conserve_pass use, so "full" means here exactly
+    # what it means there.
+    skip_tids: set = set()
+    if args.skip_full:
+        from backend.database import get_connection, list_paths_for_camera
+        from backend.services.entry_gates import build_gates, classify
+        _c = get_connection(args.project)
+        mouths, heads = {}, {}
+        for lid, oz, rh in _c.execute(
+                "SELECT leg_id, origin_zone, reference_heading FROM legs "
+                "WHERE camera_id = ?", (args.camera,)):
+            if oz:
+                _z = json.loads(oz)
+                mouths[lid] = tuple(_z[0])
+                heads[lid] = rh
+        _c.close()
+        gates = build_gates(mouths, list_paths_for_camera(args.project,
+                                                          args.camera), heads)
+        for s, e in zip(starts, ends):
+            tr = rows[s:e]
+            pts = sorted((float(r[1]), float(r[2]), float(r[3])) for r in tr)
+            if len(pts) < 5:
+                continue
+            if classify(pts, gates, fps)[-1] == "full":
+                skip_tids.add(int(tr[0][0]))
+        print(f"[extend] --skip-full: {len(skip_tids)} of {len(tids)} tracks "
+              f"are already FULL in the base dump and will not be extended")
+
     ext_rows = []
     n_ext = 0
+    n_skipped = 0
     for s, e in zip(starts, ends):
         tr = rows[s:e]
+        if skip_tids and int(tr[0][0]) in skip_tids:
+            n_skipped += 1
+            continue
         eh, et = [], []
         if args.directions in ("both", "bwd"):
             row_h, v_h = endpoint_state(tr, fps, head=True)
@@ -241,7 +296,7 @@ def main() -> int:
     out = np.concatenate([rows, np.array(ext_rows, dtype=np.float32)]) \
         if ext_rows else rows
     out = out[np.lexsort((out[:, 0], out[:, 1]))].astype(np.float32)
-    new_variant = f"v2c_{args.variant}"
+    new_variant = f"{prefix}{args.variant}"
     dst = TP.tracks_dir(TP._camera_parquet(args.project, args.camera,
                                            new_variant))
     dst.mkdir(parents=True, exist_ok=True)
@@ -251,13 +306,18 @@ def main() -> int:
     meta2["v2c_extension"] = {
         "cache": args.cache, "low": LOW, "ext_cap_s": EXT_CAP_S,
         "min_ext_hits": MIN_EXT_HITS, "extended_endpoints": n_ext,
-        "ext_rows": len(ext_rows)}
+        "ext_rows": len(ext_rows),
+        # provenance (the hlock-overwrote-stack lesson): record the knobs
+        # that change the OUTPUT, so a slot's contents are identifiable.
+        "directions": args.directions, "heading_lock": args.heading_lock,
+        "skip_full": args.skip_full, "skipped_full_tracks": n_skipped}
     np.save(dst / "rows.npy", out)
     (dst / "count.txt").write_text(str(len(out)))
     (dst / "meta.json").write_text(json.dumps(meta2))
     print(f"[extend] cam{args.camera} {args.variant} -> {new_variant}: "
-          f"{len(tids)} tracks, {n_ext} endpoints extended "
-          f"(+{len(ext_rows)} rows) -> {dst} ({time.time()-t0:.0f}s)")
+          f"{len(tids)} tracks, {n_ext} endpoints extended, "
+          f"{n_skipped} full-skipped (+{len(ext_rows)} rows) -> {dst} "
+          f"({time.time()-t0:.0f}s)")
     return 0
 
 

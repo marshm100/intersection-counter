@@ -1,5 +1,18 @@
 # Production apply record — corridor, under the Phase-1 gate (2026-08-10)
 
+> **AMENDMENT 2026-08-11 — the CAUSE recorded below is wrong for cam3; the
+> OUTCOMES all stand.** This record says "Endpoint extension — the largest
+> contributor". Measured by the confound split
+> (`plan_v2_confound_split_2026-08-11.md`), cam3 study_0600's +8.5 is
+> extension **-3.0** and evidence pair **+11.5** — extension hurt there and
+> earned the win only by lifting blind coverage 0.431 -> 0.525 past the
+> activation bar, buying cam3 admission to the gate+posterior pair. cam2's
+> two applied windows ARE genuinely extension (+7.5 at study_1100, +2.4 at
+> study_0700); cam2's activation state never varied, so those are clean.
+> Nothing here needs rolling back — all three windows measured better and
+> still do. What changes is the explanation, and therefore what to build
+> next: the prize at cam3 is the PAIR, not extension.
+
 Operator-approved. THE FIRST V2 ACCURACY GAINS TO REACH PRODUCTION.
 Every window went through `adjudicate_apply` (audit trail in
 `apply_adjudications`); each apply took its own automatic pre-apply

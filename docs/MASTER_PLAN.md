@@ -418,6 +418,39 @@ channel), (2) **Workstream B moves AHEAD of further assembly policy**
 are recall walls no assembly can count), (3) queue-order constraints,
 then G-A1 re-attempt, same blind protocol.
 
+**AMENDMENT 2026-08-11 — the G-A3 corridor sweep was CONFOUNDED, and the
+campaign's largest shipped win is mis-attributed
+(`docs/plan_v2_confound_split_2026-08-11.md`).** The G-A3 chain compared
+"base dump + V2 flags OFF" against "v2c dump + V2 flags ON" and moved FOUR
+variables at once — extension rows, V2_DEMOTION, V2_MERGE_RESCUE, and
+(undeclared) the EVIDENCE-ACTIVATION FLIP, because extension lifts blind
+coverage past the 0.45 bar at every camera that was standing down. All 12
+windows were re-run with the pair forced off, decomposing each delta:
+
+- **cam3 study_0600's +8.5 — applied to production 2026-08-10 and recorded
+  as "the campaign's largest single win" — is extension -3.0 and evidence
+  pair +11.5.** Extension HURT there; what it did was buy cam3 admission to
+  the pair (coverage 0.431 -> 0.525). Its value at cam3 was a COVERAGE
+  LEVER, not recall. The apply record's "extension — the largest
+  contributor" is wrong for cam3.
+- Extension is positive only at cam2 (+1.8..+7.5, and cam2's applied gains
+  ARE genuinely extension since its pair state never varied) and cam5
+  study_1600 (+1.7). Elsewhere negative, worst at cam4 (-12.0..-17.6).
+- The applicability law survives as a SHIPPING RULE (the apply gate stood
+  down exactly the right windows) but not as an explanation.
+- **Do NOT lower `EVIDENCE_ACTIVATION_COVERAGE`.** The bar is mostly right:
+  it correctly denies cam1 (-9.3/-2.2) and cam5 (-7.7/-4.2/-13.2). Its one
+  corridor error is cam3, 0.019 short and worth +11.5. A global change is
+  net-negative; the pair's worth is per-WINDOW (+8.4/+2.2/-0.8 within cam2
+  alone), so per-window adjudication under the apply gate is the right
+  shape, not a threshold.
+- New mechanism found, undocumented and unintended: extension REWRITES the
+  origin/destination attribution of 5-7% of tracks that were ALREADY
+  counted (cam1 study_1600: 411 reclassified, e.g. (22,23,through) ->
+  (24,23,left) x56). Candidate fix with in-repo precedent
+  (`track_chains`: "a full journey never chains") is implemented as
+  `v2_extend_dump.py --skip-full`, default OFF, predictions pre-declared.
+
 ---
 
 ## 3. Roadmap — operator-readiness

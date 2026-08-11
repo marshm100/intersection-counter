@@ -1,5 +1,20 @@
 # Pipeline-V2 Week-1 verdict (2026-08-04)
 
+> **AMENDMENT 2026-08-11 — read `plan_v2_confound_split_2026-08-11.md`
+> before trusting any per-window number in this file or in the G-A3 block.**
+> The control-vs-treatment comparison this campaign used ("base dump, flags
+> OFF" vs "v2c dump, flags ON") moved FOUR variables at once. The fourth was
+> never declared: extension lifts blind gate coverage past
+> `EVIDENCE_ACTIVATION_COVERAGE = 0.45`, so the treatment arm ALSO switched
+> on the gate+posterior attribution pair at every camera that had been
+> standing down. All 12 corridor windows were re-run with the pair forced
+> off. Headline: **cam3's +8.5 — the largest win in the campaign, applied to
+> production — is extension -3.0 and evidence pair +11.5.** Extension is
+> positive only at cam2 and cam5 study_1600. Directional conclusions and the
+> shipping decisions survive; the attributions do not. The 2026-08-05 stack
+> and demotion results in this file were measured at cam2, whose activation
+> state never varied, so they are NOT affected.
+
 ## DAY-7 (2026-08-05) — DEMOTION MECHANISM PASSES BLIND HELD-OUTS; FIRST 5/95 GAINS
 
 **Census-ratio demotion, final form (all in-chain, V2_DEMOTION flag,

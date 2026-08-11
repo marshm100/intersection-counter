@@ -169,7 +169,7 @@ def main() -> int:
             # twopass_cam{c}_{variant}.db from v2_run_pass2 (scratch)
             cam = int(stem.split("_")[1].replace("cam", ""))
             variant = stem.split("_", 2)[2]
-            for pref in ("v2a_", "v2b_", "v2c_", "v2d_"):
+            for pref in ("v2a_", "v2b_", "v2c_", "v2d_", "v2e_"):
                 variant = variant.replace(pref, "")
             blob = {"camera": cam,
                     "events": events_from_db(path, cam, site)}
