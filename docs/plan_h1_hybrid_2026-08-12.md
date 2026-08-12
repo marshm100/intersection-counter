@@ -133,3 +133,65 @@ Phase 3: G-H1p, then G-H1k from the six score JSONs. Stop on fail.
 Phase 4: merges (variant P) + scores (stems `h1_cam2_<W>`), overlap +
 phantom diagnostics, G-H1a. Delete arm DBs after.
 Phase 5 (conditional): cam4/5 extension per G-H1b.
+
+---
+
+## RESULTS (2026-08-12)
+
+**G-H1p PASS — exact cell-for-cell match at all three windows** (h1base
+53.4 55/103, 42.9 45/105, 44.0 48/109 == committed d1ctrl). Doubles as
+the end-to-end OFF-parity proof for the C-1 backend change on real data.
+
+**Activation guard FIRED at study_1100/1600**: the ocsort dumps drop
+origin-evidence coverage below the 0.45 bar (0.472 / 0.397 / 0.388 vs
+base 0.564 / 0.487 / 0.485) — the THIRD instance of the coupling measured
+today (extension raises it, ft2 sinks it, ocsort sinks it): **the
+tracker choice controls pair activation.** Default-flag comparisons at
+those two windows are VOID; supplementary flag-off OC arms run
+(`h1ocx`, EVIDENCE_ACTIVATION_ENABLED=0), paired against today's
+committed flag-off base controls (`e4ctrlx`, identical env, replay
+determinism proven by G-H1p's exact reproduction).
+
+**G-H1k FINAL — flag-state-matched pairs:**
+
+  window                        base err   oc err   verdict
+  study_0700 (act-ON pair)         77        39     oc LOWER (-49%)
+  study_1100 (flag-off pair)      520       438     oc LOWER (-16%)
+  study_1600 (flag-off pair)      384       469     oc NOT lower (+22%)
+  SUMMED                          981       946     cut +3.6%
+
+Windows condition: 2/3 PASS. Magnitude condition: +3.6% < +10% **FAIL**.
+Cell detail at the failure: at 1600 OC's EB_left collapses to 207 (mio
+496; base 368) — in the densest window OC under-counts the very turn
+cells it recovers elsewhere. The premise ("OC recovers turns ~2x") is
+WINDOW-DEPENDENT under the V2 chain, not uniform: halves the deficit at
+0700, inverts at 1600.
+
+## VERDICT — G-H1k FAILED; block STOPS before any merge ran
+
+LEDGER: **the per-regime tracker hybrid does not survive the V2 chain /
+per-bin bar at cam2.** The 2026-06 event-level result (cam1, old chain,
+GT-fed turn gate) is recorded as non-transferring. Iteration 2 (variant
+F) is NOT triggered — its precondition was G-H1k passing. No cam4/5 runs.
+Two independent disqualifiers:
+1. the deficit-error cut (+3.6%) is far under the pre-declared minimum
+   premise-alive signal (+10%) and inverts at the heaviest window;
+2. the ocsort dumps stand the evidence pair down at 2 of 3 windows under
+   the shipped config — the hybrid would surrender the pair's measured
+   +4.0/+3.3 there before the turn swap even starts.
+
+No window-scoped revival is named: selecting mechanisms per window by GT
+performance is the overfit the prime directive forbids, and the blind
+selector family for exactly this was disqualified by G-P1.
+
+Note on order: `scripts/v2_hybrid_merge.py` was pre-built during a
+compute wait BEFORE the kill-gate read and NEVER RAN. It is committed as
+the revival kit per the retirement convention (code remains
+revival-ready); the kill gate still did its job — zero merge runs, no
+cam4/5 compute, ~2 h saved.
+
+The sweep's literature note stands for the checkpoint: per-movement
+SOURCE selection is validated in the literature and per-regime
+PARAMETERS (speed-conditioned Kalman covariances) are the cheaper
+validated fallback family — either would be a NEW mechanism with its own
+plan+budget, not this block's iteration 2.

@@ -64,11 +64,21 @@ def main() -> int:
     ap.add_argument("--variant", required=True, help="base variant, e.g. study_1600")
     ap.add_argument("--arm", default="C", choices=["B", "C"],
                     help="candidate arm to compare against control arm A")
+    ap.add_argument("--ctrl-db", default=None,
+                    help="explicit control DB path (overrides the arm-A "
+                         "layout lookup; B1/H1 workdirs live elsewhere)")
+    ap.add_argument("--cand-db", default=None,
+                    help="explicit candidate DB path (overrides --arm)")
     args = ap.parse_args()
     cam, var = args.camera, args.variant
 
-    ctrl_db = SCRATCH / "v2_week1" / f"ga3ctrl_cam{cam}_{var}.db"
-    if args.arm == "C":
+    if args.ctrl_db:
+        ctrl_db = Path(args.ctrl_db)
+    else:
+        ctrl_db = SCRATCH / "v2_week1" / f"ga3ctrl_cam{cam}_{var}.db"
+    if args.cand_db:
+        cand_db = Path(args.cand_db)
+    elif args.arm == "C":
         cand_db = SCRATCH / "v2_confound" / "armC" / f"armC_cam{cam}_v2c_{var}.db"
         if not cand_db.exists():
             cand_db = SCRATCH / "v2_confound" / "armC2" / f"armC_cam{cam}_v2c_{var}.db"
