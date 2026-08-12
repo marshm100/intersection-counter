@@ -87,20 +87,33 @@ def chain_tracks(recs, fps):
     return chains
 
 
-def build_chain_map(tracks, gates, fps, min_points: int = 5):
-    """{track_id: chain_id} over a dump's tracks. tracks: {tid: [(f,x,y),...]}.
-    Tags come from the PINNED entry gates (same geometry the pipeline's
-    evidence gate uses). Tracks below min_points are left unmapped (they
-    cannot chain and cannot carry events that matter)."""
+def build_chain_map_ev(tracks, gates, fps, min_points: int = 5):
+    """(chain_map, evidence) over a dump's tracks. chain_map exactly as
+    build_chain_map. evidence: {tid: (origin_leg, dest_leg, tag)} for every
+    >= min_points track — the classify() output this builder always computed
+    and previously DISCARDED (C-1, docs/plan_v2_c1_arbitration_2026-08-12.md).
+    The evidence-ranked arbitration joins it to events by vehicle_track_id;
+    legs are the same leg_id space as vehicle_events.origin/destination_leg_id
+    (the merge-rescue comparison precedent, two_pass.py)."""
     recs = []
+    evidence = {}
     for tid, pts in tracks.items():
         pts = sorted(pts)
         if len(pts) < min_points:
             continue
-        _o, _d, *_rest, tag = classify(pts, gates, fps)
+        o, d, *_rest, tag = classify(pts, gates, fps)
+        evidence[tid] = (o, d, tag)
         recs.append({"tid": tid,
                      "birth": (pts[0][0], pts[0][1], pts[0][2]),
                      "death": (pts[-1][0], pts[-1][1], pts[-1][2]),
                      "tag": tag, "v_end": _end_speed(pts)})
     chains = chain_tracks(recs, fps)
-    return {r["tid"]: ci for ci, ch in enumerate(chains) for r in ch}
+    return ({r["tid"]: ci for ci, ch in enumerate(chains) for r in ch}, evidence)
+
+
+def build_chain_map(tracks, gates, fps, min_points: int = 5):
+    """{track_id: chain_id} over a dump's tracks. tracks: {tid: [(f,x,y),...]}.
+    Tags come from the PINNED entry gates (same geometry the pipeline's
+    evidence gate uses). Tracks below min_points are left unmapped (they
+    cannot chain and cannot carry events that matter)."""
+    return build_chain_map_ev(tracks, gates, fps, min_points)[0]

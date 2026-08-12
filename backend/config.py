@@ -456,6 +456,24 @@ EVIDENCE_ACTIVATION_COVERAGE = 0.45
 # replay it is a strict no-op by design.
 CONSERVE_ON_ACTIVATION = _os.environ.get(
     "CONSERVE_ON_ACTIVATION", "0") in ("1", "true", "on")
+# --- C-1: evidence-ranked chain arbitration (D1 iteration 2, 2026-08-12) -----
+# docs/plan_v2_c1_arbitration_2026-08-12.md. Block D1 measured that "legacy
+# always wins" is a SECOND, independent defect of the conservation pass: on a
+# MIXED chain it rejects the posterior's correct event whenever the chain's
+# legacy event is itself a misattributed flip (225/275, 173/219, 354/436 of
+# the D1 rejections were the blanket rejected_vs_legacy branch, and the pass
+# lost on the customer bar at its own high-coverage success camera).
+# ON: a mixed chain keeps its best-evidenced event — ranked by agreement with
+# the track's OWN gate crossings (a flip IS a disagreement; the match count
+# subsumes tag strength: a full track can agree on both components, an
+# entry-only track on one, a blind track on none), then track length — and may
+# reject a LEGACY event for the first time. All-additive chains keep the
+# proven _ADDITIVE_RANK path; legacy-only chains stay untouched (not ours to
+# fix). OFF (default): byte-identical blanket "legacy always wins".
+# Read at CALL TIME through the config module (patch backend.config, not
+# two_pass — the D1 patching-trap lesson).
+CHAIN_ARBITRATION_EVIDENCE = _os.environ.get(
+    "CHAIN_ARBITRATION_EVIDENCE", "0") in ("1", "true", "on")
 # The two fit-then-frozen constants (stage 4 fits them on cam2 study_0700
 # ONLY; env overrides exist for that sweep and nothing else):
 # margin floor — an origin posterior whose top-2 margin falls below this is

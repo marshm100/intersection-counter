@@ -71,16 +71,18 @@ def _mk_db():
     return db
 
 
-def _ev(db, tid, source=None, npts=10, cam=2):
+def _ev(db, tid, source=None, npts=10, cam=2, o=1, d=None):
     conn = sqlite3.connect(db)
     with conn:
         eid = conn.execute(
             "INSERT INTO vehicle_events (camera_id, vehicle_track_id, "
-            "origin_leg_id, movement, trajectory_data, trajectory_confidence, "
-            "vehicle_class, detection_confidence, timestamp_video, frame_number, "
+            "origin_leg_id, destination_leg_id, movement, trajectory_data, "
+            "trajectory_confidence, vehicle_class, detection_confidence, "
+            "timestamp_video, frame_number, "
             "classifier_num_points, posterior_source) "
-            "VALUES (?, ?, 1, 'through', '[[1,2]]', 0.9, 'car', 0.9, 10.0, 100, ?, ?)",
-            (cam, tid, npts, source)).lastrowid
+            "VALUES (?, ?, ?, ?, 'through', '[[1,2]]', 0.9, 'car', 0.9, 10.0, "
+            "100, ?, ?)",
+            (cam, tid, o, d, npts, source)).lastrowid
     conn.close()
     return eid
 
@@ -137,3 +139,126 @@ class TestConserve:
         e2 = _ev(db, 2, "branch1", cam=3)  # same chain ids, other camera
         conserve_replay_additions(db, 2, {1: 7, 2: 7})
         assert _kept(db) == {e1, e2}
+
+
+class TestEvidenceRankedArbitration:
+    """C-1 (docs/plan_v2_c1_arbitration_2026-08-12.md): with
+    CHAIN_ARBITRATION_EVIDENCE on AND an evidence map, a MIXED chain keeps
+    its best-evidenced event and may reject a LEGACY one. The flag is read
+    at CALL TIME through the config module — patch backend.config (the
+    module-global trap applies to ORIGIN_POSTERIOR_ENABLED, not this)."""
+
+    def test_off_parity_evidence_arg_alone_changes_nothing(self, monkeypatch):
+        import backend.config as config
+        monkeypatch.setattr(config, "CHAIN_ARBITRATION_EVIDENCE", False)
+        db = _mk_db()
+        e1 = _ev(db, 1, None, o=1, d=3)          # legacy, flip-suspect
+        _ev(db, 2, "rescue_full", o=4, d=2)      # additive, gate-agreeing
+        stats = conserve_replay_additions(
+            db, 2, {1: 7, 2: 7}, {1: (4, 2, "full"), 2: (4, 2, "full")})
+        assert _kept(db) == {e1}                  # blanket: legacy wins
+        assert stats["rejected_vs_legacy"] == 1
+        assert stats["legacy_rejected"] == 0
+
+    def test_flip_suspect_legacy_loses_to_agreeing_additive(self, monkeypatch):
+        import backend.config as config
+        monkeypatch.setattr(config, "CHAIN_ARBITRATION_EVIDENCE", True)
+        db = _mk_db()
+        # track 1's gate crossings say (4 -> 2); its legacy event claims
+        # (1 -> 3) — the D1-measured misattributed flip. Track 2's additive
+        # event agrees with its own gates.
+        _ev(db, 1, None, o=1, d=3)
+        e2 = _ev(db, 2, "rescue_full", o=4, d=2)
+        stats = conserve_replay_additions(
+            db, 2, {1: 7, 2: 7}, {1: (4, 2, "full"), 2: (4, 2, "full")})
+        assert _kept(db) == {e2}
+        assert stats["legacy_rejected"] == 1
+        assert stats["rejected_vs_legacy"] == 0
+
+    def test_agreeing_legacy_still_beats_disagreeing_additive(self, monkeypatch):
+        import backend.config as config
+        monkeypatch.setattr(config, "CHAIN_ARBITRATION_EVIDENCE", True)
+        db = _mk_db()
+        e1 = _ev(db, 1, None, o=4, d=2)          # legacy agrees with gates
+        _ev(db, 2, "branch1", o=1, d=3)          # additive disagrees
+        stats = conserve_replay_additions(
+            db, 2, {1: 7, 2: 7}, {1: (4, 2, "full"), 2: (4, 2, "full")})
+        assert _kept(db) == {e1}                  # old outcome via ranking
+        assert stats["rejected_vs_legacy"] == 1
+        assert stats["legacy_rejected"] == 0
+
+    def test_unevidenced_legacy_loses_to_agreeing_additive(self, monkeypatch):
+        import backend.config as config
+        monkeypatch.setattr(config, "CHAIN_ARBITRATION_EVIDENCE", True)
+        db = _mk_db()
+        # track 1 never crossed a gate (blind) — vacuous agreement is NOT
+        # agreement; the gate-agreeing additive on track 2 outranks it.
+        _ev(db, 1, None, o=1, d=None)
+        e2 = _ev(db, 2, "rescue_full", o=4, d=2)
+        stats = conserve_replay_additions(
+            db, 2, {1: 7, 2: 7},
+            {1: (None, None, "no_crossing"), 2: (4, 2, "full")})
+        assert _kept(db) == {e2}
+        assert stats["legacy_rejected"] == 1
+
+    def test_two_component_agreement_outranks_one(self, monkeypatch):
+        import backend.config as config
+        monkeypatch.setattr(config, "CHAIN_ARBITRATION_EVIDENCE", True)
+        db = _mk_db()
+        # legacy agrees on its entry-only track's single component; the
+        # additive agrees on BOTH of its full track's components — the match
+        # count is the tag-strength axis, no separate rank table.
+        _ev(db, 1, None, o=1, d=None)
+        e2 = _ev(db, 2, "rescue_full", o=4, d=2)
+        stats = conserve_replay_additions(
+            db, 2, {1: 7, 2: 7},
+            {1: (1, None, "entry_only"), 2: (4, 2, "full")})
+        assert _kept(db) == {e2}
+        assert stats["legacy_rejected"] == 1
+
+    def test_flag_on_legacy_only_chain_untouched(self, monkeypatch):
+        import backend.config as config
+        monkeypatch.setattr(config, "CHAIN_ARBITRATION_EVIDENCE", True)
+        db = _mk_db()
+        e1 = _ev(db, 1, None, o=1, d=3)
+        e2 = _ev(db, 2, None, o=4, d=2)          # both legacy, one chain
+        conserve_replay_additions(
+            db, 2, {1: 7, 2: 7}, {1: (4, 2, "full"), 2: (4, 2, "full")})
+        assert _kept(db) == {e1, e2}              # still not ours to fix
+
+    def test_flag_on_all_additive_keeps_additive_rank(self, monkeypatch):
+        import backend.config as config
+        monkeypatch.setattr(config, "CHAIN_ARBITRATION_EVIDENCE", True)
+        db = _mk_db()
+        _ev(db, 1, "rescue_supports", o=4, d=2)
+        e2 = _ev(db, 2, "rescue_full", o=1, d=3)  # worse gate agreement...
+        _ev(db, 3, "branch1", o=4, d=2)
+        conserve_replay_additions(
+            db, 2, {1: 7, 2: 7, 3: 7},
+            {1: (4, 2, "full"), 2: (4, 2, "full"), 3: (4, 2, "full")})
+        assert _kept(db) == {e2}   # ...but the proven provenance rank rules
+
+    def test_flag_on_without_evidence_falls_back_to_blanket(self, monkeypatch):
+        import backend.config as config
+        monkeypatch.setattr(config, "CHAIN_ARBITRATION_EVIDENCE", True)
+        db = _mk_db()
+        e1 = _ev(db, 1, None, o=1, d=3)
+        _ev(db, 2, "rescue_full", o=4, d=2)
+        stats = conserve_replay_additions(db, 2, {1: 7, 2: 7})
+        assert _kept(db) == {e1}                  # no evidence -> old path
+        assert stats["rejected_vs_legacy"] == 1
+        assert stats["legacy_rejected"] == 0
+
+    def test_demoted_counts_as_legacy_for_grouping(self, monkeypatch):
+        import backend.config as config
+        monkeypatch.setattr(config, "CHAIN_ARBITRATION_EVIDENCE", True)
+        db = _mk_db()
+        # 'demoted' is not in _ADDITIVE — it sits on the legacy side of the
+        # mixed-chain split (previously true silently; pinned here) and is
+        # rankable like any legacy event.
+        _ev(db, 1, "demoted", o=1, d=3)           # flip-suspect
+        e2 = _ev(db, 2, "branch1", o=4, d=2)      # gate-agreeing additive
+        stats = conserve_replay_additions(
+            db, 2, {1: 7, 2: 7}, {1: (4, 2, "full"), 2: (4, 2, "full")})
+        assert _kept(db) == {e2}
+        assert stats["legacy_rejected"] == 1

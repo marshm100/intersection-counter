@@ -296,26 +296,63 @@ _ADDITIVE_RANK = {"rescue_full": 0, "branch1": 1, "rescue_supports": 2}
 
 
 def conserve_replay_additions(db: str | Path, camera_id: int,
-                              chain_map: dict) -> dict:
+                              chain_map: dict,
+                              evidence: dict | None = None) -> dict:
     """The conservation pass (plan_conservation_pass_2026-07-15): at most one
-    counted event per fragment CHAIN, and additive events (posterior_source
-    branch1/rescue_*) always lose to legacy events. Write-then-reject, the
+    counted event per fragment CHAIN. Mixed-chain arbitration (legacy +
+    additive): additive events (posterior_source branch1/rescue_*) always
+    lose to legacy events by default; with config.CHAIN_ARBITRATION_EVIDENCE
+    (C-1, plan_v2_c1_arbitration_2026-08-12) AND an evidence map from
+    build_chain_map_ev ({tid: (origin_leg, dest_leg, tag)}), the chain keeps
+    its best-evidenced event instead — ranked by agreement with the track's
+    own gate crossings — and may reject a LEGACY event (reported as
+    legacy_rejected). All-additive chains keep the proven _ADDITIVE_RANK path
+    either way; legacy-only chains are never touched. Write-then-reject, the
     turn-merge pattern (rejected=1, non-destructive). Singleton/unmapped
     tracks are untouched. Returns counter stats."""
+    from backend import config as _cfg
+    ranked = (bool(getattr(_cfg, "CHAIN_ARBITRATION_EVIDENCE", False))
+              and evidence is not None)
     conn = sqlite3.connect(db)
     rows = conn.execute(
         "SELECT event_id, vehicle_track_id, posterior_source, "
-        "COALESCE(classifier_num_points, 0) FROM vehicle_events "
+        "COALESCE(classifier_num_points, 0), origin_leg_id, "
+        "destination_leg_id FROM vehicle_events "
         "WHERE camera_id = ? AND COALESCE(rejected, 0) = 0",
         (camera_id,)).fetchall()
     groups: dict = {}
-    for eid, tid, src, npts in rows:
+    for eid, tid, src, npts, o_leg, d_leg in rows:
         cid = chain_map.get(int(tid))
         if cid is None:
             continue
-        groups.setdefault(cid, []).append((eid, src, npts))
+        groups.setdefault(cid, []).append((eid, src, npts, int(tid),
+                                           o_leg, d_leg))
+
+    def _ev_key(e):
+        # C-1 rank, no new constants: class 0 = agrees with its track's gate
+        # crossings on >=1 comparable component with no mismatch, 1 = nothing
+        # comparable (vacuous agreement is NOT agreement), 2 = flip-suspect
+        # (mismatches a comparable component — the D1-measured failure).
+        # -matches subsumes tag strength (full track: both components
+        # comparable; entry-only: one; blind: none). Components compare only
+        # when BOTH the track evidence and the event column are non-NULL.
+        o, d, _tag = evidence.get(e[3]) or (None, None, None)
+        matches = mism = 0
+        if o is not None and e[4] is not None:
+            if e[4] == o:
+                matches += 1
+            else:
+                mism += 1
+        if d is not None and e[5] is not None:
+            if e[5] == d:
+                matches += 1
+            else:
+                mism += 1
+        cls = 2 if mism else (0 if matches else 1)
+        return (cls, -matches, -e[2], e[0])
+
     reject: list = []
-    n_legacy_dupe = n_additive_dupe = 0
+    n_legacy_dupe = n_additive_dupe = n_legacy_rejected = 0
     for evs in groups.values():
         if len(evs) < 2:
             continue
@@ -323,10 +360,24 @@ def conserve_replay_additions(db: str | Path, camera_id: int,
         if not additive:
             continue                      # legacy multi-counts pre-date us
         if len(additive) < len(evs):
-            # the chain already has a legacy event: every additive one is a
-            # duplicate of a counted vehicle
-            reject += [e[0] for e in additive]
-            n_legacy_dupe += len(additive)
+            if ranked:
+                # C-1: keep the chain's best-evidenced event, legacy or not
+                evs_sorted = sorted(evs, key=_ev_key)
+                keep_legacy = evs_sorted[0][1] not in _ADDITIVE
+                for e in evs_sorted[1:]:
+                    reject.append(e[0])
+                    if e[1] in _ADDITIVE:
+                        if keep_legacy:
+                            n_legacy_dupe += 1
+                        else:
+                            n_additive_dupe += 1
+                    else:
+                        n_legacy_rejected += 1
+            else:
+                # the chain already has a legacy event: every additive one is
+                # a duplicate of a counted vehicle
+                reject += [e[0] for e in additive]
+                n_legacy_dupe += len(additive)
         else:
             # all additive: keep the single best-evidenced (longest breaks
             # ties), reject the rest
@@ -341,7 +392,8 @@ def conserve_replay_additions(db: str | Path, camera_id: int,
     conn.close()
     return {"chains_with_events": len(groups), "rejected": len(reject),
             "rejected_vs_legacy": n_legacy_dupe,
-            "rejected_vs_additive": n_additive_dupe}
+            "rejected_vs_additive": n_additive_dupe,
+            "legacy_rejected": n_legacy_rejected}
 
 
 def posterior_extras_enabled(activation: dict | None) -> bool:
@@ -399,7 +451,7 @@ def conserve_pass(project_id: str, camera_id: int, rows: np.ndarray,
     pinned gates + fragment-chain map from the dump, then conserve."""
     from backend.database import list_paths_for_camera
     from backend.services.entry_gates import build_gates
-    from backend.services.track_chains import build_chain_map
+    from backend.services.track_chains import build_chain_map_ev
     conn = get_connection(project_id)
     mouths, heads = {}, {}
     for lid, oz, rh in conn.execute(
@@ -417,8 +469,8 @@ def conserve_pass(project_id: str, camera_id: int, rows: np.ndarray,
                         heads, leg_axes=gate_axes_for(mouths, tracks.values()))
     if not gates:
         return {"skipped": "no gates"}
-    chain_map = build_chain_map(tracks, gates, fps)
-    return conserve_replay_additions(out_db, camera_id, chain_map)
+    chain_map, ev = build_chain_map_ev(tracks, gates, fps)
+    return conserve_replay_additions(out_db, camera_id, chain_map, ev)
 
 
 def census_expecteds(project_id: str, camera_id: int, rows: np.ndarray,

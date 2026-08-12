@@ -99,3 +99,46 @@ transfer to per-cell-per-bin scoring — a citable result either way,
 because the mechanism is currently cited as proven.
 `CONSERVE_ON_ACTIVATION` and `CHAIN_ARBITRATION_EVIDENCE` stay default
 OFF regardless of outcome.
+
+---
+
+## VERDICT (2026-08-12) — G-C1 FAILED; the conservation pass is LEDGERED
+
+Built exactly as specified (947 tests green, 9 new; OFF path parity-
+pinned; `demoted` grouping pinned; the `set(_ADDITIVE_RANK) <=
+set(_ADDITIVE)` assertion SURVIVES because the legacy rank is derived
+from gate agreement, not a rank table). Measured on base dumps, cam2 ×3,
+activation ON at all three (basis clean; sidecars recorded):
+
+  window        CTRL   CONS-i1   C1ARB          rejection split
+  study_0700   53.4    47.6     46.6 (48/103)  rej 293: vs_leg 113 (was 225), LEG_REJ 125
+  study_1100   42.9    40.0     40.0 (42/105)  rej 223: vs_leg  83 (was 173), LEG_REJ  92
+  study_1600   44.0    43.1     41.3 (45/109)  rej 465: vs_leg 172 (was 354), LEG_REJ 197
+
+- Gate condition "split shifts away from rejected_vs_legacy": PASSED —
+  halved at every window; the mechanism did exactly what it was told.
+- Gate condition ">= CTRL on all three, >= +1.0 on one": FAILED at all
+  three, and WORSE than iteration 1's blanket at 2 of 3.
+
+WHY it fails (measured, not surmised): the 2026-07-15 diagnosis — "it
+rejects the posterior's CORRECT event whenever the chain's legacy event
+is itself a misattributed flip" — is true of individual cases but its
+remedy INVERTS in aggregate: the flip-suspect legacy events displaced by
+C-1 (125/92/197 per window) were net carrying MORE compliant cell-bin
+mass than the better-gate-evidenced additive events that replaced them.
+Gate-crossing agreement at the event level is not a sufficient statistic
+for per-bin count correctness — the same lesson G-P1 taught for
+selectors, now measured inside the chain arbiter itself.
+
+## LEDGER — conservation family CLOSED on the customer bar
+
+Two iterations, counting from zero per the 2026-08-11 operator decision:
+  iteration 1 (D1)  activation-preconditioned conserve_pass  G-D1b FAIL
+  iteration 2 (C-1) evidence-ranked mixed-chain arbitration  G-C1  FAIL
+
+**The conservation pass is DEAD on the per-cell per-bin customer bar.**
+Its original proof (cam2 9.1 -> 3.3-3.5%) was per-approach MAE and DOES
+NOT TRANSFER; it must no longer be cited as a proven mechanism without
+this qualification. Both flags remain default OFF; code + tests remain
+(the ranked path is parity-gated and documented). The options-inventory
+C1/C2/D1 entries resolve to this ledger line.
