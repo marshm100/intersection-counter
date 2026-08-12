@@ -128,3 +128,52 @@ Phase 4 five b1t pass-2s (cam2×3, cam1 0700+1600; own workdirs under
 `_replay_scratch/b1_twin/`; WAL-safe copies to `b1t_cam<C>_<W>.db`;
 score; delete DBs) → Phase 5 activation check + phantom diag + EB_right
 totals. Runs ≈ 1.5 h; build 3-5 h.
+
+---
+
+## VERDICT (2026-08-12) — G-B1i FAILED on both gate tables; BLOCK STOPS
+
+`scripts/v2_twin_instrument.py` built and run on all four tables
+(evidence: `runs/v2_week1/twin_*.json`; SEED 42, deterministic):
+
+  table                twins  recall  by co-life (1-2/2-5/5-10 s)  decoy FF  follower FF
+  cam2 study_0700 (G)    71   0.155   0.19 / 0.18 / 0.09            0.040     0.079
+  cam1 study_1600 (G)    40   0.075   0.00 / 0.18 / 0.05            0.070     0.136
+  cam2 study_1100        74   0.068   0.06 / 0.09 / 0.04            0.080     0.158
+  cam2 study_1600        75   0.067   0.07 / 0.04 / 0.08            0.080     0.158
+
+Gate required recall >= 0.80 aggregate and >= 0.60 per bin; measured
+0.067-0.155. Decoy false-flag required <= 0.02 aggregate, <= 0.05 per
+class; the FOLLOWER class runs 0.079-0.158 at every table.
+
+WHY, mechanically: the structural signature fires only when two
+co-temporal tracklets share a best SUCCESSOR (join) or best PREDECESSOR
+(fork) with a third tracklet. A detector double-box whose duplicate
+silently dies mid-track has NEITHER — there is no fork or join topology
+to detect. The signature is structurally blind to the class it was
+hypothesized to catch, at every co-life length. Meanwhile queued
+followers — same path, 0.8-2.0 s headway — DO collide in the graph
+(both chase the same downstream continuation) at 8-16%: the exact weld
+class that killed the co-life IoU channel, reproduced in the untried
+channel too.
+
+Also measured: seq_overlap_frac = 0.00 on every table — the structural
+pairs share nothing with the sequential stitch links, so the channel is
+not re-derived stitching; it is its own (dead) signal.
+
+LEDGER: **the structural twin channel does not recover the double-box
+class; the twin class at EVENT level is now closed** — five channels
+measured dead (geometry x2, appearance x1, co-life IoU x1, structural
+x1). Iteration 1 spent; iteration 2 (join AND fork) is NOT triggered —
+its precondition was false admissions, and the failure is recall: a
+stricter conjunction can only lower 0.07-0.15 further. The counting
+arms (phases 2-5) never ran; the kill gate ran first by design and
+saved the harness build + 6 pass-2 runs. What survives: the twin
+instrument (any future twin proposal must pass G-B1i's bar first) and
+the dist_mult honest-signature fix in v2_common.py (behavior-preserving;
+1.5 now the declared default the body actually uses).
+
+Standing pointer for the checkpoint: the sweep's fragment-to-movement
+classification family (research_synthesis_queued_2026-08-12 F14/F15/F16)
+attacks the same damage WITHOUT needing twin detection — count the
+fragment instead of deduplicating it.

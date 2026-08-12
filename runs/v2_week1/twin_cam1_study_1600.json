@@ -1,0 +1,43 @@
+{
+ "table": "runs/v2_week1/tracklets_cam1_study_1600.npz",
+ "cal_clean": {
+  "alpha": 3.0,
+  "beta": 51.388353106146155,
+  "zv_radius": 20.074867248535156,
+  "v_stop": 8.0,
+  "v_noise": 18.811359405517578,
+  "a_allow": 30.92812156677246
+ },
+ "clean_pairs": 483,
+ "seq_overlap_frac": 0.0,
+ "twins_injected": 40,
+ "twin_recall": 0.075,
+ "twin_recall_by_colife": {
+  "1-2s": {
+   "n": 10,
+   "recall": 0.0
+  },
+  "2-5s": {
+   "n": 11,
+   "recall": 0.18181818181818182
+  },
+  "5-10s": {
+   "n": 19,
+   "recall": 0.05263157894736842
+  }
+ },
+ "decoys": {
+  "follower": {
+   "n": 22,
+   "false_flagged": 3,
+   "rate": 0.13636363636363635
+  },
+  "neighbor": {
+   "n": 21,
+   "false_flagged": 0,
+   "rate": 0.0
+  }
+ },
+ "decoy_false_flag_rate": 0.0698,
+ "pairs_on_augmented": 320
+}

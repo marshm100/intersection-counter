@@ -347,14 +347,23 @@ def premerge_concurrent(rows: np.ndarray, starts, ends, fps: float,
 
 def twin_pairs_structural(t: dict, cal: dict,
                           min_colife_s: float = 1.0,
-                          dist_mult: float = 4.0):
+                          dist_mult: float = 1.5):
     """The one untried twin channel (week-1 verdict item 1): two
     CO-TEMPORAL tracklets are one vehicle iff they COMPETE for the same
     continuation — best successor collision (join signature: the split
     rejoins into one downstream track) or best predecessor collision
     (fork signature: one upstream track splits into both). Structure on
     the existing candidate graph; the only knobs are a minimum co-life
-    and a loose physical sanity bound (dist_mult * zv_radius).
+    and the common-frame distance bound (dist_mult * zv_radius; 1.5 =
+    the CD-test <20 px precedent — was a dead parameter defaulting 4.0
+    while the body hardcoded 1.5*, fixed 2026-08-12, behavior-preserving).
+
+    MEASURED DEAD 2026-08-12 (G-B1i, plan_b1_twin_isolation_2026-08-12):
+    synthetic double-box twins are recovered at only 0.07-0.15 across four
+    tables/two cameras — a mid-life duplicate has no fork/join topology,
+    so the signature is structurally blind to the class — while queued
+    FOLLOWERS false-flag at 0.08-0.16 (the same weld class that killed
+    co-life IoU). Fifth and last twin channel at event level.
 
     Returns list of (i, j) twin pairs.
     """
@@ -381,9 +390,9 @@ def twin_pairs_structural(t: dict, cal: dict,
     f0, f1 = t["f0"], t["f1"]
     # twins ride ON TOP of each other during co-life; followers hold
     # headway — gate on mean COMMON-FRAME distance at the same-vehicle
-    # scale (1.5 * zv_radius; the CD-test <20 px precedent), not on
-    # midpoints (day-4: midpoint gate admitted half the window)
-    max_d = 1.5 * cal["zv_radius"]
+    # scale, not on midpoints (day-4: midpoint gate admitted half the
+    # window)
+    max_d = dist_mult * cal["zv_radius"]
     pairs = set()
     for group in list(by_succ.values()) + list(by_pred.values()):
         if len(group) < 2:
