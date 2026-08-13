@@ -155,3 +155,34 @@ process, gate refusal is binding: PPT-2 DOES NOT SHIP today.
 4. At 1100 the correct candidate would compose PPT-2 ON TOP OF the
    applied artifact (re-attribute the live table, not the base) —
    noted for GATE-AG2's candidate-preparation step.
+
+---
+
+## EXTENSION (2026-08-13, operator "go for it"; GATE-AG2 validated and
+## study_1600 APPLIED in the meantime) — compose-on-live 0700/1100 +
+## cam1/4/5 instruments
+
+Basis change, declared: the live 0700/1100 events came from the
+2026-08-10 v2c-based applied artifacts → track lookup, prototypes, and
+calibration come from the V2C dumps (v2c_study_0700/1100; tracklet
+tables generated where missing). Preconditions per window, ALL binding:
+  (e0) tid-alignment: live window (tid, cell, movement) multiset ==
+       the applied artifact's (twopass_cam2_v2c_*) — else STOP;
+  (e1) G-PPT-i re-measured ON THE V2C BASIS by the composer's
+       calibration: held-out precision >= 0.90, coverage >= 0.60;
+  (e2) the PPT-2 binding set per window: zero-mass; EB (origin-28)
+       cells byte-equal (the unresolvability freeze carries — same
+       camera geometry); 5/95 >= LIVE control + 1.0 (>= 56.8 at 0700,
+       >= 51.4 at 1100); no cell's |err| grows > 5 — with the recorded
+       PPT-2 proviso: misses confined to already-non-compliant cells
+       go to operator ruling rather than auto-fail;
+  (e3) GATE-AG2 candidacy passes (gate_pass_reattr) vs live;
+  (e4) apply per the audited script pattern (fresh record=True
+       adjudication, quiesced server, backup, swap, exact post-verify)
+       — authorized by the operator's "go for it" on this named
+       sequence; each apply reported individually.
+
+CAM1/4/5: G-PPT-i instruments on their base dumps (tracklet tables
+generated where missing), same bars (0.90 / 0.60). Instrument results
+decide which cameras get counting blocks (each with its own declared
+gates); no counting arms run on those cameras this round.
