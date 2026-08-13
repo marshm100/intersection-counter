@@ -1,0 +1,194 @@
+{
+ "v2": {
+  "cells_scored": 108,
+  "compliant": 56,
+  "pct": 51.9,
+  "worst": [
+   {
+    "bin": "07:30",
+    "cell": "NB thru",
+    "ours": 344,
+    "ref": 296
+   },
+   {
+    "bin": "08:45",
+    "cell": "EB right",
+    "ours": 59,
+    "ref": 11
+   },
+   {
+    "bin": "07:45",
+    "cell": "NB thru",
+    "ours": 340,
+    "ref": 293
+   },
+   {
+    "bin": "08:00",
+    "cell": "EB right",
+    "ours": 55,
+    "ref": 11
+   },
+   {
+    "bin": "07:15",
+    "cell": "NB thru",
+    "ours": 366,
+    "ref": 324
+   },
+   {
+    "bin": "07:00",
+    "cell": "NB thru",
+    "ours": 341,
+    "ref": 302
+   },
+   {
+    "bin": "08:15",
+    "cell": "EB right",
+    "ours": 47,
+    "ref": 8
+   },
+   {
+    "bin": "07:45",
+    "cell": "EB right",
+    "ours": 75,
+    "ref": 40
+   }
+  ]
+ },
+ "production": {
+  "cells_scored": 113,
+  "compliant": 63,
+  "pct": 55.8,
+  "worst": [
+   {
+    "bin": "07:45",
+    "cell": "NB thru",
+    "ours": 325,
+    "ref": 293
+   },
+   {
+    "bin": "08:00",
+    "cell": "SB right",
+    "ours": 38,
+    "ref": 69
+   },
+   {
+    "bin": "08:30",
+    "cell": "EB right",
+    "ours": 42,
+    "ref": 11
+   },
+   {
+    "bin": "07:30",
+    "cell": "NB thru",
+    "ours": 326,
+    "ref": 296
+   },
+   {
+    "bin": "07:00",
+    "cell": "NB thru",
+    "ours": 331,
+    "ref": 302
+   },
+   {
+    "bin": "08:15",
+    "cell": "EB right",
+    "ours": 37,
+    "ref": 8
+   },
+   {
+    "bin": "08:45",
+    "cell": "EB right",
+    "ours": 39,
+    "ref": 11
+   },
+   {
+    "bin": "07:15",
+    "cell": "NB thru",
+    "ours": 351,
+    "ref": 324
+   }
+  ]
+ },
+ "totals": {
+  "EB_left": [
+   229,
+   253,
+   234
+  ],
+  "EB_right": [
+   167,
+   421,
+   332
+  ],
+  "EB_thru": [
+   119,
+   36,
+   35
+  ],
+  "EB_uturn": [
+   2,
+   3,
+   15
+  ],
+  "NB_left": [
+   411,
+   446,
+   413
+  ],
+  "NB_right": [
+   22,
+   5,
+   4
+  ],
+  "NB_thru": [
+   2198,
+   2445,
+   2394
+  ],
+  "NB_uturn": [
+   0,
+   2,
+   8
+  ],
+  "SB_left": [
+   115,
+   162,
+   163
+  ],
+  "SB_right": [
+   379,
+   274,
+   232
+  ],
+  "SB_thru": [
+   1384,
+   1321,
+   1291
+  ],
+  "SB_uturn": [
+   1,
+   12,
+   15
+  ],
+  "WB_left": [
+   61,
+   29,
+   32
+  ],
+  "WB_right": [
+   293,
+   384,
+   359
+  ],
+  "WB_thru": [
+   267,
+   306,
+   288
+  ],
+  "WB_uturn": [
+   0,
+   1,
+   0
+  ]
+ }
+}

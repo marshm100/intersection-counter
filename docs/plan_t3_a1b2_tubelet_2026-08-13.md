@@ -231,6 +231,47 @@ PASS all four → the block RESUMES: remaining windows under G-A1-a.
 ANY fail → the rescore-only family is DEAD on direct evidence; ledger
 closes with the flicker-instrument findings attached.
 
+## G-A1-f RESULT (2026-08-13) — FAILED f2, f3, f4; THE FAMILY IS DEAD
+
+Stabilizer: 560,794 boosted (21.9%). Pass-1: 1,906,448 points (+11% vs
+base). Pass-2 + score, activation ON at 0.482 (control 0.564, no flip —
+comparison valid; note the boosted tracks are disproportionately blind,
+the coupling law's fourth data point):
+
+  (f1) tracks        10,626 <= 12,480          PASS  (+28%, no refusal)
+  (f2) insufficient   3,827 >  3,663           FAIL  (1.57x base)
+  (f3) 5/95            51.9 <  53.4; cells 108 > 106  FAIL both halves
+  (f4) EB_left err       24 (253 vs 229) >= 14 FAIL  (overshot to surplus)
+       NB_left err       35 (446 vs 411) <  63 (reduced — by overshoot)
+
+The flood materialized exactly where the flicker instrument could not
+see it: the boosted mass CONVERTS into counted events — +2,306 tracks,
++747 events — distributed as SURPLUS across through and turn cells
+alike (NB_thru 2250→2445 vs Mio 2198; EB_right 309→421 vs 167; five
+new phantom cells incl. 12 SB u-turns). Recall gains and over-counts
+arrive together and the net is negative. In retrospect the 0.53 decoy
+rate measured something real: a large fraction of structurally-coherent
+low-conf tubelets are not missing vehicles.
+
+**LEDGER — A1 RESCORE-ONLY IS DEAD ON DIRECT EVIDENCE** (both
+iterations + the operator-approved falsifier spent). The third
+confirmation of the same wall from a third level: raw detection volume
+(ft2), tracker substitution (H1), and now confidence rescoring all fail
+to convert extra detection mass into NET accurate counts under this
+chain. What survives: the flicker instrument's recovery result (the
+LINKER holds through anchorless flicker at 0.70-0.74 — whatever
+mechanism eventually attacks the birth wall can reuse the tubelet
+linking), the per-camera birth-floor mapping, and the
+instrument-soundness finding (observational negatives cannot bound
+false births at detection level). Gap interpolation is NOT a live
+follow-up: it ADDS synthetic mass to a mechanism that just failed on
+mass conversion. The birth wall remains — but the evidence now says
+the failing step is not detection volume, not the tracker, and not
+confidence: it is SELECTIVITY — knowing WHICH coherent low-conf
+structure is a vehicle, which is exactly the boundary where the
+fragment-classification family (F2M) operates at event level with
+per-cell accountability.
+
 ## Cost and mechanics
 
 Stabilizer run: minutes/window (pure pandas/numpy over the parquet).
