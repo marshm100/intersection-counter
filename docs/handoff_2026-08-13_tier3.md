@@ -41,15 +41,16 @@ the right channel) — the "flood" is largely misclassified throughs.
 F2M's overshoot is re-explained as DWELL-BLIND double-counting
 (fragments of counted queued vehicles outside the ±2 s guard).
 
-**THE OPERATOR ACTION (highest leverage, prime-directive-sanctioned):
-redraw cam2's EB channel polylines (intersection_paths origin 28 —
-especially 28→26 through, 28→29 right) tracing actual traffic; the
-mouth/gate line needs NO change.** Pre-declared success criterion:
-leg-28 confusion < 0.25, EB_thru recovers toward 119, EB_right shrinks
-toward 167 on the standard replay, no other cell regressing. The
-measurement harness is ready (scripts/v2_leg28_diag.py + the committed
-controls). If it lands, closed families become revival candidates
-against the repaired signal (F2M with a dwell-aware guard first).
+**SUPERSEDED SAME-DAY — read diag_cam2_leg28_2026-08-13.md OUTCOME.**
+The in-UI session + dry-run + gated write/restore corrected this twice
+more: the operator's channels are FINE; the stored EB right path is
+CORRECT; the left path has a real 36 px entry offset (faithful 670-full
+replacement derived + committed, re-appliable under a replay-only
+gate); the through path is missing because through journeys don't
+complete as fulls (fragmentation — the selectivity wall); and the
+confusion METRIC is structurally unsound as a leg-health signal (0.981
+→ withdrawn; third gate-evidence-family signal to fall after G-P1 and
+C-1). EB_right's +142 flood remains OPEN with geometry eliminated.
 
 ## Standing state
 
