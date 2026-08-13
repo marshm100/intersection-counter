@@ -45,8 +45,9 @@ class TestReattrGuards:
         assert d == "stand_down" and "endpoint_integrity" in r
 
     def test_excessive_movement(self):
-        # move 3.3% of mass — over the 0.025 frozen cap
-        inc, cand = _counts({(1, 2): 94, (1, 3): 56})
+        # move 6.7% of mass — over the 0.05 cap (re-frozen 2026-08-13 from
+        # the two validated positives per the declared choice rule)
+        inc, cand = _counts({(1, 2): 88, (1, 3): 56, (2, 3): 36})
         d, r, _m = adjudicate_reattribution_counts(
             inc, cand, CENSUS, 0.05, CLEAN)
         assert d == "stand_down" and "excessive_movement" in r

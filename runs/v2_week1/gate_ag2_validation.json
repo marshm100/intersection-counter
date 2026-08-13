@@ -1,6 +1,6 @@
 [
  {
-  "case": "P1 ppt2-on-live 1600",
+  "case": "P1 ppt2 1600",
   "window": "study_1600",
   "expected": "apply",
   "decision": "apply",
@@ -24,13 +24,36 @@
   "correct": true
  },
  {
-  "case": "N1 ppt2_0700-on-base",
+  "case": "P2 ppt2 1100",
+  "window": "study_1100",
+  "expected": "apply",
+  "decision": "apply",
+  "reasons": [
+   "gate_pass_reattr"
+  ],
+  "metrics": {
+   "inc_total": 4426,
+   "cand_total": 4426,
+   "moved_events": 141,
+   "moved_cell_mass": 121,
+   "moved_share": 0.0273,
+   "max_cell_gain": 87,
+   "concentration": 0.719,
+   "integrity_violations": 0,
+   "fulls_moved": 0,
+   "saturation": 0.119,
+   "census_total": 4630
+  },
+  "disposition": "auto",
+  "correct": true
+ },
+ {
+  "case": "N1 0700-on-base",
   "window": "study_0700",
   "expected": "stand_down",
   "decision": "stand_down",
   "reasons": [
-   "mass_change",
-   "excessive_movement"
+   "mass_change"
   ],
   "metrics": {
    "inc_total": 5815,
@@ -49,13 +72,12 @@
   "correct": true
  },
  {
-  "case": "N2 ppt2_1100-on-base",
+  "case": "N2 1100-on-base",
   "window": "study_1100",
   "expected": "stand_down",
   "decision": "stand_down",
   "reasons": [
-   "mass_change",
-   "excessive_movement"
+   "mass_change"
   ],
   "metrics": {
    "inc_total": 4426,
@@ -141,6 +163,30 @@
    "fulls_moved": 0,
    "saturation": 0.066,
    "census_total": 6899
+  },
+  "disposition": "auto",
+  "correct": true
+ },
+ {
+  "case": "N6 unfloored runaway",
+  "window": "study_1100",
+  "expected": "stand_down",
+  "decision": "stand_down",
+  "reasons": [
+   "excessive_movement"
+  ],
+  "metrics": {
+   "inc_total": 4426,
+   "cand_total": 4426,
+   "moved_events": 317,
+   "moved_cell_mass": 241,
+   "moved_share": 0.0545,
+   "max_cell_gain": 123,
+   "concentration": 0.5104,
+   "integrity_violations": 0,
+   "fulls_moved": 0,
+   "saturation": 0.119,
+   "census_total": 4630
   },
   "disposition": "auto",
   "correct": true

@@ -157,6 +157,13 @@ def main() -> int:
                          "windows' events (whose tids can collide with "
                          "this window's dump tids) are never touched.")
     ap.add_argument("--t-hi", type=float, default=None)
+    ap.add_argument("--unfloored", action="store_true",
+                    help="VALIDATION-NEGATIVE GENERATOR ONLY (GATE-AG2 N6): "
+                         "moves every scored candidate whose best cell "
+                         "differs, ignoring the ATTR_MAX/margin floors — "
+                         "the runaway-re-attributor archetype the "
+                         "moved_share cap exists to catch. Never a "
+                         "production mode.")
     args = ap.parse_args()
     cam, variant = args.camera, args.variant
     rng = np.random.default_rng(SEED)
@@ -237,8 +244,9 @@ def main() -> int:
         if not sc:
             census["no_candidates"] += 1
             continue
-        if sc[0][0] > attr_max or margin == 0.0 or (
-                len(sc) > 1 and sc[0][0] >= margin * sc[1][0]):
+        if not args.unfloored and (
+                sc[0][0] > attr_max or margin == 0.0 or (
+                len(sc) > 1 and sc[0][0] >= margin * sc[1][0])):
             census["floors_not_cleared"] += 1
             continue
         cell = sc[0][1]

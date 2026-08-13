@@ -116,3 +116,30 @@ pre-apply calibration/schema fingerprint checks, automatic backup,
 post-verify). 0700/1100 candidacy requires compose-on-live candidates
 re-attributing the APPLIED tables on the v2c dumps (named follow-up;
 the v2c dumps exist).
+
+
+---
+
+## RE-FREEZE + EXTENDED VALIDATION (2026-08-13, same day, before the
+## 1100 apply decision)
+
+The compose-on-live 1100 candidate (yardstick +4.6, all e2 conditions
+clean) missed the moved_share cap 0.0273 vs 0.025 — a cap frozen from
+ONE positive example. Per the declared choice rule extended over BOTH
+validated positives (max 0.0273 x 1.5 = 0.041 -> tightest round 0.05),
+REATTR_MOVED_MAX was re-frozen to 0.05 and the ENTIRE validation re-run
+with two additions: P2 (the 1100 candidate, expected apply) and N6 (an
+unfloored runaway re-attributor, 317 moves, built by a dedicated
+--unfloored validation-negative generator — the first negative that
+actually exercises the moved cap). **8/8**, every negative on its
+designed guard (N6: excessive_movement alone).
+
+Two harness corrections made en route, both recorded: (1) the P1/N3/N5
+cases now pin their incumbent to the RETAINED pre-apply backup — the
+study_1600 apply changed the live table's event_ids, and pinning keeps
+the validation reproducible forever (the alternative, recomposing on
+current live, degenerates to a zero-move candidate); (2) cases carry
+their own DUMP VARIANT — the applied windows' events live in the v2c
+track-id space, and integrity-checking them against the base dump
+produced spurious violations. The unit test for the moved cap was
+updated to the re-frozen constant. Suite green.

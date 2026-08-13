@@ -90,7 +90,9 @@ def main() -> int:
     p1 = S / "ag2" / "p1_live_cam2_study_1600.db"   # composed ON the live table (id-aligned)
     n3 = scratch / "n3_random.db"
     wal_copy(p1, n3)
-    mv = moved_events(live, p1, t_lo, t_hi)
+    preapply_early = Path("data/projects/97a7849a/backups/"
+                          "20260813_151203_pre_twopass_cam2.db")
+    mv = moved_events(preapply_early, p1, t_lo, t_hi)
     conn = sqlite3.connect(n3)
     with conn:
         for e in mv:
@@ -160,21 +162,38 @@ def main() -> int:
     conn.close()
 
     # ---- adjudicate all six -------------------------------------------------
+    p2 = S / "ag2" / "p2_live_cam2_study_1100.db"
+    n6 = S / "ag2" / "n6_unfloored_1100.db"
+    # Cases carry (window, VARIANT for the integrity dump, incumbent):
+    # P1/N3/N5 were composed on the PRE-APPLY live table — their incumbent
+    # is the retained pre-apply backup (the 2026-08-13 study_1600 apply
+    # changed the live table's event_ids; pinning the incumbent keeps the
+    # validation reproducible forever). P2/N6 ride the v2c dumps (the
+    # applied windows' track-id space) against the current live table.
+    preapply = Path("data/projects/97a7849a/backups/"
+                    "20260813_151203_pre_twopass_cam2.db")
     CASES = [
-        ("P1 ppt2-on-live 1600", "study_1600", p1, "apply"),
-        ("N1 ppt2_0700-on-base", "study_0700", S / "ppt2_cam2_study_0700.db",
+        ("P1 ppt2 1600", "study_1600", "study_1600", p1, preapply, "apply"),
+        ("P2 ppt2 1100", "study_1100", "v2c_study_1100", p2, live, "apply"),
+        ("N1 0700-on-base", "study_0700", "v2c_study_0700",
+         S / "ppt2_cam2_study_0700.db", live, "stand_down"),
+        ("N2 1100-on-base", "study_1100", "v2c_study_1100",
+         S / "ppt2_cam2_study_1100.db", live, "stand_down"),
+        ("N3 random", "study_1600", "study_1600", n3, preapply,
          "stand_down"),
-        ("N2 ppt2_1100-on-base", "study_1100", S / "ppt2_cam2_study_1100.db",
+        ("N4 concentrated", "study_1600", "study_1600", n4, live,
          "stand_down"),
-        ("N3 random", "study_1600", n3, "stand_down"),
-        ("N4 concentrated", "study_1600", n4, "stand_down"),
-        ("N5 massdrop", "study_1600", n5, "stand_down"),
+        ("N5 massdrop", "study_1600", "study_1600", n5, preapply,
+         "stand_down"),
+        ("N6 unfloored runaway", "study_1100", "v2c_study_1100", n6, live,
+         "stand_down"),
     ]
     out, ok_all = [], True
-    for label, w, db, expected in CASES:
+    for label, w, variant, db, inc_db, expected in CASES:
         wf_lo, wf_hi = FR[w]
-        census, confusion = gate_census_inputs(PROJECT, CAM, chash, w, FPS)
-        v = adjudicate_apply(PROJECT, CAM, w, incumbent_db=live,
+        census, confusion = gate_census_inputs(PROJECT, CAM, chash, variant,
+                                               FPS)
+        v = adjudicate_apply(PROJECT, CAM, variant, incumbent_db=inc_db,
                              candidate_db=db, t_lo=wf_lo / FPS,
                              t_hi=wf_hi / FPS, census=census,
                              confusion=confusion, record=False,
@@ -187,7 +206,7 @@ def main() -> int:
               f"{'OK' if correct else 'MISS'}  [{','.join(v['reasons'])}]")
     dst = Path("runs/v2_week1/gate_ag2_validation.json")
     dst.write_text(json.dumps(out, indent=1))
-    print(f"\nG-AG2-v: {sum(1 for o in out if o['correct'])}/6"
+    print(f"\nG-AG2-v: {sum(1 for o in out if o['correct'])}/{len(CASES)}"
           f"  -> {dst}")
     return 0 if ok_all else 1
 

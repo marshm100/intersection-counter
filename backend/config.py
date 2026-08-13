@@ -460,11 +460,14 @@ CONSERVE_ON_ACTIVATION = _os.environ.get(
 # docs/plan_gate_ag2_2026-08-13.md. FROZEN by the declared choice rule
 # (tightest round values passing the P1 validation candidate with >= 1.5x
 # margin; every constructed negative must still fail). P1 = ppt2_cam2_
-# study_1600 vs the live incumbent, measured: moved_share 0.0139 ->
-# 1.5x = 0.0208 -> cap 0.025; concentration 0.5895 -> 1.5x = 0.884 ->
-# cap 0.90 (the adversarial one-cell shape reads ~1.0). NOT env-overridable
-# (structural constants, the AG1 convention).
-APPLY_GATE_REATTR_MOVED_MAX = 0.025
+# study_1600 vs the live incumbent + (re-frozen 2026-08-13 with the
+# SECOND validated positive, ppt2-on-live study_1100, per the same rule
+# over ALL positives: max moved_share 0.0273 -> 1.5x = 0.0410 -> cap
+# 0.05; validated 8/8 incl. the new N6 runaway negative). Concentration
+# 0.5895 -> 1.5x = 0.884 -> cap 0.90 (the adversarial one-cell shape
+# reads ~1.0). NOT env-overridable (structural constants, AG1
+# convention).
+APPLY_GATE_REATTR_MOVED_MAX = 0.05
 APPLY_GATE_REATTR_CONC_MAX = 0.90
 
 # --- C-1: evidence-ranked chain arbitration (D1 iteration 2, 2026-08-12) -----
