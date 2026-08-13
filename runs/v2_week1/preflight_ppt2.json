@@ -1,0 +1,62 @@
+[
+ {
+  "window": "study_0700",
+  "decision": "stand_down",
+  "reasons": [
+   "no_headroom",
+   "no_recovery"
+  ],
+  "metrics": {
+   "census_total": 5839,
+   "inc_total": 5815,
+   "cand_total": 5497,
+   "saturation": 0.079,
+   "R_inc": -0.0041,
+   "R_cand": -0.0586,
+   "flood_share_inc": 0.1236,
+   "flood_share_cand": 0.09,
+   "d_cov": -122
+  },
+  "disposition": "auto"
+ },
+ {
+  "window": "study_1100",
+  "decision": "stand_down",
+  "reasons": [
+   "no_recovery"
+  ],
+  "metrics": {
+   "census_total": 4630,
+   "inc_total": 4426,
+   "cand_total": 4203,
+   "saturation": 0.119,
+   "R_inc": -0.0441,
+   "R_cand": -0.0922,
+   "flood_share_inc": 0.1021,
+   "flood_share_cand": 0.076,
+   "d_cov": -102
+  },
+  "disposition": "auto"
+ },
+ {
+  "window": "study_1600",
+  "decision": "stand_down",
+  "reasons": [
+   "no_headroom",
+   "event_flood",
+   "no_recovery"
+  ],
+  "metrics": {
+   "census_total": 6899,
+   "inc_total": 6835,
+   "cand_total": 6835,
+   "saturation": 0.066,
+   "R_inc": -0.0093,
+   "R_cand": -0.0093,
+   "flood_share_inc": 0.2488,
+   "flood_share_cand": 0.2589,
+   "d_cov": -70
+  },
+  "disposition": "auto"
+ }
+]

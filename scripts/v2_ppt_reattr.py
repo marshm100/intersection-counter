@@ -1,0 +1,276 @@
+"""Position-based PATH-OVER-TIME re-attribution (PPT).
+docs/plan_t3_ppt_reattr_2026-08-13.md — operator direction (a): the
+movement is the path of the car over time; position survives the
+projection that killed the heading feature.
+
+Modes:
+  --mode instrument   G-PPT-i: split-half held-out precision + coverage
+                      of the CONSTRAINED re-decision on the window's own
+                      fulls (destination-given-origin from the last 60%;
+                      origin-given-destination from the first 60%).
+  --mode compose      G-PPT-a: WAL-safe copy of the control DB; kept
+                      events whose track has ONE gate-proven endpoint
+                      get the OTHER endpoint re-decided by the scorer;
+                      overwrite only on decisive floor-passing fits;
+                      event count invariant asserted.
+
+Prototype/scorer machinery imported from v2_f2m_pilot (instrument
+reuse, recorded in the plan doc; the F2M FAMILY stays closed).
+
+Usage:
+  py -X utf8 scripts/v2_ppt_reattr.py --camera 2 --variant study_0700 --mode instrument
+  py -X utf8 scripts/v2_ppt_reattr.py --camera 2 --variant study_0700 --mode compose \
+      --control-db <d1ctrl db> --out-db <ppt db>
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sqlite3
+import sys
+from collections import Counter, defaultdict
+from pathlib import Path
+
+sys.path.insert(0, "scripts")
+sys.path.insert(0, ".")
+
+import numpy as np                                                  # noqa: E402
+
+from backend.database import get_connection, list_paths_for_camera  # noqa: E402
+from backend.services.entry_gates import build_gates, classify      # noqa: E402
+from backend.services.pass2_replay import load_dump, tracks_dir     # noqa: E402
+from backend.services.track_chains import build_chain_map_ev        # noqa: E402
+from backend.services.trajectory_classifier import derive_movement  # noqa: E402
+from backend.services.two_pass import (                             # noqa: E402
+    _camera_parquet, _tracks_from_rows, gate_axes_for)
+from v2_common import fit_motion_residual, load_table               # noqa: E402
+from v2_f2m_pilot import build_prototypes, score_track              # noqa: E402
+
+SEED = 42
+HELDOUT_PRECISION = 0.95
+MARGIN_SWEEP = [round(0.5 + 0.05 * k, 2) for k in range(9)]
+
+
+def load_window(project, cam, variant):
+    conn = get_connection(project)
+    mouths, heads = {}, {}
+    for lid, oz, rh in conn.execute(
+            "SELECT leg_id, origin_zone, reference_heading FROM legs "
+            "WHERE camera_id = ?", (cam,)):
+        if oz:
+            z = json.loads(oz)
+            mouths[lid] = tuple(z[0])
+            heads[lid] = rh
+    conn.row_factory = sqlite3.Row
+    legs_full = {r["leg_id"]: dict(r) for r in conn.execute(
+        "SELECT * FROM legs WHERE camera_id=?", (cam,))}
+    fps = float(conn.execute(
+        "SELECT fps FROM videos WHERE camera_id=? ORDER BY sort_order LIMIT 1",
+        (cam,)).fetchone()[0])
+    conn.close()
+    rows = load_dump(tracks_dir(_camera_parquet(project, cam, variant)))
+    tracks = {tid: sorted(p) for tid, p in _tracks_from_rows(rows).items()}
+    gates = build_gates(mouths, list_paths_for_camera(project, cam), heads,
+                        leg_axes=gate_axes_for(mouths, tracks.values()))
+    info = {}
+    for tid, pts in tracks.items():
+        if len(pts) < 5:
+            continue
+        o, d, of, df, _op, _dp, tag = classify(pts, gates, fps)
+        info[tid] = {"o": o, "d": d, "of": of, "df": df, "tag": tag,
+                     "pts": pts}
+    return legs_full, fps, tracks, gates, info
+
+
+def calibrate(info, w_ang, rng):
+    """Split-half floors + full-data prototypes (the F2M convention).
+    Returns (protos_full, attr_max, margin, cal_report)."""
+    full_recs = []
+    for v in info.values():
+        if v["tag"] != "full" or v["o"] == v["d"]:
+            continue
+        clip = [(x, y) for f, x, y in v["pts"] if v["of"] <= f <= v["df"]]
+        full_recs.append(((int(v["o"]), int(v["d"])), clip, v["pts"]))
+    rng.shuffle(full_recs)
+    half = len(full_recs) // 2
+    protos_A = build_prototypes([(c, clip) for c, clip, _p in full_recs[:half]])
+    held = [r for r in full_recs[half:] if r[0] in protos_A]
+    # constrained held-out rows: (true_cell, entry-mode scores, exit-mode scores)
+    ho = []
+    for cell, _clip, pts in held:
+        se = score_track(pts, protos_A, "entry", cell[0], w_ang)
+        sx = score_track(pts, protos_A, "exit", cell[1], w_ang)
+        ho.append((cell, se, sx))
+    best_costs = ([s[0][0] for _c, s, _x in ho if s]
+                  + [s[0][0] for _c, _e, s in ho if s])
+    attr_max = float(np.percentile(best_costs, 95)) if best_costs else 0.0
+
+    def eval_floor(m):
+        ok = tot = acc = 0
+        for cell, se, sx in ho:
+            for sc, truth in ((se, cell), (sx, cell)):
+                if not sc:
+                    continue
+                tot += 1
+                if sc[0][0] > attr_max:
+                    continue
+                if len(sc) > 1 and sc[0][0] >= m * sc[1][0]:
+                    continue
+                ok += 1
+                acc += (sc[0][1] == truth)
+        return (acc / ok if ok else 0.0), (ok / tot if tot else 0.0)
+
+    margin = precision = coverage = None
+    for m in sorted(MARGIN_SWEEP, reverse=True):
+        p, c = eval_floor(m)
+        if p >= HELDOUT_PRECISION:
+            margin, precision, coverage = m, p, c
+            break
+    if margin is None:
+        margin, precision, coverage = 0.0, 0.0, 0.0
+    protos = build_prototypes([(c, clip) for c, clip, _p in full_recs])
+    return protos, attr_max, margin, {
+        "n_fulls": len(full_recs), "heldout_n": len(ho),
+        "attr_max_px": round(attr_max, 1), "margin": margin,
+        "heldout_precision": round(precision, 4) if precision else 0.0,
+        "heldout_coverage": round(coverage, 4) if coverage else 0.0}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--project", default="97a7849a")
+    ap.add_argument("--camera", type=int, required=True)
+    ap.add_argument("--variant", required=True)
+    ap.add_argument("--mode", choices=["instrument", "compose"],
+                    required=True)
+    ap.add_argument("--control-db")
+    ap.add_argument("--out-db")
+    ap.add_argument("--freeze-origin", type=int, default=None,
+                    help="PPT-2 (plan doc): no re-decision may read or "
+                         "write a cell with this origin — the proven-"
+                         "unresolvable pair stays exactly as the control "
+                         "attributed it.")
+    args = ap.parse_args()
+    cam, variant = args.camera, args.variant
+    rng = np.random.default_rng(SEED)
+
+    legs_full, fps, tracks, gates, info = load_window(
+        args.project, cam, variant)
+    all_legs = list(legs_full.values())
+    npz = Path("runs/v2_week1") / f"tracklets_cam{cam}_{variant}.npz"
+    cal = fit_motion_residual(load_table(npz))
+    w_ang = cal["zv_radius"] / 45.0
+    protos, attr_max, margin, cal_rep = calibrate(info, w_ang, rng)
+    print(f"[ppt] cam{cam} {variant} calibration: {cal_rep}")
+
+    if args.mode == "instrument":
+        dst = Path("runs/v2_week1") / f"ppt_i_cam{cam}_{variant}.json"
+        dst.write_text(json.dumps(cal_rep, indent=1))
+        gate = (cal_rep["heldout_precision"] >= 0.90
+                and cal_rep["heldout_coverage"] >= 0.60)
+        print(f"[ppt] G-PPT-i this window: "
+              f"{'PASS' if gate else 'FAIL'} "
+              f"(precision {cal_rep['heldout_precision']} >= 0.90, "
+              f"coverage {cal_rep['heldout_coverage']} >= 0.60)")
+        print(f"[ppt] -> {dst}")
+        return 0
+
+    # ---- compose ------------------------------------------------------------
+    out = Path(args.out_db)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if out.exists():
+        out.unlink()
+    src = sqlite3.connect(args.control_db)
+    dst = sqlite3.connect(out)
+    src.backup(dst)
+    src.close()
+    dst.row_factory = sqlite3.Row
+    evs = dst.execute(
+        "SELECT event_id, vehicle_track_id, origin_leg_id, "
+        "destination_leg_id, movement FROM vehicle_events "
+        "WHERE camera_id=? AND COALESCE(rejected,0)=0", (cam,)).fetchall()
+    n_before = len(evs)
+    census = Counter()
+    moves = Counter()
+    updates = []
+    for ev in evs:
+        tid = int(ev["vehicle_track_id"])
+        v = info.get(tid)
+        if v is None:
+            census["short_track"] += 1
+            continue
+        tag = v["tag"]
+        if tag == "full":
+            census["full_untouched"] += 1
+            continue
+        if tag == "entry_only":
+            if v["o"] is None or int(v["o"]) != ev["origin_leg_id"]:
+                census["contradiction_skipped"] += 1
+                continue
+            sc = score_track(v["pts"], protos, "entry", int(v["o"]), w_ang)
+            fixed_o = True
+        elif tag == "exit_only":
+            if v["d"] is None or int(v["d"]) != ev["destination_leg_id"]:
+                census["contradiction_skipped"] += 1
+                continue
+            sc = score_track(v["pts"], protos, "exit", int(v["d"]), w_ang)
+            fixed_o = False
+        else:
+            census["no_crossing_out_of_scope"] += 1
+            continue
+        if args.freeze_origin is not None and \
+                ev["origin_leg_id"] == args.freeze_origin:
+            census["frozen_origin_current"] += 1
+            continue
+        if not sc:
+            census["no_candidates"] += 1
+            continue
+        if sc[0][0] > attr_max or margin == 0.0 or (
+                len(sc) > 1 and sc[0][0] >= margin * sc[1][0]):
+            census["floors_not_cleared"] += 1
+            continue
+        cell = sc[0][1]
+        if args.freeze_origin is not None and \
+                int(cell[0]) == args.freeze_origin:
+            census["frozen_origin_proposed"] += 1
+            continue
+        cur = (ev["origin_leg_id"], ev["destination_leg_id"])
+        if tuple(cell) == cur:
+            census["confirmed_unchanged"] += 1
+            continue
+        mv = derive_movement(legs_full[cell[0]], legs_full.get(cell[1]),
+                             all_legs)
+        if mv == "insufficient_data":
+            census["movement_underivable"] += 1
+            continue
+        updates.append((int(cell[0]), int(cell[1]), mv, ev["event_id"]))
+        moves[f"{cur[0]}->{cur[1]}:{ev['movement']} => "
+              f"{cell[0]}->{cell[1]}:{mv}"] += 1
+        census["reattributed"] += 1
+    with dst:
+        dst.executemany(
+            "UPDATE vehicle_events SET origin_leg_id=?, "
+            "destination_leg_id=?, movement=? WHERE event_id=?", updates)
+    n_after = dst.execute(
+        "SELECT COUNT(*) FROM vehicle_events WHERE camera_id=? "
+        "AND COALESCE(rejected,0)=0", (cam,)).fetchone()[0]
+    dst.close()
+    assert n_after == n_before, "zero-mass invariant violated"
+
+    diag = {"camera": cam, "variant": variant, "calibration": cal_rep,
+            "events_kept": n_before, "census": dict(census),
+            "movement_matrix": dict(moves.most_common())}
+    dpath = Path("runs/v2_week1") / f"ppt_c_cam{cam}_{variant}.json"
+    dpath.write_text(json.dumps(diag, indent=1))
+    print(f"[ppt] compose cam{cam} {variant}: kept={n_before} "
+          f"reattributed={census['reattributed']} census={dict(census)}")
+    top = moves.most_common(8)
+    for k, n in top:
+        print(f"    {n:>4d}  {k}")
+    print(f"[ppt] -> {out}")
+    print(f"[ppt] -> {dpath}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
