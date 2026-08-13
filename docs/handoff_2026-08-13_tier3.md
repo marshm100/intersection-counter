@@ -1,9 +1,27 @@
 # Handoff — 2026-08-13, Tier-3 execution + the geometry inversion
 
-Branch `claude/accuracy-impl-2026-05-27`, pushed and in sync (HEAD
-`2b5d2cb`). 947 tests green. All mechanism flags default OFF. Production
-verified untouched at every block boundary (cam2 study_1600 = 6835
-events; project.db mtime 2026-08-10 13:45).
+Branch `claude/accuracy-impl-2026-05-27`, pushed and in sync. 947 tests
+green. All mechanism flags default OFF. vehicle_events verified
+untouched at every block boundary (cam2 study_1600 = 6835 events).
+MTIME NOTE (correcting the 7ad78d0 commit message, which repeated the
+stale 2026-08-10 figure): project.db mtime is 2026-08-13 12:46 —
+explained entirely by the operator-approved leg-28 geometry write and
+its byte-exact restore (backup project.db.backup_pathfix_20260813_124527
+retained); no event rows were ever touched.
+
+LATE-DAY ADDENDUM (after the original handoff below): the PPT arc —
+docs/plan_t3_ppt_reattr_2026-08-13.md — delivered the campaign's first
+instrument-gate PASS and +7.8/+6.1/+5.5 on the customer bar at cam2
+(EB frozen, zero-mass), operator-accepted (b4) deviation recorded, and
+was STOOD DOWN by the blind apply gate at all three windows because the
+gate's evidence model cannot pass zero-mass re-attribution candidates
+by construction (no_recovery fires always). GATE-AG2 (re-attribution
+adjudication mode, own pre-declared validation incl. the 11/11
+regression) is the named next block. The EB through/right pair is
+ledgered image-space-unresolvable (three independent feature families).
+The heading-dynamics and PPT instruments, the operator's
+channels-are-guidelines design direction, and the confusion-metric
+withdrawal are all recorded in their block docs.
 
 ## What closed today (each committed with evidence, gates pre-declared)
 
