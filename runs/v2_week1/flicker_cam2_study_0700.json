@@ -1,0 +1,33 @@
+{
+ "camera": 2,
+ "variant": "study_0700",
+ "backend": "botsort",
+ "birth_floor": 0.3,
+ "activation": 0.25,
+ "donors_used": 148,
+ "suppressed_dets": 14026,
+ "recovery": 0.6948,
+ "recovery_by_duration": {
+  "1s": 0.6658,
+  "3s": 0.6924,
+  "8s": 0.6992
+ },
+ "decoys": 2000,
+ "false_boosted": 1058,
+ "false_boost_rate": 0.529,
+ "stabilizer_census": {
+  "tubelets": 28962,
+  "eligible": 9924,
+  "boosted_dets": 570218,
+  "dets": 2563403,
+  "boosted_frac": 0.2224
+ },
+ "cal": {
+  "alpha": 3.0,
+  "beta": 51.27303113987634,
+  "zv_radius": 13.196758413314818,
+  "v_stop": 8.0,
+  "v_noise": 19.828367233276367,
+  "a_allow": 45.38027000427246
+ }
+}

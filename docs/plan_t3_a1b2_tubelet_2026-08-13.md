@@ -118,6 +118,100 @@ are invisible to every backend — no rescue below 0.10 is possible.
 - **Iteration budget 2 from zero.** Iteration 2 = gap interpolation,
   ONLY per the scope-discipline trigger above.
 
+---
+
+## ITERATION 1 INSTRUMENT RESULT (2026-08-13) — G-A1-i FAILED on decoys
+
+cam2 study_0700: recovery 0.743 aggregate (0.717 / 0.762 / 0.739 by
+duration — the PASS half: the linker holds through anchorless flicker),
+but decoy false-boost **0.6085 vs the 0.05 bar**, with 651,993 of
+2,563,403 detections boosted (25.4% of the stream; 10,645 of 28,962
+tubelets eligible). Diagnosis is surgical: the ZV-STATIONARY eligibility
+arm admits static debris — a recurring background false positive is
+span-long, member-rich, dense, and "stationary-coherent" by
+construction. This is the v2_tubelet flood signature (30-32%)
+reproduced at detection level and caught BEFORE any tracking compute.
+The pre-named iteration-2 trigger (missing frames) does NOT match;
+recovery is healthy.
+
+## ITERATION 2 (declared 2026-08-13 BEFORE re-running; 2 of 2)
+
+ONE mechanism change: **the ZV-stationary arm is REMOVED from
+eligibility** — eligible tubelets must satisfy the DISPLACEMENT
+coherence test (net displacement >= own mean bbox diagonal), full stop.
+B2 remains where it belongs: in the LINKING (zv_radius association gate
++ 3 s stationary coast), so a queued vehicle's stop is bridged and its
+tubelet — which drives in and eventually out — passes the displacement
+test naturally. What is knowingly given up: a stationary-for-its-entire-
+observed-span tubelet is never boosted (that population is
+overwhelmingly static debris + parked vehicles, both out of counting
+scope; a >3 s mid-queue stationary fragment isolated by a linking break
+also stays unboosted — same as today, recorded as the known ceiling).
+GATE UNCHANGED (G-A1-i verbatim, both windows). If iteration 2 fails
+the instrument, the block is DEAD and ledgered with both iterations
+spent; gap interpolation is NOT reachable (its trigger never fired).
+
+---
+
+## ITERATION 2 RESULT + VERDICT (2026-08-13) — G-A1-i FAILED; BLOCK STOPS
+
+cam2 study_0700, displacement-only eligibility: recovery 0.695
+(0.666/0.692/0.699 by duration — still comfortably over the bar), decoy
+false-boost **0.5290** vs 0.05; 570,218 detections boosted (22.2% of
+the stream; 9,924 eligible tubelets). The static-debris hypothesis was
+insufficient: the boosted decoys MOVE.
+
+**Instrument-soundness finding (diagnostic, 3,000-det sample):** 71.5%
+of ALL low-conf detections sit within 0.5 diag of a tracked vehicle's
+point at the same frame; the "decoy" pool is the remainder — a
+NEAR-TRACK HALO mixture of same-vehicle box offsets (raw-vs-smoothed),
+shadows, adjacent UNTRACKED queue neighbors (the target class!), and
+genuine debris, distributed 10.1% at [0.5,1) diag, 5.7% [1,1.5), 6.9%
+[1.5,3), 5.8% beyond. Unlike B1's SYNTHETIC decoys (constructed
+negatives), this negative class is observational and UNLABELABLE blind:
+at detection level, "moving + coherent + persistent" IS the signature
+of a plausible vehicle — there is no GT-free signal separating
+faint-real from vehicle-shaped debris, which is the entire reason
+detector confidence exists. The decoy metric therefore measures "boosts
+on unlabeled halo detections", not false births. This is a limitation
+of the INSTRUMENT CLASS (observational negatives at detection level),
+not a fixable decoy generator.
+
+**Verdict per the gate as declared: G-A1-i FAILED at iteration 2 of 2 —
+the block is STOPPED with ZERO tracking runs.** What is proven and what
+is not:
+- PROVEN: the linker recovers anchorless flicker on known vehicles
+  through 1-8 s suppression windows at 0.70-0.74 — the recovery half of
+  the mechanism works.
+- UNRESOLVED (and unresolvable pre-compute by this instrument class):
+  the flood risk. The boost volume is the red flag the gate existed to
+  catch — +22% of the stream, ≈ +39% additional birth-grade detection
+  fuel — squarely matching the v2_tubelet flood precedent (30-32%) and
+  the ft2 no-conversion precedent.
+- Process note, recorded: the iteration-2 instrument run OVERWROTE
+  iteration 1's flicker JSON (same stem — the scorer-stem trap, now bit
+  an instrument). Iteration-1 numbers preserved in this doc; future
+  instruments get iteration-tagged stems.
+
+## LEDGER + the one sound falsifier (operator decision required)
+
+**A1+B2 rescore-only is STOPPED at its kill gate, both iterations
+spent.** Gap interpolation was never reachable. The mechanism is
+neither proven dead (the failed metric is unsound as a negative bound)
+nor deployable (the flood risk is real, precedented, and unbounded).
+
+NAMED FOR THE OPERATOR — the cheapest SOUND falsifier, requiring
+sign-off because this block's own gate said stop: ONE staged tracking
+run (the H1 G-H1k pattern): pass-1 + pass-2 on `a1_study_0700` only
+(~35 min), pre-declared kill-read BEFORE any further window: track
+count within 1.5x of base (8,320), insufficient count within 1.5x of
+base (2,442), 5/95 >= control 53.4 with cells_scored growth <= +3, and
+the EB_left/NB_left deficit errors reduced. That read measures the
+flood DIRECTLY (the tracker's own response) instead of proxying it
+through an unlabelable decoy class. PASS there → resume the block's
+counting gates on the remaining windows under the original G-A1-a.
+FAIL → the rescore-only family is dead on real evidence.
+
 ## Cost and mechanics
 
 Stabilizer run: minutes/window (pure pandas/numpy over the parquet).
