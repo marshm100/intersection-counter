@@ -212,6 +212,25 @@ through an unlabelable decoy class. PASS there → resume the block's
 counting gates on the remaining windows under the original G-A1-a.
 FAIL → the rescore-only family is dead on real evidence.
 
+## G-A1-f — the staged falsifier (OPERATOR-APPROVED 2026-08-13
+## "keep going"; numbers final BEFORE the run)
+
+One window: `a1_study_0700` (stabilizer output, iteration-2 eligibility)
+→ pass-1 (cam2's own calib recipe: botsort nms 0.85 match 0.9) → pass-2
+(default flags, the d1ctrl basis) → score, stem `a1_cam2_study_0700`.
+Kill-read, ALL required (base figures from the reproduced h1base run):
+  (f1) tracks <= 12,480 (1.5 x 8,320)      — the direct flood meter
+  (f2) insufficient <= 3,663 (1.5 x 2,442) — the conversion meter
+  (f3) 5/95 >= 53.4 AND cells_scored <= 106 (control 103 + 3)
+  (f4) EB_left |err| < 14 AND NB_left |err| < 63 (both reduced)
+ACTIVATION GUARD standing: the a1 dump's coverage WILL move; record
+evidence_activation; state flip vs control (ON, 0.564) → the f3/f4
+comparison re-runs on the flag-off pair (e4ctrlx_cam2_study_0700 = the
+committed flag-off base control, 48.1 50/104).
+PASS all four → the block RESUMES: remaining windows under G-A1-a.
+ANY fail → the rescore-only family is DEAD on direct evidence; ledger
+closes with the flicker-instrument findings attached.
+
 ## Cost and mechanics
 
 Stabilizer run: minutes/window (pure pandas/numpy over the parquet).
