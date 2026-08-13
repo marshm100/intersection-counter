@@ -1,0 +1,53 @@
+{
+ "camera": 2,
+ "variant": "study_0700",
+ "census_by_tag": {
+  "exit_only": 595,
+  "no_crossing": 1563,
+  "entry_only": 1785,
+  "full": 3459
+ },
+ "fragments": 1422,
+ "excluded_chain_sibling": 544,
+ "floors": {
+  "attr_max_px": 65.7,
+  "margin": 0.85,
+  "w_ang_px_per_deg": 0.293,
+  "heldout_precision": 0.9567901234567902,
+  "heldout_coverage": 0.7840290381125227,
+  "heldout_n": 1653
+ },
+ "prototype_cells": [
+  "(26, 27)",
+  "(26, 28)",
+  "(26, 29)",
+  "(27, 26)",
+  "(27, 28)",
+  "(27, 29)",
+  "(28, 27)",
+  "(28, 29)",
+  "(29, 27)",
+  "(29, 28)"
+ ],
+ "assigned_pre_guard": 423,
+ "rejected": {
+  "ambiguous": 787,
+  "full_uncounted": 227,
+  "poor_fit": 212
+ },
+ "guard_paired_exit_stubs": 2,
+ "guard_suspicious_cotmp": 219,
+ "inserted": 202,
+ "inserted_by_cell": {
+  "(26, 29)": 26,
+  "(28, 27)": 82,
+  "(28, 29)": 19,
+  "(29, 28)": 35,
+  "(27, 28)": 34,
+  "(26, 27)": 3,
+  "(27, 26)": 1,
+  "(29, 27)": 1,
+  "(27, 29)": 1
+ },
+ "median_full_transit_s": 2.3
+}

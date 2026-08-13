@@ -115,3 +115,57 @@ scripts/v2_f2m_pilot.py (population census, prototypes, floor
 calibration report, assignment table by cell, composition, scoring);
 runs/v2_week1/f2m_cam2_<window>.json diagnostics; score JSONs;
 verdict in this doc. All committed either way.
+
+---
+
+## VERDICT (2026-08-13) — G-F2M-k FAILED on (b); pilot STOPS at one window
+
+G-F2M-p PASS (parity copy cell-for-cell == committed d1ctrl). Pilot ran
+clean on study_0700: census 1875 no_crossing / 1788 entry_only / 598
+exit_only; 1422 fragments after the chain-sibling guard excluded 544;
+floors self-calibrated (ATTR_MAX 65.7 px, margin 0.85, W_ang 0.29 px/deg,
+held-out full precision 0.957 at coverage 0.784); guards removed 2
+paired + 219 co-temporal; **202 events inserted**.
+
+  gate read (study_0700)              control      f2m       verdict
+  (a) assigned >= 20                     —         202        PASS
+  (c) phantom guard                   103 cells  103 cells    PASS (zero
+      newly compliant bins                +3                  added slots)
+  (b) NB_left |err|                      63         28        reduced
+  (b) EB_left |err|                      14         68        INCREASED →
+                                                              **FAIL**
+  5/95 (context, not the gate)         53.4       56.3 (+2.9)
+
+The mechanism recovered real mass precisely where fragments live —
+NB_left 348→383 (Mio 411), WB_left 25→51 (Mio 61), SB_right 214→248
+(Mio 379) — with ZERO phantom-slot creation, the largest clean
+single-window 5/95 gain the campaign has produced at cam2 (+2.9). AND it
+mis-attributed ~68 fragments into EB_left (82 inserted into a cell
+missing only 14): the entry-mode constraint TRUSTS the fragment's
+gate-crossed origin, and cam2's EB origin crossings are the
+already-on-record compromised signal (week-1 day-5 addendum: the
+EB_right flood is mostly gate geometry / false EB origins). This is now
+the THIRD independent mechanism to reproduce the false-EB-origin class
+(gate-geometry analysis; the pair-off EB_right flood in E4's
+supplementaries, ctrl 494 vs Mio 167; F2M fragment attribution).
+
+Per the pre-declared consequence: **the pilot stops** — no 1100/1600
+runs (the kill gate exists precisely so a precision failure cannot hide
+inside those windows' larger deficits), iteration 1 spent. Iteration 2
+(occupancy feature space) is NOT triggered — its precondition was
+G-F2M-k passing, and the diagnosis implicates the ORIGIN TRUST, not the
+feature space (held-out full precision was 0.957; the feature space
+classifies well).
+
+## LEDGER + named revival (for the operator, Tier-4 candidate)
+
+**F2M-v2: origin-distrust variant** — same mechanism, but entry-mode
+does NOT constrain candidates to the gate-crossed origin's cells at
+cameras/origins where the strict-full census marks the origin
+flip-prone (the `confusion` metric in strict_full_census — an existing,
+blind, per-window signal built for exactly this). EB at cam2 measures
+confused; the constraint would relax to free-mode there and the
+prototypes would adjudicate the origin too. NEW mechanism variant =
+its own plan + budget; NOT run today under this block's spent
+iteration. The +2.9-with-zero-phantoms result and the 0.957 held-out
+precision are the evidence it deserves the slot.
