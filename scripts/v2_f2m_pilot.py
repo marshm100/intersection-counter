@@ -39,7 +39,8 @@ from backend.services.pass2_replay import load_dump, tracks_dir     # noqa: E402
 from backend.services.track_chains import build_chain_map_ev        # noqa: E402
 from backend.services.trajectory_classifier import derive_movement  # noqa: E402
 from backend.services.two_pass import (                             # noqa: E402
-    _camera_parquet, _tracks_from_rows, gate_axes_for)
+    _camera_parquet, _tracks_from_rows, gate_axes_for,
+    strict_full_census)
 from v2_common import fit_motion_residual, load_table               # noqa: E402
 
 SEED = 42
@@ -130,6 +131,12 @@ def main() -> int:
     ap.add_argument("--variant", required=True)
     ap.add_argument("--control-db", required=True)
     ap.add_argument("--out-db", required=True)
+    ap.add_argument("--origin-distrust", action="store_true",
+                    help="F2M-v2 (plan_t3_f2m_v2_2026-08-13): drop the "
+                         "entry/exit constraint where the window's own "
+                         "strict-full census confusion > 0.25 marks the "
+                         "leg flip-prone; the prototypes adjudicate the "
+                         "origin too. Default OFF = pilot behavior.")
     args = ap.parse_args()
     cam, variant = args.camera, args.variant
     rng = np.random.default_rng(SEED)
@@ -266,6 +273,14 @@ def main() -> int:
         [(v["df"] - v["of"]) / fps for v in info.values()
          if v["tag"] == "full"])) if census["full"] else 0.0
 
+    # ---- origin distrust (F2M-v2) -------------------------------------------
+    distrusted: set = set()
+    confusion = {}
+    relaxed = 0
+    if args.origin_distrust:
+        _sf, confusion, _fbt = strict_full_census(args.project, cam, rows, fps)
+        distrusted = {int(leg) for leg, c in confusion.items() if c > 0.25}
+
     # ---- assign fragments ---------------------------------------------------
     MODE = {"entry_only": "entry", "exit_only": "exit", "no_crossing": "free"}
     assigned, rejected = [], defaultdict(int)
@@ -275,6 +290,13 @@ def main() -> int:
         if mode is None:
             rejected["full_uncounted"] += 1     # full but pipeline-dropped
             mode = "free"
+        if args.origin_distrust:
+            if mode == "entry" and int(v["o"]) in distrusted:
+                mode = "free"
+                relaxed += 1
+            elif mode == "exit" and int(v["d"]) in distrusted:
+                mode = "free"
+                relaxed += 1
         known = (int(v["o"]) if mode == "entry"
                  else int(v["d"]) if mode == "exit" else None)
         sc = score_track(v["pts"], protos, mode, known, w_ang)
@@ -367,6 +389,11 @@ def main() -> int:
     for a in final:
         by_cell_final[str(tuple(a["cell"]))] += 1
     diag = {"camera": cam, "variant": variant,
+            "origin_distrust": bool(args.origin_distrust),
+            "confusion_by_leg": {str(k): round(float(v), 3)
+                                 for k, v in confusion.items()},
+            "distrusted_legs": sorted(distrusted),
+            "constraints_relaxed": relaxed,
             "census_by_tag": dict(census),
             "fragments": len(frags), "excluded_chain_sibling": excl_chain,
             "floors": {"attr_max_px": round(attr_max, 1), "margin": margin,
@@ -382,7 +409,8 @@ def main() -> int:
             "inserted": ins,
             "inserted_by_cell": dict(by_cell_final),
             "median_full_transit_s": round(med_transit, 1)}
-    dpath = Path("runs/v2_week1") / f"f2m_cam{cam}_{variant}.json"
+    tag = "f2mv2" if args.origin_distrust else "f2m"
+    dpath = Path("runs/v2_week1") / f"{tag}_cam{cam}_{variant}.json"
     dpath.write_text(json.dumps(diag, indent=1))
     print(f"[f2m] cam{cam} {variant}: frags={len(frags)} "
           f"(chain-excl {excl_chain}) assigned={len(assigned)} "
