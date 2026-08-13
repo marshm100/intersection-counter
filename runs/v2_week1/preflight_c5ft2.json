@@ -1,0 +1,43 @@
+[
+ {
+  "camera": 5,
+  "variant": "ft2_study_1100",
+  "decision": "stand_down",
+  "reasons": [
+   "event_flood",
+   "no_recovery"
+  ],
+  "metrics": {
+   "census_total": 4157,
+   "inc_total": 3669,
+   "cand_total": 3688,
+   "saturation": 0.094,
+   "R_inc": -0.1174,
+   "R_cand": -0.1128,
+   "flood_share_inc": 0.3494,
+   "flood_share_cand": 0.362,
+   "d_cov": -33
+  },
+  "disposition": "auto"
+ },
+ {
+  "camera": 5,
+  "variant": "ft2_study_1600",
+  "decision": "stand_down",
+  "reasons": [
+   "event_flood"
+  ],
+  "metrics": {
+   "census_total": 6890,
+   "inc_total": 6047,
+   "cand_total": 6141,
+   "saturation": 0.198,
+   "R_inc": -0.1224,
+   "R_cand": -0.1087,
+   "flood_share_inc": 0.4055,
+   "flood_share_cand": 0.4041,
+   "d_cov": 104
+  },
+  "disposition": "auto"
+ }
+]
