@@ -150,6 +150,13 @@ def main() -> int:
                          "write a cell with this origin — the proven-"
                          "unresolvable pair stays exactly as the control "
                          "attributed it.")
+    ap.add_argument("--t-lo", type=float, default=None,
+                    help="window filter (timestamp_video seconds): only "
+                         "events in [t_lo, t_hi) are considered — REQUIRED "
+                         "when composing on a full live table so other "
+                         "windows' events (whose tids can collide with "
+                         "this window's dump tids) are never touched.")
+    ap.add_argument("--t-hi", type=float, default=None)
     args = ap.parse_args()
     cam, variant = args.camera, args.variant
     rng = np.random.default_rng(SEED)
@@ -185,10 +192,15 @@ def main() -> int:
     src.backup(dst)
     src.close()
     dst.row_factory = sqlite3.Row
+    wsql, wargs = "", []
+    if args.t_lo is not None and args.t_hi is not None:
+        wsql = " AND timestamp_video >= ? AND timestamp_video < ?"
+        wargs = [args.t_lo, args.t_hi]
     evs = dst.execute(
         "SELECT event_id, vehicle_track_id, origin_leg_id, "
         "destination_leg_id, movement FROM vehicle_events "
-        "WHERE camera_id=? AND COALESCE(rejected,0)=0", (cam,)).fetchall()
+        f"WHERE camera_id=? AND COALESCE(rejected,0)=0{wsql}",
+        (cam, *wargs)).fetchall()
     n_before = len(evs)
     census = Counter()
     moves = Counter()
@@ -253,7 +265,7 @@ def main() -> int:
             "destination_leg_id=?, movement=? WHERE event_id=?", updates)
     n_after = dst.execute(
         "SELECT COUNT(*) FROM vehicle_events WHERE camera_id=? "
-        "AND COALESCE(rejected,0)=0", (cam,)).fetchone()[0]
+        f"AND COALESCE(rejected,0)=0{wsql}", (cam, *wargs)).fetchone()[0]
     dst.close()
     assert n_after == n_before, "zero-mass invariant violated"
 

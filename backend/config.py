@@ -456,6 +456,17 @@ EVIDENCE_ACTIVATION_COVERAGE = 0.45
 # replay it is a strict no-op by design.
 CONSERVE_ON_ACTIVATION = _os.environ.get(
     "CONSERVE_ON_ACTIVATION", "0") in ("1", "true", "on")
+# --- GATE-AG2: reattribution adjudication constants (2026-08-13) -------------
+# docs/plan_gate_ag2_2026-08-13.md. FROZEN by the declared choice rule
+# (tightest round values passing the P1 validation candidate with >= 1.5x
+# margin; every constructed negative must still fail). P1 = ppt2_cam2_
+# study_1600 vs the live incumbent, measured: moved_share 0.0139 ->
+# 1.5x = 0.0208 -> cap 0.025; concentration 0.5895 -> 1.5x = 0.884 ->
+# cap 0.90 (the adversarial one-cell shape reads ~1.0). NOT env-overridable
+# (structural constants, the AG1 convention).
+APPLY_GATE_REATTR_MOVED_MAX = 0.025
+APPLY_GATE_REATTR_CONC_MAX = 0.90
+
 # --- C-1: evidence-ranked chain arbitration (D1 iteration 2, 2026-08-12) -----
 # docs/plan_v2_c1_arbitration_2026-08-12.md. Block D1 measured that "legacy
 # always wins" is a SECOND, independent defect of the conservation pass: on a

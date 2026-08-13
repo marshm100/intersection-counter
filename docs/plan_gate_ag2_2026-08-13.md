@@ -81,3 +81,38 @@ integrity helper, late imports), backend/config.py (two frozen
 constants), backend/tests/test_apply_gate_reattr.py,
 scripts/v2_gate_ag2_validate.py (builds N3/N4/N5 from the P1 DB,
 runs all six + the AG1 parity rerun), validation JSON, verdict here.
+
+---
+
+## VERDICT (2026-08-13) — G-AG2-p PASS, G-AG2-v 6/6 PASS; the mode SHIPS
+
+- Constants frozen per the declared rule from P1's measured metrics
+  (moved_share 0.0139 → cap 0.025; concentration 0.5895 → cap 0.90).
+- G-AG2-p: AG1 validator reproduced 11/11 binding (12/12 incl. dev),
+  committed JSON byte-identical; full suite 955 green (947 + 8).
+- G-AG2-v: **6/6.** One validation-set construction correction, made
+  before any verdict was accepted: the original P1 (composed on the
+  SCRATCH control) failed ids_mismatch — the id-join IS the blind
+  verification mechanism, so AG2 legitimately requires composition on
+  the ACTUAL incumbent. Track-id parity live-vs-control verified
+  row-exact (multiset equal, zero diff) and P1 recomposed on a WAL
+  copy of the live table with a window filter (added to
+  v2_ppt_reattr.py); the recomposition reproduced the identical
+  census (143 reattributed). Final verdicts:
+    P1 on-live 1600  APPLY       [gate_pass_reattr]
+    N1 0700-on-base  STAND_DOWN  [mass_change, excessive_movement]
+    N2 1100-on-base  STAND_DOWN  [mass_change, excessive_movement]
+    N3 random        STAND_DOWN  [endpoint_integrity]
+    N4 concentrated  STAND_DOWN  [concentrated_movement]
+    N5 massdrop      STAND_DOWN  [mass_change]
+- Afterward yardstick check (AG1 pattern): the live-composed P1 scores
+  **49.5 (54/109) vs live production 44.0 (48/109)** — +5.5 confirmed
+  on the id-aligned candidate.
+
+## STANDING: PPT-2@study_1600 is a GATE-PASSED apply candidate
+
+The operator adjudicates the actual apply (standing process:
+pre-apply calibration/schema fingerprint checks, automatic backup,
+post-verify). 0700/1100 candidacy requires compose-on-live candidates
+re-attributing the APPLIED tables on the v2c dumps (named follow-up;
+the v2c dumps exist).

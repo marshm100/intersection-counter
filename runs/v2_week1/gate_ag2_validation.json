@@ -1,0 +1,148 @@
+[
+ {
+  "case": "P1 ppt2-on-live 1600",
+  "window": "study_1600",
+  "expected": "apply",
+  "decision": "apply",
+  "reasons": [
+   "gate_pass_reattr"
+  ],
+  "metrics": {
+   "inc_total": 6835,
+   "cand_total": 6835,
+   "moved_events": 143,
+   "moved_cell_mass": 95,
+   "moved_share": 0.0139,
+   "max_cell_gain": 56,
+   "concentration": 0.5895,
+   "integrity_violations": 0,
+   "fulls_moved": 0,
+   "saturation": 0.066,
+   "census_total": 6899
+  },
+  "disposition": "auto",
+  "correct": true
+ },
+ {
+  "case": "N1 ppt2_0700-on-base",
+  "window": "study_0700",
+  "expected": "stand_down",
+  "decision": "stand_down",
+  "reasons": [
+   "mass_change",
+   "excessive_movement"
+  ],
+  "metrics": {
+   "inc_total": 5815,
+   "cand_total": 5497,
+   "moved_events": 0,
+   "moved_cell_mass": 185,
+   "moved_share": 0.0318,
+   "max_cell_gain": 25,
+   "concentration": 0.1351,
+   "integrity_violations": 0,
+   "fulls_moved": 0,
+   "saturation": 0.079,
+   "census_total": 5839
+  },
+  "disposition": "auto",
+  "correct": true
+ },
+ {
+  "case": "N2 ppt2_1100-on-base",
+  "window": "study_1100",
+  "expected": "stand_down",
+  "decision": "stand_down",
+  "reasons": [
+   "mass_change",
+   "excessive_movement"
+  ],
+  "metrics": {
+   "inc_total": 4426,
+   "cand_total": 4203,
+   "moved_events": 0,
+   "moved_cell_mass": 168,
+   "moved_share": 0.0378,
+   "max_cell_gain": 30,
+   "concentration": 0.1791,
+   "integrity_violations": 0,
+   "fulls_moved": 0,
+   "saturation": 0.119,
+   "census_total": 4630
+  },
+  "disposition": "auto",
+  "correct": true
+ },
+ {
+  "case": "N3 random",
+  "window": "study_1600",
+  "expected": "stand_down",
+  "decision": "stand_down",
+  "reasons": [
+   "endpoint_integrity"
+  ],
+  "metrics": {
+   "inc_total": 6835,
+   "cand_total": 6835,
+   "moved_events": 131,
+   "moved_cell_mass": 82,
+   "moved_share": 0.012,
+   "max_cell_gain": 16,
+   "concentration": 0.1951,
+   "integrity_violations": 105,
+   "fulls_moved": 0,
+   "saturation": 0.066,
+   "census_total": 6899
+  },
+  "disposition": "auto",
+  "correct": true
+ },
+ {
+  "case": "N4 concentrated",
+  "window": "study_1600",
+  "expected": "stand_down",
+  "decision": "stand_down",
+  "reasons": [
+   "concentrated_movement"
+  ],
+  "metrics": {
+   "inc_total": 6835,
+   "cand_total": 6835,
+   "moved_events": 100,
+   "moved_cell_mass": 100,
+   "moved_share": 0.0146,
+   "max_cell_gain": 100,
+   "concentration": 1.0,
+   "integrity_violations": 0,
+   "fulls_moved": 0,
+   "saturation": 0.066,
+   "census_total": 6899
+  },
+  "disposition": "auto",
+  "correct": true
+ },
+ {
+  "case": "N5 massdrop",
+  "window": "study_1600",
+  "expected": "stand_down",
+  "decision": "stand_down",
+  "reasons": [
+   "mass_change"
+  ],
+  "metrics": {
+   "inc_total": 6835,
+   "cand_total": 6834,
+   "moved_events": 0,
+   "moved_cell_mass": 94,
+   "moved_share": 0.0138,
+   "max_cell_gain": 56,
+   "concentration": 0.5926,
+   "integrity_violations": 0,
+   "fulls_moved": 0,
+   "saturation": 0.066,
+   "census_total": 6899
+  },
+  "disposition": "auto",
+  "correct": true
+ }
+]
