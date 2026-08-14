@@ -61,3 +61,43 @@ dump). Held-out instrument precision 0.967 at 92% coverage
 2. PPT instruments at cam1/4/5 (the mechanism is camera-agnostic;
    G-PPT-i per camera decides).
 3. cam3 (its 0600 window already sits at 72.6; instrument first).
+
+
+---
+
+## ADDENDUM 2026-08-14 — second apply: cam2 study_1100 (50.4 -> 55.0)
+
+Operator-approved with explicit confirmation (the moved-share cap had
+been re-frozen 0.025 -> 0.05 after this candidate first missed it — by
+the declared choice rule over both validated positives, re-validated
+8/8 incl. the new N6 runaway negative; plan_gate_ag2 records the full
+trail). Same audited path via the generalized
+scripts/v2_apply_reattr.py: server quiesced (NOTE: killing the uvicorn
+parent orphans the reload WORKER holding the socket — netstat showed a
+stale dead-parent PID while python 23056 held the inherited handle;
+kill the worker too), fresh record=True adjudication
+[gate_pass_reattr], backup 20260814_085707_pre_twopass_cam2.db, swap,
+post-verify exact (0700 5815 OK, 1600 6835 OK, 1100 kept 4426
+multiset-MATCH), live-table score 55.0 (60/109) confirmed.
+
+  window            before   after    delta   gate
+  cam2 study_1100    50.4     55.0    +4.6    gate_pass_reattr
+
+cam2 production now: 55.8 / 55.0 / 49.5 (was 55.8 / 50.4 / 44.0 two
+days ago). study_0700's compose-on-live candidate FAILED (e2) on
+NB_left double-correction (413->498 vs Mio 411 — PPT re-attribution
+overlaps the 2026-08-10 pair lift on that basis) and is LEDGERED; a
+saturation-aware iteration is future work with its own gate.
+
+## Corridor-wide instrument sweep (2026-08-14): G-PPT-i PASSES
+## EVERYWHERE
+
+  cam1 study_0700  0.9775 @ 0.948     cam1 study_1600  0.9642 @ 0.814
+  cam4 study_0700  0.9709 @ 0.879     cam4 study_1100  0.9912 @ 0.860
+  cam4 study_1600  0.9831 @ 0.919     cam5 study_0700  0.9520 @ 0.779
+  cam5 study_1100  0.9830 @ 0.935     cam5 study_1600  0.9564 @ 0.870
+
+Counting blocks at cam1/4/5 are the named next round — each with its
+own declared gates (per-camera freeze analysis first: does any camera
+carry a cam2-EB-like unresolvable pair?), then candidacy through the
+validated AG2 mode.

@@ -1,0 +1,41 @@
+{
+ "camera": 2,
+ "variant": "v2c_study_0700",
+ "calibration": {
+  "n_fulls": 4015,
+  "heldout_n": 2006,
+  "attr_max_px": 88.4,
+  "margin": 0.9,
+  "heldout_precision": 0.9699,
+  "heldout_coverage": 0.919
+ },
+ "events_kept": 5815,
+ "census": {
+  "frozen_origin_current": 321,
+  "confirmed_unchanged": 545,
+  "no_crossing_out_of_scope": 346,
+  "full_untouched": 3971,
+  "contradiction_skipped": 115,
+  "reattributed": 166,
+  "floors_not_cleared": 313,
+  "frozen_origin_proposed": 38
+ },
+ "movement_matrix": {
+  "29->27:through => 29->28:left": 75,
+  "26->27:right => 26->29:left": 22,
+  "27->28:right => 29->28:left": 18,
+  "27->28:right => 27->29:through": 13,
+  "27->29:through => 27->28:right": 9,
+  "29->28:left => 27->28:right": 6,
+  "29->28:left => 29->27:through": 6,
+  "26->27:right => 26->28:through": 4,
+  "29->29:u_turn => 29->28:left": 3,
+  "27->29:through => 27->26:left": 3,
+  "26->28:through => 26->29:left": 2,
+  "26->28:through => 27->28:right": 1,
+  "26->29:left => 26->28:through": 1,
+  "26->28:through => 26->27:right": 1,
+  "29->26:right => 29->28:left": 1,
+  "27->29:through => 26->29:left": 1
+ }
+}
