@@ -191,8 +191,17 @@ def main() -> int:
     # movements) + intersection_paths + derive_movement. Compose mode only
     # (the instrument measures scorer precision on fulls, not composition);
     # --legacy disables (PPT-2-era reproduction).
-    R_MAX = 2.0     # declared rule: tightest round value keeping every
-    admission = None                 # known-good dest cell with >=1.4x margin
+    # R_MAX: declared rule — tightest round value keeping every known-
+    # good destination cell with >= 1.4x margin. Re-frozen PER CAMERA
+    # 2026-08-17 under the (b-amended) contingency: the global
+    # extension over the Mio-confirmed cam2 WB_left good (ratio 2.15
+    # -> 3.0) is UNSAFE globally — cam1's measured EB_left flood cell
+    # sits at 2.55 < 3.0, and the cap cannot backstop ratio-inflated
+    # cells (h grows with the corruption). Per-camera like freeze
+    # sets: cam2 3.0 (next-highest admitted cell 1.93 — only WB_left
+    # enters), all others 2.0 (every corridor kill stands).
+    R_MAX = {2: 3.0}.get(args.camera, 2.0)
+    admission = None
     adm_report = {}
     adm_ratio = {}                   # admitted cell -> census/live ratio
     live_cells = {}
@@ -231,7 +240,13 @@ def main() -> int:
 
         def admission(cell, n_fulls):
             o, d = int(cell[0]), int(cell[1])
-            if (o, d) not in path_set:                       # (b)
+            # (b-amended), operator-ruled 2026-08-17: a pathless cell
+            # with >= 10 in-window gate-verified fulls (the prototype
+            # floor, PROTO_MIN_FULLS) falls through to (c)/(a) instead
+            # of dying — the paths artifact is DERIVED from this same
+            # evidence class and has measured gaps (cam2 WB_left/EB).
+            pathless = (o, d) not in path_set
+            if pathless and n_fulls < 10:                    # (b)
                 adm_report[f"{o}->{d}"] = "rejected:no_path"
                 return False
             live_n = live_cells.get((o, d), 0)
@@ -251,7 +266,8 @@ def main() -> int:
             if ratio > R_MAX:                                # (a)
                 adm_report[f"{o}->{d}"] = f"rejected:ratio({ratio:.2f})"
                 return False
-            adm_report[f"{o}->{d}"] = f"admitted(ratio {ratio:.2f})"
+            tag_b = ", no_path_fallback" if pathless else ""
+            adm_report[f"{o}->{d}"] = f"admitted(ratio {ratio:.2f}{tag_b})"
             adm_ratio[(o, d)] = ratio
             return True
 
