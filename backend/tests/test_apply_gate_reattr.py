@@ -53,13 +53,35 @@ class TestReattrGuards:
         assert d == "stand_down" and "excessive_movement" in r
 
     def test_concentrated_movement(self):
-        # all moved mass lands in ONE cell (concentration 1.0 > 0.90) but
-        # sourced from two cells so no single loss mirrors the gain
-        inc = {(1, 2): 100, (1, 3): 50, (2, 3): 30}
-        cand = {(1, 2): 98, (1, 3): 48, (2, 3): 34}
+        # all moved mass lands in ONE cell (concentration 1.0 > 0.90),
+        # sourced from two cells, and the mass (80) is over the
+        # CONC_MASS_MIN=40 qualifier — the flood shape stays blocked
+        inc = {(1, 2): 1000, (1, 3): 500, (2, 3): 300}
+        cand = {(1, 2): 960, (1, 3): 460, (2, 3): 380}
         d, r, _m = adjudicate_reattribution_counts(
             inc, cand, CENSUS, 0.05, CLEAN)
         assert d == "stand_down" and "concentrated_movement" in r
+
+    def test_concentration_small_mass_waived(self):
+        # the cam4 T-junction P3 shape: one-cell concentration at mass
+        # 28 <= CONC_MASS_MIN=40 — the legitimate capped-composer shape
+        inc = {(1, 2): 600, (1, 3): 200, (2, 3): 30}
+        cand = {(1, 2): 572, (1, 3): 200, (2, 3): 58}
+        d, r, m = adjudicate_reattribution_counts(
+            inc, cand, CENSUS, 0.05, CLEAN)
+        assert d == "apply" and r == ["gate_pass_reattr"]
+        assert m["concentration"] == 1.0 and m["moved_cell_mass"] == 28
+
+    def test_concentration_mass_qualifier_boundary(self):
+        # exactly AT the qualifier (40) the guard is waived; one past
+        # it (41) the guard binds — the > semantics, pinned
+        inc = {(1, 2): 900, (1, 3): 100}
+        d40, _r, m40 = adjudicate_reattribution_counts(
+            inc, {(1, 2): 860, (1, 3): 140}, CENSUS, 0.05, CLEAN)
+        assert d40 == "apply" and m40["moved_cell_mass"] == 40
+        d41, r41, _m = adjudicate_reattribution_counts(
+            inc, {(1, 2): 859, (1, 3): 141}, CENSUS, 0.05, CLEAN)
+        assert d41 == "stand_down" and "concentrated_movement" in r41
 
     def test_saturated_geometry(self):
         inc, cand = _counts({(1, 2): 98, (1, 3): 52})

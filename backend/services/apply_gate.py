@@ -32,6 +32,7 @@ from backend.config import (
     APPLY_GATE_FLOOD_MAX,
     APPLY_GATE_HEADROOM,
     APPLY_GATE_MAX_OVERCLAIM,
+    APPLY_GATE_REATTR_CONC_MASS_MIN,
     APPLY_GATE_REATTR_CONC_MAX,
     APPLY_GATE_REATTR_MOVED_MAX,
     APPLY_GATE_SATURATION,
@@ -241,7 +242,8 @@ def adjudicate_reattribution_counts(inc: dict, cand: dict, census: dict,
         reasons.append("endpoint_integrity")
     if n_inc and moved_mass / n_inc > APPLY_GATE_REATTR_MOVED_MAX:
         reasons.append("excessive_movement")
-    if moved_mass and max_gain / moved_mass > APPLY_GATE_REATTR_CONC_MAX:
+    if moved_mass > APPLY_GATE_REATTR_CONC_MASS_MIN \
+            and max_gain / moved_mass > APPLY_GATE_REATTR_CONC_MAX:
         reasons.append("concentrated_movement")
     if saturation >= APPLY_GATE_SATURATION:
         reasons.append("saturated_geometry")

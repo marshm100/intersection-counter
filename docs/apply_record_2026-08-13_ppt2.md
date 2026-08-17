@@ -101,3 +101,46 @@ Counting blocks at cam1/4/5 are the named next round — each with its
 own declared gates (per-camera freeze analysis first: does any camera
 carry a cam2-EB-like unresolvable pair?), then candidacy through the
 validated AG2 mode.
+
+
+---
+
+## ADDENDUM 2026-08-17 — third apply: cam4 study_1100 (69.4 -> 73.5),
+## the first non-cam2 PPT production gain
+
+Operator-approved via the PPT-3 batched ruling ("Amend gate, then
+apply"). The candidate: PPT-3's admission+cap composer on live — 28
+moves, ALL (33,34)->(33,35) (SB_right 92 -> 64 vs Mio 16; cost
+SB_thru +28 window, ~+4/bin, confined to already-non-compliant bins —
+the g4 batch class, ruled in the same interaction). AG2 initially
+stood it down on concentrated_movement (1.0 — structural at a 3-cell
+T-junction, all corrective mass has exactly one same-origin target).
+Per the moved_share re-freeze precedent the guard gained a mass
+qualifier, operator-ruled and pre-declared: it binds only when
+moved_cell_mass > APPLY_GATE_REATTR_CONC_MASS_MIN = 40 (the PPT-3 cap
+scale CAP_BETA). Re-validated **9/9** (all 8 original constructed
+cases keep their verdicts — N4's 100-mass concentration still fails —
+plus P3 = this candidate -> gate_pass_reattr); suite 957 green.
+
+  window            before   after    delta   gate
+  cam4 study_1100    69.4     73.5    +4.1    gate_pass_reattr
+
+Audited path, all standing checks run: server quiesced (parent 21372
+AND the orphaned reload worker 21200 — the sweep caught it this time);
+no pending -wal; schema 32==32; kept 3335==3335; fresh record=True
+adjudication [gate_pass_reattr]; backup
+backups/20260817_172702_pre_twopass_cam4.db (+ rotation); swap via
+_apply_window_events; post-verify study_1100 multiset MATCH,
+study_0700 4956 OK, study_1600 5652 OK; live re-score 73.5 confirmed;
+all five cameras' window counts re-verified after.
+
+Validation-case rebuild note (recorded): the ag2 scratch case DBs had
+been deleted in the 2026-08-16 disk cleanup; all were rebuilt from
+retained backups / re-derived replay controls. First rebuild of N6
+wrongly KEPT the origin-28 freeze (176 moves — passed the gate, an
+8/9 MISS); the faithful UNFROZEN unfloored runaway (357 moves) fails
+excessive_movement as originally validated. The validate script now
+fails loud on missing/empty case inputs.
+
+Production standing: cam1 60.5/54.5 · cam2 55.8/55.0/49.5 · cam3 72.6
+· cam4 75.4/**73.5**/75.8 · cam5 66.4/71.7/63.1.

@@ -12,12 +12,13 @@
  "events_kept": 5067,
  "census": {
   "full_untouched": 1699,
-  "unsupported_current": 295,
-  "confirmed_unchanged": 1521,
+  "unsupported_current": 286,
+  "confirmed_unchanged": 1440,
   "no_crossing_out_of_scope": 677,
   "contradiction_skipped": 842,
-  "reattributed": 9,
-  "floors_not_cleared": 24,
+  "floors_not_cleared": 29,
+  "reattributed": 55,
+  "cap_blocked": 39,
   "contradiction_rate": 0.3129
  },
  "admission": {
@@ -25,13 +26,22 @@
   "39->38": "rejected:ratio(2.33)",
   "37->39": "admitted(ratio 0.30)",
   "39->37": "admitted(ratio 0.29)",
-  "39->36": "rejected:no_path",
+  "39->36": "rejected:ratio(27.06)",
   "38->37": "admitted(ratio 1.95)",
   "36->38": "admitted(ratio 1.43)",
-  "36->39": "rejected:no_path"
+  "36->39": "admitted(ratio 0.91, no_path_fallback)"
  },
  "legacy": false,
+ "cap": {
+  "alpha": 0.9,
+  "beta": 40.0,
+  "active": true,
+  "blocked": 39
+ },
  "movement_matrix": {
-  "39->37:through => 38->37:left": 9
+  "37->39:through => 36->39:left": 43,
+  "39->37:through => 38->37:left": 9,
+  "36->39:left => 37->39:through": 2,
+  "36->39:left => 36->38:through": 1
  }
 }

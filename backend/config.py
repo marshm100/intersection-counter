@@ -469,6 +469,15 @@ CONSERVE_ON_ACTIVATION = _os.environ.get(
 # convention).
 APPLY_GATE_REATTR_MOVED_MAX = 0.05
 APPLY_GATE_REATTR_CONC_MAX = 0.90
+# Concentration mass qualifier (2026-08-17, operator-ruled amendment by
+# the moved_share re-freeze precedent): concentrated_movement binds only
+# when moved_cell_mass EXCEEDS the PPT-3 composer cap scale (CAP_BETA =
+# 40). Below it, one-cell concentration is the legitimate shape of a
+# capped composer at low-cell-count geometry (cam4 T-junction P3: 28
+# moves, concentration 1.0, Mio-confirmed +4.1); mass floods (N6
+# runaway: hundreds into one cell) stay far above it. Re-validated
+# 2026-08-17: 8/8 constructed cases + P3.
+APPLY_GATE_REATTR_CONC_MASS_MIN = 40
 
 # --- C-1: evidence-ranked chain arbitration (D1 iteration 2, 2026-08-12) -----
 # docs/plan_v2_c1_arbitration_2026-08-12.md. Block D1 measured that "legacy

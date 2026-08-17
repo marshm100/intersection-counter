@@ -1,8 +1,9 @@
 """GATE-AG2 validation (docs/plan_gate_ag2_2026-08-13.md, G-AG2-v).
 
-Six pre-declared verdicts through the reattribution mode (record=False;
-NO Miovision reaches the gate — expectations were fixed in the plan doc
-and yardstick checks happen afterward, the AG1 pattern):
+Nine pre-declared verdicts through the reattribution mode (record=False;
+NO Miovision reaches the gate — expectations were fixed in the plan docs
+and yardstick checks happen afterward, the AG1 pattern). P3 added
+2026-08-17 with the concentration mass qualifier (plan_ppt3):
 
   P1  ppt2_cam2_study_1600 vs live         -> APPLY
   N1  ppt2_cam2_study_0700 vs live         -> STAND_DOWN (mass_change)
@@ -42,6 +43,9 @@ FPS = 25.0
 S = Path("data/projects/97a7849a/_replay_scratch/ppt")
 FR = {"study_0700": (629950, 809950), "study_1100": (989950, 1169950),
       "study_1600": (1439950, 1619950)}
+# Per-camera frame windows for non-cam2 cases (same wall-clock seconds;
+# cam4 runs at 10 fps).
+FR_BY_CAM = {(4, "study_1100"): (395980, 467980, 10.0)}
 SEED = 42
 
 
@@ -86,8 +90,27 @@ def main() -> int:
     f_lo, f_hi = FR["study_1600"]
     t_lo, t_hi = f_lo / FPS, f_hi / FPS
 
-    # ---- N3: random re-attribution of P1's moved events --------------------
+    # ---- case-input guard (2026-08-17: sqlite3.connect on a missing path
+    # CREATES a 0-byte ghost, and a prior cleanup + this behavior produced
+    # a confusing "no such table" crash mid-run — fail loud up front) -----
     p1 = S / "ag2" / "p1_live_cam2_study_1600.db"   # composed ON the live table (id-aligned)
+    required = [p1, S / "ag2" / "p2_live_cam2_study_1100.db",
+                S / "ppt2_cam2_study_0700.db",
+                S / "ppt2_cam2_study_1100.db",
+                S / "ag2" / "n6_unfloored_1100.db",
+                S / "corridor" / "p3c_cam4_study_1100.db"]
+    missing = [str(p) for p in required
+               if not p.exists() or p.stat().st_size == 0]
+    if missing:
+        raise SystemExit(
+            "[ag2] case-input DBs missing/empty — rebuild before running "
+            "(recipes: plan_gate_ag2 + plan_ppt3 verdicts; p1/p2 = legacy "
+            "composes on the retained pre-apply backups; N1/N2 = legacy "
+            "composes on re-derived v2c replay controls via v2_run_pass2 "
+            "(~8.5 min each); n6 = legacy UNFROZEN --unfloored compose on "
+            "live; p3c = capped compose on live):\n  " + "\n  ".join(missing))
+
+    # ---- N3: random re-attribution of P1's moved events --------------------
     n3 = scratch / "n3_random.db"
     wal_copy(p1, n3)
     preapply_early = Path("data/projects/97a7849a/backups/"
@@ -161,43 +184,66 @@ def main() -> int:
         conn.execute("DELETE FROM vehicle_events WHERE event_id=?", (eid,))
     conn.close()
 
-    # ---- adjudicate all six -------------------------------------------------
+    # ---- adjudicate all nine ------------------------------------------------
     p2 = S / "ag2" / "p2_live_cam2_study_1100.db"
     n6 = S / "ag2" / "n6_unfloored_1100.db"
-    # Cases carry (window, VARIANT for the integrity dump, incumbent):
+    p3c = S / "corridor" / "p3c_cam4_study_1100.db"
+    # Cases carry (cam, window, VARIANT for the integrity dump, incumbent):
     # P1/N3/N5 were composed on the PRE-APPLY live table — their incumbent
     # is the retained pre-apply backup (the 2026-08-13 study_1600 apply
     # changed the live table's event_ids; pinning the incumbent keeps the
-    # validation reproducible forever). P2/N6 ride the v2c dumps (the
-    # applied windows' track-id space) against the current live table.
+    # validation reproducible forever). P2 is pinned the same way to the
+    # 2026-08-14 pre-1100-apply backup (that apply shipped P2's content —
+    # vs today's live it would degenerate to a no-movement pass). N1/N2
+    # ride the re-derived v2c replay controls (id-misaligned with live by
+    # construction). P3 (2026-08-17): the cam4-1100 capped candidate
+    # through the concentration mass qualifier — one-cell mass 28 <= 40
+    # at a 3-cell T-junction must PASS; N4 (mass ~100) must still fail.
     preapply = Path("data/projects/97a7849a/backups/"
                     "20260813_151203_pre_twopass_cam2.db")
+    preapply_1100 = Path("data/projects/97a7849a/backups/"
+                         "20260814_085707_pre_twopass_cam2.db")
     CASES = [
-        ("P1 ppt2 1600", "study_1600", "study_1600", p1, preapply, "apply"),
-        ("P2 ppt2 1100", "study_1100", "v2c_study_1100", p2, live, "apply"),
-        ("N1 0700-on-base", "study_0700", "v2c_study_0700",
+        ("P1 ppt2 1600", 2, "study_1600", "study_1600", p1, preapply,
+         "apply"),
+        ("P2 ppt2 1100", 2, "study_1100", "v2c_study_1100", p2,
+         preapply_1100, "apply"),
+        ("N1 0700-on-base", 2, "study_0700", "v2c_study_0700",
          S / "ppt2_cam2_study_0700.db", live, "stand_down"),
-        ("N2 1100-on-base", "study_1100", "v2c_study_1100",
+        ("N2 1100-on-base", 2, "study_1100", "v2c_study_1100",
          S / "ppt2_cam2_study_1100.db", live, "stand_down"),
-        ("N3 random", "study_1600", "study_1600", n3, preapply,
+        ("N3 random", 2, "study_1600", "study_1600", n3, preapply,
          "stand_down"),
-        ("N4 concentrated", "study_1600", "study_1600", n4, live,
+        ("N4 concentrated", 2, "study_1600", "study_1600", n4, live,
          "stand_down"),
-        ("N5 massdrop", "study_1600", "study_1600", n5, preapply,
+        ("N5 massdrop", 2, "study_1600", "study_1600", n5, preapply,
          "stand_down"),
-        ("N6 unfloored runaway", "study_1100", "v2c_study_1100", n6, live,
-         "stand_down"),
+        ("N6 unfloored runaway", 2, "study_1100", "v2c_study_1100", n6,
+         live, "stand_down"),
+        ("P3 cam4-1100 conc-amend", 4, "study_1100", "study_1100", p3c,
+         live, "apply"),
     ]
+    chash_by_cam = {2: chash}
     out, ok_all = [], True
-    for label, w, variant, db, inc_db, expected in CASES:
-        wf_lo, wf_hi = FR[w]
-        census, confusion = gate_census_inputs(PROJECT, CAM, chash, variant,
-                                               FPS)
-        v = adjudicate_apply(PROJECT, CAM, variant, incumbent_db=inc_db,
-                             candidate_db=db, t_lo=wf_lo / FPS,
-                             t_hi=wf_hi / FPS, census=census,
+    for label, ccam, w, variant, db, inc_db, expected in CASES:
+        if (ccam, w) in FR_BY_CAM:
+            wf_lo, wf_hi, cfps = FR_BY_CAM[(ccam, w)]
+        else:
+            (wf_lo, wf_hi), cfps = FR[w], FPS
+        if ccam not in chash_by_cam:
+            cc = get_connection(PROJECT)
+            chash_by_cam[ccam] = cc.execute(
+                "SELECT content_hash FROM videos WHERE camera_id=? "
+                "ORDER BY sort_order LIMIT 1", (ccam,)).fetchone()[0]
+            cc.close()
+        census, confusion = gate_census_inputs(PROJECT, ccam,
+                                               chash_by_cam[ccam], variant,
+                                               cfps)
+        v = adjudicate_apply(PROJECT, ccam, variant, incumbent_db=inc_db,
+                             candidate_db=db, t_lo=wf_lo / cfps,
+                             t_hi=wf_hi / cfps, census=census,
                              confusion=confusion, record=False,
-                             mode="reattribution", fps=FPS)
+                             mode="reattribution", fps=cfps)
         correct = v["decision"] == expected
         ok_all &= correct
         out.append({"case": label, "window": w, "expected": expected,

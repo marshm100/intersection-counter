@@ -28,6 +28,12 @@
   "24->23": "rejected:ratio(2.55)"
  },
  "legacy": false,
+ "cap": {
+  "alpha": 0.9,
+  "beta": 40.0,
+  "active": true,
+  "blocked": 0
+ },
  "movement_matrix": {
   "22->24:left => 22->23:through": 4,
   "22->23:through => 22->24:left": 3
