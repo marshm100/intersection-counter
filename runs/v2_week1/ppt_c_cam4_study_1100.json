@@ -14,10 +14,10 @@
   "confirmed_unchanged": 1210,
   "full_untouched": 1777,
   "no_crossing_out_of_scope": 280,
-  "reattributed": 28,
   "floors_not_cleared": 9,
   "unsupported_current": 25,
   "contradiction_skipped": 6,
+  "reattributed": 28,
   "contradiction_rate": 0.0047
  },
  "admission": {
@@ -27,6 +27,12 @@
   "34->33": "rejected:label_conflict(through!=left)"
  },
  "legacy": false,
+ "cap": {
+  "alpha": 0.9,
+  "beta": 40.0,
+  "active": true,
+  "blocked": 0
+ },
  "movement_matrix": {
   "33->34:right => 33->35:through": 28
  }

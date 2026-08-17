@@ -16,10 +16,11 @@
   "no_crossing_out_of_scope": 346,
   "full_untouched": 3971,
   "contradiction_skipped": 115,
-  "reattributed": 136,
   "floors_not_cleared": 335,
   "unsupported_current": 13,
   "frozen_origin_proposed": 37,
+  "reattributed": 95,
+  "cap_blocked": 41,
   "contradiction_rate": 0.0768
  },
  "admission": {
@@ -35,16 +36,22 @@
   "26->29": "rejected:no_path"
  },
  "legacy": false,
+ "cap": {
+  "alpha": 0.9,
+  "beta": 40.0,
+  "active": true,
+  "blocked": 41
+ },
  "movement_matrix": {
-  "29->27:through => 29->28:left": 75,
-  "27->28:right => 29->28:left": 18,
+  "29->27:through => 29->28:left": 39,
+  "27->28:right => 29->28:left": 13,
   "27->28:right => 27->29:through": 13,
   "27->29:through => 27->28:right": 9,
-  "29->28:left => 27->28:right": 6,
   "29->28:left => 29->27:through": 6,
+  "29->28:left => 27->28:right": 6,
   "26->27:right => 26->28:through": 4,
   "27->29:through => 27->26:left": 3,
-  "26->28:through => 27->28:right": 1,
-  "26->28:through => 26->27:right": 1
+  "26->28:through => 26->27:right": 1,
+  "26->28:through => 27->28:right": 1
  }
 }

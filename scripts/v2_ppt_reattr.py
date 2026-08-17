@@ -194,6 +194,16 @@ def main() -> int:
     R_MAX = 2.0     # declared rule: tightest round value keeping every
     admission = None                 # known-good dest cell with >=1.4x margin
     adm_report = {}
+    adm_ratio = {}                   # admitted cell -> census/live ratio
+    live_cells = {}
+    # PPT-3 Phase B saturation cap (G-PPT3-f verdict, plan_ppt3): a
+    # receiving cell's admitted NET gain <= CAP_BETA + CAP_ALPHA *
+    # max(exp_vol - live_n, 0) with exp_vol = ratio * live_n. Constants
+    # by the tightest-round rule on the Phase-A good/bad table: beta in
+    # [1.4*28, 81/1.4] -> 40; alpha = tightest one-decimal passing the
+    # shipped cam2 goods with >=1.4x margin (+87 @ h=101.6 -> 0.9).
+    CAP_ALPHA = 0.9
+    CAP_BETA = 40.0
     if args.mode == "compose" and not args.legacy:
         wsql0, wargs0 = "", []
         if args.t_lo is not None and args.t_hi is not None:
@@ -242,6 +252,7 @@ def main() -> int:
                 adm_report[f"{o}->{d}"] = f"rejected:ratio({ratio:.2f})"
                 return False
             adm_report[f"{o}->{d}"] = f"admitted(ratio {ratio:.2f})"
+            adm_ratio[(o, d)] = ratio
             return True
 
     protos, attr_max, margin, cal_rep = calibrate(info, w_ang, rng,
@@ -286,6 +297,7 @@ def main() -> int:
     census = Counter()
     moves = Counter()
     updates = []
+    proposals = []
     for ev in evs:
         tid = int(ev["vehicle_track_id"])
         v = info.get(tid)
@@ -342,8 +354,33 @@ def main() -> int:
         if mv == "insufficient_data":
             census["movement_underivable"] += 1
             continue
-        updates.append((int(cell[0]), int(cell[1]), mv, ev["event_id"]))
-        moves[f"{cur[0]}->{cur[1]}:{ev['movement']} => "
+        fitm = (sc[1][0] / sc[0][0]) if (len(sc) > 1 and sc[0][0] > 0) \
+            else float("inf")
+        proposals.append((fitm, int(ev["event_id"]),
+                          (int(cur[0]), int(cur[1])),
+                          (int(cell[0]), int(cell[1])), mv, ev["movement"]))
+    # Cap enforcement: rank proposals by scorer fit margin (runner-up /
+    # best cost; single-candidate = inf), ties by event_id, and admit
+    # while the receiving cell's running NET gain stays under its cap.
+    # An admitted outflow loosens its source cell for LATER proposals
+    # only (deterministic, conservative). Legacy: no cap, original
+    # event order — byte-identical to the applied-era composer.
+    cap_on = (not args.legacy) and bool(adm_ratio)
+    order = (sorted(proposals, key=lambda p: (-p[0], p[1]))
+             if cap_on else proposals)
+    net = Counter()
+    for fitm, eid, cur, cell, mv, old_mvt in order:
+        if cap_on:
+            live_n = live_cells.get(cell, 0)
+            r = adm_ratio.get(cell, 0.0)
+            cap = CAP_BETA + CAP_ALPHA * max(live_n * (r - 1.0), 0.0)
+            if net[cell] + 1 > cap:
+                census["cap_blocked"] += 1
+                continue
+        net[cell] += 1
+        net[cur] -= 1
+        updates.append((cell[0], cell[1], mv, eid))
+        moves[f"{cur[0]}->{cur[1]}:{old_mvt} => "
               f"{cell[0]}->{cell[1]}:{mv}"] += 1
         census["reattributed"] += 1
     with dst:
@@ -370,6 +407,8 @@ def main() -> int:
     diag = {"camera": cam, "variant": variant, "calibration": cal_rep,
             "events_kept": n_before, "census": dict(census),
             "admission": adm_report, "legacy": bool(args.legacy),
+            "cap": {"alpha": CAP_ALPHA, "beta": CAP_BETA, "active": cap_on,
+                    "blocked": census.get("cap_blocked", 0)},
             "movement_matrix": dict(moves.most_common())}
     dpath = Path("runs/v2_week1") / f"ppt_c_cam{cam}_{variant}.json"
     dpath.write_text(json.dumps(diag, indent=1))
