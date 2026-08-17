@@ -145,7 +145,7 @@ def main() -> int:
                     required=True)
     ap.add_argument("--control-db")
     ap.add_argument("--out-db")
-    ap.add_argument("--freeze-origin", type=int, default=None,
+    ap.add_argument("--freeze-origin", type=str, default=None,
                     help="PPT-2 (plan doc): no re-decision may read or "
                          "write a cell with this origin — the proven-"
                          "unresolvable pair stays exactly as the control "
@@ -165,6 +165,8 @@ def main() -> int:
                          "moved_share cap exists to catch. Never a "
                          "production mode.")
     args = ap.parse_args()
+    frozen = (set(int(x) for x in args.freeze_origin.split(","))
+              if args.freeze_origin else set())
     cam, variant = args.camera, args.variant
     rng = np.random.default_rng(SEED)
 
@@ -237,8 +239,7 @@ def main() -> int:
         else:
             census["no_crossing_out_of_scope"] += 1
             continue
-        if args.freeze_origin is not None and \
-                ev["origin_leg_id"] == args.freeze_origin:
+        if ev["origin_leg_id"] in frozen:
             census["frozen_origin_current"] += 1
             continue
         if not sc:
@@ -250,8 +251,7 @@ def main() -> int:
             census["floors_not_cleared"] += 1
             continue
         cell = sc[0][1]
-        if args.freeze_origin is not None and \
-                int(cell[0]) == args.freeze_origin:
+        if int(cell[0]) in frozen:
             census["frozen_origin_proposed"] += 1
             continue
         cur = (ev["origin_leg_id"], ev["destination_leg_id"])

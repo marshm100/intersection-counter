@@ -1,0 +1,164 @@
+{
+ "v2": {
+  "cells_scored": 59,
+  "compliant": 37,
+  "pct": 62.7,
+  "worst": [
+   {
+    "bin": "07:15",
+    "cell": "NB thru",
+    "ours": 322,
+    "ref": 381
+   },
+   {
+    "bin": "07:45",
+    "cell": "EB thru",
+    "ours": 49,
+    "ref": 0
+   },
+   {
+    "bin": "07:30",
+    "cell": "EB thru",
+    "ours": 48,
+    "ref": 0
+   },
+   {
+    "bin": "07:15",
+    "cell": "EB thru",
+    "ours": 47,
+    "ref": 0
+   },
+   {
+    "bin": "07:30",
+    "cell": "NB thru",
+    "ours": 353,
+    "ref": 399
+   },
+   {
+    "bin": "07:00",
+    "cell": "EB thru",
+    "ours": 43,
+    "ref": 0
+   },
+   {
+    "bin": "07:00",
+    "cell": "NB thru",
+    "ours": 306,
+    "ref": 347
+   },
+   {
+    "bin": "07:45",
+    "cell": "NB thru",
+    "ours": 337,
+    "ref": 376
+   }
+  ]
+ },
+ "production": {
+  "cells_scored": 57,
+  "compliant": 43,
+  "pct": 75.4,
+  "worst": [
+   {
+    "bin": "08:00",
+    "cell": "NB thru",
+    "ours": 327,
+    "ref": 291
+   },
+   {
+    "bin": "07:45",
+    "cell": "SB thru",
+    "ours": 305,
+    "ref": 283
+   },
+   {
+    "bin": "08:15",
+    "cell": "NB thru",
+    "ours": 342,
+    "ref": 320
+   },
+   {
+    "bin": "08:45",
+    "cell": "NB thru",
+    "ours": 300,
+    "ref": 281
+   },
+   {
+    "bin": "08:00",
+    "cell": "SB right",
+    "ours": 15,
+    "ref": 1
+   },
+   {
+    "bin": "07:45",
+    "cell": "SB right",
+    "ours": 14,
+    "ref": 2
+   },
+   {
+    "bin": "07:45",
+    "cell": "EB left",
+    "ours": 11,
+    "ref": 0
+   },
+   {
+    "bin": "07:00",
+    "cell": "SB right",
+    "ours": 14,
+    "ref": 5
+   }
+  ]
+ },
+ "totals": {
+  "EB_left": [
+   15,
+   56,
+   67
+  ],
+  "EB_right": [
+   6,
+   0,
+   0
+  ],
+  "EB_thru": [
+   0,
+   293,
+   7
+  ],
+  "EB_uturn": [
+   0,
+   0,
+   0
+  ],
+  "NB_left": [
+   20,
+   1,
+   1
+  ],
+  "NB_thru": [
+   2713,
+   2504,
+   2779
+  ],
+  "NB_uturn": [
+   0,
+   1,
+   1
+  ],
+  "SB_right": [
+   22,
+   71,
+   89
+  ],
+  "SB_thru": [
+   1957,
+   2020,
+   2002
+  ],
+  "SB_uturn": [
+   0,
+   10,
+   10
+  ]
+ }
+}
