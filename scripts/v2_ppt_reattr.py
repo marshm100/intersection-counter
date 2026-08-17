@@ -82,9 +82,11 @@ def load_window(project, cam, variant):
     return legs_full, fps, tracks, gates, info
 
 
-def calibrate(info, w_ang, rng):
+def calibrate(info, w_ang, rng, admission=None):
     """Split-half floors + full-data prototypes (the F2M convention).
-    Returns (protos_full, attr_max, margin, cal_report)."""
+    Returns (protos_full, attr_max, margin, cal_report). admission =
+    the PPT-3 prototype filter (plan_ppt3_2026-08-17), applied to BOTH
+    the split-half and the final prototype sets; None = original."""
     full_recs = []
     for v in info.values():
         if v["tag"] != "full" or v["o"] == v["d"]:
@@ -93,7 +95,8 @@ def calibrate(info, w_ang, rng):
         full_recs.append(((int(v["o"]), int(v["d"])), clip, v["pts"]))
     rng.shuffle(full_recs)
     half = len(full_recs) // 2
-    protos_A = build_prototypes([(c, clip) for c, clip, _p in full_recs[:half]])
+    protos_A = build_prototypes([(c, clip) for c, clip, _p in full_recs[:half]],
+                                admission=admission)
     held = [r for r in full_recs[half:] if r[0] in protos_A]
     # constrained held-out rows: (true_cell, entry-mode scores, exit-mode scores)
     ho = []
@@ -128,7 +131,8 @@ def calibrate(info, w_ang, rng):
             break
     if margin is None:
         margin, precision, coverage = 0.0, 0.0, 0.0
-    protos = build_prototypes([(c, clip) for c, clip, _p in full_recs])
+    protos = build_prototypes([(c, clip) for c, clip, _p in full_recs],
+                              admission=admission)
     return protos, attr_max, margin, {
         "n_fulls": len(full_recs), "heldout_n": len(ho),
         "attr_max_px": round(attr_max, 1), "margin": margin,
@@ -164,6 +168,11 @@ def main() -> int:
                          "the runaway-re-attributor archetype the "
                          "moved_share cap exists to catch. Never a "
                          "production mode.")
+    ap.add_argument("--legacy", action="store_true",
+                    help="reproduce the PPT-2-era behavior exactly: no "
+                         "prototype admission, no two-sided freeze "
+                         "(plan_ppt3_2026-08-17 G-PPT3-p reproduction "
+                         "gate; the applied cam2 artifacts' era).")
     args = ap.parse_args()
     frozen = (set(int(x) for x in args.freeze_origin.split(","))
               if args.freeze_origin else set())
@@ -176,8 +185,71 @@ def main() -> int:
     npz = Path("runs/v2_week1") / f"tracklets_cam{cam}_{variant}.npz"
     cal = fit_motion_residual(load_table(npz))
     w_ang = cal["zv_radius"] / 45.0
-    protos, attr_max, margin, cal_rep = calibrate(info, w_ang, rng)
+
+    # ---- PPT-3 admission (plan_ppt3_2026-08-17, Phase A) -------------------
+    # Built from the CONTROL DB's window (blind: live counts + modal stored
+    # movements) + intersection_paths + derive_movement. Compose mode only
+    # (the instrument measures scorer precision on fulls, not composition);
+    # --legacy disables (PPT-2-era reproduction).
+    R_MAX = 2.0     # declared rule: tightest round value keeping every
+    admission = None                 # known-good dest cell with >=1.4x margin
+    adm_report = {}
+    if args.mode == "compose" and not args.legacy:
+        wsql0, wargs0 = "", []
+        if args.t_lo is not None and args.t_hi is not None:
+            wsql0 = " AND timestamp_video >= ? AND timestamp_video < ?"
+            wargs0 = [args.t_lo, args.t_hi]
+        cctl = sqlite3.connect(f"file:{args.control_db}?mode=ro", uri=True)
+        live_cells = {(o, d): n for o, d, n in cctl.execute(
+            "SELECT origin_leg_id, destination_leg_id, COUNT(*) FROM "
+            "vehicle_events WHERE camera_id=? AND COALESCE(rejected,0)=0 "
+            "AND origin_leg_id IS NOT NULL AND destination_leg_id IS NOT "
+            f"NULL{wsql0} GROUP BY 1,2", (cam, *wargs0))}
+        modal_mvt = {}
+        for o, d, m, n in cctl.execute(
+                "SELECT origin_leg_id, destination_leg_id, movement, "
+                "COUNT(*) FROM vehicle_events WHERE camera_id=? AND "
+                f"COALESCE(rejected,0)=0{wsql0} GROUP BY 1,2,3 "
+                "ORDER BY COUNT(*)", (cam, *wargs0)):
+            modal_mvt[(o, d)] = m          # last row per cell = the mode
+        cctl.close()
+        total_kept = sum(live_cells.values())
+        path_set = {(p["origin_leg_id"], p["destination_leg_id"])
+                    for p in list_paths_for_camera(args.project, cam)}
+        total_fulls = sum(1 for v in info.values()
+                          if v["tag"] == "full" and v["o"] != v["d"])
+
+        def admission(cell, n_fulls):
+            o, d = int(cell[0]), int(cell[1])
+            if (o, d) not in path_set:                       # (b)
+                adm_report[f"{o}->{d}"] = "rejected:no_path"
+                return False
+            live_n = live_cells.get((o, d), 0)
+            if live_n >= 5:                                  # (c)
+                dm = derive_movement(legs_full[o], legs_full.get(d),
+                                     all_legs)
+                if modal_mvt.get((o, d)) and dm != modal_mvt[(o, d)]:
+                    adm_report[f"{o}->{d}"] = (
+                        f"rejected:label_conflict({dm}!="
+                        f"{modal_mvt[(o, d)]})")
+                    return False
+            if live_n == 0:                                  # (a) RATIO inf
+                adm_report[f"{o}->{d}"] = "rejected:zero_live"
+                return False
+            ratio = ((n_fulls / total_fulls) / (live_n / total_kept)
+                     if total_fulls and total_kept else 0.0)
+            if ratio > R_MAX:                                # (a)
+                adm_report[f"{o}->{d}"] = f"rejected:ratio({ratio:.2f})"
+                return False
+            adm_report[f"{o}->{d}"] = f"admitted(ratio {ratio:.2f})"
+            return True
+
+    protos, attr_max, margin, cal_rep = calibrate(info, w_ang, rng,
+                                                  admission=admission)
     print(f"[ppt] cam{cam} {variant} calibration: {cal_rep}")
+    if adm_report:
+        for k, v in sorted(adm_report.items()):
+            print(f"[ppt]   admission {k}: {v}")
 
     if args.mode == "instrument":
         dst = Path("runs/v2_week1") / f"ppt_i_cam{cam}_{variant}.json"
@@ -242,6 +314,13 @@ def main() -> int:
         if ev["origin_leg_id"] in frozen:
             census["frozen_origin_current"] += 1
             continue
+        if not args.legacy and admission is not None and (
+                ev["origin_leg_id"], ev["destination_leg_id"]) not in protos:
+            # PPT-3 (d) two-sided: current cell has no ADMITTED prototype —
+            # the constrained argmax would force-relocate it (the cam1/cam5
+            # drain class). Never re-decide out of an unsupported cell.
+            census["unsupported_current"] += 1
+            continue
         if not sc:
             census["no_candidates"] += 1
             continue
@@ -277,8 +356,20 @@ def main() -> int:
     dst.close()
     assert n_after == n_before, "zero-mass invariant violated"
 
+    # PPT-3 (e): the camera-level mis-gating signal (plan_ppt3, declared
+    # formula). >= 0.10 stands the CAMERA down in Phase-C evaluation.
+    denom = n_before - census["full_untouched"] - \
+        census["no_crossing_out_of_scope"]
+    c_rate = census["contradiction_skipped"] / denom if denom else 0.0
+    census["contradiction_rate"] = round(c_rate, 4)
+    if c_rate >= 0.10:
+        print(f"[ppt] WARNING camera gate (e): contradiction_rate "
+              f"{c_rate:.3f} >= 0.10 — this camera is structurally "
+              f"mis-gated; candidates from it STAND DOWN per plan_ppt3")
+
     diag = {"camera": cam, "variant": variant, "calibration": cal_rep,
             "events_kept": n_before, "census": dict(census),
+            "admission": adm_report, "legacy": bool(args.legacy),
             "movement_matrix": dict(moves.most_common())}
     dpath = Path("runs/v2_week1") / f"ppt_c_cam{cam}_{variant}.json"
     dpath.write_text(json.dumps(diag, indent=1))

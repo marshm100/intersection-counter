@@ -1,0 +1,37 @@
+{
+ "camera": 5,
+ "variant": "study_0700",
+ "calibration": {
+  "n_fulls": 2097,
+  "heldout_n": 549,
+  "attr_max_px": 65.8,
+  "margin": 0.9,
+  "heldout_precision": 1.0,
+  "heldout_coverage": 0.9444
+ },
+ "events_kept": 5067,
+ "census": {
+  "full_untouched": 1699,
+  "unsupported_current": 295,
+  "confirmed_unchanged": 1521,
+  "no_crossing_out_of_scope": 677,
+  "contradiction_skipped": 842,
+  "reattributed": 9,
+  "floors_not_cleared": 24,
+  "contradiction_rate": 0.3129
+ },
+ "admission": {
+  "37->38": "rejected:ratio(10.07)",
+  "39->38": "rejected:ratio(2.33)",
+  "37->39": "admitted(ratio 0.30)",
+  "39->37": "admitted(ratio 0.29)",
+  "39->36": "rejected:no_path",
+  "38->37": "admitted(ratio 1.95)",
+  "36->38": "admitted(ratio 1.43)",
+  "36->39": "rejected:no_path"
+ },
+ "legacy": false,
+ "movement_matrix": {
+  "39->37:through => 38->37:left": 9
+ }
+}

@@ -70,8 +70,11 @@ def _resample(xy, n=RESAMPLE_N):
     return out
 
 
-def build_prototypes(fulls, min_support=PROTO_MIN_FULLS):
-    """fulls: list of (cell, clipped_xy). Per-cell mean polyline."""
+def build_prototypes(fulls, min_support=PROTO_MIN_FULLS, admission=None):
+    """fulls: list of (cell, clipped_xy). Per-cell mean polyline.
+    admission: optional callable(cell, n_fulls) -> bool — the PPT-3
+    prototype-quality filter (plan_ppt3_2026-08-17). None = the
+    original behavior, byte-identical."""
     by = defaultdict(list)
     for cell, clip in fulls:
         if len(by[cell]) < PROTO_CAP and len(clip) >= 4:
@@ -79,6 +82,8 @@ def build_prototypes(fulls, min_support=PROTO_MIN_FULLS):
     out = {}
     for cell, tracks in by.items():
         if len(tracks) < min_support or cell[0] == cell[1]:
+            continue
+        if admission is not None and not admission(cell, len(tracks)):
             continue
         out[cell] = [(sum(t[k][0] for t in tracks) / len(tracks),
                       sum(t[k][1] for t in tracks) / len(tracks))
