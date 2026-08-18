@@ -270,7 +270,14 @@ the two-bar finding):**
    an auto-cal job's initial VIDEO SEEK (deep into a 24 h file) can
    starve the dev server's API for 30-45 min — a dark UI during a
    job's first phase does NOT mean a dead job; verify with process
-   CPU (Get-Process, delta over 10 s) before killing anything.
+   CPU (Get-Process, delta over 10 s) before killing anything;
+   AND THE STALE-MODULE TRAP (2026-08-18, cost one 40-min attempt):
+   the uvicorn reloader can WEDGE during a GIL-heavy job and silently
+   stop picking up .py edits, while lazy module imports pin job-side
+   code to the process's first-import version — after editing any
+   job-side module, VERIFY the serving process's birth time is
+   younger than the edit (Get-Process StartTime) or bounce the server
+   explicitly before relaunching a job.
 
 ---
 
