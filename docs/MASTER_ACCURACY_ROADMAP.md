@@ -266,7 +266,11 @@ the two-bar finding):**
    parent orphans the reload worker holding port 5000 (kill by
    commandline match); sqlite connect() CREATES empty files on typo'd
    paths; WAL-safe copies via the backup API only; %TEMP% is swept
-   mid-session (scratch lives in data/projects/<id>/_replay_scratch).
+   mid-session (scratch lives in data/projects/<id>/_replay_scratch);
+   an auto-cal job's initial VIDEO SEEK (deep into a 24 h file) can
+   starve the dev server's API for 30-45 min — a dark UI during a
+   job's first phase does NOT mean a dead job; verify with process
+   CPU (Get-Process, delta over 10 s) before killing anything.
 
 ---
 
