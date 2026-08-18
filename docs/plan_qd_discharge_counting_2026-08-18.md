@@ -74,3 +74,30 @@ calibration. If the auto-cal wave ships new mouths at any camera, QD
 constants for that camera re-derive (activation-coupling law). Run
 QD's scored iteration AFTER the wave's verdict at each camera, or
 pin to current geometry and re-run.
+
+---
+
+## AMENDMENTS + FREEZE RECORD (2026-08-18, before any scored run)
+
+- **Sweep-basis amendment (declared before the sweep ran):** no
+  non-GT-hour dumps exist, so T_dwell freezes by LEAVE-ONE-CAMERA-OUT
+  median knee across the other cameras' windows, with procedural
+  GT-blindness (the sweep path imports nothing Miovision).
+- **G-QD-0 verdict: PASS with a documented refinement** — the
+  composer buckets rejected-row tracks FIRST, so its recoverable
+  class (280 at cam2-1600) equals the committed no-row class exactly;
+  counted 6,727 and too_short 308 byte-match. The 565 union of the
+  original audit = 280 no-row + 285 rejected (203 fulls + 82
+  exit-only), reconciled.
+- **Phase-A result:** every admitted candidate resolves via its OWN
+  TRACE (the channel rung fired zero times — moving exit-onlys are
+  rare and channel-claims never matched) → iteration 1 is exactly
+  the eventless-fulls recovery, origin gate-proven on every
+  candidate. Pools: cam1 36/133 · cam2 161/69/152 · cam4 83/79/88 ·
+  cam5 253/319/436 · FM51 31/0.
+- **T_dwell FREEZE: 3.0 s for all four corridor cameras** (LOCO
+  medians identical). ANOMALY LEDGERED: all knees (3.0-4.0 s) sit
+  above the pre-declared [1.0, 2.0] s band — echo exit-time offsets
+  run multi-second at these sites; error direction is
+  over-suppression; spot review is the acceptance backstop.
+  Record: runs/v2_week1/qd_freeze.json (geom hashes pinned).

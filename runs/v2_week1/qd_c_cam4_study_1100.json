@@ -1,0 +1,21 @@
+{
+ "camera": 4,
+ "variant": "study_1100",
+ "mode": "audit",
+ "geom_hash": "696f3c404fa47bbc",
+ "funnel": {
+  "too_short": 627,
+  "counted": 3335,
+  "eventless_entry_only": 52,
+  "eventless_no_crossing": 757,
+  "eventless_exit_only": 72,
+  "eventless_full": 83,
+  "rejected_pool": 44,
+  "qd_recoverable_class": 155
+ },
+ "resolution": {
+  "not_moving_at_exit": 76,
+  "origin_trace": 79
+ },
+ "n_candidates": 79
+}

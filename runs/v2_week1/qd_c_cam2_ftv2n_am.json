@@ -1,0 +1,21 @@
+{
+ "camera": 2,
+ "variant": "ftv2n_am",
+ "mode": "audit",
+ "geom_hash": "f1f172632a0baee7",
+ "funnel": {
+  "too_short": 580,
+  "eventless_no_crossing": 1498,
+  "eventless_exit_only": 217,
+  "eventless_entry_only": 40,
+  "counted": 221,
+  "eventless_full": 47,
+  "rejected_pool": 1,
+  "qd_recoverable_class": 264
+ },
+ "resolution": {
+  "not_moving_at_exit": 233,
+  "origin_trace": 31
+ },
+ "n_candidates": 31
+}
