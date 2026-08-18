@@ -219,13 +219,22 @@ the two-bar finding):**
 
 ---
 
-## 5. WHAT IS RUNNING / IMMEDIATELY NEXT (as of 2026-08-18 evening)
+## 5. WHAT IS RUNNING / IMMEDIATELY NEXT (as of 2026-08-18 night)
 
-1. cam2 busy-window auto-cal (17:00–18:00 sample) — completing;
-   compare proposal vs known gaps, then the W1 procedure. DECISION
-   TREE: paths cover (26,29)+(28,26) and legs 4/4 → proceed to
-   backup/apply/replay-score; missing → the wave hypothesis weakens,
-   record and stop.
+1. cam2 busy-window auto-cal 17:00–18:00. **Attempt 1 completed and
+   exposed an INSTRUMENT defect, not a hypothesis verdict**: 90k
+   frames, 23,393 raw → 4,876 kept trajectories — and the zone stage
+   collapsed to 1 zone / 1 path, because pure single-linkage-at-cut
+   lacks DBSCAN's core-point density rule: queue-fragment endpoints
+   form sparse bridges that CHAIN all mouths into one mega-cluster at
+   busy-window density (the midnight 57-trajectory regime never hit
+   this). FIXED same night (commit: dbscan_like true core/border
+   semantics + border-band fallback + trajectory persistence so a
+   2.6 h collection is never repeated to retry clustering; synthetic
+   verification 4/4 · 3/3 legacy · 4/4 at 20k points). **Attempt 2
+   RUNNING with the fix** (~2.6 h). DECISION TREE unchanged: paths
+   cover (26,29)+(28,26) and legs 4/4 → W1 backup/apply/replay-score;
+   missing → the wave hypothesis weakens, record and stop.
 2. Four research agents (detection recall / queued+stopped /
    conservation+dedup / industry practice) — reports land in §7.
 3. L1 two-level scorer landing + this doc's upkeep.
@@ -537,3 +546,7 @@ redistributes echo mass instead of deleting it.
   refined with the dedup-before-balance ordering law; A4+A5 merged;
   strategic sequence added to section 4. Provenance corrected: the
   volume finding confirms the operator's July diagnosis (E4R owed).
+- 2026-08-18 (night): auto-cal attempt 1 exposed the clustering
+  density collapse (1 zone from 19k trajectories); core-point rule +
+  border fallback + trajectory persistence shipped; two-level scorer
+  landed in v2_score_dev (L1 DONE); attempt 2 relaunched.
