@@ -190,6 +190,22 @@ def main() -> int:
         rows_prod = score_cells(ours_prod, mio, mio_minutes)
         c_v2, c_prod = compliance(rows_v2), compliance(rows_prod)
 
+        # Two-level scoring (2026-08-18, finding_two_bar_inversion):
+        # the PRD 7.2 bar is per-APPROACH totals per bin — movements
+        # summed per direction before the same rule595 test. Reported
+        # alongside the movement bar on every score, additive JSON keys.
+        def _approach(pm):
+            out = defaultdict(lambda: defaultdict(int))
+            for mnt, cells in pm.items():
+                for k, v in cells.items():
+                    out[mnt][k[0]] += v
+            return out
+
+        a_v2 = compliance(score_cells(_approach(ours_v2), _approach(mio),
+                                      mio_minutes))
+        a_prod = compliance(score_cells(_approach(ours_prod), _approach(mio),
+                                        mio_minutes))
+
         t_mio = cell_totals(mio, mio_minutes)
         t_v2 = cell_totals(ours_v2, mio_minutes)
         t_prod = cell_totals(ours_prod, mio_minutes)
@@ -200,6 +216,10 @@ def main() -> int:
               f"({c_v2['compliant']}/{c_v2['cells_scored']})  |  "
               f"PRODUCTION {c_prod['pct']}% "
               f"({c_prod['compliant']}/{c_prod['cells_scored']})")
+        print(f"approach-bins (PRD bar): V2 {a_v2['pct']}% "
+              f"({a_v2['compliant']}/{a_v2['cells_scored']})  |  "
+              f"PRODUCTION {a_prod['pct']}% "
+              f"({a_prod['compliant']}/{a_prod['cells_scored']})")
         print(f"{'cell':>12} {'Mio':>6} {'V2':>6} {'prod':>6}")
         for k in sorted(set(t_mio) | set(t_v2) | set(t_prod)):
             print(f"{k[0]+' '+k[1]:>12} {t_mio.get(k,0):>6} "
@@ -207,6 +227,7 @@ def main() -> int:
         out = Path("runs/v2_week1") / f"score_{stem}.json"
         out.write_text(json.dumps(
             {"v2": c_v2, "production": c_prod,
+             "v2_approach": a_v2, "production_approach": a_prod,
              "totals": {f"{k[0]}_{k[1]}": [t_mio.get(k, 0), t_v2.get(k, 0),
                                            t_prod.get(k, 0)]
                         for k in sorted(set(t_mio) | set(t_v2) | set(t_prod))}},

@@ -461,6 +461,11 @@ def _run_job(
                     slot[int(f)] = p
             _render_preview(camera_id, info)
 
+        traj_dir = Path(f"data/projects/{project_id}/_replay_scratch/autocal")
+        traj_dir.mkdir(parents=True, exist_ok=True)
+        traj_npz = traj_dir / (
+            f"traj_cam{camera_id}_{int(sample_start_sec)}_"
+            f"{int(sample_end_sec)}.npz")
         try:
             result = run_auto_cal(
                 path,
@@ -469,6 +474,7 @@ def _run_job(
                 should_cancel=lambda: bool(
                     _JOBS.get(camera_id, {}).get("cancel_requested")),
                 on_progress=_cb,
+                save_trajectories_to=str(traj_npz),
             )
         except AutoCalCancelled:
             _update_job(camera_id, status="cancelled", phase="done",

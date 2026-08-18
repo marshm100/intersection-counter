@@ -104,7 +104,7 @@ class TestBoundedParallelPool:
         lock = threading.Lock()
 
         def fake_run(path, sample_start_sec, sample_end_sec,
-                     should_cancel=None, on_progress=None):
+                     should_cancel=None, on_progress=None, **kwargs):
             with lock:
                 running_now["n"] += 1
                 peak["n"] = max(peak["n"], running_now["n"])
@@ -127,6 +127,15 @@ class TestBoundedParallelPool:
         for cam in (101, 102, 103):
             ac.enqueue("p", cam, video_id=7, sample_start_sec=0,
                        sample_end_sec=900)
+
+        # Wait for BOTH pool slots to be occupied before opening the
+        # gate — otherwise a slow thread start lets job 1 time out of
+        # the stub before job 2 arrives and peak never reaches 2
+        # (scheduling flake observed on Windows).
+        deadline = time.time() + 5.0
+        while time.time() < deadline and running_now["n"] < 2:
+            time.sleep(0.05)
+        assert running_now["n"] == 2, "two jobs never ran concurrently"
 
         deadline = time.time() + 5.0
         third_queued = False
@@ -154,7 +163,7 @@ class TestBoundedParallelPool:
         gate = threading.Event()
 
         def fake_run(path, sample_start_sec, sample_end_sec,
-                     should_cancel=None, on_progress=None):
+                     should_cancel=None, on_progress=None, **kwargs):
             gate.wait(timeout=5.0)
             return {"leg_zones": [], "paths": [], "stats": {}}
 

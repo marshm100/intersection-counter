@@ -210,19 +210,59 @@ def _path_distance(traj: list[tuple[float, float]]) -> float:
 def dbscan_like(
     points: np.ndarray, eps_px: float, min_samples: int,
 ) -> np.ndarray:
-    """Single-linkage hierarchical clustering cut at distance eps.
+    """DBSCAN-semantics clustering: single linkage over CORE points
+    (>= min_samples neighbors within eps), border points attached to
+    the nearest core cluster within eps, everything else noise (-1).
 
-    Equivalent to DBSCAN for our use case (compact, well-separated zone
-    clusters) and avoids the sklearn dependency that's broken in this
-    project. Clusters with fewer than min_samples points are relabeled
-    as noise (-1)."""
-    if len(points) < 2:
-        return np.full(len(points), -1, dtype=int)
-    Z = linkage(points, method="single")
-    raw = fcluster(Z, t=eps_px, criterion="distance")
-    counts = np.bincount(raw)
+    2026-08-18: the original pure single-linkage-at-cut claimed DBSCAN
+    equivalence, which held only for SPARSE samples — it lacks the
+    density (core-point) rule, so at busy-window density the sparse
+    endpoint bridges between real zones CHAINED everything into one
+    mega-cluster (the 19k-trajectory cam2 17:00 sample collapsed to
+    1 zone / 1 path). The core rule dissolves sparse bridges; compact
+    small-sample zones keep their cores and their border members
+    attach exactly as DBSCAN's border rule attaches them. A KDTree
+    keeps neighbor counts O(n log n), and the linkage input is capped
+    (O(n^2) memory) with the overflow attached by proximity."""
+    n = len(points)
+    if n < 2:
+        return np.full(n, -1, dtype=int)
+    from scipy.spatial import cKDTree
+    tree = cKDTree(points)
+    n_nbrs = np.asarray(
+        tree.query_ball_point(points, r=eps_px, return_length=True))
+    core = n_nbrs >= min_samples
+    labels = np.full(n, -1, dtype=int)
+    if not core.any():
+        # Legacy sparse regime (nothing reaches core density): original
+        # behavior so low-volume samples still form their zones.
+        Z = linkage(points, method="single")
+        labels = fcluster(Z, t=eps_px, criterion="distance")
+    else:
+        core_idx = np.where(core)[0]
+        if len(core_idx) > 6000:
+            rng = np.random.default_rng(0)
+            core_idx = np.sort(rng.choice(core_idx, 6000, replace=False))
+        cpts = points[core_idx]
+        if len(cpts) == 1:
+            raw = np.array([1])
+        else:
+            Z = linkage(cpts, method="single")
+            raw = fcluster(Z, t=eps_px, criterion="distance")
+        labels[core_idx] = raw
+        rest = np.where(labels == -1)[0]
+        if len(rest):
+            ctree = cKDTree(cpts)
+            d, j = ctree.query(points[rest], k=1)
+            ok = d <= eps_px
+            labels[rest[ok]] = raw[j[ok]]
+    pos_mask = labels >= 0
+    if not pos_mask.any():
+        return np.full(n, -1, dtype=int)
+    counts = np.bincount(labels[pos_mask])
     keep_mask = counts >= min_samples
-    labels = np.where(keep_mask[raw], raw, -1)
+    labels = np.where(pos_mask & keep_mask[np.clip(labels, 0, None)],
+                      labels, -1)
     # Relabel kept clusters to dense 0..K-1 ordering by size desc.
     kept_ids = sorted({l for l in labels if l != -1},
                       key=lambda l: -(labels == l).sum())
@@ -431,7 +471,8 @@ def run(video_path: str, sample_start_sec: float, sample_end_sec: float,
         eps_px: float = DBSCAN_EPS_PX,
         min_samples: int = DBSCAN_MIN_SAMPLES,
         should_cancel: Callable[[], bool] | None = None,
-        on_progress: Callable[[dict], None] | None = None) -> dict:
+        on_progress: Callable[[dict], None] | None = None,
+        save_trajectories_to: str | None = None) -> dict:
     """End-to-end: collect → cluster → discover paths → label movements."""
     t0 = time.time()
     trajectories, (fw, fh), stats = collect_trajectories(
@@ -441,13 +482,51 @@ def run(video_path: str, sample_start_sec: float, sample_end_sec: float,
         should_cancel=should_cancel,
         on_progress=on_progress,
     )
+    if save_trajectories_to:
+        # Persist the (expensive) collection so clustering can be
+        # re-run without re-decoding hours of video. Best-effort.
+        try:
+            arrs = {f"t{i}": np.asarray(t, dtype=np.float32)
+                    for i, t in enumerate(trajectories)}
+            np.savez_compressed(
+                save_trajectories_to,
+                frame_size=np.array([fw, fh]),
+                window=np.array([sample_start_sec, sample_end_sec]),
+                **arrs)
+        except Exception:
+            pass
 
     # Cluster entry zones (start positions) and exit zones (end positions).
-    # The entry-zone set is the "leg origin" candidates.
-    entry_zones = cluster_zones(trajectories, "start",
-                                eps_px=eps_px, min_samples=min_samples)
-    exit_zones  = cluster_zones(trajectories, "end",
-                                eps_px=eps_px, min_samples=min_samples)
+    # The entry-zone set is the "leg origin" candidates. At busy-window
+    # density, queue fragmentation scatters endpoints mid-frame; if the
+    # full-set clustering degenerates (< 3 zones — the chained case),
+    # retry on the frame-border band where real leg mouths live, and
+    # keep the better result (2026-08-18; the 1-zone collapse).
+    def _cluster_with_fallback(which: str):
+        zones = cluster_zones(trajectories, which,
+                              eps_px=eps_px, min_samples=min_samples)
+        fallback = None
+        if len(zones) < 3:
+            band = 0.18 * min(fw, fh)
+            idxs = []
+            for i, t in enumerate(trajectories):
+                x, y = t[0] if which == "start" else t[-1]
+                if (x < band or y < band
+                        or x > fw - band or y > fh - band):
+                    idxs.append(i)
+            if len(idxs) >= min_samples:
+                sub = [trajectories[i] for i in idxs]
+                alt = cluster_zones(sub, which,
+                                    eps_px=eps_px, min_samples=min_samples)
+                if len(alt) > len(zones):
+                    for z in alt:
+                        z["trajectory_indices"] = [
+                            idxs[i] for i in z["trajectory_indices"]]
+                    zones, fallback = alt, "border_band"
+        return zones, fallback
+
+    entry_zones, zone_fb_in = _cluster_with_fallback("start")
+    exit_zones, zone_fb_out = _cluster_with_fallback("end")
     # Reference heading per entry zone.
     for z in entry_zones:
         z["reference_heading"] = derive_zone_reference_heading(z, trajectories)
@@ -464,6 +543,7 @@ def run(video_path: str, sample_start_sec: float, sample_end_sec: float,
         "stats": {
             **stats,
             "wall_seconds": round(time.time() - t0, 1),
+            "zone_fallback": {"entry": zone_fb_in, "exit": zone_fb_out},
         },
         "leg_zones": [
             {
