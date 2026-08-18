@@ -4,6 +4,21 @@
 campaign's movement bar, and the gap is made of missing vehicles, not
 missorted ones.**
 
+**PROVENANCE — this is a quantified CONFIRMATION of the operator's
+standing diagnosis, not a new discovery.** The transcript record shows
+the operator called out undetected vehicles repeatedly: 2026-07-06/08
+(per-approach diagnosis: cam2 SB-right 58% recall; the operator-
+commissioned Detector De-risk Spike, framed as "the new top lever:
+are the missing vehicles absent from DETECTIONS, or dropped
+downstream?"), 2026-07-20 (hand-marking undetected vehicles during
+labeling), 2026-07-27/29 (bank-coverage hole; queue-recall baselines).
+The campaign deprioritized detection on the early spike's conclusion
+("recall is not the bottleneck; association is") — a conclusion the
+options inventory itself flags as measured before any assembly
+existed and owed a never-run re-test (E4/G-A4). Today's approach-bar
+measurement settles it in the operator's favor: net-volume error
+dominates the product bar.
+
 ## The two bars
 
 - **Movement bar** (campaign standard since 2026-07-28): per
