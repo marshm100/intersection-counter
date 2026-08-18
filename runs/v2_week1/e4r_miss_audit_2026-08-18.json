@@ -1,0 +1,46 @@
+[
+ {
+  "camera": 2,
+  "variant": "study_1600",
+  "approach": "EB (deficit -287)",
+  "deficit": -287,
+  "band_dets": 883752,
+  "covered_by_tracks": 812682,
+  "uncovered": 71070,
+  "uncovered_chains": 27,
+  "chain_med_len": 11
+ },
+ {
+  "camera": 2,
+  "variant": "study_1600",
+  "approach": "WB (control +51)",
+  "deficit": 51,
+  "band_dets": 1688517,
+  "covered_by_tracks": 1464022,
+  "uncovered": 224495,
+  "uncovered_chains": 197,
+  "chain_med_len": 13
+ },
+ {
+  "camera": 1,
+  "variant": "study_1600",
+  "approach": "EB (deficit -210)",
+  "deficit": -210,
+  "band_dets": 144634,
+  "covered_by_tracks": 122204,
+  "uncovered": 22430,
+  "uncovered_chains": 105,
+  "chain_med_len": 11
+ },
+ {
+  "camera": 1,
+  "variant": "study_1600",
+  "approach": "NB (control ~-27)",
+  "deficit": -27,
+  "band_dets": 60961,
+  "covered_by_tracks": 53994,
+  "uncovered": 6967,
+  "uncovered_chains": 74,
+  "chain_med_len": 9
+ }
+]

@@ -117,10 +117,10 @@ W→E path rows; the frozen EB pair); cam3 (never studied).
 
 | id | element | status | movement | approach | cost |
 |---|---|---|---|---|---|
-| E4R | **Re-test "recall is not the bottleneck"** — the never-run G-A4 re-test of the 07-08 spike's conclusion, now under today's assembly + the two-bar instrument. Cheapest form: per-approach detection-recall audit (cached detections vs Mio volume per approach-bin) — no new mechanism, just the measurement the operator's diagnosis has been owed since July | OWED; pre-declared gate never reached (inventory E4) | informs all | informs all | ~1 day |
-| A2 | **Motion-gated band recovery** (MOG2/KNN mask + tubelet persistence + confirmed birth over the cached 0.10–0.35 band; refined by §7a — ceiling = the band-visible fraction of misses, measured by E4R first) | never built; research CONFIRMS mechanism + kill gates (§7a #1) | +0/+2/+5 | +0/+3/+7 | days |
+| E4R | **DONE 2026-08-18 — the owed audit, MEASURED** (runs/v2_week1/e4r_miss_audit_2026-08-18.json): at cam2-1600-EB (deficit −287), 92% of low-band detections belong to already-tracked vehicles and only ~27 uncovered band chains exist (control approach shows even those carry FPs) — the misses are NOT sub-floor detections. The split audit found **2,111 tracked-but-EVENTLESS tracks in the EB corridor (median 4 s, p25 1.3 s — fragments)**: vehicles are detected AND tracked, then die at track→event conversion (no completed gate crossing). cam1-1600-EB shows moderate band signal (105 chains vs 210; ~15–25% after FP discount). VERDICT: the volume loss point is TRACK→EVENT, not detection — QD/Q1 territory | **MEASURED** | — | — | done |
+| A2 | **Motion-gated band recovery** — E4R MEASURED its ceiling: near-zero at cam2-EB (27 chains vs 287), moderate at cam1-EB (~15–25% of 210). Per-camera applicability; DEMOTED behind QD/Q1 | never built; ceiling now measured per approach | +0/+1/+2.5 | +0/+1/+3 | days |
 | TU | **Tracker low-confidence upgrades** (BoostTrack++ similarity boost, TrackTrack TAI birth suppression, BUSCA capped persistence — the safety plumbing for A2; §7a #3) | never built | +0/+0.5/+1.5 | +0/+1/+3 | days |
-| QD | **Discharge-event counting reframe** (count exit-mouth crossings during discharge; short-trace/channel origin; inferred green-window prior; headway sanity flags — §7b #1; pure policy on existing data) | never built; research: production-precedented (GRIDSMART/NCHRP), structurally kills dwell double-counts | +0/+2/+5 (queue turn cells) | +0/+2.5/+6 | days |
+| QD | **Discharge-event counting reframe** (count exit-mouth crossings during discharge; short-trace/channel origin; inferred green-window prior; headway sanity flags — §7b #1; pure policy on existing data) | never built; research production-precedented AND **now E4R-confirmed as the right target**: the measured loss point is fragments dying without gate crossings — exactly what exit-event counting recovers. **THE #1 volume lever.** Pre-work: origin-recoverability audit | +0/+2/+5 (queue turn cells) | +0/+3/+7 | days |
 | Q1 | **I-24-style physics reconciliation** (MCF with time-growing variance + stopped-state arcs + channel-projected dynamics + QP imputation; §7b #2 — re-explains our dead MCF as cost design) | revival with a NEW cost model; own gates | +0/+1.5/+4 | +0/+2/+5 | 1–2 wk |
 | E1 | **Embedding fragment split+merge dedup** (ReID embeddings exist per-camera; image-space channels exhausted, embedding channel never gated) | never built; research CONFIRMS (§7c: ReMOT/GTA/AFLink lineage, +2–4 IDF1 plug-in, self-supervised). MUST RUN BEFORE K1 — echoes are biased noise that balancing would redistribute | +0/+1/+2.5 | +0/+2/+4 | days |
 | K1 | **Conservation as variance-weighted GLS correction** with ℓ1-recoverability gating + priced sink slack (NOT equal-trust redistribution — the named fix for why the family was retired; §7c) | research CONFIRMS mechanism + gates; conservation family history in revival ledger | +0/+0.5/+2 | +0/+3/+7 | days–wk |
@@ -561,3 +561,10 @@ redistributes echo mass instead of deleting it.
   density collapse (1 zone from 19k trajectories); core-point rule +
   border fallback + trajectory persistence shipped; two-level scorer
   landed in v2_score_dev (L1 DONE); attempt 2 relaunched.
+- 2026-08-18 (late night): attempt 2 found running STALE code (the
+  reloader wedge + lazy-import trap, now in §6.5) — killed, attempt 3
+  relaunched on a verified-fresh process. E4R MEASURED: cam2-EB
+  misses are tracked-but-eventless fragments (2,111 in-corridor,
+  median 4 s) dying at track→event conversion, NOT sub-floor
+  detections (27 band chains vs 287 deficit) — QD promoted to #1
+  volume lever, A2 demoted with measured per-approach ceilings.
