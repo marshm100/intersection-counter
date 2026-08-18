@@ -1,0 +1,236 @@
+[
+ {
+  "tid": 21943,
+  "mouth": 33,
+  "f_cross": 625314.4054720247,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 63.49172027205811,
+  "wallclock": "2026-05-12T17:22:13.440547"
+ },
+ {
+  "tid": 799,
+  "mouth": 33,
+  "f_cross": 578083.5743566382,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 287.96693335212774,
+  "wallclock": "2026-05-12T16:03:30.357436"
+ },
+ {
+  "tid": 398,
+  "mouth": 35,
+  "f_cross": 576873.2264969043,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 40.364007675131965,
+  "wallclock": "2026-05-12T16:01:29.322650"
+ },
+ {
+  "tid": 3940,
+  "mouth": 35,
+  "f_cross": 586356.3830403395,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 109.4588889816612,
+  "wallclock": "2026-05-12T16:17:17.638304"
+ },
+ {
+  "tid": 3758,
+  "mouth": 33,
+  "f_cross": 585589.0022051368,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 89.24512419161651,
+  "wallclock": "2026-05-12T16:16:00.900221"
+ },
+ {
+  "tid": 23078,
+  "mouth": 33,
+  "f_cross": 627713.8481117672,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 46.81151204489548,
+  "wallclock": "2026-05-12T17:26:13.384811"
+ },
+ {
+  "tid": 1299,
+  "mouth": 33,
+  "f_cross": 579170.1282497431,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 255.13127737388103,
+  "wallclock": "2026-05-12T16:05:19.012825"
+ },
+ {
+  "tid": 27376,
+  "mouth": 35,
+  "f_cross": 636980.7577769174,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 51.95914588092662,
+  "wallclock": "2026-05-12T17:41:40.075778"
+ },
+ {
+  "tid": 16369,
+  "mouth": 33,
+  "f_cross": 613685.1887239965,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 266.8376055400741,
+  "wallclock": "2026-05-12T17:02:50.518872"
+ },
+ {
+  "tid": 717,
+  "mouth": 33,
+  "f_cross": 577623.8601267391,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 155.23158794671951,
+  "wallclock": "2026-05-12T16:02:44.386013"
+ },
+ {
+  "tid": 12910,
+  "mouth": 35,
+  "f_cross": 605571.2426017447,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 40.86624480068404,
+  "wallclock": "2026-05-12T16:49:19.124260"
+ },
+ {
+  "tid": 26356,
+  "mouth": 34,
+  "f_cross": 635153.94802656,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 30.059234836625166,
+  "wallclock": "2026-05-12T17:38:37.394803"
+ },
+ {
+  "tid": 13451,
+  "mouth": 33,
+  "f_cross": 606954.2337526372,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 316.4647968291157,
+  "wallclock": "2026-05-12T16:51:37.423375"
+ },
+ {
+  "tid": 698,
+  "mouth": 33,
+  "f_cross": 577647.9617615801,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 45.379520709481554,
+  "wallclock": "2026-05-12T16:02:46.796176"
+ },
+ {
+  "tid": 20341,
+  "mouth": 34,
+  "f_cross": 622079.1475567934,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 61.14126714227973,
+  "wallclock": "2026-05-12T17:16:49.914756"
+ },
+ {
+  "tid": 5257,
+  "mouth": 33,
+  "f_cross": 589650.6474728971,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 27.665757065085597,
+  "wallclock": "2026-05-12T16:22:47.064747"
+ },
+ {
+  "tid": 24098,
+  "mouth": 35,
+  "f_cross": 630120.4316023203,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 44.73912159013855,
+  "wallclock": "2026-05-12T17:30:14.043160"
+ },
+ {
+  "tid": 13877,
+  "mouth": 33,
+  "f_cross": 608020.0547854295,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 241.6574204837837,
+  "wallclock": "2026-05-12T16:53:24.005479"
+ },
+ {
+  "tid": 4961,
+  "mouth": 33,
+  "f_cross": 588592.3304167602,
+  "origin": 34,
+  "origin_source": "trace",
+  "v_pxs": 38.02390027416112,
+  "wallclock": "2026-05-12T16:21:01.233042"
+ },
+ {
+  "tid": 2329,
+  "mouth": 35,
+  "f_cross": 582420.2006197263,
+  "origin": 33,
+  "origin_source": "trace",
+  "v_pxs": 92.2388432337646,
+  "wallclock": "2026-05-12T16:10:44.020062"
+ },
+ {
+  "tid": 3735,
+  "mouth": 33,
+  "f_cross": 585193.9663719684,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 207.0195384339023,
+  "wallclock": "2026-05-12T16:15:21.396637"
+ },
+ {
+  "tid": 21305,
+  "mouth": 33,
+  "f_cross": 623558.7798097702,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 223.81263467947474,
+  "wallclock": "2026-05-12T17:19:17.877981"
+ },
+ {
+  "tid": 29218,
+  "mouth": 33,
+  "f_cross": 640797.6954203146,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 49.18258634485664,
+  "wallclock": "2026-05-12T17:48:01.769542"
+ },
+ {
+  "tid": 4433,
+  "mouth": 35,
+  "f_cross": 586927.2993556841,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 103.42910302114029,
+  "wallclock": "2026-05-12T16:18:14.729936"
+ },
+ {
+  "tid": 8041,
+  "mouth": 33,
+  "f_cross": 595172.2492507315,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 51.50888054977278,
+  "wallclock": "2026-05-12T16:31:59.224925"
+ },
+ {
+  "tid": 14268,
+  "mouth": 35,
+  "f_cross": 608780.0270701521,
+  "origin": 35,
+  "origin_source": "trace",
+  "v_pxs": 42.10924898060828,
+  "wallclock": "2026-05-12T16:54:40.002707"
+ }
+]

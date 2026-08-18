@@ -101,3 +101,37 @@ pin to current geometry and re-run.
   run multi-second at these sites; error direction is
   over-suppression; spot review is the acceptance backstop.
   Record: runs/v2_week1/qd_freeze.json (geom hashes pinned).
+
+## PHASE C VERDICT (2026-08-18, late night) — two windows PASS G-QD-2
+
+Composed at frozen T_dwell 3.0 s, scored both bars, all 11 corridor
+windows + FM51-am. AMENDMENT 2 (declared on the g4 catch): recovered
+u_turns are DEFERRED to iteration 2 — the _reverses 120-degree test
+cannot separate a genuine u-turn from an ID-SWITCH SPLICE (the g4
+check caught SB_uturn 4->10 vs Mio 2 at cam2-1100 with all six
+passing _reverses); appearance evidence (E1) is the discriminator.
+
+  window       ins   movement          approach          G-QD-2
+  cam2-1100     17   55.0 -> 55.0 (=)  46.9 -> 50.0 (+3.1)  PASS (g4 clean)
+  cam4-1100     31   73.5 -> 77.6      41.7 -> 50.0 (+8.3)  PASS (g4 clean)
+  cam1-0700     14   +0.5              -3.1               FAIL (approach)
+  cam1-1600     20   -2.2              =                  FAIL (movement)
+  cam2-0700     28   =                 =                  FAIL (no gain)
+  cam2-1600    152c  gate-blocked window (headroom+flood; scored-only)
+  cam4-0700     27   +2.4              -4.2               FAIL (approach)
+  cam4-1600     26   -1.2              +8.3               FAIL (movement)
+  cam5 x3    64/63/65 movement -3.8/-6.6/-4.8 (mis-gated labels
+             inherited from cam5's broken geometry — the wave
+             interlock case; RETRY POST-WAVE)              FAIL
+  FM51-am/pm  31c/0   not composed (apply story separate)
+
+Recall-gate preflight, cam2-1100 final 17-event candidate:
+gate_pass (recorded below). cam4-1100 passes G-QD-2 but its apply
+gate fails on INCUMBENT headroom — LEDGERED gate-blocked pending
+census growth from the calibration wave; re-preflight after each
+wave apply.
+
+REMAINING before the cam2-1100 apply: G-QD-1 acceptance (operator
+50-sample spot review — runs/v2_week1/qd_review_cam2_study_1100.json)
++ operator apply approval + composer landing into scripts/ with the
+12-test suite (waits for the auto-cal job to free the repo).

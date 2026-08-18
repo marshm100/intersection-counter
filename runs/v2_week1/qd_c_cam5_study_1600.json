@@ -1,8 +1,9 @@
 {
  "camera": 5,
  "variant": "study_1600",
- "mode": "audit",
+ "mode": "compose",
  "geom_hash": "b28c4b91b7eb9fef",
+ "t_dwell": 3.0,
  "funnel": {
   "eventless_no_crossing": 1757,
   "counted": 6047,
@@ -17,5 +18,25 @@
   "not_moving_at_exit": 207,
   "origin_trace": 436
  },
- "n_candidates": 436
+ "guard": {
+  "blocked_slot_lane": 367,
+  "blocked_slot_tail": 4,
+  "admitted": 65
+ },
+ "skipped": {},
+ "n_inserted": 65,
+ "n_before": 6047,
+ "n_after": 6112,
+ "per_cell_added": {
+  "36->38": 4,
+  "37->38": 49,
+  "38->36": 6,
+  "39->38": 2,
+  "37->39": 4
+ },
+ "constants": {
+  "QD_V_MIN_PXS": 25.0,
+  "QD_LANE_TOL_PX": 25.0,
+  "QD_TAIL_DIST_PX": 70.0
+ }
 }
