@@ -588,26 +588,68 @@ def clear_camera_channels(project_id: str, camera_id: int):
 
 class StartAutoCalBody(BaseModel):
     video_id: int | None = None              # default: first video on camera
-    sample_start_sec: float = 0.0
-    sample_end_sec: float | None = None      # default: start + 15 min
+    # Operator form (calibration UI): wall-clock start + duration, resolved
+    # against the video's recording start. Duration bounds 15 min .. 15 h.
+    start_hms: str | None = None             # "HH:MM" or "HH:MM:SS"
+    duration_min: float | None = None
+    # Power-user form: raw video-relative offsets.
+    sample_start_sec: float | None = None
+    sample_end_sec: float | None = None
+    # Nothing set -> the default window: +7 h into footage, 11 h span.
 
 
 @router.post("/projects/{project_id}/cameras/{camera_id}/calibration/suggestion/start")
 def start_camera_auto_cal_v2(
     project_id: str, camera_id: int, body: StartAutoCalBody,
 ):
-    """Kick off an auto-cal job in the background. Returns the job_id;
-    poll /status for progress. Replaces any prior in-flight job for this
-    camera. Single-job global concurrency — see service module."""
+    """Kick off an auto-cal job in the background. Returns the job_id and
+    the RESOLVED sample window; poll /status for progress. Replaces any
+    prior in-flight job for this camera. Jobs across different cameras
+    run in parallel (bounded pool + FIFO queue — see service module)."""
     _require_project(project_id)
     _require_camera_404(project_id, camera_id)
+    try:
+        window = auto_calibrator_v2.resolve_sample_window(
+            project_id, camera_id,
+            video_id=body.video_id,
+            start_hms=body.start_hms,
+            duration_min=body.duration_min,
+            sample_start_sec=body.sample_start_sec,
+            sample_end_sec=body.sample_end_sec,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     job_id = auto_calibrator_v2.enqueue(
         project_id, camera_id,
-        video_id=body.video_id,
-        sample_start_sec=body.sample_start_sec,
-        sample_end_sec=body.sample_end_sec,
+        video_id=window["video_id"],
+        sample_start_sec=window["sample_start_sec"],
+        sample_end_sec=window["sample_end_sec"],
+        window=window,
     )
-    return {"job_id": job_id, "camera_id": camera_id, "status": "queued"}
+    return {"job_id": job_id, "camera_id": camera_id, "status": "queued",
+            "window": window}
+
+
+@router.get("/projects/{project_id}/cameras/{camera_id}/calibration/sample-window-default")
+def get_sample_window_default(project_id: str, camera_id: int):
+    """The window the machine would pick on its own (default: +7 h into
+    the footage for 11 h, clamped to the file) — the UI prefills its
+    start/duration controls from this."""
+    _require_project(project_id)
+    _require_camera_404(project_id, camera_id)
+    try:
+        return auto_calibrator_v2.resolve_sample_window(project_id, camera_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/projects/{project_id}/auto-cal/jobs")
+def list_auto_cal_jobs(project_id: str):
+    """Every camera's latest auto-cal job in this project (process
+    lifetime) — lets any page show live progress after the operator
+    leaves the calibration editor."""
+    _require_project(project_id)
+    return {"jobs": auto_calibrator_v2.get_all_statuses(project_id)}
 
 
 @router.get("/projects/{project_id}/cameras/{camera_id}/calibration/suggestion/status")

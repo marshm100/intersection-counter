@@ -1286,7 +1286,79 @@ async function _renderCamerasSubTab(host) {
         </tr>`;
     }
     html += '</tbody></table>';
+    html += '<div id="v3-autocal-jobs-strip"></div>';
     host.innerHTML = html;
+    v3PollAutoCalJobs(pid);
+}
+
+// ---------------------------------------------------------------------------
+// Auto-calibration jobs strip — live progress on the Cameras tab so the
+// operator can leave the calibration editor (or run several cameras in
+// parallel) and still see exactly where every job stands. Polls only
+// while at least one job is queued/running.
+// ---------------------------------------------------------------------------
+
+let _v3AutoCalPollTimer = null;
+
+function _v3FmtEta(sec) {
+    sec = Math.max(0, Math.round(sec));
+    if (sec < 90) return `${sec} s`;
+    const m = Math.round(sec / 60);
+    if (m < 90) return `${m} min`;
+    const h = Math.floor(m / 60), mm = m % 60;
+    return mm ? `${h} h ${String(mm).padStart(2, "0")} m` : `${h} h`;
+}
+
+async function v3PollAutoCalJobs(pid) {
+    const strip = document.getElementById('v3-autocal-jobs-strip');
+    if (!strip) return;                       // tab was left — poll dies
+    let jobs = [];
+    try {
+        const r = await API.get(`/api/projects/${pid}/auto-cal/jobs`);
+        jobs = r.jobs || [];
+    } catch (e) { /* transient — retry on the next tick */ }
+    const live = jobs.filter(j => ['queued', 'running'].includes(j.status));
+    const recent = jobs.filter(j => !['queued', 'running'].includes(j.status));
+    let html = '';
+    if (jobs.length) {
+        html += '<div style="margin-top:10px;font-size:12px;">';
+        html += '<div style="font-weight:600;color:#374151;margin-bottom:4px;">Auto-calibration jobs</div>';
+        for (const j of live) {
+            const pct = Math.max(0, Math.min(100, j.progress_pct || 0));
+            const win = (j.start_clock && j.end_clock)
+                ? ` · ${j.start_clock}–${j.end_clock}` : '';
+            let label;
+            if (j.status === 'queued') {
+                label = j.queue_position > 0
+                    ? `queued (position ${j.queue_position})${win}`
+                    : `starting…${win}`;
+            } else {
+                const eta = j.eta_sec != null ? ` · ~${_v3FmtEta(j.eta_sec)} left` : '';
+                label = `${pct.toFixed(1)}%${eta} (${j.phase || ''})${win}`;
+            }
+            html += `<div style="display:flex;align-items:center;gap:8px;margin:3px 0;">
+                <span style="min-width:80px;font-weight:600;">Camera ${j.camera_id}</span>
+                <div style="flex:1;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
+                    <div style="height:100%;width:${pct}%;background:${j.status === 'queued' ? '#9ca3af' : '#7c3aed'};transition:width .5s;"></div>
+                </div>
+                <span style="min-width:260px;color:#6b7280;">${label}</span>
+            </div>`;
+        }
+        for (const j of recent.slice(0, 4)) {
+            const tone = j.status === 'complete' ? '#0e7a4e'
+                : (j.status === 'error' ? '#b91c1c' : '#6b7280');
+            const extra = j.status === 'complete'
+                ? ` — ${j.n_leg_zones ?? '?'} legs, ${j.n_paths ?? '?'} paths suggested`
+                : (j.status === 'error' ? ` — ${j.error || ''}` : '');
+            html += `<div style="margin:3px 0;color:${tone};">Camera ${j.camera_id}: ${j.status}${extra}</div>`;
+        }
+        html += '</div>';
+    }
+    strip.innerHTML = html;
+    clearTimeout(_v3AutoCalPollTimer);
+    if (live.length) {
+        _v3AutoCalPollTimer = setTimeout(() => v3PollAutoCalJobs(pid), 3000);
+    }
 }
 
 async function v3RenameCamera(camId, label) {

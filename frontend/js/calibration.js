@@ -258,6 +258,7 @@
             _renderBankSection();
             _refreshBankStatus();   // pick up an already-running build/apply job
             _renderSuggestionBanner();
+            v3CalibrationResumeAutoCalPoll();   // re-attach to a live auto-cal job
             _renderLayers();
             _updateStepStatus();
             _setOpenStep(_legs.length >= _numLegs ? 'channels' : 'legs');
@@ -1891,10 +1892,8 @@
         const running = _suggestionJobStatus &&
             ["queued", "running"].includes(_suggestionJobStatus.status);
         if (!_suggestion && !running) {
-            host.innerHTML = `<button onclick="v3CalibrationStartAutoCal()" class="cal-btn cal-btn--primary" style="width:100%;">
-                &#9655;&nbsp; Auto-calibrate this camera
-            </button>
-            <p class="cal-meta" style="margin:6px 0 0;">Finds the legs + road paths from a 15-min sample. Review and adjust — it's a draft, not final.</p>`;
+            host.innerHTML = _autoCalControlsHtml();
+            _prefillAutoCalControls();
             return;
         }
         if (running) {
@@ -1930,13 +1929,28 @@
                 </div>`;
                 live = document.getElementById("v3-autocal-live");
             }
-            document.getElementById("v3-autocal-text").textContent =
-                `Auto-calibration running… ${pct.toFixed(1)}% (${st.phase || ""})`;
+            const windowLbl = (st.start_clock && st.end_clock)
+                ? ` · sampling ${st.start_clock}–${st.end_clock}` : "";
+            let headline;
+            if (st.status === "queued") {
+                const pos = st.queue_position;
+                headline = pos && pos > 0
+                    ? `Queued — position ${pos}; starts automatically when a slot frees${windowLbl}`
+                    : `Queued — starting…${windowLbl}`;
+            } else {
+                const eta = (st.eta_sec != null)
+                    ? ` · ~${_fmtDurShort(st.eta_sec)} left` : "";
+                headline = `Auto-calibration ${pct.toFixed(1)}%${eta}` +
+                    ` (${st.phase || ""})${windowLbl}`;
+            }
+            document.getElementById("v3-autocal-text").textContent = headline;
             document.getElementById("v3-autocal-bar").style.width = `${pct}%`;
             const counts = document.getElementById("v3-autocal-counts");
             counts.textContent = (st.active_tracks != null)
                 ? `${st.active_tracks} vehicles in view · ${st.finished_tracks} trajectories collected`
-                : "warming up the detector…";
+                  + (st.proc_fps ? ` · ${st.proc_fps} fps` : "")
+                : (st.status === "queued" ? "you can leave this page — the job keeps running"
+                                          : "warming up the detector…");
             const img = document.getElementById("v3-autocal-preview");
             const seq = st.preview_seq || 0;
             if (seq > 0 && String(seq) !== img.dataset.seq) {
@@ -1949,14 +1963,11 @@
         const s = _suggestion;
         const status = s.status || "pending";
         if (status !== "pending") {
-            host.innerHTML = `<div style="padding:6px 8px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:12px;color:#6b7280;">
+            host.innerHTML = `<div style="padding:6px 8px;margin-bottom:6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:12px;color:#6b7280;">
                 Last auto-cal: <strong>${escapeHtml(status)}</strong>
                 (${escapeHtml(s.generated_at || "")})
-                <button onclick="v3CalibrationStartAutoCal()"
-                    style="margin-left:8px;font-size:11px;padding:1px 6px;background:white;color:#7c3aed;border:1px solid #7c3aed;border-radius:3px;cursor:pointer;">
-                    Re-run
-                </button>
-            </div>`;
+            </div>` + _autoCalControlsHtml();
+            _prefillAutoCalControls();
             return;
         }
         const payload = s.payload || {};
@@ -2010,18 +2021,102 @@
         _ctx.restore();
     }
 
+    let _autoCalDefaults = null;   // sample-window-default payload, cached
+
+    function _fmtDurShort(sec) {
+        sec = Math.max(0, Math.round(sec));
+        if (sec < 90) return `${sec} s`;
+        const m = Math.round(sec / 60);
+        if (m < 90) return `${m} min`;
+        const h = Math.floor(m / 60), mm = m % 60;
+        return mm ? `${h} h ${String(mm).padStart(2, "0")} m` : `${h} h`;
+    }
+
+    function _autoCalControlsHtml() {
+        return `<div style="padding:8px;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:4px;font-size:12px;">
+            <div style="font-weight:600;color:#5b21b6;margin-bottom:6px;">Auto-calibrate this camera</div>
+            <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
+                <label style="display:flex;flex-direction:column;gap:2px;color:#6d28d9;">Sample start
+                    <input type="time" id="v3-autocal-start" step="60"
+                        style="font-size:12px;padding:2px 4px;border:1px solid #c4b5fd;border-radius:3px;">
+                </label>
+                <label style="display:flex;flex-direction:column;gap:2px;color:#6d28d9;">Duration (hours)
+                    <input type="number" id="v3-autocal-hours" min="0.25" max="15" step="0.25"
+                        style="width:70px;font-size:12px;padding:2px 4px;border:1px solid #c4b5fd;border-radius:3px;">
+                </label>
+                <button onclick="v3CalibrationStartAutoCal()" class="cal-btn cal-btn--primary" style="flex:1;min-width:130px;">
+                    &#9655;&nbsp; Run auto-calibration
+                </button>
+            </div>
+            <p class="cal-meta" id="v3-autocal-hint" style="margin:6px 0 0;">
+                Finds the legs + road paths by watching real traffic across the
+                sample window (15 min – 15 h). Long windows run in the
+                background — you can leave this page, and other cameras can
+                run in parallel.</p>
+        </div>`;
+    }
+
+    async function _prefillAutoCalControls() {
+        try {
+            if (!_autoCalDefaults) {
+                _autoCalDefaults = await API.get(
+                    `/api/projects/${_pid}/cameras/${_cid}/calibration/sample-window-default`);
+            }
+            const d = _autoCalDefaults;
+            const st = document.getElementById("v3-autocal-start");
+            const hr = document.getElementById("v3-autocal-hours");
+            if (st && d.start_clock && !st.value) st.value = d.start_clock;
+            if (hr && !hr.value) {
+                hr.value = ((d.sample_end_sec - d.sample_start_sec) / 3600)
+                    .toFixed(2).replace(/\.?0+$/, "");
+            }
+            const hint = document.getElementById("v3-autocal-hint");
+            if (hint && d.video_start_clock) {
+                hint.textContent =
+                    `Footage starts ${d.video_start_clock}, ` +
+                    `${(d.video_duration_sec / 3600).toFixed(1)} h long. ` +
+                    `Default samples ${d.start_clock}–${d.end_clock} — the busy ` +
+                    `day. Long windows run in the background; you can leave ` +
+                    `this page, and other cameras run in parallel.`;
+            }
+        } catch (e) { /* prefill is best-effort; Run validates server-side */ }
+    }
+
     window.v3CalibrationStartAutoCal = async function () {
+        const stEl = document.getElementById("v3-autocal-start");
+        const hrEl = document.getElementById("v3-autocal-hours");
+        const body = {};
+        if (stEl && stEl.value) body.start_hms = stEl.value;
+        if (hrEl && hrEl.value) body.duration_min = Number(hrEl.value) * 60;
         try {
             const resp = await API.post(
                 `/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion/start`,
-                {},  // default sample window: first 15 min
+                body,  // empty body -> server default: +7 h into footage, 11 h
             );
-            _suggestionJobStatus = { status: "queued", progress_pct: 0, phase: "queued" };
+            _suggestionJobStatus = {
+                status: "queued", progress_pct: 0, phase: "queued",
+                start_clock: resp.window && resp.window.start_clock,
+                end_clock: resp.window && resp.window.end_clock,
+            };
             _renderSuggestionBanner();
             _pollAutoCalStatus();
         } catch (e) {
             alert("Start auto-cal failed: " + (e.message || String(e)));
         }
+    };
+
+    // Resume the status poll when the editor is (re)opened while a job is
+    // queued/running — the operator can leave the screen and come back.
+    window.v3CalibrationResumeAutoCalPoll = async function () {
+        try {
+            const s = await API.get(
+                `/api/projects/${_pid}/cameras/${_cid}/calibration/suggestion/status`);
+            if (s && ["queued", "running"].includes(s.status)) {
+                _suggestionJobStatus = s;
+                _renderSuggestionBanner();
+                _pollAutoCalStatus();
+            }
+        } catch (e) { /* no job in this process lifetime — nothing to resume */ }
     };
 
     window.v3CalibrationCancelAutoCal = async function () {
