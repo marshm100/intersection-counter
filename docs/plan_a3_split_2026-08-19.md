@@ -111,3 +111,26 @@ Run 1: G-A3-1 39/56, G-A3-2 96.83% (137/4315 diffs). Anatomy:
    segment contains the track's first crossing AND the cut severs a
    real tail (cut frame < the track's last frame). The mandatory
    operator identity review (G-A3-3) remains the semantic backstop.
+
+## AMENDMENT 2 (2026-08-19, after validation run 2 — declared before
+## re-run)
+
+Run 2: G-A3-1 improved but short-tail misses remain; G-A3-2 diffs
+UNCHANGED at 137 — anatomy identified from the artifact:
+
+1. **Pinch detector was structurally mute (pinch_rate 0.0):** units —
+   fit_motion_residual's v_stop is px/SECOND (floor 8) and a_allow is
+   px/s²; chord speeds are px/FRAME. Thresholds were ~fps× too high.
+   Fix: convert with the window's fps at the comparison sites. No
+   constant changes — pure unit correction.
+2. **The 137 parity diffs are GATE-GRAZING journeys, not cuts gone
+   wrong elsewhere:** real turns clip a neighboring gate's line
+   mid-path (momentary out→in), and the corrected first-outbound-
+   after-entry rule cuts at the graze. DISCRIMINATOR (declared):
+   an outbound crossing ends a journey only if NO inbound crossing
+   follows within RE_ENTRY_S = 2.0 s; a following inbound VOIDS the
+   cut (graze) UNLESS it arrives via a discontinuity — frame gap
+   > 0.5 s or a step speed > 4 × v_stop (a lost-track latch teleports
+   to the stop bar; a graze re-enters continuously at road speed) —
+   in which case the cut stands (Type-1 splice confirmed by the
+   latch signature itself).
