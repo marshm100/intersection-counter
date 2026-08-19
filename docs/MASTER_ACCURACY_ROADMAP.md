@@ -133,6 +133,32 @@ W→E path rows; the frozen EB pair); cam3 (never studied).
 | A3 | **S3 splice-split — PROMOTED to the #1 volume-chain lever** (cut mixed-identity tracks at motion discontinuities — the operator SAW the split point: velocity reversal at the horizon; QD's failure is direct evidence the splice class is large). Split first, then: halves re-classify (some become genuine countable journeys), PPT/F2M prototypes get cleaner fulls, and any future recovery policy operates on single-identity tracks. Pair with E1 embedding purity as the split verifier | zero code; now evidence-backed by G-QD-1's 17/17 splice finding + the operator's object-permanence diagnosis | +0/+1.5/+4 | +0/+2/+5 | days-wk |
 | P2 | PPT re-attribution round 2 on post-wave geometry (transferred nowhere on dirty prototypes; cap+admission shipped in PPT-3) | contingent on W1 | +0/+1/+3 | ~0 | days |
 
+### OPERATOR DIAGNOSIS #3 — fast movers (2026-08-19, from the new
+### reviewer's overlay; MEASURED same hour)
+
+"The tracker is remarkably bad at finding vehicles moving at speed."
+CONFIRMED with the speed-survival census + post-death detection audit:
+
+  cam2 25fps: fastest quartile (86-388 px/s) median track life 4.6 s
+    (vs 12.6 s mid-speed).
+  cam1 10fps: fastest quartile (165-455 px/s) median life 1.8 s;
+    full-journey rate CRASHES 62.5% -> 27.8% (the displacement-vs-
+    box-overlap cliff, doubled by the low frame rate).
+  Mechanism split (150 sampled Q4 fragment deaths, cam1): **67%
+  DETECTION-DARK** (motion blur blinds the detector — the primary
+  wall) vs 33% association failure (detections continue unstitched
+  at median conf 0.36, p25 0.20 — at/below the 0.30 birth floor).
+
+Lever consequences, evidence-weighted: (1) A2 motion-gated recovery
+is re-scoped as the FAST-MOVER lever — a blurred mover the CNN
+misses is exactly what a foreground mask sees (the satellite-video
+finding, squared); (2) A4 fine-tune must include MOTION-BLUR
+augmentation, not just scale matching; (3) TU/BYTE-band association
+upgrades cover the 33% (conf 0.36 is matchable); (4) CAPTURE-SIDE:
+10 fps is structurally hostile to traffic at speed — frame rate
+joins resolution in the footage-rating guidance (product
+recommendation: 20+ fps for the count guarantee).
+
 ### Named additions 2026-08-19 (operator design session)
 
 | id | element | status | notes |
