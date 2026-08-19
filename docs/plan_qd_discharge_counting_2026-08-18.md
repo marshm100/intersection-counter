@@ -135,3 +135,20 @@ REMAINING before the cam2-1100 apply: G-QD-1 acceptance (operator
 50-sample spot review — runs/v2_week1/qd_review_cam2_study_1100.json)
 + operator apply approval + composer landing into scripts/ with the
 12-test suite (waits for the auto-cal job to free the repo).
+
+## OPERATOR DIAGNOSIS (2026-08-19, during the G-QD-1 spot review —
+## recorded verbatim-in-substance per the operator-precedence law)
+
+Turns get covered in part or whole by through traffic and the tracker
+has NO OBJECT PERMANENCE — no use of speed/trajectory to understand a
+vehicle does not vanish when occluded. That is the CAUSE of this
+block's eventless-fragment class (consistent with the measured queue-
+fragmentation mechanism, roadmap §7b). Second hypothesis: UTILITY
+TRAILERS read as second vehicles (a pickup + trailer = ONE vehicle by
+this project's own class rules) — a concrete double-source for
+iteration 2's embedding adjudication to test. Review-instrument
+lesson, applied same night: verification requires the claimed track's
+LIVE BOUNDING BOX drawn on the video (v2 review page: exact-frame
+jump, 1 s + single-frame scrubbing, dump-sourced box + path + claimed
+entry/exit overlays); a splice reads as the yellow box HOPPING cars
+mid-life; a trailer recovery reads as the box on the trailer.
