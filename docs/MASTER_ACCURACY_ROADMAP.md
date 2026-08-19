@@ -271,6 +271,15 @@ the two-bar finding):**
    starve the dev server's API for 30-45 min — a dark UI during a
    job's first phase does NOT mean a dead job; verify with process
    CPU (Get-Process, delta over 10 s) before killing anything;
+   MONITORING LAW (2026-08-19, cost a night of false confidence): a
+   monitor whose failure modes emit NO events cannot distinguish
+   "running" from "dead" — watch the DISK (suggestion rows, output
+   files) and PROCESS (CPU deltas), never only the API; and long
+   auto-cal runs belong in a CLI process (scripts/auto_calibrate.py
+   run() directly), NOT inside the dev server, whose GIL starves the
+   API for the whole run and whose reloader/staleness traps own every
+   failure this block hit. Server-hosted jobs are for operator-started
+   runs on an otherwise idle machine.
    AND THE STALE-MODULE TRAP (2026-08-18, cost one 40-min attempt):
    the uvicorn reloader can WEDGE during a GIL-heavy job and silently
    stop picking up .py edits, while lazy module imports pin job-side
