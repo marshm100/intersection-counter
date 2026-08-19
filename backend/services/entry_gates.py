@@ -227,9 +227,14 @@ def gate_lane_clusters(gates, bank_paths):
     return lanes
 
 
-def classify(track, gates, fps, lanes=None):
-    """track: [(frame,x,y)...] ->
-    (origin_leg, dest_leg, origin_frame, dest_frame, origin_pos, dest_pos, tag)."""
+def all_crossings(track, gates, fps):
+    """Every gate crossing of a track, jitter-collapsed, time-ordered:
+    [(frame_interp, leg, inward: bool, pos: (x, y)), ...].
+
+    Factored verbatim out of classify() (2026-08-19, A3 block) so the
+    splice splitter can see EVERY crossing — classify() keeps only
+    entries[0]/exits[-1], which for a Type-1 splice returns the THIEF's
+    exit. One source of truth: classify() calls this."""
     crossings = []          # (frame_interp, leg, inward: bool, pos: (x,y))
     for i in range(len(track) - 1):
         f0, x0, y0 = track[i]
@@ -250,6 +255,13 @@ def classify(track, gates, fps, lanes=None):
         if kept and c[1] == kept[-1][1] and (c[0] - kept[-1][0]) < JITTER_S * fps:
             continue
         kept.append(c)
+    return kept
+
+
+def classify(track, gates, fps, lanes=None):
+    """track: [(frame,x,y)...] ->
+    (origin_leg, dest_leg, origin_frame, dest_frame, origin_pos, dest_pos, tag)."""
+    kept = all_crossings(track, gates, fps)
     entries = [c for c in kept if c[2]]
     exits = [c for c in kept if not c[2]]
     origin = entries[0] if entries else None

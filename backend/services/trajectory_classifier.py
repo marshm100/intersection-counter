@@ -58,27 +58,35 @@ def compute_net_heading_change(
     return change
 
 
+def heading_series(trajectory: list[tuple]) -> list[float]:
+    """SIGNED per-point turn deltas over the every-3rd-point smoothed
+    path — the series compute_cumulative_curvature always summed away.
+
+    Factored out 2026-08-19 (A3 block): the pinch/cusp test needs
+    max|delta| + the SIGN structure (a box-theft hairpin is one large
+    flip; a genuine U-turn is many same-sign moderate deltas — the
+    cumulative total reads ~180 for both and cannot discriminate).
+    Same smoothing, same arithmetic, same order as the original loop.
+    """
+    smoothed = trajectory[::3]
+    if len(trajectory) > 1 and smoothed[-1] != trajectory[-1]:
+        smoothed.append(trajectory[-1])
+    if len(smoothed) < 3:
+        return []
+    out = []
+    for i in range(1, len(smoothed) - 1):
+        h1 = compute_heading(smoothed[i - 1], smoothed[i])
+        h2 = compute_heading(smoothed[i], smoothed[i + 1])
+        out.append((h2 - h1 + 180) % 360 - 180)
+    return out
+
+
 def compute_cumulative_curvature(trajectory: list[tuple]) -> float:
     """Total absolute angular change along the path.
 
     Uses every 3rd point to reduce tracking jitter.
     """
-    # Smooth: take every 3rd point
-    smoothed = trajectory[::3]
-    # Ensure last point is included
-    if len(trajectory) > 1 and smoothed[-1] != trajectory[-1]:
-        smoothed.append(trajectory[-1])
-
-    if len(smoothed) < 3:
-        return 0.0
-
-    total = 0.0
-    for i in range(1, len(smoothed) - 1):
-        h1 = compute_heading(smoothed[i - 1], smoothed[i])
-        h2 = compute_heading(smoothed[i], smoothed[i + 1])
-        delta = (h2 - h1 + 180) % 360 - 180
-        total += abs(delta)
-    return total
+    return sum(abs(d) for d in heading_series(trajectory))
 
 
 def compute_path_distance(trajectory: list[tuple]) -> float:
