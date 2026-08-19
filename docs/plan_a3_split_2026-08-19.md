@@ -134,3 +134,21 @@ UNCHANGED at 137 — anatomy identified from the artifact:
    to the stop bar; a graze re-enters continuously at road speed) —
    in which case the cut stands (Type-1 splice confirmed by the
    latch signature itself).
+
+## AMENDMENT 3 (2026-08-19, after validation run 3 — declared before
+## re-run)
+
+Run 3: G-A3-1 52/56 PASS; pinch detector un-muted but WILDLY over-
+firing (pinch_rate 0.444; parity dragged to 93.3%). Anatomy: at
+queue-creep speeds a fixed-point chord's BEARING is jitter noise —
+random flips galore. Correction (scale-free, self-calibrated):
+bearings are computed over DISPLACEMENT-chords — segments of
+accumulated path displacement >= 2 x the window's fitted zv_radius
+(the zero-velocity jitter radius; motion beyond jitter is real
+motion) — and a pinch fires only between consecutive displacement-
+chords with flip >= PINCH_ANGLE: gap <= 2 s = flip_at_speed;
+gap > 2 s = stop_flip, additionally requiring the impossible-decel
+corroborator at the stop entry. The queue-stop voider (departure
+within 60 deg of arrival) is inherent: same-direction resume never
+reaches PINCH_ANGLE. Constants unchanged; the chord DEFINITION is
+corrected from fixed-count to fixed-displacement.
