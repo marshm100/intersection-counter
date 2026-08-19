@@ -199,3 +199,26 @@ The block closes FAILED at its own gate, per the discipline. The
 gate chain worked: G-QD-0 pinned the population, G-QD-2 passed two
 windows (and its blind spot is now documented), G-QD-1 (human)
 killed it. Zero production impact at any point.
+
+## OPERATOR DIAGNOSIS — CORRECTED (2026-08-19, supersedes the
+## occlusion hypothesis above, which the operator retracted)
+
+The observed mechanism, from the bbox review: the track is GOOD from
+the entry mouth through the intersection (shape a little unstable but
+tracking fine). The failure is AFTER the movement completes — when
+the car touches the other side of the intersection, the cut/score
+should happen THERE, but instead the tracker LINGERS looking for the
+long-gone car, then latches onto a car QUEUING AT THE STOP BAR and
+tracks that second car to the horizon. The splice is post-exit track
+persistence + re-association, not mid-intersection occlusion.
+
+The operator's fix, verbatim in substance: tell the system where the
+intersection BEGINS and ENDS — the drawn geometry — so it knows when
+to STOP tracking at the end of a movement. Design consequence: the
+A3 splitter's PRIMARY rule becomes geometry-anchored — CUT EVERY
+TRACK AT ITS FIRST OUTBOUND EXIT-GATE CROSSING (+ small margin);
+motion-discontinuity becomes the secondary rule. Corollary: segment 1
+of each cut splice is the REAL vehicle's complete journey — the cut
+does not just prevent splices, it recovers the true events the splice
+was hiding. Follow-up (own block, coupling law): the same rule at the
+LIVE tracker (retire IDs on exit) prevents splice formation upstream.
