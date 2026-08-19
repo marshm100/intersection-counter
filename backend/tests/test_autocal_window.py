@@ -23,11 +23,13 @@ def midnight_video(monkeypatch):
 
 
 class TestResolveSampleWindow:
-    def test_default_is_7h_offset_11h_span(self, midnight_video):
+    def test_default_is_7h_offset_15min_span(self, midnight_video):
+        # duration default re-frozen 15 min (operator ruling 2026-08-19:
+        # collection costs ~3 GPU-min per footage-min)
         w = ac.resolve_sample_window("p", 1)
         assert w["sample_start_sec"] == 7 * 3600
-        assert w["sample_end_sec"] == 18 * 3600
-        assert (w["start_clock"], w["end_clock"]) == ("07:00", "18:00")
+        assert w["sample_end_sec"] == 7 * 3600 + 15 * 60
+        assert (w["start_clock"], w["end_clock"]) == ("07:00", "07:15")
         assert w["source"] == "default"
 
     def test_clock_form_resolves_against_recording_start(self, midnight_video):
@@ -81,7 +83,7 @@ class TestResolveSampleWindow:
             "recording_start_datetime": "2026-05-12T07:00:00"})
         w = ac.resolve_sample_window("p", 1)
         assert w["sample_start_sec"] == 0.0
-        assert w["sample_end_sec"] == 2 * 3600.0
+        assert w["sample_end_sec"] == 15 * 60.0
 
     def test_video_below_minimum_is_an_error(self, monkeypatch):
         monkeypatch.setattr(ac, "_resolve_video_path",

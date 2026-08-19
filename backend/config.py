@@ -481,15 +481,19 @@ APPLY_GATE_REATTR_CONC_MASS_MIN = 40
 
 # --- Auto-calibration sample window + concurrency (2026-08-18, operator) -----
 # The operator sets a wall-clock start + duration in the calibration UI;
-# the machine resolves it against the video's recording start. Defaults
-# target the busy day: +7 h into the footage for 11 h (07:00-18:00 on a
-# midnight-start 24 h file). Duration is hard-bounded 15 min .. 15 h.
+# the machine resolves it against the video's recording start. Default
+# start targets the busy day (+7 h into a midnight-start file = 07:00);
+# default DURATION re-frozen 15 min on the operator's 2026-08-19 ruling —
+# collection costs ~3 GPU-min per footage-min, so the original 11 h
+# default priced at ~30 GPU-hours while 15 busy minutes yield ~5k
+# trajectories (the pre-2026-08-18 calibration was built from 57).
+# Longer windows remain available in the UI (bounds 15 min .. 15 h).
 # Concurrency: bounded pool with FIFO queue — each job carries its own
 # detector instance; two keep the GPU busy without starving either run.
 AUTO_CAL_MIN_SAMPLE_SEC = 15 * 60
 AUTO_CAL_MAX_SAMPLE_SEC = 15 * 3600
 AUTO_CAL_DEFAULT_OFFSET_SEC = 7 * 3600
-AUTO_CAL_DEFAULT_DURATION_SEC = 11 * 3600
+AUTO_CAL_DEFAULT_DURATION_SEC = 15 * 60
 AUTO_CAL_MAX_CONCURRENT = 2
 
 # --- C-1: evidence-ranked chain arbitration (D1 iteration 2, 2026-08-12) -----
