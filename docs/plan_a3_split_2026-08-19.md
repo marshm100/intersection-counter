@@ -194,3 +194,21 @@ inherits every splice. The persisted trajectory npz (built
 re-collection. Applies to the running cam2 CLI sample: its LEG
 proposal is usable; its PATH set should be refit post-cut after
 boundary confirmation.
+
+## AMENDMENT 5 (2026-08-19, after compose run 1 — declared before
+## re-compose)
+
+Compose 1: 88 admitted; approach +3.1 (bar met) but movement 55.0 ->
+53.2 REGRESSION -> G-A3-3 fails as composed. Anatomy: 65/88 land in
+27->29 (SB_thru), a cell already OVER evidence — concurrent ECHO
+TWINS of counted vehicles (the ~101/day repeat class), invisible to
+the chain guard by construction (echoes are parallel, not
+sequential). Runtime-legal correction (no GT anywhere): **census-
+headroom admission** — a recovery is admitted only while
+current_kept(cell) + admitted_so_far(cell) < census_expected(cell)
+(entry_gates.cell_census over the window's own tracks — the same
+GT-free envelope the apply gate uses). Cells at/over evidence accept
+zero additions; the echo class dies there. This is K1's variance-
+weighting principle in miniature and is exactly the "add only under
+the evidence envelope" rule the recall gate's flood guard enforces
+globally, applied per-cell at composition time.
