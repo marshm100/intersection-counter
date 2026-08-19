@@ -222,3 +222,36 @@ of each cut splice is the REAL vehicle's complete journey — the cut
 does not just prevent splices, it recovers the true events the splice
 was hiding. Follow-up (own block, coupling law): the same rule at the
 LIVE tracker (retire IDs on exit) prevents splice formation upstream.
+
+## OPERATOR DIAGNOSIS, MECHANISM 2 (2026-08-19): THE MID-INTERSECTION
+## HANDOFF FAILURE — "PINCHED TRAJECTORY" (operator's term, adopted)
+
+A vehicle is tracked accurately from the mouth; a second vehicle is
+WAITING MID-INTERSECTION to turn; the waiter STEALS the bounding box
+from the mover as they pass, and the track rides the thief away in
+the opposite direction. Signature, operator-specified: a car never
+travels forward at 15 mph, stops on a dime, and reverses — the
+spliced path shows TWO curves meeting at a cleft/cusp point (a
+hairpin where two curves TOUCH), unlike a genuine U-turn's ONE
+continuous curve. That pinch point IS the handoff.
+
+Splice taxonomy now complete, both operator-observed:
+  TYPE 1 — post-exit lingering: track outlives the exited car,
+    latches onto the stop-bar queue. CUT RULE: geometry (first
+    outbound exit-mouth crossing + margin).
+  TYPE 2 — mid-intersection box theft: waiting turner steals the
+    box. CUT RULE: pinch detection — tangent-direction cusp (two
+    curves, discontinuous tangent) + impossible kinematics
+    (decel/reversal beyond physical bounds with no dwell).
+    Discriminators from legit motion: a real U-turn is ONE curve
+    with continuous curvature and plausible radius; a real stop
+    keeps direction across the dwell. NOTE for constants: the CUSP
+    (shape) test is image-compression-immune — tangent reversal is
+    scale-free — while any speed threshold is NOT (the
+    compression-relative-constants trap); shape leads, kinematics
+    corroborate.
+
+Validation consequence: the 17 condemned splices + 6 deferred
+u-turns get typed (1 vs 2) during A3 validation; each cut rule must
+catch its own type; embedding discontinuity (E1) is the cross-check
+on every proposed cut point.
