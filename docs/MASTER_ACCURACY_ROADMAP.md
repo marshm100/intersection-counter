@@ -133,6 +133,14 @@ W→E path rows; the frozen EB pair); cam3 (never studied).
 | A3 | **S3 splice-split — PROMOTED to the #1 volume-chain lever** (cut mixed-identity tracks at motion discontinuities — the operator SAW the split point: velocity reversal at the horizon; QD's failure is direct evidence the splice class is large). Split first, then: halves re-classify (some become genuine countable journeys), PPT/F2M prototypes get cleaner fulls, and any future recovery policy operates on single-identity tracks. Pair with E1 embedding purity as the split verifier | zero code; now evidence-backed by G-QD-1's 17/17 splice finding + the operator's object-permanence diagnosis | +0/+1.5/+4 | +0/+2/+5 | days-wk |
 | P2 | PPT re-attribution round 2 on post-wave geometry (transferred nowhere on dirty prototypes; cap+admission shipped in PPT-3) | contingent on W1 | +0/+1/+3 | ~0 | days |
 
+### Named additions 2026-08-19 (operator design session)
+
+| id | element | status | notes |
+|---|---|---|---|
+| A3+ | **A3 completion channel**: cut halves feed the EXISTING PPT prototype scorer ("what exit was it most likely to hit") — above self-calibrated floors LOG, below FLAG to review. Operator-specified; no new scorer needed | folded into the A3 block design | The 08-13 and 08-19 operator designs converge in one pipeline |
+| A6 | **Mask-based occlusion sensing** (operator concept): instance-seg mask inside the bbox; mask degradation = occlusion signal; tracker hardens association instead of handing off | research-later item for the next sweep | prevention-side sibling of A3's cure |
+| REVIEW-UI | **Flag-review screen rebuilt on the bbox-review pattern** (exact-frame, 1 s + frame scrub, live track box + path, keyboard verdicts) — operator: "how the real human flagger should work" | product item; front end for R0 + CERT | raises accuracy-per-review-minute directly |
+
 ### Tier 4 — small mechanisms (each tiny, some die at gates)
 
 - Origin-veto site-activation precondition (options_inventory D2) —

@@ -255,3 +255,35 @@ Validation consequence: the 17 condemned splices + 6 deferred
 u-turns get typed (1 vs 2) during A3 validation; each cut rule must
 catch its own type; embedding discontinuity (E1) is the cross-check
 on every proposed cut point.
+
+## OPERATOR DESIGN ADDITIONS (2026-08-19, third pass — completion
+## policy, occlusion-sensing research, review-instrument verdict)
+
+1. **Completion policy for pinch-cut halves (design instruction):**
+   after the cut, take segment 1 (the real car from the mouth), look
+   at its pre-handoff trajectory, EXTRAPOLATE forward — "what exit
+   was it most likely to hit" — above a confidence threshold LOG it,
+   below it FLAG it for human review. CONVERGENCE NOTE: this is
+   exactly the shipped PPT prototype scorer (per-cell mean paths
+   from the window's own gate-verified fulls, split-half
+   self-calibrated floors, 0.95+ held-out precision, production
+   gains +5.5/+4.6 at cam2). A3's recovery channel is therefore:
+   geometry/pinch cut -> clean halves -> EXISTING PPT scorer ->
+   above-floors log, below-floors flag into the review queue. No new
+   scoring mechanism needed; the two operator designs (channels-are-
+   guidelines 08-13, extrapolate-or-flag 08-19) meet in one pipeline.
+2. **Mask-based occlusion sensing (research item, operator concept —
+   "food for thought to research later", filed as A6):** an overlay
+   mask inside the bbox ("this is a car"); when another object moves
+   in front, the mask/outline degrades -> the tracker KNOWS occlusion
+   is happening and hardens association instead of handing the box
+   to the thief. Modern instance-seg (YOLO-seg class) + mask-quality
+   degradation as a blind occlusion signal. NOT scheduled; recorded
+   for the next research sweep.
+3. **Review-instrument verdict (product direction):** the bbox
+   review artifact is "how the real human flagger should work —
+   incredibly clear and helpful." Named product item REVIEW-UI:
+   port the pattern into the app's flag-review screen (exact-frame
+   jump, 1 s + single-frame scrub, LIVE track bbox + path overlay,
+   keyboard verdicts). This is also the CERT instrument's front end
+   and directly raises R0's value per review-minute.
