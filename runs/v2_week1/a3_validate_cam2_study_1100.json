@@ -1,0 +1,4479 @@
+{
+ "camera": 2,
+ "variant": "study_1100",
+ "geom_hash": "8f6156208657139b",
+ "labeled_n": 56,
+ "labeled_tids": [
+  14859,
+  2576,
+  697,
+  6905,
+  6824,
+  13677,
+  3911,
+  15072,
+  9056,
+  9499,
+  13784,
+  838,
+  7069,
+  5004,
+  15286,
+  9541,
+  13667,
+  10448,
+  4952,
+  11608,
+  1780,
+  12177,
+  12499,
+  193,
+  1003,
+  1362,
+  1759,
+  2094,
+  3045,
+  3265,
+  4358,
+  4364,
+  4545,
+  4957,
+  5565,
+  7837,
+  7866,
+  8050,
+  8095,
+  8169,
+  8372,
+  8408,
+  9028,
+  10047,
+  10265,
+  11120,
+  12475,
+  12497,
+  12501,
+  13205,
+  13235,
+  13672,
+  14192,
+  15058,
+  15077,
+  15085
+ ],
+ "g_a3_1": {
+  "pass": 55,
+  "fail": [
+   {
+    "tid": 838,
+    "why": "no separating cut",
+    "cuts": [
+     1000649.5
+    ],
+    "first_cross": 1000579.2,
+    "last_frame": 1000640.0,
+    "n_segs": 1
+   }
+  ],
+  "n": 56
+ },
+ "g_a3_2": {
+  "n": 4315,
+  "parity": 4115,
+  "diffs": [
+   {
+    "tid": 17,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 72,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 125,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      29,
+      "full"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 328,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 356,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 453,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 503,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 547,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 637,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 712,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 785,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 871,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 1073,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 1083,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 1169,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      29,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 1262,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 1311,
+    "base": [
+     28,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 1397,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 1433,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 1522,
+    "base": [
+     27,
+     null,
+     "entry_only"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 1535,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 1550,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 1557,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 1683,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 1852,
+    "base": [
+     null,
+     27,
+     "exit_only"
+    ],
+    "segs": [
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 1858,
+    "base": [
+     28,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 1967,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 2002,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 2059,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 2260,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 2273,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 2340,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 2409,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 2461,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 2618,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 2619,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 2634,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 2715,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 2729,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 2816,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 2970,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 3011,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 3238,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 3296,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      28,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 3388,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 3660,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 3689,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 3718,
+    "base": [
+     null,
+     29,
+     "exit_only"
+    ],
+    "segs": [
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 3957,
+    "base": [
+     26,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 4063,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 4102,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 4273,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 4427,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 4480,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 4494,
+    "base": [
+     26,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 4801,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 4879,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 4900,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 4917,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 5005,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 5071,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 5152,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 5303,
+    "base": [
+     null,
+     29,
+     "exit_only"
+    ],
+    "segs": [
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 5417,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 5516,
+    "base": [
+     27,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 5529,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 5824,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 5836,
+    "base": [
+     27,
+     null,
+     "entry_only"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 6041,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      29,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 6070,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 6188,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 6249,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 6264,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 6349,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      29,
+      "full"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 6394,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 6621,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 6742,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 6865,
+    "base": [
+     29,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 6993,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 7144,
+    "base": [
+     null,
+     29,
+     "exit_only"
+    ],
+    "segs": [
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 7159,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 7161,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 7200,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 7211,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 7302,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 7325,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 7415,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 7531,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 7538,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 7542,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 7556,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 7575,
+    "base": [
+     29,
+     null,
+     "entry_only"
+    ],
+    "segs": [
+     [
+      29,
+      27,
+      "full"
+     ],
+     [
+      27,
+      29,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 7627,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 7813,
+    "base": [
+     27,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 8001,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 8081,
+    "base": [
+     27,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 8240,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 8281,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 8397,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 8426,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 8500,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 8525,
+    "base": [
+     null,
+     27,
+     "exit_only"
+    ],
+    "segs": [
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 8578,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 8612,
+    "base": [
+     28,
+     null,
+     "entry_only"
+    ],
+    "segs": [
+     [
+      28,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 8708,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 8745,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 8830,
+    "base": [
+     27,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 8844,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 8914,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 8951,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      29,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 8991,
+    "base": [
+     27,
+     null,
+     "entry_only"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 9031,
+    "base": [
+     28,
+     null,
+     "entry_only"
+    ],
+    "segs": [
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 9115,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 9179,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 9194,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 9327,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 9542,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 9616,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 9671,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 9742,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 9748,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 9874,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 9876,
+    "base": [
+     null,
+     29,
+     "exit_only"
+    ],
+    "segs": [
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 9954,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      28,
+      29,
+      "full"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 10057,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 10178,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 10213,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 10296,
+    "base": [
+     29,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 10336,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 10347,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 10449,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 10467,
+    "base": [
+     null,
+     27,
+     "exit_only"
+    ],
+    "segs": [
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 10515,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 10529,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 10598,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 10615,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 10648,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      29,
+      "full"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 10720,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 10739,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 10758,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 11003,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 11076,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 11103,
+    "base": [
+     27,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 11107,
+    "base": [
+     27,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 11109,
+    "base": [
+     27,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 11271,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 11325,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 11328,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 11404,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 11410,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 11415,
+    "base": [
+     27,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 11474,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 11690,
+    "base": [
+     27,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 11730,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 11833,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      29,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 11858,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 11885,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 12079,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 12235,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 12273,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 12434,
+    "base": [
+     null,
+     29,
+     "exit_only"
+    ],
+    "segs": [
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 12514,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 12543,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 12663,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 12689,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 12744,
+    "base": [
+     29,
+     26,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      27,
+      "full"
+     ],
+     [
+      27,
+      26,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 12853,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 12955,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 12974,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 13120,
+    "base": [
+     28,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 13184,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 13265,
+    "base": [
+     29,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 13281,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 13305,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      26,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 13461,
+    "base": [
+     29,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      28,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 13476,
+    "base": [
+     null,
+     27,
+     "exit_only"
+    ],
+    "segs": [
+     [
+      null,
+      29,
+      "exit_only"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 13506,
+    "base": [
+     26,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 13536,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 13819,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 13838,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 13990,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      29,
+      null,
+      "entry_only"
+     ]
+    ]
+   },
+   {
+    "tid": 14083,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 14207,
+    "base": [
+     27,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 14232,
+    "base": [
+     27,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 14249,
+    "base": [
+     27,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      null,
+      "entry_only"
+     ],
+     [
+      29,
+      27,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 14296,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 14315,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 14339,
+    "base": [
+     26,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      26,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 14457,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 14522,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 14578,
+    "base": [
+     28,
+     29,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      29,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 14740,
+    "base": [
+     null,
+     27,
+     "exit_only"
+    ],
+    "segs": [
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 14748,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 14894,
+    "base": [
+     29,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 14960,
+    "base": [
+     28,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      28,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 15045,
+    "base": [
+     27,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      27,
+      29,
+      "full"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 15119,
+    "base": [
+     29,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ]
+    ]
+   },
+   {
+    "tid": 15185,
+    "base": [
+     29,
+     28,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      null,
+      "entry_only"
+     ],
+     [
+      null,
+      28,
+      "exit_only"
+     ]
+    ]
+   },
+   {
+    "tid": 15256,
+    "base": [
+     null,
+     28,
+     "exit_only"
+    ],
+    "segs": [
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      null,
+      null,
+      "no_crossing"
+     ],
+     [
+      29,
+      28,
+      "full"
+     ]
+    ]
+   },
+   {
+    "tid": 15267,
+    "base": [
+     29,
+     27,
+     "full"
+    ],
+    "segs": [
+     [
+      29,
+      28,
+      "full"
+     ],
+     [
+      null,
+      27,
+      "exit_only"
+     ]
+    ]
+   }
+  ],
+  "rate": 0.9537
+ },
+ "verdicts": {
+  "g_a3_1": "PASS",
+  "g_a3_2": "FAIL"
+ },
+ "audit": {
+  "n_tracks": 6565,
+  "census": {
+   "cuts_1": 2794,
+   "rule_geometry": 2992,
+   "segments": 8424,
+   "rule_flip_at_speed": 600,
+   "cuts_0": 3387,
+   "cuts_2": 356,
+   "cuts_3": 28
+  },
+  "pinch_rate": 0.0914
+ }
+}

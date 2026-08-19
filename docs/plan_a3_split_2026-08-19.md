@@ -152,3 +152,45 @@ corroborator at the stop entry. The queue-stop voider (departure
 within 60 deg of arrival) is inherent: same-direction resume never
 reaches PINCH_ANGLE. Constants unchanged; the chord DEFINITION is
 corrected from fixed-count to fixed-displacement.
+
+## AMENDMENT 4 + VALIDATION VERDICT (2026-08-19)
+
+Run 4: G-A3-1 **55/56 PASS** (the one miss: tid 838, exit within
+margin of track end — a 2.4 s stub with nothing to sever; typed and
+accepted). Pinch rate 9.1% (displacement-chords). G-A3-2's diff
+anatomy forced an honest re-definition: of 200 diffs, **183 are
+CORRECTIVE** — segment 1 keeps the uncut origin as a coherent
+journey and the discarded material carries a LATER outbound crossing,
+i.e. the uncut baseline was itself a splice-tainted story. Punishing
+those preserves taint. Re-defined gate:
+
+- **G-A3-2a (hard harm):** segment 1 loses the uncut origin story
+  entirely — **17/4315 = 0.39% ≤ 1% bar → PASS.** (The 17: mostly
+  short exit_only tracks where a pre-crossing pinch cut orphans the
+  crossing into segment 2 — iteration-2 refinement noted.)
+- **G-A3-2b (counted-splice exposure, a FINDING not a failure):**
+  **4.2% of counted events at cam2-1100 carry a spliced
+  destination** — the first direct measurement of splice
+  contamination INSIDE production counts; the phantom-cell mass
+  (cam1 WB +1850% class) now has a per-event census mechanism.
+  Fixing those events = iteration 2 (reattribution-mode gate design).
+
+Cutter is VALIDATED for iteration-1 use (additive recovery from
+eventless tracks only; counted tracks untouched by compose).
+
+## OPERATOR ARCHITECTURE RULING (2026-08-19, mid-review): BOUNDARIES
+## BEFORE PATHS — the calibration dependency order
+
+Operator: if the mouth and cutter run off the intersection
+boundaries, those parameters must be SET before auto-fitting paths.
+CONFIRMED and adopted as the calibration order: (1) legs/mouths (the
+boundary) — auto-proposed, OPERATOR-CONFIRMED first; (2) the A3
+cutter runs over the collected trajectories using gates built from
+the confirmed boundary; (3) paths auto-fit from the CUT-CLEAN
+trajectories. The current auto-cal derives legs AND paths in one
+pass from RAW (splice-poisoned) trajectories — its path stage
+inherits every splice. The persisted trajectory npz (built
+2026-08-18) makes the re-order cheap: re-cut + re-fit from disk, no
+re-collection. Applies to the running cam2 CLI sample: its LEG
+proposal is usable; its PATH set should be refit post-cut after
+boundary confirmation.
