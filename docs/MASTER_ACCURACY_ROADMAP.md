@@ -143,6 +143,38 @@ its raw suggestion (2 legs / 4 paths, u-turn artifacts) is the
 misgated-mouth signature — do NOT apply; operator redraws cam5 legs
 first, then pathfit runs off the npz in seconds.
 
+**W1a GATE VERDICT (2026-08-19 night, pre-registered wave procedure —
+applied, measured, RESTORED).** Operator approved apply; full
+control/arm replay pair run on the same replay basis (control replays
+at old geometry FIRST — production-basis numbers are incomparable, and
+indeed control approach-0700 read 50.0% vs production's 25.0%). NET:
+movement bar WORSE pooled 46.7% → 43.8% (0700 53.4→46.8, 1100
+42.9→47.7, 1600 44.0→37.1); approach bar better 40.6% → 43.8%. Movement
+is THE bar → restored per gate: cam2 paths byte-verified back to backup
+(ids 119–128 incl. the folds), suggestion back to pending with the
+clean fits intact, events untouched (per-window verification passes;
+cam2-1600 is 6837 = 6835 + the operator's 2 add-missed reviewer events).
+Mechanism, both parts legible:
+(1) the three path-less cells COLLAPSED (SB right 214→21 at 0700,
+202→26 at 1100, 240→18 at 1600; EB left and WB left → ~0): the folds,
+poisonous as shapes, were still CARRYING their cells' attribution — a
+missing path is worse than a folded one.
+(2) turn_merge deactivated (merged_away 237→0 / 379→327 / 492→15) —
+NOT a label effect (all five replaced cells kept byte-identical labels,
+verified against backup): the merge/lane-cluster machinery is coupled
+to the old polyline GEOMETRY (the frozen-constants basis). Overshoots
+appeared exactly where merges vanished (NB left 574 vs Mio 411 at 0700).
+Genuine wins inside the loss: the new (28,26) EB-through path recovered
+EB thru mass in ALL THREE windows (35→44 / 70→77 / 240→315 toward Mio);
+1100 movement +4.8 net.
+REVIVAL CONDITIONS (all three, then re-run this exact gate): (a)
+operator hand-draws the 3 missing cells (28,27), (27,28), (26,29) on
+top of the 9 clean fits — re-apply the pending suggestion, then draw;
+(b) turn_merge geometry-coupling investigated and re-frozen on the new
+basis; (c) control/arm replay pair again. Artifacts:
+runs/v2_week1/score_pathfit_{ctrl,arm}_cam2_study_*.json + pathfit
+runner logs. Backup retained: project.db.bak_pathfit_20260819.
+
 ### Tier 2 — build next (research agents reporting 2026-08-18)
 
 | id | element | status | movement | approach | cost |
@@ -606,9 +638,12 @@ redistributes echo mass instead of deleting it.
 - Audited apply: `scripts/v2_apply_reattr.py` (quiesce server first,
   incl. the orphaned reload worker).
 - Production verification (run at every session end): count
-  vehicle_events per camera×window; expected as of 2026-08-18:
-  cam1 4600/3321/5778 · cam2 5815/4426/6835 · cam3 5643/3790/6613 ·
-  cam4 4956/3335/5652 · cam5 5067/3669/6047.
+  vehicle_events per camera×window (kept only — filter
+  COALESCE(rejected,0)=0; raw counts include rejected rows and read
+  high); expected as of 2026-08-19:
+  cam1 4600/3321/5778 · cam2 5815/4426/6837 · cam3 5643/3790/6613 ·
+  cam4 4956/3335/5652 · cam5 5067/3669/6047. (cam2-1600 rose 6835→6837
+  on 2026-08-19: the operator's 2 add-missed reviewer events.)
 - Operator guide (how to drive the UI): docs/Operator_Guide_
   2026-08-18.pptx + the published web version.
 - Key docs: finding_two_bar_inversion_2026-08-18.md ·
@@ -620,6 +655,15 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-19 (later night): W1a GATE RUN — cam2 pathfit suggestion
+  applied on operator approval, control/arm replay pair measured,
+  movement bar net WORSE (46.7→43.8 pooled) → RESTORED per gate.
+  Two legible mechanisms recorded (path-less cell collapse; turn_merge
+  geometry coupling — labels ruled out by backup diff). EB-thru
+  recovery from the new (28,26) path confirmed in all 3 windows.
+  Revival conditions named in §3 W1a. Production verified per-window
+  (§8 counts updated: cam2-1600 now 6837 after the operator's 2
+  add-missed events).
 - 2026-08-19 (night): FOLD GATE shipped after the operator flagged two
   disqualifying sharp angles in cam2's live paths — six live paths
   across 4 cameras carried splice folds (§3 Tier-1 W1a). path_shape.py
