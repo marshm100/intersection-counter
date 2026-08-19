@@ -113,6 +113,36 @@ prize: predict +8/+15 movement there alone); cam1 (paths table has
 ZERO East-leg rows; EB_right −210 at 1600); cam2 (missing E→S and
 W→E path rows; the frozen EB pair); cam3 (never studied).
 
+**W1a — FOLD GATE + boundaries-first pathfit (SHIPPED 2026-08-19
+evening, operator ruling).** The operator spotted two disqualifying
+sharp angles in cam2's live paths: the LIVE banks carried splice-shaped
+folds — cam2 122/125 at −169°/+173° in one 25 px chord (raw support 109
+and 74 was splice debris; cut-clean fulls in the same cells: 3 and 0),
+plus cam1 16 (122°), cam3 117 (126°), cam5 83/84 (−73°/116°). The u-turn
+128 hairpin is hand-drawn and legit. Fix, three layers, all tested
+(test_autocal_shape_gate.py, 10 tests): (1)
+`backend/services/path_shape.py` max_concentrated_turn — displacement-
+chord heading flips, jitter-immune; (2) auto_calibrate.discover_paths
+now EXCLUDES pinched members (≥120°, u-turn cells exempt) and REJECTS
+folded fitted outputs (≥100°, stats `shape_gate`); (3)
+`scripts/run_pathfit_cli.py` — the boundaries-first derive step: saved
+collection npz + CONFIRMED legs → A3 cutter → classify → fit from
+cut-clean FULL journeys only (min_support 5) → fold gate → composed
+COMPLETE path set (re-fits + carryover incl. hand-drawn u-turn; folds
+dropped for hand-redraw) staged as the camera's pending suggestion.
+Movement labels from leg cardinals via production derive_movement
+(image-tangent labeling mislabels turns under perspective). cam2 staged:
+9 paths, worst non-u-turn concentrated turn 6.3°; evidence PNG
+screenshots/pathfit_cam2_fold_fix_2026-08-19.png. Operator still
+hand-draws: (28,27) EB left (3 fulls), (27,28) SB right (0 fulls),
+(26,29) WB left (0 fulls — thin movements need ~90 min of footage at
+this fragmentation to self-evidence; not worth the GPU vs a 2-min
+draw). cam5 15-min collection banked
+(_replay_scratch/autocal/traj_cam5_61198_62098.npz, 1,340 tracks);
+its raw suggestion (2 legs / 4 paths, u-turn artifacts) is the
+misgated-mouth signature — do NOT apply; operator redraws cam5 legs
+first, then pathfit runs off the npz in seconds.
+
 ### Tier 2 — build next (research agents reporting 2026-08-18)
 
 | id | element | status | movement | approach | cost |
@@ -590,6 +620,14 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-19 (night): FOLD GATE shipped after the operator flagged two
+  disqualifying sharp angles in cam2's live paths — six live paths
+  across 4 cameras carried splice folds (§3 Tier-1 W1a). path_shape.py
+  + discover_paths member/output gates + run_pathfit_cli.py
+  (boundaries-first: npz + confirmed legs → cut → fit from fulls →
+  staged suggestion). cam2 suggestion staged (9 paths, QA-clean,
+  cardinal-derived labels); 3 hand-draw cells listed; cam5 npz banked,
+  legs must be redrawn before its pathfit. Suite 987 green.
 - 2026-08-18: created. Two-bar finding recorded; 13-window two-level
   baseline; backlog consolidated from options_inventory + tier3
   handoff + ppt3 follow-ups with per-bar hypotheses; calibration

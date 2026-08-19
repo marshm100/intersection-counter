@@ -33,6 +33,8 @@ from scipy.signal import savgol_filter
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.services.detector import VehicleDetector
+from backend.services.path_shape import (
+    MEMBER_PINCH_DEG, PATH_FOLD_REJECT_DEG, max_concentrated_turn)
 from backend.services.tracker import VehicleTracker
 
 
@@ -323,38 +325,70 @@ def discover_paths(
     exit_zones: list[dict],
     membership_radius_px: float = ZONE_MEMBERSHIP_PX,
     min_support: int = PATH_MIN_SUPPORT,
+    stats_out: dict | None = None,
 ) -> list[dict]:
     """For each trajectory, look up which entry zone and exit zone its
     first/last point belongs to. Group trajectories by (entry_id, exit_id).
     Pairs with >= min_support trajectories become candidate paths; fit a
     smoothed polyline through their mean trajectory.
 
+    Fold gate (operator ruling 2026-08-19): a trajectory carrying a
+    concentrated heading flip is a tracking splice, and its endpoint lies
+    wherever the stolen box died — it must not vote on any path's shape
+    or support (the condemned cam2 "left" had 109 raw supporters but only
+    6 cut-clean full journeys). Same-zone (u-turn) trajectories are exempt
+    from the member gate; a fitted non-u-turn polyline that still folds is
+    dropped outright.
+
     Returns:
       [{"entry_zone_id": int, "exit_zone_id": int,
         "polyline": [(x, y), ...],
-        "supporting_count": int}, ...]
+        "supporting_count": int[, "shape_flag": str]}, ...]
     """
     buckets: dict[tuple[int, int], list[list[tuple[float, float]]]] = defaultdict(list)
+    excluded_pinched = 0
     for traj in trajectories:
         ein = _classify_zone(traj[0],  entry_zones, membership_radius_px)
         eout = _classify_zone(traj[-1], exit_zones,  membership_radius_px)
         if ein is None or eout is None:
             continue
+        if ein != eout and max_concentrated_turn(traj) >= MEMBER_PINCH_DEG:
+            excluded_pinched += 1
+            continue
         buckets[(ein, eout)].append(traj)
 
     paths = []
+    rejected_folded: list[dict] = []
     for (ein, eout), group in buckets.items():
         if len(group) < min_support:
             continue
         polyline = _fit_mean_polyline(group, POLYLINE_CONTROL_POINTS)
         if polyline is None:
             continue
-        paths.append({
+        fold = max_concentrated_turn(polyline)
+        entry = {
             "entry_zone_id": ein,
             "exit_zone_id": eout,
             "polyline": polyline,
             "supporting_count": len(group),
-        })
+        }
+        if ein == eout:
+            # u-turns legitimately hairpin — keep, but surface the shape
+            # so the review UI can draw attention to it.
+            if fold >= PATH_FOLD_REJECT_DEG:
+                entry["shape_flag"] = "concentrated_reversal"
+        elif fold >= PATH_FOLD_REJECT_DEG:
+            rejected_folded.append({
+                "entry_zone_id": ein,
+                "exit_zone_id": eout,
+                "max_turn_deg": round(fold, 1),
+                "supporting_count": len(group),
+            })
+            continue
+        paths.append(entry)
+    if stats_out is not None:
+        stats_out["members_excluded_pinched"] = excluded_pinched
+        stats_out["paths_rejected_folded"] = rejected_folded
     # Sort by support desc for readable output.
     paths.sort(key=lambda p: -p["supporting_count"])
     return paths
@@ -532,7 +566,9 @@ def run(video_path: str, sample_start_sec: float, sample_end_sec: float,
         z["reference_heading"] = derive_zone_reference_heading(z, trajectories)
 
     # Discover paths and label their movements.
-    paths = discover_paths(trajectories, entry_zones, exit_zones)
+    shape_stats: dict = {}
+    paths = discover_paths(trajectories, entry_zones, exit_zones,
+                           stats_out=shape_stats)
     for p in paths:
         p["movement_label"] = derive_path_movement(p)
 
@@ -544,6 +580,7 @@ def run(video_path: str, sample_start_sec: float, sample_end_sec: float,
             **stats,
             "wall_seconds": round(time.time() - t0, 1),
             "zone_fallback": {"entry": zone_fb_in, "exit": zone_fb_out},
+            "shape_gate": shape_stats,
         },
         "leg_zones": [
             {
@@ -570,6 +607,8 @@ def run(video_path: str, sample_start_sec: float, sample_end_sec: float,
                 "polyline": [list(pt) for pt in p["polyline"]],
                 "supporting_count": p["supporting_count"],
                 "movement_label": p["movement_label"],
+                **({"shape_flag": p["shape_flag"]}
+                   if "shape_flag" in p else {}),
             }
             for p in paths
         ],
