@@ -152,3 +152,50 @@ LIVE BOUNDING BOX drawn on the video (v2 review page: exact-frame
 jump, 1 s + single-frame scrubbing, dump-sourced box + path + claimed
 entry/exit overlays); a splice reads as the yellow box HOPPING cars
 mid-life; a trailer recovery reads as the box on the trailer.
+
+## G-QD-1 VERDICT (2026-08-19): FAIL — 17/17, SPLICE CLASS.
+## ITERATION 1 IS DEAD. NO APPLY. Candidate DB deleted.
+
+Operator review with the live-bbox instrument, verbatim substance:
+the box tracks one vehicle through to the horizon, then LOCKS ONTO A
+DIFFERENT VEHICLE moving the OPPOSITE direction. The "eventless fulls"
+are ID-SWITCH SPLICES — one track id spanning two real vehicles. The
+splice explains the whole class: the join crosses one vehicle's entry
+gate and the other's exit gate, so classify() reads a full journey
+that NO single vehicle made; the pipeline's quality floors REJECTED
+these tracks correctly, and this block resurrected them.
+
+Consequences, ledgered:
+1. **cam2-1100 candidate DEAD** (deleted). **cam4-1100 candidacy
+   WITHDRAWN** — same mechanism presumed; its +8.3 approach gain is
+   the garbage-helps-deficits artifact (below), not recovery.
+2. **E4R re-interpretation:** the 280 "pure pipeline drops" are NOT a
+   recoverable-by-policy population — they are splice-enriched
+   tracker garbage that the event pipeline correctly refused. The
+   REAL volume deficit remains (the approaches are still short vs
+   Mio); its recovery requires fixing tracks BEFORE counting policy:
+   the operator's object-permanence diagnosis is the mechanism, and
+   the split half of split-then-merge (inventory A3 — never
+   attempted) + embedding purity (E1) are the named levers. A splice
+   splits exactly where the operator saw it: a motion discontinuity
+   (velocity reversal at the far field).
+3. **SCORE-GATE BLIND SPOT, recorded as a standing hazard:** on the
+   approach bar, ANY added mass in a systematically undercounted
+   approach improves the score — garbage additions pass G-QD-2-style
+   gates in deficit regimes. An approach-bar gain from an additive
+   candidate is NOT evidence of correct events. Human review (or an
+   identity-level check) is MANDATORY for additive candidates,
+   permanently.
+4. **What survives:** the funnel/audit instrument (the eventless
+   census is real and now correctly interpreted), the dwell-guard +
+   chain-guard machinery, the live-bbox review instrument (built to
+   the operator's spec — it is what made this catch possible), and
+   the two-iteration budget's remaining iteration — IF pursued, it
+   is split-first: cut tracks at motion discontinuities, re-classify
+   the halves, and only then consider recovery, with per-half
+   identity checks. That is effectively A3's block, not QD's.
+
+The block closes FAILED at its own gate, per the discipline. The
+gate chain worked: G-QD-0 pinned the population, G-QD-2 passed two
+windows (and its blind spot is now documented), G-QD-1 (human)
+killed it. Zero production impact at any point.
