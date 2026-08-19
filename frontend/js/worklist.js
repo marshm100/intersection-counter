@@ -225,14 +225,18 @@ function _wlMainHtml() {
         <div class="helper-text" style="margin:2px 0 8px;">${approach}
             ${escapeHtml((f.subtype || '').replace(/_/g, ' '))} —
             ${escapeHtml(f.reason || '')}</div>`;
-    const loopBadge = f.kind === 'uncertain_event' && f.clip
-        ? `<div style="position:absolute;left:6px;top:6px;padding:2px 8px;border-radius:10px;
-             background:rgba(0,0,0,0.55);color:#e5e7eb;font-size:11px;">&#8635; looping clip</div>`
-        : '';
+    // REVIEW-UI (2026-08-19, operator spec): real <video> on the Range
+    // /stream endpoint + live track-bbox overlay; exact-frame jump,
+    // 1 s + single-frame scrubbing. The flipbook is gone.
     const frame = `<div style="position:relative;background:#111;border-radius:6px;overflow:hidden;">
-            <img id="wl-frame" style="display:block;width:100%;" />
+            <video id="wl-video" style="display:block;width:100%;" muted playsinline></video>
             <canvas id="wl-canvas" style="position:absolute;left:0;top:0;width:100%;height:100%;"></canvas>
-            ${loopBadge}
+        </div>
+        <div class="helper-text" style="margin-top:4px;display:flex;gap:12px;align-items:center;">
+            <span id="wl-vtime" style="font-variant-numeric:tabular-nums;font-weight:600;"></span>
+            <span>&larr;/&rarr; 1 s · [ ] frame · space pause ·
+            <span style="color:#b45309;">yellow = this event's track</span> ·
+            grey = all tracks (<b>o</b> toggles)</span>
         </div>`;
     return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;">
         ${head}${frame}
@@ -432,29 +436,106 @@ function _wlSideHtml() {
         <div class="helper-text" style="margin-top:8px;">Z undo (${_wlUndoStack.length} available)</div>
         <p class="helper-text" style="margin-top:6px;">Keys: Enter accept · 1–4 movement ·
             Shift+1–4 batch movement · Del reject · A add-missed · D dismiss ·
-            → next card · . next in group · B resolve group · Z undo</p>
+            X next card · . next in group · B resolve group · Z undo ·
+            &larr;/&rarr; scrub 1 s · [ ] frame · space pause · O overlay</p>
     </div>`;
 }
 
 function _wlMountFrame() {
-    const img = document.getElementById('wl-frame');
+    const vid = document.getElementById('wl-video');
     const canvas = document.getElementById('wl-canvas');
-    if (!img || !canvas) return;
-    img.onload = () => {
-        canvas.width = img.naturalWidth || 1280;
-        canvas.height = img.naturalHeight || 720;
+    if (!vid || !canvas || !_wlFlag.clip) return;
+    const c = _wlFlag.clip;
+    vid.src = `/api/projects/${_wlPid}/videos/${c.video_id}/stream`;
+    // exact-frame landing: event flags at the event moment, gap flags
+    // at the interval start (operator spec: no pre-roll)
+    const startAt = _wlFlag.kind === 'uncertain_event'
+        ? Number(c.center_seconds || c.start_seconds || 0)
+        : Number(c.start_seconds || 0);
+    _wlSeconds = startAt;
+    vid.addEventListener('loadedmetadata', () => {
+        canvas.width = vid.videoWidth || 1280;
+        canvas.height = vid.videoHeight || 720;
+        vid.currentTime = startAt;
+        if (_wlFlag.kind === 'uncertain_event') vid.play().catch(() => {});
+    }, { once: true });
+    // event clips loop over their padded window
+    vid.addEventListener('timeupdate', () => {
+        if (_wlFlag && _wlFlag.kind === 'uncertain_event'
+                && vid.currentTime > Number(c.end_seconds || 0) + 1.5) {
+            vid.currentTime = Number(c.start_seconds || 0);
+        }
+        _wlSeconds = vid.currentTime;
+        const lbl = document.getElementById('wl-scrub-label');
+        if (lbl) lbl.textContent = _wlFmt(_wlSeconds);
+        const scr = document.getElementById('wl-scrub');
+        if (scr && Math.abs(Number(scr.value) - _wlSeconds) > 1.5) {
+            scr.value = Math.floor(_wlSeconds);
+        }
+    });
+    canvas.onclick = _wlFlag.kind === 'suspected_gap' ? _wlCanvasClick : null;
+    _wlFetchOverlayTracks();
+    _wlStartOverlayLoop();
+}
+
+// --- track overlay (REVIEW-UI) ----------------------------------------------
+
+let _wlTracks = [];
+let _wlRafId = null;
+let _wlOverlayAll = true;
+
+async function _wlFetchOverlayTracks() {
+    _wlTracks = [];
+    const f = _wlFlag;
+    if (!f || !f.clip || !f.camera_id) return;
+    const pad = f.kind === 'uncertain_event' ? 8 : 0;
+    const lo = Math.max(0, Number(f.clip.start_seconds || 0) - pad);
+    const hi = Number(f.clip.end_seconds || lo) + pad;
+    try {
+        const r = await API.get(`/api/projects/${_wlPid}/cameras/${f.camera_id}` +
+            `/tracks?t_lo=${lo.toFixed(1)}&t_hi=${hi.toFixed(1)}`);
+        _wlTracks = (r && r.tracks) || [];
+    } catch (e) { /* overlay is decoration; the reviewer works without it */ }
+}
+
+function _wlStartOverlayLoop() {
+    if (_wlRafId) cancelAnimationFrame(_wlRafId);
+    const step = () => {
+        _wlRafId = requestAnimationFrame(step);
         _wlDrawOverlay();
+        const vt = document.getElementById('wl-vtime');
+        const vid = document.getElementById('wl-video');
+        if (vt && vid) vt.textContent = _wlFmt(vid.currentTime || 0);
     };
-    img.src = `/api/projects/${_wlPid}/videos/${_wlFlag.clip.video_id}/frame?seconds=${_wlSeconds}`;
-    if (_wlFlag.kind === 'suspected_gap') canvas.onclick = _wlCanvasClick;
-    else { canvas.onclick = null; _wlStartFlip(); }   // event clips loop; gaps scrub
+    _wlRafId = requestAnimationFrame(step);
+}
+
+function _wlBoxAt(pts, t) {
+    // binary search + interpolation; pts = [[t,cx,cy,bw,bh],...]
+    if (!pts.length || t < pts[0][0] - 0.4
+            || t > pts[pts.length - 1][0] + 0.4) return null;
+    let lo = 0, hi = pts.length - 1;
+    while (lo < hi - 1) {
+        const mid = (lo + hi) >> 1;
+        if (pts[mid][0] <= t) lo = mid; else hi = mid;
+    }
+    const a = pts[lo], b = pts[Math.min(hi, pts.length - 1)];
+    const f = b[0] > a[0] ? Math.max(0, Math.min(1, (t - a[0]) / (b[0] - a[0]))) : 0;
+    return [a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f,
+            a[3] + (b[3] - a[3]) * f, a[4] + (b[4] - a[4]) * f];
 }
 
 // --- looping clip (frame-flipbook) ------------------------------------------
 
 function _wlStopFlip() {
+    // REVIEW-UI: the flipbook is retired; this now tears down the video
+    // player + overlay loop (name kept — every card transition calls it).
     if (_wlFlipTimer) { clearInterval(_wlFlipTimer); _wlFlipTimer = null; }
     _wlFlipFrames = []; _wlFlipIdx = 0;
+    if (_wlRafId) { cancelAnimationFrame(_wlRafId); _wlRafId = null; }
+    const vid = document.getElementById('wl-video');
+    if (vid) { vid.pause(); vid.removeAttribute('src'); vid.load(); }
+    _wlTracks = [];
 }
 
 function _wlStartFlip() {
@@ -488,20 +569,44 @@ function _wlRunFlip() {
 
 function _wlDrawOverlay() {
     const canvas = document.getElementById('wl-canvas');
+    const vid = document.getElementById('wl-video');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const ev = _wlFlag.event;
+    const t = vid ? (vid.currentTime || 0) : _wlSeconds;
+    const evTid = _wlFlag && _wlFlag.event
+        ? Number(_wlFlag.event.vehicle_track_id) : null;
+    // all-tracks layer (dim) + the flag's own track (bright yellow)
+    for (const tr of _wlTracks) {
+        const isEv = evTid != null && tr.tid === evTid;
+        if (!isEv && !_wlOverlayAll) continue;
+        const box = _wlBoxAt(tr.pts, t);
+        if (!box) continue;
+        const [cx, cy, bw, bh] = box;
+        ctx.lineWidth = isEv ? 3 : 1.5;
+        ctx.strokeStyle = isEv ? '#ffd479' : 'rgba(180,190,200,0.55)';
+        ctx.strokeRect(cx - bw / 2, cy - bh / 2, bw, bh);
+        if (isEv) {
+            ctx.fillStyle = '#ffd479';
+            ctx.font = 'bold 13px system-ui';
+            ctx.fillText('#' + tr.tid, cx - bw / 2, cy - bh / 2 - 5);
+        }
+    }
+    // the event's stored trajectory (fallback identity when tid = -1,
+    // and the claimed-path context always)
+    const ev = _wlFlag && _wlFlag.event;
     if (!ev || !ev.trajectory_data) return;
     let traj; try { traj = JSON.parse(ev.trajectory_data); } catch (e) { return; }
     if (!traj || traj.length < 1) return;
-    ctx.strokeStyle = 'rgba(0,200,255,0.9)'; ctx.lineWidth = 3;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = 'rgba(0,200,255,0.8)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(traj[0][0], traj[0][1]);
     for (let i = 1; i < traj.length; i++) ctx.lineTo(traj[i][0], traj[i][1]);
     ctx.stroke();
+    ctx.setLineDash([]);
     const last = traj[traj.length - 1];
     ctx.fillStyle = 'rgba(255,60,60,0.95)';
-    ctx.beginPath(); ctx.arc(last[0], last[1], 9, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(last[0], last[1], 7, 0, Math.PI * 2); ctx.fill();
 }
 
 // --- actions ----------------------------------------------------------------
@@ -661,8 +766,15 @@ function _wlScrub(v) {
     _wlSeconds = Number(v);
     const lbl = document.getElementById('wl-scrub-label');
     if (lbl) lbl.textContent = _wlFmt(_wlSeconds);
-    const img = document.getElementById('wl-frame');
-    if (img) img.src = `/api/projects/${_wlPid}/videos/${_wlFlag.clip.video_id}/frame?seconds=${_wlSeconds}`;
+    const vid = document.getElementById('wl-video');
+    if (vid) { vid.pause(); vid.currentTime = _wlSeconds; }
+}
+
+function _wlNudge(sec) {
+    const vid = document.getElementById('wl-video');
+    if (!vid) return;
+    vid.pause();
+    vid.currentTime = Math.max(0, (vid.currentTime || 0) + sec);
 }
 
 function _wlToggleAdd() {
@@ -734,9 +846,20 @@ function _wlKeydown(e) {
     const shiftMove = (!gap && e.shiftKey && /^Digit[1-4]$/.test(e.code))
         ? _WL_MOVE[e.code.slice(5)] : null;
     let handled = true;
+    // REVIEW-UI (operator spec): arrows scrub the video 1 s, [ ] step a
+    // single frame, space pauses. Skip moved to X (arrows no longer skip).
     if (k === 'Enter') gap ? _wlResolveGap() : _wlAccept();
     else if (k === 'd' || k === 'D') _wlDismiss();
-    else if (k === 'ArrowRight' || k === ' ') _wlSkip();
+    else if (k === 'ArrowLeft') _wlNudge(-1);
+    else if (k === 'ArrowRight') _wlNudge(1);
+    else if (k === '[') _wlNudge(-0.04);
+    else if (k === ']') _wlNudge(0.04);
+    else if (k === ' ') {
+        const vid = document.getElementById('wl-video');
+        if (vid) { vid.paused ? vid.play().catch(() => {}) : vid.pause(); }
+    }
+    else if (k === 'o' || k === 'O') { _wlOverlayAll = !_wlOverlayAll; }
+    else if (k === 'x' || k === 'X') _wlSkip();
     else if (k === '.' || k === 'ArrowDown') _wlNextInCard();
     else if ((k === 'b' || k === 'B') && _wlFlag.batch_key && _wlGroupSize() > 1) _wlBatch('resolved');
     else if (gap && (k === 'a' || k === 'A')) _wlToggleAdd();

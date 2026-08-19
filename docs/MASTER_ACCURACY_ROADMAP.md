@@ -137,9 +137,9 @@ W→E path rows; the frozen EB pair); cam3 (never studied).
 
 | id | element | status | notes |
 |---|---|---|---|
-| A3+ | **A3 completion channel**: cut halves feed the EXISTING PPT prototype scorer ("what exit was it most likely to hit") — above self-calibrated floors LOG, below FLAG to review. Operator-specified; no new scorer needed | folded into the A3 block design | The 08-13 and 08-19 operator designs converge in one pipeline |
+| A3+ | **A3 BLOCK CLOSED 2026-08-19** (plan_a3_split verdicts): cutter VALIDATED (G-A3-1 55/56; hard-harm 0.39%; pinch displacement-chords) and ships as standing infrastructure; recovery channel LEDGERED at cam2-1100 — census-headroom admission proved the eventless-full class is echo twins (7/125 legitimate, no score movement). FINDINGS: 4.2% of counted events splice-tainted (G-A3-2b census instrument); pinch_rate health metric; census-headroom admission = standing rule for additive composers. Iteration 2 = FIX-COUNTED path (reattr-gate design + E1) | closed with verdicts | three consecutive gates held: QD human review, A3 envelope, A3 scores |
 | A6 | **Mask-based occlusion sensing** (operator concept): instance-seg mask inside the bbox; mask degradation = occlusion signal; tracker hardens association instead of handing off | research-later item for the next sweep | prevention-side sibling of A3's cure |
-| REVIEW-UI | **Flag-review screen rebuilt on the bbox-review pattern** (exact-frame, 1 s + frame scrub, live track box + path, keyboard verdicts) — operator: "how the real human flagger should work" | product item; front end for R0 + CERT | raises accuracy-per-review-minute directly |
+| REVIEW-UI | **SHIPPED 2026-08-19** — the worklist player is now a real seekable video (/stream Range endpoint) with the LIVE all-tracks bbox overlay (new /cameras/{cid}/tracks endpoint, mmap+searchsorted cache, range-aware variant resolution), exact-frame landing, arrow-key 1 s + [ ] frame scrub, O overlay toggle; flipbook retired; gap-flag multi-video selection fixed by containment | shipped; screenshots/reviewui_worklist_video.png | the R0/CERT instrument exists |
 
 ### Tier 4 — small mechanisms (each tiny, some die at gates)
 

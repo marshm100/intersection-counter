@@ -97,16 +97,41 @@ def _enrich(project_id: str, flag: dict) -> dict:
     elif flag.get("interval_start_seconds") is not None and flag.get("camera_id"):
         # Gap flag: no anchor event, so point the clip at the camera's video for
         # the flagged interval (the operator scrubs and adds missed vehicles).
+        # 2026-08-19 (REVIEW-UI): choose by CONTAINMENT — walk the camera's
+        # videos in sort order accumulating durations and pick the file whose
+        # span contains the interval start; first-long-enough landed multi-file
+        # cameras on the wrong footage.
         start = float(flag["interval_start_seconds"])
         end = float(flag.get("interval_end_seconds") or start)
         vids = list_videos_for_camera(project_id, flag["camera_id"])
-        chosen = next((v for v in vids
-                       if start < float(v.get("duration_seconds") or 1e12)), None)
+        chosen, base = None, 0.0
+        for v in vids:
+            dur = float(v.get("duration_seconds") or 0.0)
+            if base <= start < base + dur:
+                chosen = v
+                break
+            base += dur
         chosen = chosen or (vids[0] if vids else None)
         if chosen is not None:
             out["clip"] = {"video_id": chosen["video_id"], "start_seconds": start,
                            "end_seconds": end, "center_seconds": start}
     return out
+
+
+@router.get("/projects/{project_id}/cameras/{camera_id}/tracks")
+def get_tracks_in_range(project_id: str, camera_id: int, t_lo: float,
+                        t_hi: float, variant: str | None = None):
+    """Dump-track slices for the reviewer's live bbox overlay
+    (REVIEW-UI 2026-08-19). Cached mmap + searchsorted — cheap per
+    request; see backend/services/track_overlay.py."""
+    _require_project(project_id)
+    from backend.services.track_overlay import tracks_in_range
+    try:
+        return tracks_in_range(project_id, camera_id, t_lo, t_hi, variant)
+    except Exception as e:
+        # overlay is best-effort decoration; the reviewer works without it
+        return {"variant": None, "fps": None, "tracks": [],
+                "error": f"{type(e).__name__}: {e}"}
 
 
 @router.post("/projects/{project_id}/intersections/{intersection_id}/flags/rebuild")
