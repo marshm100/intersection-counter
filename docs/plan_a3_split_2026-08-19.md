@@ -212,3 +212,26 @@ zero additions; the echo class dies there. This is K1's variance-
 weighting principle in miniature and is exactly the "add only under
 the evidence envelope" rule the recall gate's flood guard enforces
 globally, applied per-cell at composition time.
+
+## COMPOSE VERDICT, cam2-1100 (2026-08-19): NO QUALIFYING CANDIDATE —
+## the recovery channel LEDGERS; the cutter survives as the deliverable
+
+Under census-headroom admission only **7/125 candidates survive**
+(81 blocked: no headroom) and the candidate moves NEITHER bar
+(55.0/46.9 = production exactly). Reading: cam2-1100's counted table
+already sits AT its gate-evidence envelope cell-by-cell — the
+eventless-full class here is dominated by CONCURRENT ECHO TWINS of
+counted vehicles, not missed traffic. The window's real volume
+deficit lives inside counted contamination (the 4.2% tainted events,
+G-A3-2b) and upstream detection — NOT in additive recovery.
+G-A3-3: no candidate → NO APPLY → LEDGERED. Iteration budget: this
+was iteration 1 of 2; iteration 2 (if pursued) is the FIX-COUNTED
+path (reattribution-mode gate design over the exposed 4.2% +
+E1 embedding echo dedup), not more recovery.
+
+**What ships from this block:** the VALIDATED cutter (G-A3-1 55/56,
+hard-harm 0.39%) + the boundaries-before-paths calibration order +
+the counted-splice census instrument (G-A3-2b) + the pinch-rate
+health metric + census-headroom admission as a standing rule for ANY
+future additive composer. The block closes with the cleaning tool
+proven and the recovery hypothesis honestly killed at this window.

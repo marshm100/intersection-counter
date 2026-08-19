@@ -45,7 +45,7 @@ from backend.config import (                                    # noqa: E402
 from backend.database import list_paths_for_camera              # noqa: E402
 from backend.services.classifier import classify_vehicle        # noqa: E402
 from backend.services.entry_gates import (                      # noqa: E402
-    all_crossings, build_gates, classify)
+    all_crossings, build_gates, cell_census, classify)
 from backend.services.pass2_replay import load_dump, tracks_dir  # noqa: E402
 from backend.services.track_chains import build_chain_map_ev    # noqa: E402
 from backend.services.trajectory_classifier import (            # noqa: E402
@@ -673,8 +673,32 @@ def main() -> int:
         admitted[tids[0]] = candidates[tids[0]]
         census["chain_dupe_suppressed"] += len(tids) - 1
 
+    # Amendment 5: census-headroom admission — recoveries only into
+    # cells still UNDER the window's own gate-evidence envelope
+    # (GT-free; the flood guard's per-cell logic at compose time).
+    census_exp = cell_census(ctx["tracks"].values(), ctx["gates"],
+                             ctx["fps"])
+    conn = sqlite3.connect(f"file:{control_db}?mode=ro", uri=True)
+    kept_cells = Counter()
+    for o_, d_, n_ in conn.execute(
+            "SELECT origin_leg_id, destination_leg_id, COUNT(*) FROM "
+            "vehicle_events WHERE camera_id=? AND COALESCE(rejected,0)=0 "
+            "AND timestamp_video>=? AND timestamp_video<? AND "
+            "origin_leg_id IS NOT NULL AND destination_leg_id IS NOT NULL "
+            "GROUP BY 1,2", (args.camera, ctx["t_lo"], ctx["t_hi"])):
+        kept_cells[(int(o_), int(d_))] = int(n_)
+    conn.close()
+
     rows, skipped = [], Counter()
-    for tid, c in sorted(admitted.items()):
+    added_cells = Counter()
+    for tid, c in sorted(admitted.items(),
+                         key=lambda kv: kv[1]["seg"][0][0]):
+        cell = (c["origin"], c["dest"])
+        headroom = float(census_exp.get(cell, 0.0)) \
+            - kept_cells.get(cell, 0) - added_cells[cell]
+        if headroom < 1.0:
+            skipped["no_census_headroom"] += 1
+            continue
         r = synthesize_row(ctx, tid, c["seg"], c["origin"], c["dest"],
                            c["source"])
         if r is None:
@@ -683,6 +707,7 @@ def main() -> int:
             skipped["uturn_deferred"] += 1
         else:
             rows.append(r)
+            added_cells[cell] += 1
 
     out = Path(args.out_db)
     out.parent.mkdir(parents=True, exist_ok=True)
