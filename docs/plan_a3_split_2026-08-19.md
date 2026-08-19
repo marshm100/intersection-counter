@@ -87,3 +87,27 @@ backend factor-outs (landed), backend/tests/test_a3_split.py,
 artifacts a3_validate_*.json / a3_c_*.json / score_a3_* /
 a3_preflight.json, verdict sections here, roadmap update. Committed
 either way.
+
+---
+
+## AMENDMENT 1 (2026-08-19, after validation run 1 — declared before
+## re-run; both changes are rule/criterion corrections, not tuning)
+
+Run 1: G-A3-1 39/56, G-A3-2 96.83% (137/4315 diffs). Anatomy:
+
+1. **Geometry-cut rule corrected**: "first outbound crossing" fires
+   on pre-entry JITTER blips (a bbox grazing outbound before the
+   journey enters) and decapitates good tracks — the 137 parity
+   breaks. Corrected rule: the first outbound crossing AFTER the
+   first inbound crossing (entries[0]); born-inside tracks (no
+   entries) keep first-outbound. "Cut when the movement completes"
+   was always the operator's semantics.
+2. **G-A3-1 acceptance corrected**: "cut strictly between first-in
+   and last-out" cannot see the commonest Type-1 anatomy — the thief
+   rides to the horizon WITHOUT crossing any gate, so the correct
+   cut lies AFTER the last outbound crossing (severing an uncrossed
+   tail), and born-inside splices invert the span. Corrected
+   acceptance per labeled splice: >= 2 segments AND the first
+   segment contains the track's first crossing AND the cut severs a
+   real tail (cut frame < the track's last frame). The mandatory
+   operator identity review (G-A3-3) remains the semantic backstop.
