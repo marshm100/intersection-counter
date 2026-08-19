@@ -484,18 +484,28 @@ let _wlTracks = [];
 let _wlRafId = null;
 let _wlOverlayAll = true;
 
-async function _wlFetchOverlayTracks() {
-    _wlTracks = [];
+let _wlTrackWin = [0, 0];   // the fetched overlay window [lo, hi]
+let _wlTrackBusy = false;
+
+async function _wlFetchOverlayTracks(center) {
+    // Dense-window fetch (2026-08-19 fix): fetching a whole 900 s gap
+    // interval under the row cap THINNED tracks to sparse samples —
+    // stationary boxes drew fine while MOVING boxes interpolated onto
+    // empty pavement. Fetch ±20 s around the playhead instead and
+    // refetch as the operator scrubs out of the window.
     const f = _wlFlag;
-    if (!f || !f.clip || !f.camera_id) return;
-    const pad = f.kind === 'uncertain_event' ? 8 : 0;
-    const lo = Math.max(0, Number(f.clip.start_seconds || 0) - pad);
-    const hi = Number(f.clip.end_seconds || lo) + pad;
+    if (!f || !f.clip || !f.camera_id || _wlTrackBusy) return;
+    const c = center != null ? center
+        : Number(f.clip.center_seconds || f.clip.start_seconds || 0);
+    const lo = Math.max(0, c - 20), hi = c + 20;
+    _wlTrackBusy = true;
     try {
         const r = await API.get(`/api/projects/${_wlPid}/cameras/${f.camera_id}` +
             `/tracks?t_lo=${lo.toFixed(1)}&t_hi=${hi.toFixed(1)}`);
         _wlTracks = (r && r.tracks) || [];
+        _wlTrackWin = [lo, hi];
     } catch (e) { /* overlay is decoration; the reviewer works without it */ }
+    finally { _wlTrackBusy = false; }
 }
 
 function _wlStartOverlayLoop() {
@@ -506,6 +516,14 @@ function _wlStartOverlayLoop() {
         const vt = document.getElementById('wl-vtime');
         const vid = document.getElementById('wl-video');
         if (vt && vid) vt.textContent = _wlFmt(vid.currentTime || 0);
+        // refetch the dense overlay window when the playhead drifts
+        // within 5 s of its edge
+        if (vid && _wlTracks !== undefined) {
+            const t = vid.currentTime || 0;
+            if (t < _wlTrackWin[0] + 5 || t > _wlTrackWin[1] - 5) {
+                _wlFetchOverlayTracks(t);
+            }
+        }
     };
     _wlRafId = requestAnimationFrame(step);
 }
