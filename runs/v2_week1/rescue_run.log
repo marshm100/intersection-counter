@@ -1,0 +1,24 @@
+loaded 16 operator channels from the channels table
+cam2 GT-free bank — 07:00:00+120min, 6841 usable tracks, agreement rate 38%, bearing-rebinned 72
+cell                          n  share straight bearing_res  status
+L26->L26 u_turn             135     --       --          --  UTURN_HELDOUT (48/135 reverse, frac 0.36)
+L26->L27 right              331     --       --          --  CHANNEL_DIRECT (drawn curve, support 331)
+L26->L28 through            388     --       --          --  CHANNEL_DIRECT (drawn curve, support 388)
+L26->L29 left                68     --       --          --  CHANNEL_DIRECT (drawn curve, support 68)
+L27->L26 left               684     --       --          --  CHANNEL_DIRECT (drawn curve, support 684)
+L27->L27 u_turn              52     --       --          --  UTURN_HELDOUT (23/52 reverse, frac 0.44)
+L27->L28 right              135     --       --          --  CHANNEL_DIRECT (drawn curve, support 135)
+L27->L29 through            433     --       --          --  CHANNEL_DIRECT (drawn curve, support 433)
+L28->L26 through            188     --       --          --  CHANNEL_DIRECT (drawn curve, support 188)
+L28->L27 left               149     --       --          --  CHANNEL_DIRECT (drawn curve, support 149)
+    (u-turn L28->L28 u_turn ADMITTED: 102/191 reverse, frac 0.53)
+L28->L28 u_turn             191     --       --          --  CHANNEL_DIRECT (drawn curve, support 191)
+L28->L29 right              327     --       --          --  CHANNEL_DIRECT (drawn curve, support 327)
+L29->L26 right              125     --       --          --  CHANNEL_DIRECT (drawn curve, support 125)
+L29->L27 through           1923     --       --          --  CHANNEL_DIRECT (drawn curve, support 1923)
+L29->L28 left              1577     --       --          --  CHANNEL_DIRECT (drawn curve, support 1577)
+L29->L29 u_turn             135     --       --          --  UTURN_HELDOUT (57/135 reverse, frac 0.42)
+
+wrote data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam2_v2c_study_0700.json (13 paths) + data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam2_v2c_study_0700_qa.json
+[pass2] cam2 v2c_study_0700: tracks=8320 events=6114 insufficient=2109 merge_kept=1793 merged_away=342 out=data\projects\97a7849a\_replay_scratch\v2_week1\twopass_cam2_v2c_study_0700.db (595s)
+RESCUE_DONE

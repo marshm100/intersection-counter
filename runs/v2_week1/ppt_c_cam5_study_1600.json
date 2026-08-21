@@ -1,0 +1,40 @@
+{
+ "camera": 5,
+ "variant": "study_1600",
+ "calibration": {
+  "n_fulls": 3379,
+  "heldout_n": 1672,
+  "attr_max_px": 96.0,
+  "margin": 0.9,
+  "heldout_precision": 0.9564,
+  "heldout_coverage": 0.8702
+ },
+ "events_kept": 6047,
+ "census": {
+  "full_untouched": 2826,
+  "no_crossing_out_of_scope": 414,
+  "contradiction_skipped": 590,
+  "confirmed_unchanged": 1756,
+  "reattributed": 282,
+  "floors_not_cleared": 179
+ },
+ "movement_matrix": {
+  "39->37:through => 39->36:right": 85,
+  "36->37:right => 39->37:through": 71,
+  "38->39:right => 38->36:through": 27,
+  "39->37:through => 36->37:right": 23,
+  "37->39:through => 37->38:right": 19,
+  "36->38:through => 39->38:left": 16,
+  "39->37:through => 39->38:left": 13,
+  "36->39:left => 36->38:through": 7,
+  "39->38:left => 39->36:right": 4,
+  "36->38:through => 36->37:right": 4,
+  "39->37:through => 38->37:left": 3,
+  "36->37:right => 38->37:left": 2,
+  "36->39:left => 37->39:through": 2,
+  "39->38:left => 39->37:through": 2,
+  "36->37:right => 36->38:through": 2,
+  "38->36:through => 39->36:right": 1,
+  "37->36:left => 37->39:through": 1
+ }
+}

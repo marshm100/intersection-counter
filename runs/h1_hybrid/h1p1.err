@@ -1,0 +1,15 @@
+WARNING  Max age > max observations, increasing size of max observations...    
+INFO     OcSort: det_thresh=0.25, max_age=150, max_obs=50, min_hits=3,         
+         iou_threshold=0.09999999999999998, per_class=False, asso_func=iou,    
+         min_conf=0.25, delta_t=3, inertia=0.4, use_byte=True,                 
+         Q_xy_scaling=0.01, Q_s_scaling=0.0001                                 
+WARNING  Max age > max observations, increasing size of max observations...    
+INFO     OcSort: det_thresh=0.25, max_age=150, max_obs=50, min_hits=3,         
+         iou_threshold=0.09999999999999998, per_class=False, asso_func=iou,    
+         min_conf=0.25, delta_t=3, inertia=0.4, use_byte=True,                 
+         Q_xy_scaling=0.01, Q_s_scaling=0.0001                                 
+WARNING  Max age > max observations, increasing size of max observations...    
+INFO     OcSort: det_thresh=0.25, max_age=150, max_obs=50, min_hits=3,         
+         iou_threshold=0.09999999999999998, per_class=False, asso_func=iou,    
+         min_conf=0.25, delta_t=3, inertia=0.4, use_byte=True,                 
+         Q_xy_scaling=0.01, Q_s_scaling=0.0001                                 

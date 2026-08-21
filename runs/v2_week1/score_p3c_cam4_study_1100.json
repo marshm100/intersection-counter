@@ -1,0 +1,164 @@
+{
+ "v2": {
+  "cells_scored": 49,
+  "compliant": 36,
+  "pct": 73.5,
+  "worst": [
+   {
+    "bin": "12:45",
+    "cell": "NB thru",
+    "ours": 201,
+    "ref": 219
+   },
+   {
+    "bin": "11:00",
+    "cell": "NB thru",
+    "ours": 176,
+    "ref": 161
+   },
+   {
+    "bin": "12:30",
+    "cell": "NB thru",
+    "ours": 182,
+    "ref": 197
+   },
+   {
+    "bin": "11:30",
+    "cell": "SB right",
+    "ours": 13,
+    "ref": 0
+   },
+   {
+    "bin": "12:00",
+    "cell": "NB thru",
+    "ours": 212,
+    "ref": 225
+   },
+   {
+    "bin": "12:30",
+    "cell": "SB thru",
+    "ours": 215,
+    "ref": 202
+   },
+   {
+    "bin": "11:00",
+    "cell": "SB thru",
+    "ours": 206,
+    "ref": 195
+   },
+   {
+    "bin": "12:30",
+    "cell": "EB left",
+    "ours": 12,
+    "ref": 3
+   }
+  ]
+ },
+ "production": {
+  "cells_scored": 49,
+  "compliant": 34,
+  "pct": 69.4,
+  "worst": [
+   {
+    "bin": "12:45",
+    "cell": "NB thru",
+    "ours": 201,
+    "ref": 219
+   },
+   {
+    "bin": "11:00",
+    "cell": "NB thru",
+    "ours": 176,
+    "ref": 161
+   },
+   {
+    "bin": "11:30",
+    "cell": "SB right",
+    "ours": 15,
+    "ref": 0
+   },
+   {
+    "bin": "12:30",
+    "cell": "NB thru",
+    "ours": 182,
+    "ref": 197
+   },
+   {
+    "bin": "12:00",
+    "cell": "NB thru",
+    "ours": 212,
+    "ref": 225
+   },
+   {
+    "bin": "12:45",
+    "cell": "SB right",
+    "ours": 13,
+    "ref": 1
+   },
+   {
+    "bin": "12:30",
+    "cell": "SB right",
+    "ours": 12,
+    "ref": 1
+   },
+   {
+    "bin": "11:15",
+    "cell": "SB right",
+    "ours": 11,
+    "ref": 1
+   }
+  ]
+ },
+ "totals": {
+  "EB_left": [
+   20,
+   43,
+   43
+  ],
+  "EB_right": [
+   6,
+   0,
+   0
+  ],
+  "EB_thru": [
+   0,
+   4,
+   4
+  ],
+  "EB_uturn": [
+   0,
+   0,
+   0
+  ],
+  "NB_left": [
+   17,
+   1,
+   1
+  ],
+  "NB_thru": [
+   1546,
+   1524,
+   1524
+  ],
+  "NB_uturn": [
+   4,
+   1,
+   1
+  ],
+  "SB_right": [
+   16,
+   64,
+   92
+  ],
+  "SB_thru": [
+   1640,
+   1698,
+   1670
+  ],
+  "SB_uturn": [
+   2,
+   0,
+   0
+  ]
+ }
+}

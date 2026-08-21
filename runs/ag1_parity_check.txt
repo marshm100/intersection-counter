@@ -1,0 +1,15 @@
+cam1 study_0700  gate=stand_down expected=stand_down OK   [saturated_geometry,no_headroom,event_flood]  (inc 60.5 vs cand 44.8)
+cam1 study_1600  gate=stand_down expected=stand_down OK   [saturated_geometry,event_flood]  (inc 54.5 vs cand 43.6)
+cam2 study_0700  gate=apply      expected=apply      OK   [gate_pass]  (inc 54.4 vs cand 55.8; DEV — not binding)
+cam2 study_1100  gate=apply      expected=apply      OK   [gate_pass]  (inc 45.7 vs cand 50.4)
+cam2 study_1600  gate=stand_down expected=stand_down OK   [no_headroom,event_flood]  (inc 46.8 vs cand 45.8)
+cam3 study_0600  gate=apply      expected=apply      OK   [gate_pass]  (inc 64.1 vs cand 72.6)
+cam4 study_0700  gate=stand_down expected=stand_down OK   [no_headroom,event_flood]  (inc 75.4 vs cand 60.3)
+cam4 study_1100  gate=stand_down expected=stand_down OK   [no_headroom,event_flood]  (inc 69.4 vs cand 64.4)
+cam4 study_1600  gate=stand_down expected=stand_down OK   [no_headroom,event_flood]  (inc 75.8 vs cand 52.1)
+cam5 study_0700  gate=stand_down expected=stand_down OK   [event_flood]  (inc 66.4 vs cand 55.2)
+cam5 study_1100  gate=stand_down expected=stand_down OK   [event_flood]  (inc 71.7 vs cand 63.0)
+cam5 study_1600  gate=stand_down expected=stand_down OK   [event_flood]  (inc 63.1 vs cand 51.6)
+
+GATE-AG1: 11/11 binding (12/12 incl. dev)
+wrote runs\v2_week1\apply_gate_validation.json

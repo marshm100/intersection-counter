@@ -1,0 +1,371 @@
+=== ARMC cam4 v2c_study_0700 ===
+cam4 GT-free bank — 07:00:00+120min, 6958 usable tracks, agreement rate 81%, bearing-rebinned 769
+cell                          n  share straight bearing_res  status
+L35->L33 through           4020  64.5%    0.990  [2.3, 7.0]  ok
+L33->L35 through           1936  31.1%    0.999  [1.0, 1.0]  ok
+L35->L34 left               144   2.3%    0.982[6.9, 126.3]  BEARING_REJECTED
+L34->L35 right               64   1.0%    0.999 [81.4, 1.1]  BEARING_REJECTED
+L34->L33 left                45   0.7%    0.706  [9.5, 7.3]  MINOR_REJECTED (member spread 109px)
+L33->L34 right               22   0.4%    0.974  [0.2, 0.8]  MINOR_REJECTED (member spread 112px)
+!! MISSING MOVEMENTS: 4 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L33->L34 right
+     L34->L33 left
+     L34->L35 right
+     L35->L34 left
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam4_v2c_study_0700.json (2 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam4_v2c_study_0700_qa.json
+[pass2] cam4 v2c_study_0700: tracks=7664 events=5802 insufficient=1779 merge_kept=277 merged_away=36 out=data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_cam4_v2c_study_0700.db (159s)
+
+=== armC_cam4_v2c_study_0700 (cam4 study_0700, 120 Mio minutes) ===
+5/95 cell-bins: V2 57.8% (37/64)  |  PRODUCTION 75.4% (43/57)
+        cell    Mio     V2   prod
+     EB left     15    135     67
+    EB right      6      0      0
+     EB thru      0      7      7
+    EB uturn      0      0      0
+     NB left     20     26      1
+     NB thru   2713   3356   2779
+    NB uturn      0     20      1
+    SB right     22     71     89
+     SB thru   1957   2145   2002
+    SB uturn      0     25     10
+-> runs\v2_week1\score_armC_cam4_v2c_study_0700.json
+=== ARMC cam4 v2c_study_1600 ===
+cam4 GT-free bank — 16:00:00+120min, 7860 usable tracks, agreement rate 74%, bearing-rebinned 848
+cell                          n  share straight bearing_res  status
+L35->L33 through           3324  47.6%    0.988  [0.6, 6.6]  ok
+L33->L35 through           3247  46.5%    0.999  [1.9, 1.5]  ok
+L34->L35 right              231   3.3%    0.999 [23.8, 1.1]  ok  [WARN straight turn]
+L34->L33 left                86   1.2%    0.818 [40.3, 9.9]  ok
+L33->L34 right               50   0.7%    0.954 [1.6, 21.7]  MINOR_REJECTED (member spread 78px)
+L35->L34 left                38   0.5%    0.881 [2.8, 31.1]  MINOR_REJECTED (member spread 103px)
+!! LEG SANITY: leg 34 calibrated 119.4deg but traffic enters at 238.2deg — check label/heading
+!! MISSING MOVEMENTS: 2 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L33->L34 right
+     L35->L34 left
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam4_v2c_study_1600.json (4 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam4_v2c_study_1600_qa.json
+[pass2] cam4 v2c_study_1600: tracks=8986 events=6708 insufficient=2157 merge_kept=415 merged_away=186 out=data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_cam4_v2c_study_1600.db (199s)
+
+=== armC_cam4_v2c_study_1600 (cam4 study_1600, 120 Mio minutes) ===
+5/95 cell-bins: V2 60.6% (43/71)  |  PRODUCTION 75.8% (50/66)
+        cell    Mio     V2   prod
+     EB left     29    145     27
+    EB right     15      2      0
+     EB thru      0     16     10
+    EB uturn      0      1      0
+     NB left     23     29      8
+     NB thru   2439   2688   2392
+    NB uturn     14     26      1
+    SB right     39    185    274
+     SB thru   2981   3441   2924
+    SB uturn      0     27     16
+-> runs\v2_week1\score_armC_cam4_v2c_study_1600.json
+=== ARMC cam5 v2c_study_1100 ===
+loaded 16 operator channels from the channels table
+cam5 GT-free bank — 11:00:00+120min, 5152 usable tracks, agreement rate 41%, bearing-rebinned 434
+cell                          n  share straight bearing_res  status
+    (u-turn L36->L36 u_turn ADMITTED: 13/17 reverse, frac 0.76)
+L36->L36 u_turn              17     --       --          --  CHANNEL_DIRECT (drawn curve, support 17)
+L36->L37 right               89     --       --          --  CHANNEL_DIRECT (drawn curve, support 89)
+L36->L38 through             66     --       --          --  CHANNEL_DIRECT (drawn curve, support 66)
+L36->L39 left              1079     --       --          --  CHANNEL_DIRECT (drawn curve, support 1079)
+L37->L36 left                60     --       --          --  CHANNEL_DIRECT (drawn curve, support 60)
+    (u-turn L37->L37 u_turn ADMITTED: 88/98 reverse, frac 0.90)
+L37->L37 u_turn              98     --       --          --  CHANNEL_DIRECT (drawn curve, support 98)
+L37->L38 right              120     --       --          --  CHANNEL_DIRECT (drawn curve, support 120)
+L37->L39 through            828     --       --          --  CHANNEL_DIRECT (drawn curve, support 828)
+L38->L36 through             73     --       --          --  CHANNEL_DIRECT (drawn curve, support 73)
+L38->L37 left               177     --       --          --  CHANNEL_DIRECT (drawn curve, support 177)
+L38->L38 u_turn              43     --       --          --  UTURN_HELDOUT (3/43 reverse, frac 0.07)
+L38->L39 right              160     --       --          --  CHANNEL_DIRECT (drawn curve, support 160)
+L39->L36 right              442     --       --          --  CHANNEL_DIRECT (drawn curve, support 442)
+L39->L37 through           1536     --       --          --  CHANNEL_DIRECT (drawn curve, support 1536)
+L39->L38 left                72     --       --          --  CHANNEL_DIRECT (drawn curve, support 72)
+    (u-turn L39->L39 u_turn ADMITTED: 227/292 reverse, frac 0.78)
+L39->L39 u_turn             292     --       --          --  CHANNEL_DIRECT (drawn curve, support 292)
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam5_v2c_study_1100.json (15 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam5_v2c_study_1100_qa.json
+[pass2] cam5 v2c_study_1100: tracks=6572 events=4522 insufficient=1957 merge_kept=866 merged_away=256 out=data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_cam5_v2c_study_1100.db (175s)
+
+=== armC_cam5_v2c_study_1100 (cam5 study_1100, 120 Mio minutes) ===
+5/95 cell-bins: V2 67.2% (80/119)  |  PRODUCTION 71.7% (76/106)
+        cell    Mio     V2   prod
+     EB left     87    145    111
+    EB right    162    211    116
+     EB thru     12     70     24
+    EB uturn      1     16      1
+     NB left    185    235    214
+    NB right     26     15      4
+     NB thru   1362   1693   1539
+    NB uturn      1     12      0
+     SB left     27     61     37
+    SB right     88    121    107
+     SB thru   1496   1574   1379
+    SB uturn     15      2      0
+     WB left     17     31     20
+    WB right     21     33     56
+     WB thru     24     65     61
+    WB uturn      0      2      0
+-> runs\v2_week1\score_armC_cam5_v2c_study_1100.json
+=== ARMC cam5 v2c_study_0700 ===
+loaded 16 operator channels from the channels table
+cam5 GT-free bank — 07:00:00+120min, 7415 usable tracks, agreement rate 33%, bearing-rebinned 440
+cell                          n  share straight bearing_res  status
+    (u-turn L36->L36 u_turn ADMITTED: 25/32 reverse, frac 0.78)
+L36->L36 u_turn              32     --       --          --  CHANNEL_DIRECT (drawn curve, support 32)
+L36->L37 right               92     --       --          --  CHANNEL_DIRECT (drawn curve, support 92)
+L36->L38 through             83     --       --          --  CHANNEL_DIRECT (drawn curve, support 83)
+L36->L39 left              1423     --       --          --  CHANNEL_DIRECT (drawn curve, support 1423)
+L37->L36 left                52     --       --          --  CHANNEL_DIRECT (drawn curve, support 52)
+    (u-turn L37->L37 u_turn ADMITTED: 79/81 reverse, frac 0.98)
+L37->L37 u_turn              81     --       --          --  CHANNEL_DIRECT (drawn curve, support 81)
+L37->L38 right               85     --       --          --  CHANNEL_DIRECT (drawn curve, support 85)
+L37->L39 through            916     --       --          --  CHANNEL_DIRECT (drawn curve, support 916)
+L38->L36 through             53     --       --          --  CHANNEL_DIRECT (drawn curve, support 53)
+L38->L37 left               197     --       --          --  CHANNEL_DIRECT (drawn curve, support 197)
+L38->L38 u_turn             116     --       --          --  UTURN_HELDOUT (15/116 reverse, frac 0.13)
+L38->L39 right              182     --       --          --  CHANNEL_DIRECT (drawn curve, support 182)
+L39->L36 right              496     --       --          --  CHANNEL_DIRECT (drawn curve, support 496)
+L39->L37 through           2826     --       --          --  CHANNEL_DIRECT (drawn curve, support 2826)
+L39->L38 left               176     --       --          --  CHANNEL_DIRECT (drawn curve, support 176)
+    (u-turn L39->L39 u_turn ADMITTED: 434/605 reverse, frac 0.72)
+L39->L39 u_turn             605     --       --          --  CHANNEL_DIRECT (drawn curve, support 605)
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam5_v2c_study_0700.json (15 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam5_v2c_study_0700_qa.json
+[pass2] cam5 v2c_study_0700: tracks=8960 events=6451 insufficient=2421 merge_kept=1064 merged_away=492 out=data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_cam5_v2c_study_0700.db (260s)
+
+=== armC_cam5_v2c_study_0700 (cam5 study_0700, 120 Mio minutes) ===
+5/95 cell-bins: V2 62.9% (78/124)  |  PRODUCTION 66.4% (71/107)
+        cell    Mio     V2   prod
+     EB left     96    170    113
+    EB right    188    223    124
+     EB thru      4     65     17
+    EB uturn      6     21      6
+     NB left    335    358    270
+    NB right     21     20      5
+     NB thru   2379   2909   2468
+    NB uturn      1     24      1
+     SB left     22     65     32
+    SB right     48     84     72
+     SB thru   1868   1845   1752
+    SB uturn      4      7      0
+     WB left     26     48     45
+    WB right     23     40     85
+     WB thru     25     80     76
+    WB uturn      0     18      1
+-> runs\v2_week1\score_armC_cam5_v2c_study_0700.json
+=== ARMC cam5 v2c_study_1600 ===
+loaded 16 operator channels from the channels table
+cam5 GT-free bank — 16:00:00+120min, 8491 usable tracks, agreement rate 41%, bearing-rebinned 491
+cell                          n  share straight bearing_res  status
+    (u-turn L36->L36 u_turn ADMITTED: 35/40 reverse, frac 0.88)
+L36->L36 u_turn              40     --       --          --  CHANNEL_DIRECT (drawn curve, support 40)
+L36->L37 right              139     --       --          --  CHANNEL_DIRECT (drawn curve, support 139)
+L36->L38 through             73     --       --          --  CHANNEL_DIRECT (drawn curve, support 73)
+L36->L39 left              2063     --       --          --  CHANNEL_DIRECT (drawn curve, support 2063)
+L37->L36 left               103     --       --          --  CHANNEL_DIRECT (drawn curve, support 103)
+    (u-turn L37->L37 u_turn ADMITTED: 136/139 reverse, frac 0.98)
+L37->L37 u_turn             139     --       --          --  CHANNEL_DIRECT (drawn curve, support 139)
+L37->L38 right              181     --       --          --  CHANNEL_DIRECT (drawn curve, support 181)
+L37->L39 through           1326     --       --          --  CHANNEL_DIRECT (drawn curve, support 1326)
+L38->L36 through             80     --       --          --  CHANNEL_DIRECT (drawn curve, support 80)
+L38->L37 left               259     --       --          --  CHANNEL_DIRECT (drawn curve, support 259)
+L38->L38 u_turn              80     --       --          --  UTURN_HELDOUT (8/80 reverse, frac 0.10)
+L38->L39 right              248     --       --          --  CHANNEL_DIRECT (drawn curve, support 248)
+L39->L36 right              370     --       --          --  CHANNEL_DIRECT (drawn curve, support 370)
+L39->L37 through           2742     --       --          --  CHANNEL_DIRECT (drawn curve, support 2742)
+L39->L38 left               153     --       --          --  CHANNEL_DIRECT (drawn curve, support 153)
+    (u-turn L39->L39 u_turn ADMITTED: 326/495 reverse, frac 0.66)
+L39->L39 u_turn             495     --       --          --  CHANNEL_DIRECT (drawn curve, support 495)
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam5_v2c_study_1600.json (15 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam5_v2c_study_1600_qa.json
+[pass2] cam5 v2c_study_1600: tracks=10196 events=7277 insufficient=2834 merge_kept=1215 merged_away=350 out=data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_cam5_v2c_study_1600.db (313s)
+
+=== armC_cam5_v2c_study_1600 (cam5 study_1600, 120 Mio minutes) ===
+5/95 cell-bins: V2 64.8% (81/125)  |  PRODUCTION 63.1% (65/103)
+        cell    Mio     V2   prod
+     EB left    125    189    146
+    EB right    244    283    147
+     EB thru     29     56     13
+    EB uturn      4     13      4
+     NB left    240    276    224
+    NB right     35     10      0
+     NB thru   2185   2647   2440
+    NB uturn      2     11      0
+     SB left     49    124     60
+    SB right    137    195    173
+     SB thru   2819   2945   2635
+    SB uturn      3      9      0
+     WB left     22     40     43
+    WB right     25     50    103
+     WB thru     27     66     59
+    WB uturn      0     21      0
+-> runs\v2_week1\score_armC_cam5_v2c_study_1600.json
+=== ARMC cam2 v2c_study_0700 ===
+loaded 16 operator channels from the channels table
+cam2 GT-free bank — 07:00:00+120min, 6841 usable tracks, agreement rate 38%, bearing-rebinned 72
+cell                          n  share straight bearing_res  status
+L26->L26 u_turn             135     --       --          --  UTURN_HELDOUT (48/135 reverse, frac 0.36)
+L26->L27 right              331     --       --          --  CHANNEL_DIRECT (drawn curve, support 331)
+L26->L28 through            388     --       --          --  CHANNEL_DIRECT (drawn curve, support 388)
+L26->L29 left                68     --       --          --  CHANNEL_DIRECT (drawn curve, support 68)
+L27->L26 left               684     --       --          --  CHANNEL_DIRECT (drawn curve, support 684)
+L27->L27 u_turn              52     --       --          --  UTURN_HELDOUT (23/52 reverse, frac 0.44)
+L27->L28 right              135     --       --          --  CHANNEL_DIRECT (drawn curve, support 135)
+L27->L29 through            433     --       --          --  CHANNEL_DIRECT (drawn curve, support 433)
+L28->L26 through            188     --       --          --  CHANNEL_DIRECT (drawn curve, support 188)
+L28->L27 left               149     --       --          --  CHANNEL_DIRECT (drawn curve, support 149)
+    (u-turn L28->L28 u_turn ADMITTED: 102/191 reverse, frac 0.53)
+L28->L28 u_turn             191     --       --          --  CHANNEL_DIRECT (drawn curve, support 191)
+L28->L29 right              327     --       --          --  CHANNEL_DIRECT (drawn curve, support 327)
+L29->L26 right              125     --       --          --  CHANNEL_DIRECT (drawn curve, support 125)
+L29->L27 through           1923     --       --          --  CHANNEL_DIRECT (drawn curve, support 1923)
+L29->L28 left              1577     --       --          --  CHANNEL_DIRECT (drawn curve, support 1577)
+L29->L29 u_turn             135     --       --          --  UTURN_HELDOUT (57/135 reverse, frac 0.42)
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam2_v2c_study_0700.json (13 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam2_v2c_study_0700_qa.json
+[pass2] cam2 v2c_study_0700: tracks=8320 events=5549 insufficient=2674 merge_kept=1539 merged_away=294 out=data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_cam2_v2c_study_0700.db (368s)
+
+=== armC_cam2_v2c_study_0700 (cam2 study_0700, 120 Mio minutes) ===
+5/95 cell-bins: V2 53.6% (59/110)  |  PRODUCTION 55.8% (63/113)
+        cell    Mio     V2   prod
+     EB left    229    194    234
+    EB right    167    205    332
+     EB thru    119     23     35
+    EB uturn      2      4     15
+     NB left    411    219    413
+    NB right     22      3      4
+     NB thru   2198   2275   2394
+    NB uturn      0     10      8
+     SB left    115    175    163
+    SB right    379    433    232
+     SB thru   1384   1213   1291
+    SB uturn      1     22     15
+     WB left     61     14     32
+    WB right    293    316    359
+     WB thru    267    240    288
+    WB uturn      0      0      0
+-> runs\v2_week1\score_armC_cam2_v2c_study_0700.json
+=== ARMC cam2 v2c_study_1100 ===
+loaded 16 operator channels from the channels table
+cam2 GT-free bank — 11:00:00+120min, 5480 usable tracks, agreement rate 36%, bearing-rebinned 104
+cell                          n  share straight bearing_res  status
+L26->L26 u_turn             143     --       --          --  UTURN_HELDOUT (67/143 reverse, frac 0.47)
+L26->L27 right              168     --       --          --  CHANNEL_DIRECT (drawn curve, support 168)
+L26->L28 through            388     --       --          --  CHANNEL_DIRECT (drawn curve, support 388)
+L26->L29 left                58     --       --          --  CHANNEL_DIRECT (drawn curve, support 58)
+L27->L26 left               555     --       --          --  CHANNEL_DIRECT (drawn curve, support 555)
+    (u-turn L27->L27 u_turn ADMITTED: 28/36 reverse, frac 0.78)
+L27->L27 u_turn              36     --       --          --  CHANNEL_DIRECT (drawn curve, support 36)
+L27->L28 right              139     --       --          --  CHANNEL_DIRECT (drawn curve, support 139)
+L27->L29 through            443     --       --          --  CHANNEL_DIRECT (drawn curve, support 443)
+L28->L26 through            317     --       --          --  CHANNEL_DIRECT (drawn curve, support 317)
+L28->L27 left               168     --       --          --  CHANNEL_DIRECT (drawn curve, support 168)
+    (u-turn L28->L28 u_turn ADMITTED: 136/240 reverse, frac 0.57)
+L28->L28 u_turn             240     --       --          --  CHANNEL_DIRECT (drawn curve, support 240)
+L28->L29 right              426     --       --          --  CHANNEL_DIRECT (drawn curve, support 426)
+L29->L26 right              110     --       --          --  CHANNEL_DIRECT (drawn curve, support 110)
+L29->L27 through           1211     --       --          --  CHANNEL_DIRECT (drawn curve, support 1211)
+L29->L28 left               937     --       --          --  CHANNEL_DIRECT (drawn curve, support 937)
+L29->L29 u_turn             141     --       --          --  UTURN_HELDOUT (69/141 reverse, frac 0.49)
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam2_v2c_study_1100.json (14 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam2_v2c_study_1100_qa.json
+[pass2] cam2 v2c_study_1100: tracks=7489 events=4261 insufficient=3152 merge_kept=1323 merged_away=337 out=data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_cam2_v2c_study_1100.db (450s)
+
+=== armC_cam2_v2c_study_1100 (cam2 study_1100, 120 Mio minutes) ===
+5/95 cell-bins: V2 42.0% (47/112)  |  PRODUCTION 50.4% (57/113)
+        cell    Mio     V2   prod
+     EB left    326    205    275
+    EB right    351    190    415
+     EB thru    176     34     70
+    EB uturn      0      3      5
+     NB left    450    146    338
+    NB right     28      0      2
+     NB thru   1105   1224   1329
+    NB uturn      5     14     12
+     SB left    145    231    190
+    SB right    388    434    197
+     SB thru   1064   1164   1142
+    SB uturn      2     22      5
+     WB left     63      7     32
+    WB right    144    159    196
+     WB thru    196    190    217
+    WB uturn      0      1      1
+-> runs\v2_week1\score_armC_cam2_v2c_study_1100.json
+=== ARMC cam2 v2c_study_1600 ===
+loaded 16 operator channels from the channels table
+cam2 GT-free bank — 16:00:00+120min, 8823 usable tracks, agreement rate 29%, bearing-rebinned 192
+cell                          n  share straight bearing_res  status
+L26->L26 u_turn             150     --       --          --  UTURN_HELDOUT (44/150 reverse, frac 0.29)
+L26->L27 right              286     --       --          --  CHANNEL_DIRECT (drawn curve, support 286)
+L26->L28 through            392     --       --          --  CHANNEL_DIRECT (drawn curve, support 392)
+L26->L29 left                87     --       --          --  CHANNEL_DIRECT (drawn curve, support 87)
+L27->L26 left              1173     --       --          --  CHANNEL_DIRECT (drawn curve, support 1173)
+L27->L27 u_turn              64     --       --          --  UTURN_HELDOUT (30/64 reverse, frac 0.47)
+L27->L28 right              108     --       --          --  CHANNEL_DIRECT (drawn curve, support 108)
+L27->L29 through            750     --       --          --  CHANNEL_DIRECT (drawn curve, support 750)
+L28->L26 through            610     --       --          --  CHANNEL_DIRECT (drawn curve, support 610)
+L28->L27 left               287     --       --          --  CHANNEL_DIRECT (drawn curve, support 287)
+L28->L28 u_turn             454     --       --          --  UTURN_HELDOUT (216/454 reverse, frac 0.48)
+L28->L29 right              859     --       --          --  CHANNEL_DIRECT (drawn curve, support 859)
+L29->L26 right              147     --       --          --  CHANNEL_DIRECT (drawn curve, support 147)
+L29->L27 through           1660     --       --          --  CHANNEL_DIRECT (drawn curve, support 1660)
+L29->L28 left              1582     --       --          --  CHANNEL_DIRECT (drawn curve, support 1582)
+L29->L29 u_turn             214     --       --          --  UTURN_HELDOUT (81/214 reverse, frac 0.38)
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam2_v2c_study_1600.json (12 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam2_v2c_study_1600_qa.json
+[pass2] cam2 v2c_study_1600: tracks=11247 events=7144 insufficient=4035 merge_kept=2614 merged_away=453 out=data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_cam2_v2c_study_1600.db (509s)
+
+=== armC_cam2_v2c_study_1600 (cam2 study_1600, 120 Mio minutes) ===
+5/95 cell-bins: V2 46.6% (55/118)  |  PRODUCTION 44.0% (48/109)
+        cell    Mio     V2   prod
+     EB left    496    464    335
+    EB right    699    439    784
+     EB thru    454     73    240
+    EB uturn      1     16      4
+     NB left    420    254    373
+    NB right     28      3      2
+     NB thru   1726   1701   1754
+    NB uturn      0     20      2
+     SB left    307    644    399
+    SB right    341    545    235
+     SB thru   2247   2138   2066
+    SB uturn     12     79     44
+     WB left     55     16     15
+    WB right    256    285    338
+     WB thru    235    216    244
+    WB uturn      0      0      0
+-> runs\v2_week1\score_armC_cam2_v2c_study_1600.json
+=== ARMC cam3 v2c_study_0600 ===
+cam3 GT-free bank — 06:00:00+840min, 36378 usable tracks, agreement rate 29%, bearing-rebinned 4543
+cell                          n  share straight bearing_res  status
+L30->L31 through          15269  48.6%    0.994 [1.0, 13.7]  ok
+L31->L30 through          15162  48.3%    0.997  [2.8, 1.0]  ok
+L30->L32 right              332   1.1%    0.983  [3.7, 2.4]  ok  [WARN straight turn]
+L32->L30 left               292   0.9%    0.989 [11.7, 6.4]  MINOR_REJECTED (member spread 81px)
+L32->L31 right              202   0.6%    0.770 [8.1, 11.6]  MINOR_REJECTED (member spread 43px)
+L31->L32 left               141   0.4%    0.513  [9.4, 0.7]  MINOR_REJECTED (member spread 68px)
+!! MISSING MOVEMENTS: 3 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L31->L32 left
+     L32->L30 left
+     L32->L31 right
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam3_v2c_study_0600.json (3 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_bank_cam3_v2c_study_0600_qa.json
+[pass2] cam3 v2c_study_0600: tracks=46388 events=30290 insufficient=14550 merge_kept=1704 merged_away=174 out=data\projects\97a7849a\_replay_scratch\v2_confound\armC2\twopass_cam3_v2c_study_0600.db (1475s)
+
+=== armC_cam3_v2c_study_0600 (cam3 study_0600, 840 Mio minutes) ===
+5/95 cell-bins: V2 61.1% (327/535)  |  PRODUCTION 72.6% (337/464)
+        cell    Mio     V2   prod
+     EB left    196    336    331
+    EB right    155    348    278
+     EB thru      0   6626     26
+    EB uturn      0     97      7
+     NB left    114     92    184
+     NB thru  13756   9413  16666
+    NB uturn      8     98    162
+    SB right    247    368    374
+     SB thru  14385  12412  15523
+    SB uturn      0    367    258
+-> runs\v2_week1\score_armC_cam3_v2c_study_0600.json
+ARMC_INTERACTING_DONE

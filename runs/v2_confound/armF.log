@@ -1,0 +1,129 @@
+=== BUILD v2f cam1 study_0700 ===
+[extend] cam1 study_0700 -> v2f_study_0700: 6728 tracks, 1770 endpoints extended, 0 full-skipped (+27095 rows) -> data\projects\97a7849a\detections\1\40be14d816e2326b276abf601d57e78a97fb2066cb846979771b78dbe008bcce\v2f_study_0700.tracks (4s)
+=== BUILD v2f cam1 study_1600 ===
+[extend] cam1 study_1600 -> v2f_study_1600: 8938 tracks, 2048 endpoints extended, 0 full-skipped (+32183 rows) -> data\projects\97a7849a\detections\1\40be14d816e2326b276abf601d57e78a97fb2066cb846979771b78dbe008bcce\v2f_study_1600.tracks (6s)
+=== BUILD v2f cam4 study_1100 ===
+[extend] cam4 study_1100 -> v2f_study_1100: 4970 tracks, 812 endpoints extended, 0 full-skipped (+12263 rows) -> data\projects\97a7849a\detections\4\89c0a2d0d6259a3b520e71525665ce98df95fb8f734a988b2061cfdc1b3fe178\v2f_study_1100.tracks (3s)
+=== ARMF cam1 v2f_study_0700 ===
+cam1 GT-free bank — 07:00:00+120min, 5379 usable tracks, agreement rate 53%, bearing-rebinned 1022
+cell                          n  share straight bearing_res  status
+L22->L23 through           1778  37.1%    1.000  [1.5, 1.3]  ok
+L23->L22 through            920  19.2%    0.999  [0.1, 0.6]  ok
+L25->L22 left               864  18.0%    1.000  [2.7, 2.9]  ok  [WARN straight turn]
+L22->L24 left               567  11.8%    0.714 [20.1, 1.4]  ok
+L22->L25 right              289   6.0%    1.000  [1.7, 0.5]  ok  [WARN straight turn]
+L23->L24 right              133   2.8%    1.000 [9.0, 10.8]  ok  [WARN straight turn]
+L25->L23 right               64   1.3%    0.414[26.2, 43.3]  ok
+L24->L22 right               58   1.2%    0.505  [6.6, 1.6]  ok
+L24->L23 left                55   1.1%    0.997 [13.8, 1.6]  ok  [WARN straight turn]
+L25->L24 through             34   0.7%    0.977 [43.2, 3.6]  MINOR_REJECTED (member spread 59px)
+L23->L25 left                16   0.3%    0.885  [1.3, 9.1]  MINOR_REJECTED (member spread 84px)
+L24->L25 through              9   0.2%    0.912 [1.4, 30.1]  MINOR_REJECTED (member spread 61px)
+!! LEG SANITY: leg 25 calibrated 172.79999999999995deg but traffic enters at 78.6deg — check label/heading
+!! MISSING MOVEMENTS: 3 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L23->L25 left
+     L24->L25 through
+     L25->L24 through
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armF\twopass_bank_cam1_v2f_study_0700.json (9 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armF\twopass_bank_cam1_v2f_study_0700_qa.json
+[pass2] cam1 v2f_study_0700: tracks=6728 events=4866 insufficient=1763 merge_kept=1238 merged_away=118 out=data\projects\97a7849a\_replay_scratch\v2_confound\armF\twopass_cam1_v2f_study_0700.db (75s)
+
+=== armF_cam1_v2f_study_0700 (cam1 study_0700, 120 Mio minutes) ===
+5/95 cell-bins: V2 55.1% (54/98)  |  PRODUCTION 60.5% (49/81)
+        cell    Mio     V2   prod
+     EB left     86    143     91
+    EB right    191    196    161
+     EB thru      2      2      4
+    EB uturn      4      1      1
+     NB left    382    565    526
+    NB right      3     71     77
+     NB thru   2141   1850   1821
+    NB uturn      2     70      3
+     SB left      1     20      0
+    SB right    102    146    129
+     SB thru   1756   1627   1748
+    SB uturn      0     21      0
+     WB left      0      5      0
+    WB right      1      3      1
+     WB thru      1     35     38
+    WB uturn      0      0      0
+-> runs\v2_week1\score_armF_cam1_v2f_study_0700.json
+=== ARMF cam1 v2f_study_1600 ===
+cam1 GT-free bank — 16:00:00+120min, 7177 usable tracks, agreement rate 61%, bearing-rebinned 1181
+cell                          n  share straight bearing_res  status
+L23->L22 through           3036  46.8%    1.000  [0.6, 2.9]  ok
+L22->L23 through           1831  28.2%    1.000  [0.6, 0.4]  ok
+L25->L23 right              425   6.6%    1.000  [1.8, 0.4]  ok  [WARN straight turn]
+L24->L22 right              335   5.2%    0.531  [4.5, 4.3]  ok
+L22->L24 left               306   4.7%    0.769 [19.2, 4.6]  ok
+L23->L24 right              205   3.2%    1.000  [9.7, 7.8]  ok  [WARN straight turn]
+L24->L23 left               139   2.1%    0.997 [11.4, 1.2]  ok  [WARN straight turn]
+L23->L25 left               105   1.6%    0.989  [1.7, 0.8]  ok  [WARN straight turn]
+L22->L25 right               40   0.6%    0.258  [0.5, 3.9]  MINOR_REJECTED (member spread 99px)
+L25->L22 left                33   0.5%    0.513 [11.0, 3.2]  MINOR_REJECTED (member spread 84px)
+L24->L25 through             27   0.4%    0.829 [4.1, 10.6]  MINOR_REJECTED (member spread 55px)
+L25->L24 through              6   0.1%    0.980 [38.1, 2.4]  MINOR_REJECTED (member spread 65px)
+!! LEG SANITY: leg 25 calibrated 172.79999999999995deg but traffic enters at 265.4deg — check label/heading
+!! MISSING MOVEMENTS: 4 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L22->L25 right
+     L24->L25 through
+     L25->L22 left
+     L25->L24 through
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armF\twopass_bank_cam1_v2f_study_1600.json (8 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armF\twopass_bank_cam1_v2f_study_1600_qa.json
+[pass2] cam1 v2f_study_1600: tracks=8938 events=6267 insufficient=2545 merge_kept=1276 merged_away=401 out=data\projects\97a7849a\_replay_scratch\v2_confound\armF\twopass_cam1_v2f_study_1600.db (106s)
+
+=== armF_cam1_v2f_study_1600 (cam1 study_1600, 120 Mio minutes) ===
+5/95 cell-bins: V2 55.4% (62/112)  |  PRODUCTION 54.5% (48/88)
+        cell    Mio     V2   prod
+     EB left    105    149    114
+    EB right    497    344    287
+     EB thru      1      4      1
+    EB uturn     13      6      6
+     NB left    229    302    291
+    NB right      2     83     65
+     NB thru   2078   2045   1985
+    NB uturn      1     62      3
+     SB left      1     80      3
+    SB right    131    208    190
+     SB thru   2498   2534   2814
+    SB uturn      0     23      2
+     WB left     13     17      6
+    WB right      2      4      0
+     WB thru      3      8     11
+    WB uturn      0      1      0
+-> runs\v2_week1\score_armF_cam1_v2f_study_1600.json
+=== ARMF cam4 v2f_study_1100 ===
+cam4 GT-free bank — 11:00:00+120min, 3800 usable tracks, agreement rate 77%, bearing-rebinned 626
+cell                          n  share straight bearing_res  status
+L35->L33 through           1807  48.0%    0.992  [1.4, 6.2]  ok
+L33->L35 through           1710  45.4%    0.999  [0.8, 0.6]  ok
+L34->L35 right              152   4.0%    1.000  [0.0, 0.1]  ok  [WARN straight turn]
+L33->L34 right               77   2.0%    0.998 [1.0, 25.1]  ok  [WARN straight turn]
+L35->L34 left                12   0.3%    0.972 [1.3, 79.6]  BEARING_REJECTED
+L34->L33 left                 6   0.2%    0.822 [58.9, 8.0]  BEARING_REJECTED
+L33->L34 right: DEDUP_DROPPED (coincides with better-supported L33->L35)
+!! LEG SANITY: leg 34 calibrated 119.4deg but traffic enters at 266.8deg — check label/heading
+!! MISSING MOVEMENTS: 3 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L33->L34 right
+     L34->L33 left
+     L35->L34 left
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armF\twopass_bank_cam4_v2f_study_1100.json (3 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armF\twopass_bank_cam4_v2f_study_1100_qa.json
+[pass2] cam4 v2f_study_1100: tracks=4970 events=3542 insufficient=1332 merge_kept=127 merged_away=0 out=data\projects\97a7849a\_replay_scratch\v2_confound\armF\twopass_cam4_v2f_study_1100.db (178s)
+
+=== armF_cam4_v2f_study_1100 (cam4 study_1100, 120 Mio minutes) ===
+5/95 cell-bins: V2 64.0% (32/50)  |  PRODUCTION 69.4% (34/49)
+        cell    Mio     V2   prod
+     EB left     20     61     43
+    EB right      6      1      0
+     EB thru      0      3      4
+    EB uturn      0      0      0
+     NB left     17      2      1
+     NB thru   1546   1553   1524
+    NB uturn      4      6      1
+    SB right     16     57     92
+     SB thru   1640   1859   1670
+    SB uturn      2      0      0
+-> runs\v2_week1\score_armF_cam4_v2f_study_1100.json
+ARMF_DONE

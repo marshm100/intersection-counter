@@ -1,0 +1,131 @@
+=== BUILD v2e cam1 study_0700 ===
+[extend] --skip-full: 1154 of 6728 tracks are already FULL in the base dump and will not be extended
+[extend] cam1 study_0700 -> v2e_study_0700: 6728 tracks, 4659 endpoints extended, 1154 full-skipped (+72741 rows) -> data\projects\97a7849a\detections\1\40be14d816e2326b276abf601d57e78a97fb2066cb846979771b78dbe008bcce\v2e_study_0700.tracks (8s)
+=== BUILD v2e cam1 study_1600 ===
+[extend] --skip-full: 2719 of 8938 tracks are already FULL in the base dump and will not be extended
+[extend] cam1 study_1600 -> v2e_study_1600: 8938 tracks, 4245 endpoints extended, 2719 full-skipped (+73568 rows) -> data\projects\97a7849a\detections\1\40be14d816e2326b276abf601d57e78a97fb2066cb846979771b78dbe008bcce\v2e_study_1600.tracks (9s)
+=== BUILD v2e cam4 study_1100 ===
+[extend] --skip-full: 1875 of 4970 tracks are already FULL in the base dump and will not be extended
+[extend] cam4 study_1100 -> v2e_study_1100: 4970 tracks, 2521 endpoints extended, 1875 full-skipped (+39320 rows) -> data\projects\97a7849a\detections\4\89c0a2d0d6259a3b520e71525665ce98df95fb8f734a988b2061cfdc1b3fe178\v2e_study_1100.tracks (4s)
+=== ARME cam1 v2e_study_0700 ===
+cam1 GT-free bank — 07:00:00+120min, 5837 usable tracks, agreement rate 64%, bearing-rebinned 896
+cell                          n  share straight bearing_res  status
+L23->L22 through           1877  37.5%    0.999  [0.1, 2.0]  ok
+L22->L23 through           1689  33.8%    1.000  [1.6, 1.2]  ok
+L22->L24 left               454   9.1%    0.486  [0.8, 2.3]  ok
+L22->L25 right              296   5.9%    1.000  [1.6, 1.3]  ok  [WARN straight turn]
+L23->L24 right              174   3.5%    1.000 [7.2, 10.7]  ok  [WARN straight turn]
+L25->L22 left               144   2.9%    0.908 [18.1, 1.3]  ok
+L25->L24 through            123   2.5%    0.991 [17.3, 1.0]  ok
+L24->L23 left                67   1.3%    0.997 [14.4, 0.1]  ok  [WARN straight turn]
+L24->L22 right               64   1.3%    0.493  [8.0, 2.0]  ok
+L25->L23 right               54   1.1%    0.971 [66.7, 1.2]  BEARING_REJECTED
+L23->L25 left                48   1.0%    0.939 [1.2, 14.7]  MINOR_REJECTED (member spread 105px)
+L24->L25 through             12   0.2%    0.842[10.9, 60.5]  BEARING_REJECTED
+!! MISSING MOVEMENTS: 3 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L23->L25 left
+     L24->L25 through
+     L25->L23 right
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armE\twopass_bank_cam1_v2e_study_0700.json (9 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armE\twopass_bank_cam1_v2e_study_0700_qa.json
+[pass2] cam1 v2e_study_0700: tracks=6728 events=5021 insufficient=1646 merge_kept=1313 merged_away=103 out=data\projects\97a7849a\_replay_scratch\v2_confound\armE\twopass_cam1_v2e_study_0700.db (80s)
+
+=== armE_cam1_v2e_study_0700 (cam1 study_0700, 120 Mio minutes) ===
+5/95 cell-bins: V2 56.9% (62/109)  |  PRODUCTION 60.5% (49/81)
+        cell    Mio     V2   prod
+     EB left     86    139     91
+    EB right    191    205    161
+     EB thru      2      3      4
+    EB uturn      4      1      1
+     NB left    382    587    526
+    NB right      3    105     77
+     NB thru   2141   1815   1821
+    NB uturn      2     38      3
+     SB left      1     29      0
+    SB right    102    159    129
+     SB thru   1756   1768   1748
+    SB uturn      0     23      0
+     WB left      0     12      0
+    WB right      1     12      1
+     WB thru      1     25     38
+    WB uturn      0      5      0
+-> runs\v2_week1\score_armE_cam1_v2e_study_0700.json
+=== ARME cam1 v2e_study_1600 ===
+cam1 GT-free bank — 16:00:00+120min, 7689 usable tracks, agreement rate 65%, bearing-rebinned 1537
+cell                          n  share straight bearing_res  status
+L23->L22 through           3319  49.6%    1.000  [0.2, 2.9]  ok
+L22->L23 through           2047  30.6%    1.000  [1.8, 0.5]  ok
+L24->L22 right              319   4.8%    0.520  [4.4, 3.2]  ok
+L22->L24 left               270   4.0%    0.558  [1.6, 5.3]  ok
+L23->L24 right              243   3.6%    1.000  [9.0, 7.5]  ok  [WARN straight turn]
+L24->L23 left               162   2.4%    0.997 [11.6, 1.1]  ok  [WARN straight turn]
+L25->L23 right               92   1.4%    0.999 [46.4, 0.4]  ok  [WARN straight turn]
+L25->L22 left                73   1.1%    0.962 [64.6, 4.6]  BEARING_REJECTED
+L23->L25 left                67   1.0%    0.998 [1.8, 15.6]  ok  [WARN straight turn]
+L22->L25 right               41   0.6%    0.929 [2.9, 65.5]  BEARING_REJECTED
+L25->L24 through             30   0.4%    0.952 [28.5, 5.5]  ok
+L24->L25 through             29   0.4%    0.981 [3.9, 45.9]  MINOR_REJECTED (member spread 45px)
+L23->L25 left: DEDUP_DROPPED (coincides with better-supported L23->L22)
+!! AMBIGUITY: 1 polyline pairs closer than 30.0px mean — see QA report
+!! MISSING MOVEMENTS: 4 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L22->L25 right
+     L23->L25 left
+     L24->L25 through
+     L25->L22 left
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armE\twopass_bank_cam1_v2e_study_1600.json (8 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armE\twopass_bank_cam1_v2e_study_1600_qa.json
+[pass2] cam1 v2e_study_1600: tracks=8938 events=6593 insufficient=2261 merge_kept=1363 merged_away=439 out=data\projects\97a7849a\_replay_scratch\v2_confound\armE\twopass_cam1_v2e_study_1600.db (110s)
+
+=== armE_cam1_v2e_study_1600 (cam1 study_1600, 120 Mio minutes) ===
+5/95 cell-bins: V2 46.2% (54/117)  |  PRODUCTION 54.5% (48/88)
+        cell    Mio     V2   prod
+     EB left    105    179    114
+    EB right    497    344    287
+     EB thru      1      4      1
+    EB uturn     13      6      6
+     NB left    229    296    291
+    NB right      2    106     65
+     NB thru   2078   1970   1985
+    NB uturn      1     53      3
+     SB left      1     42      3
+    SB right    131    236    190
+     SB thru   2498   2820   2814
+    SB uturn      0     49      2
+     WB left     13     25      6
+    WB right      2     23      0
+     WB thru      3     17     11
+    WB uturn      0      7      0
+-> runs\v2_week1\score_armE_cam1_v2e_study_1600.json
+=== ARME cam4 v2e_study_1100 ===
+cam4 GT-free bank — 11:00:00+120min, 4302 usable tracks, agreement rate 88%, bearing-rebinned 368
+cell                          n  share straight bearing_res  status
+L35->L33 through           2109  51.6%    0.989  [1.4, 3.4]  ok
+L33->L35 through           1862  45.6%    0.999  [0.0, 0.7]  ok
+L35->L34 left                76   1.9%    0.983[2.0, 121.7]  BEARING_REJECTED
+L34->L35 right               14   0.3%    0.999 [90.4, 0.6]  BEARING_REJECTED
+L34->L33 left                13   0.3%    0.734[26.3, 18.6]  MINOR_REJECTED (member spread 85px)
+L33->L34 right               10   0.2%    0.829 [2.9, 56.5]  BEARING_REJECTED
+!! MISSING MOVEMENTS: 4 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L33->L34 right
+     L34->L33 left
+     L34->L35 right
+     L35->L34 left
+
+wrote data\projects\97a7849a\_replay_scratch\v2_confound\armE\twopass_bank_cam4_v2e_study_1100.json (2 paths) + data\projects\97a7849a\_replay_scratch\v2_confound\armE\twopass_bank_cam4_v2e_study_1100_qa.json
+[pass2] cam4 v2e_study_1100: tracks=4970 events=3804 insufficient=1124 merge_kept=149 merged_away=35 out=data\projects\97a7849a\_replay_scratch\v2_confound\armE\twopass_cam4_v2e_study_1100.db (61s)
+
+=== armE_cam4_v2e_study_1100 (cam4 study_1100, 120 Mio minutes) ===
+5/95 cell-bins: V2 54.7% (29/53)  |  PRODUCTION 69.4% (34/49)
+        cell    Mio     V2   prod
+     EB left     20     54     43
+    EB right      6      1      0
+     EB thru      0      3      4
+    EB uturn      0      0      0
+     NB left     17      3      1
+     NB thru   1546   1758   1524
+    NB uturn      4      6      1
+    SB right     16     82     92
+     SB thru   1640   1861   1670
+    SB uturn      2      3      0
+-> runs\v2_week1\score_armE_cam4_v2e_study_1100.json
+ARME_DONE

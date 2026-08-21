@@ -1,0 +1,23 @@
+loaded 16 operator channels from the channels table
+cam2 GT-free bank — 16:00:00+120min, 8823 usable tracks, agreement rate 29%, bearing-rebinned 192
+cell                          n  share straight bearing_res  status
+L26->L26 u_turn             150     --       --          --  UTURN_HELDOUT (44/150 reverse, frac 0.29)
+L26->L27 right              286     --       --          --  CHANNEL_DIRECT (drawn curve, support 286)
+L26->L28 through            392     --       --          --  CHANNEL_DIRECT (drawn curve, support 392)
+L26->L29 left                87     --       --          --  CHANNEL_DIRECT (drawn curve, support 87)
+L27->L26 left              1173     --       --          --  CHANNEL_DIRECT (drawn curve, support 1173)
+L27->L27 u_turn              64     --       --          --  UTURN_HELDOUT (30/64 reverse, frac 0.47)
+L27->L28 right              108     --       --          --  CHANNEL_DIRECT (drawn curve, support 108)
+L27->L29 through            750     --       --          --  CHANNEL_DIRECT (drawn curve, support 750)
+L28->L26 through            610     --       --          --  CHANNEL_DIRECT (drawn curve, support 610)
+L28->L27 left               287     --       --          --  CHANNEL_DIRECT (drawn curve, support 287)
+L28->L28 u_turn             454     --       --          --  UTURN_HELDOUT (216/454 reverse, frac 0.48)
+L28->L29 right              859     --       --          --  CHANNEL_DIRECT (drawn curve, support 859)
+L29->L26 right              147     --       --          --  CHANNEL_DIRECT (drawn curve, support 147)
+L29->L27 through           1660     --       --          --  CHANNEL_DIRECT (drawn curve, support 1660)
+L29->L28 left              1582     --       --          --  CHANNEL_DIRECT (drawn curve, support 1582)
+L29->L29 u_turn             214     --       --          --  UTURN_HELDOUT (81/214 reverse, frac 0.38)
+
+wrote data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam2_v2c_study_1600.json (12 paths) + data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam2_v2c_study_1600_qa.json
+[pass2] cam2 v2c_study_1600: tracks=11247 events=7975 insufficient=3204 merge_kept=2770 merged_away=754 out=data\projects\97a7849a\_replay_scratch\v2_week1\twopass_cam2_v2c_study_1600.db (948s)
+TLOCAL2_DONE

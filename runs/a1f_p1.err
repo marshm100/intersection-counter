@@ -1,0 +1,6 @@
+INFO     BotSort: det_thresh=0.3, max_age=30, max_obs=50, min_hits=3,          
+         iou_threshold=0.3, per_class=False, asso_func=iou, reid_model=None,   
+         track_high_thresh=0.25, track_low_thresh=0.1, new_track_thresh=0.3,   
+         track_buffer=150, match_thresh=0.9, proximity_thresh=0.5,             
+         appearance_thresh=0.25, cmc_method=None, frame_rate=25,               
+         fuse_first_associate=False, with_reid=False                           

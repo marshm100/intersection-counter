@@ -655,6 +655,23 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-21 (midday): B1 SHIPPED — operator-drawn gate lines end to
+  end: legs.gate_segment (nullable; migration flips every camera's
+  calib_fingerprint once), entry_gates.build_gates(leg_gates=) uses a
+  drawn segment VERBATIM (highest precedence, inward from the centroid
+  test, de-overlap kept), threaded through all six call sites
+  (pipeline._ensure_entry_gates, two_pass conserve/census/strict via
+  the new database.leg_geometry_for_camera loader, apply_gate flip-
+  veto, run_pathfit_cli, v2_a3_split), gate-only saves ride the legs
+  PUT's LABEL-SAFE branch (counted events survive — verified by test),
+  calibration editor gets per-leg Gate buttons (2-click draw, endpoint
+  drag, inward arrow, 0/4 counter; channel-pattern clone). Playwright-
+  verified live on cam2 (draw + counter + no accidental persistence).
+  THE FRIDAY SESSION: (1) redraw cam5 legs; (2) draw gate lines on all
+  cameras — cam2 first, guided by
+  screenshots/gatespan_cam2_sbright_2026-08-21.png; saves only. Then
+  (me): re-run pathfit --dumps per camera against drawn gates, FRESH
+  controls, one combined-basis regate per camera.
 - 2026-08-21: ONE-SYSTEM PIPELINE plan approved (B2 dumps-fed pathfit /
   B1 drawn gates / B3 order). B2 SHIPPED + G-PF2-1 RUN: cam2 paths
   re-derived from 13.5 h pooled pass-1 dumps (WB left self-evidenced

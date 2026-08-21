@@ -1,0 +1,97 @@
+cam1 GT-free bank — 07:00:00+120min, 4840 usable tracks, agreement rate 49%, bearing-rebinned 836
+cell                          n  share straight bearing_res  status
+L22->L23 through           1420  31.6%    1.000  [1.5, 1.1]  ok
+L23->L22 through            971  21.6%    0.999  [0.0, 0.8]  ok
+L25->L22 left               861  19.2%    1.000  [1.3, 1.1]  ok  [WARN straight turn]
+L22->L25 right              510  11.4%    1.000  [1.0, 0.1]  ok  [WARN straight turn]
+L22->L24 left               439   9.8%    0.706 [18.0, 1.1]  ok
+L23->L24 right              126   2.8%    1.000 [9.0, 10.2]  ok  [WARN straight turn]
+L24->L22 right               57   1.3%    0.507  [6.6, 4.8]  ok
+L24->L23 left                50   1.1%    0.997 [14.2, 1.4]  ok  [WARN straight turn]
+L25->L24 through             25   0.6%    0.971 [34.4, 2.5]  MINOR_REJECTED (member spread 51px)
+L23->L25 left                23   0.5%    0.997[10.3, 81.1]  BEARING_REJECTED
+L25->L23 right                5   0.1%    0.997[102.5, 0.2]  BEARING_REJECTED
+L24->L25 through              5   0.1%    0.994  [5.2, 8.0]  MINOR_REJECTED (member spread 83px)
+!! LEG SANITY: leg 25 calibrated 172.79999999999995deg but traffic enters at 77.6deg — check label/heading
+!! MISSING MOVEMENTS: 4 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L23->L25 left
+     L24->L25 through
+     L25->L23 right
+     L25->L24 through
+
+wrote data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam1_study_0700.json (8 paths) + data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam1_study_0700_qa.json
+[pass2] cam1 study_0700: tracks=6728 events=4668 insufficient=1902 merge_kept=989 merged_away=68 out=data\projects\97a7849a\_replay_scratch\v2_week1\twopass_cam1_study_0700.db (69s)
+cam1 GT-free bank — 16:00:00+120min, 6555 usable tracks, agreement rate 64%, bearing-rebinned 987
+cell                          n  share straight bearing_res  status
+L23->L22 through           3023  48.3%    0.999  [0.8, 2.5]  ok
+L22->L23 through           1692  27.0%    1.000  [0.6, 0.8]  ok
+L25->L23 right              408   6.5%    1.000  [1.4, 0.6]  ok  [WARN straight turn]
+L24->L22 right              339   5.4%    0.538  [4.5, 4.2]  ok
+L22->L24 left               270   4.3%    0.765 [16.5, 4.4]  ok
+L23->L24 right              187   3.0%    1.000  [9.7, 7.5]  ok  [WARN straight turn]
+L24->L23 left               120   1.9%    0.997 [11.3, 1.5]  ok  [WARN straight turn]
+L23->L25 left               113   1.8%    0.999 [1.4, 82.1]  BEARING_REJECTED
+L22->L25 right               43   0.7%    0.978[16.4, 39.5]  ok  [WARN straight turn]
+L25->L24 through             32   0.5%    0.955[43.7, 14.2]  MINOR_REJECTED (member spread 63px)
+L24->L25 through             26   0.4%    0.876  [4.6, 2.0]  ok
+L25->L22 left                11   0.2%    0.942 [24.7, 3.8]  MINOR_REJECTED (member spread 88px)
+L24->L25 through: DEDUP_DROPPED (coincides with better-supported L24->L22)
+!! LEG SANITY: leg 25 calibrated 172.79999999999995deg but traffic enters at 265.0deg — check label/heading
+!! AMBIGUITY: 1 polyline pairs closer than 30.0px mean — see QA report
+!! MISSING MOVEMENTS: 4 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L23->L25 left
+     L24->L25 through
+     L25->L22 left
+     L25->L24 through
+
+wrote data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam1_study_1600.json (8 paths) + data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam1_study_1600_qa.json
+[pass2] cam1 study_1600: tracks=8938 events=6152 insufficient=2585 merge_kept=967 merged_away=374 out=data\projects\97a7849a\_replay_scratch\v2_week1\twopass_cam1_study_1600.db (127s)
+cam1 GT-free bank — 07:00:00+120min, 4840 usable tracks, agreement rate 49%, bearing-rebinned 836
+cell                          n  share straight bearing_res  status
+L22->L23 through           1420  31.6%    1.000  [1.5, 1.1]  ok
+L23->L22 through            971  21.6%    0.999  [0.0, 0.8]  ok
+L25->L22 left               861  19.2%    1.000  [1.3, 1.1]  ok  [WARN straight turn]
+L22->L25 right              510  11.4%    1.000  [1.0, 0.1]  ok  [WARN straight turn]
+L22->L24 left               439   9.8%    0.706 [18.0, 1.1]  ok
+L23->L24 right              126   2.8%    1.000 [9.0, 10.2]  ok  [WARN straight turn]
+L24->L22 right               57   1.3%    0.507  [6.6, 4.8]  ok
+L24->L23 left                50   1.1%    0.997 [14.2, 1.4]  ok  [WARN straight turn]
+L25->L24 through             25   0.6%    0.971 [34.4, 2.5]  MINOR_REJECTED (member spread 51px)
+L23->L25 left                23   0.5%    0.997[10.3, 81.1]  BEARING_REJECTED
+L25->L23 right                5   0.1%    0.997[102.5, 0.2]  BEARING_REJECTED
+L24->L25 through              5   0.1%    0.994  [5.2, 8.0]  MINOR_REJECTED (member spread 83px)
+!! LEG SANITY: leg 25 calibrated 172.79999999999995deg but traffic enters at 77.6deg — check label/heading
+!! MISSING MOVEMENTS: 4 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L23->L25 left
+     L24->L25 through
+     L25->L23 right
+     L25->L24 through
+
+wrote data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam1_study_0700.json (8 paths) + data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam1_study_0700_qa.json
+[pass2] cam1 study_0700: tracks=6728 events=4668 insufficient=1902 merge_kept=989 merged_away=68 out=data\projects\97a7849a\_replay_scratch\v2_week1\twopass_cam1_study_0700.db (222s)
+cam1 GT-free bank — 16:00:00+120min, 6555 usable tracks, agreement rate 64%, bearing-rebinned 987
+cell                          n  share straight bearing_res  status
+L23->L22 through           3023  48.3%    0.999  [0.8, 2.5]  ok
+L22->L23 through           1692  27.0%    1.000  [0.6, 0.8]  ok
+L25->L23 right              408   6.5%    1.000  [1.4, 0.6]  ok  [WARN straight turn]
+L24->L22 right              339   5.4%    0.538  [4.5, 4.2]  ok
+L22->L24 left               270   4.3%    0.765 [16.5, 4.4]  ok
+L23->L24 right              187   3.0%    1.000  [9.7, 7.5]  ok  [WARN straight turn]
+L24->L23 left               120   1.9%    0.997 [11.3, 1.5]  ok  [WARN straight turn]
+L23->L25 left               113   1.8%    0.999 [1.4, 82.1]  BEARING_REJECTED
+L22->L25 right               43   0.7%    0.978[16.4, 39.5]  ok  [WARN straight turn]
+L25->L24 through             32   0.5%    0.955[43.7, 14.2]  MINOR_REJECTED (member spread 63px)
+L24->L25 through             26   0.4%    0.876  [4.6, 2.0]  ok
+L25->L22 left                11   0.2%    0.942 [24.7, 3.8]  MINOR_REJECTED (member spread 88px)
+L24->L25 through: DEDUP_DROPPED (coincides with better-supported L24->L22)
+!! LEG SANITY: leg 25 calibrated 172.79999999999995deg but traffic enters at 265.0deg — check label/heading
+!! AMBIGUITY: 1 polyline pairs closer than 30.0px mean — see QA report
+!! MISSING MOVEMENTS: 4 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L23->L25 left
+     L24->L25 through
+     L25->L22 left
+     L25->L24 through
+
+wrote data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam1_study_1600.json (8 paths) + data\projects\97a7849a\_replay_scratch\v2_week1\twopass_bank_cam1_study_1600_qa.json
+[pass2] cam1 study_1600: tracks=8938 events=6152 insufficient=2585 merge_kept=967 merged_away=374 out=data\projects\97a7849a\_replay_scratch\v2_week1\twopass_cam1_study_1600.db (488s)
+CAM1_DONE
