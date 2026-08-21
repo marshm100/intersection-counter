@@ -655,6 +655,20 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-21: ONE-SYSTEM PIPELINE plan approved (B2 dumps-fed pathfit /
+  B1 drawn gates / B3 order). B2 SHIPPED + G-PF2-1 RUN: cam2 paths
+  re-derived from 13.5 h pooled pass-1 dumps (WB left self-evidenced
+  41 fulls; 11 fold-audited paths applied) — arm MISSED the gate
+  (pooled movement 46.7→43.6; restored byte-verified). The negative
+  ISOLATED THE ROOT: machine-derived gates, not paths — SB right = 0
+  with a 94 px gate stub above the travel lanes
+  (screenshots/gatespan_cam2_sbright_2026-08-21.png); WB left counted
+  3 while the corpus bank expected 42 (new merge_expecteds
+  instrumentation). Path quality itself proven. Revival = draw gates
+  (B1, Friday) → re-run pathfit vs drawn gates (seconds) → ONE regate
+  of the combined basis with FRESH controls. Full record:
+  docs/plan_pathfit_dumps_2026-08-21.md. Suite green with dumps-mode
+  tests.
 - 2026-08-19 (later night): W1a GATE RUN — cam2 pathfit suggestion
   applied on operator approval, control/arm replay pair measured,
   movement bar net WORSE (46.7→43.8 pooled) → RESTORED per gate.

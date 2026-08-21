@@ -69,9 +69,48 @@ a structural gate-span defect at the 28 mouth (B1 evidence), not
 sample thinness; the cell stays path-less this run and the gap is
 named in the verdict.
 
-## Verdict
+## Verdict — G-PF2-1 MISS (2026-08-21); RESTORED; root cause isolated
 
-(to be filled by the run)
+| window | movement ctrl → arm | approach ctrl → arm |
+|---|---|---|
+| study_0700 | 53.4 → 44.3 (**−9.1, breach**) | 50.0 → 46.9 |
+| study_1100 | 42.9 → 44.9 (+2.0) | 40.6 → 28.1 |
+| study_1600 | 44.0 → 41.7 (**−2.3, breach**) | 31.2 → 46.9 |
+| pooled | 46.7 → **43.6** (bar: >46.7) | 40.6 → 40.6 |
+
+Restore executed byte-verified against project.db.bak_pathfit_20260819
+(10 rows, ids 119–128; suggestion back to pending; events untouched
+18,269). Score artifacts: runs/v2_week1/score_pathfit2_arm_cam2_*.json
+vs the reused score_pathfit_ctrl_cam2_*.json.
+
+**The negative is decisive, not ambiguous: every mechanism points at
+the GATES, not the paths.**
+- SB right went to literal 0 at 0700 (ctrl 214 via the old fold; Mio
+  379) — no path can fill a cell whose journeys never cross the 94 px
+  gate stub (defect measured above).
+- WB left produced 3 events at 0700 DESPITE having a clean 41-support
+  path for the first time — and the corpus bank built from the same
+  dumps EXPECTED 42 there (merge_expecteds, new instrumentation). The
+  system sees the traffic; classification's gates drop it.
+- The displaced mass overshoots neighbors (NB left 578 vs Mio 411;
+  SB thru 1605 vs 1384) — attribution redistributes what the funnel
+  lets through.
+- turn-merge stays partially deactivated (merged_away ctrl
+  237/379/492 → arm 125/199/345): expecteds and event distributions
+  both moved; secondary to the funnel defect.
+
+## Revival conditions (supersede W1a's)
+
+Path quality is PROVEN (fold-audited, cardinal-labeled, full-trim
+support); the funnel is the cap. Order for the next attempt:
+1. Operator draws GATE LINES (B1) — the Friday session; gates are the
+   root every stage funnels through (classify, census, cutter,
+   pathfit, u-turn tests).
+2. Re-run pathfit --dumps against the drawn gates (seconds; the cut
+   and classification both improve, (27,28) should self-evidence).
+3. ONE regate of the combined basis (drawn gates + refit paths):
+   fresh CONTROLS first (drawn gates alone change the basis; the
+   2026-08-19 controls die with the old gates), then arm.
 
 ## Gate-span defect measured (the B1 evidence, 2026-08-21)
 
@@ -90,4 +129,9 @@ all funnel through these segments.
 
 ## Coupling diagnostic findings
 
-(to be filled by the run)
+merge_expecteds landed in every pass-2 stats sidecar (first
+instrumented run). Arm expecteds are sane per cell — e.g. (26,29)
+42/41/30 across windows, (27,26) 500/465/785 — confirming the corpus
+bank tracks real traffic while the gate-starved classifier cannot
+count it. Controls predate the field; the next ctrl/arm pair (post
+drawn-gates) diffs it both ways.
