@@ -48,6 +48,13 @@
     let _openStep = 'legs';
     let _dragHeading = null;   // leg idx while dragging its heading arrow to aim it
 
+    // ---- B1 operator-drawn gate lines (2026-08-21) --------------------
+    // Where the intersection begins/ends at each leg. The G-PF2-1 negative
+    // measured derived gates as the accuracy cap (a 94 px stub zeroed a
+    // 379-vehicle movement) — these segments replace the derivation.
+    let _drawingGate = null;   // { legIdx, pts: [[x,y],...] } while drawing
+    let _dragGate = null;      // { idx, end: 0|1 } endpoint drag
+
     // ---- Phase 2 polyline-paths state ---------------------------------
     let _paths = [];               // saved paths from GET /paths
     let _drawingPath = null;       // { origin_leg_id, destination_leg_id,
@@ -110,6 +117,7 @@
                 sort_order: l.sort_order,
                 origin_zone: l.origin_zone,
                 reference_heading: l.reference_heading,
+                gate_segment: l.gate_segment || null,
             }));
         } catch (e) {
             // start fresh
@@ -490,6 +498,22 @@
     }
 
     function _onCanvasClick(e) {
+        // Gate-drawing mode (B1) wins over everything when active: 2 clicks
+        // = the gate line's two ends across the leg's mouth.
+        if (_drawingGate) {
+            if (_dragGate) return;               // a drag just ended
+            _drawingGate.pts.push(_canvasCoordsArr(e));
+            if (_drawingGate.pts.length === 2) {
+                const leg = _legs.find(l => l.idx === _drawingGate.legIdx);
+                if (leg) leg.gate_segment = _drawingGate.pts;
+                _drawingGate = null;
+                _updateLegList();
+                _updateStatus();
+            }
+            _redraw();
+            return;
+        }
+
         // Channel-drawing mode (Phase 2.1) wins over everything when active:
         // entry -> apex -> exit, 3 clicks; first/last snap to the nearest leg.
         if (_drawingChannel) {
@@ -553,6 +577,21 @@
             }
         }
         const { x, y } = _canvasCoords(e);
+        // Drawn-gate endpoint drag (B1) — 10 px squares at each end.
+        if (!_drawingGate && !_drawingChannel && !_drawingPath) {
+            for (const leg of _legs) {
+                if (!leg.gate_segment) continue;
+                for (let end = 0; end < 2; end++) {
+                    const [gx, gy] = leg.gate_segment[end];
+                    if (Math.hypot(x - gx, y - gy) <= 10) {
+                        _dragGate = { idx: leg.idx, end };
+                        _canvas.style.cursor = 'grabbing';
+                        e.preventDefault();
+                        return;
+                    }
+                }
+            }
+        }
         for (const leg of _legs) {
             const [nx, ny] = leg.origin_zone[0];
             if (Math.hypot(x - nx, y - ny) <= 16) {
@@ -594,6 +633,15 @@
     }
 
     function _onCanvasMousemove(e) {
+        if (_dragGate) {
+            const p = _canvasCoordsArr(e);
+            const leg = _legs.find(l => l.idx === _dragGate.idx);
+            if (leg && leg.gate_segment) {
+                leg.gate_segment[_dragGate.end] = p;
+                _redraw();
+            }
+            return;
+        }
         if (_dragHeading) {
             const { x, y } = _canvasCoords(e);
             const target = _dragHeading.isCurrentLeg
@@ -641,6 +689,11 @@
     }
 
     function _onCanvasMouseup() {
+        if (_dragGate) {
+            _dragGate = null;
+            _canvas.style.cursor = 'crosshair';
+            return;
+        }
         if (_dragHeading) {
             _dragHeading = null;
             _canvas.style.cursor = 'crosshair';
@@ -827,6 +880,7 @@
         if (_videoMode) _drawSampleTrails();       // F3: synced sample-track replay
         if (_drawingPath) _drawInProgressPath();   // active draw always shows
         if (_drawingChannel) _drawChannelDraft();
+        _drawGateLines();                          // B1 drawn gates + draft
 
         for (const leg of _legs) {
             const key = _legKey(leg);
@@ -843,6 +897,63 @@
         if (_currentLeg) {   // the leg being placed/edited always shows
             _drawNode(_currentLeg.origin_zone[0],
                 LEG_COLORS[_currentLeg.idx % LEG_COLORS.length], '', _currentLeg.reference_heading);
+        }
+    }
+
+    // ---- B1 drawn gate lines ------------------------------------------
+
+    function _drawGateLines() {
+        // Saved gates: solid line in the leg's color, square endpoint
+        // handles, and a short arrow showing which side counts as "in"
+        // (perpendicular toward the legs' centroid — mirrors the backend).
+        const cx = _legs.length
+            ? _legs.reduce((s, l) => s + l.origin_zone[0][0], 0) / _legs.length : 0;
+        const cy = _legs.length
+            ? _legs.reduce((s, l) => s + l.origin_zone[0][1], 0) / _legs.length : 0;
+        for (const leg of _legs) {
+            if (!leg.gate_segment || !_visible('legs', _legKey(leg))) continue;
+            const [[x1, y1], [x2, y2]] = leg.gate_segment;
+            const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
+            _ctx.save();
+            _ctx.strokeStyle = color;
+            _ctx.lineWidth = 3;
+            _ctx.beginPath();
+            _ctx.moveTo(x1, y1);
+            _ctx.lineTo(x2, y2);
+            _ctx.stroke();
+            for (const [hx, hy] of leg.gate_segment) {
+                _ctx.fillStyle = '#fff';
+                _ctx.fillRect(hx - 5, hy - 5, 10, 10);
+                _ctx.strokeRect(hx - 5, hy - 5, 10, 10);
+            }
+            // inward arrow from the segment midpoint
+            const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+            let nx = -(y2 - y1), ny = x2 - x1;
+            const nl = Math.hypot(nx, ny) || 1;
+            nx /= nl; ny /= nl;
+            if ((cx - mx) * nx + (cy - my) * ny < 0) { nx = -nx; ny = -ny; }
+            _ctx.beginPath();
+            _ctx.moveTo(mx, my);
+            _ctx.lineTo(mx + nx * 22, my + ny * 22);
+            _ctx.stroke();
+            _ctx.beginPath();
+            _ctx.moveTo(mx + nx * 22, my + ny * 22);
+            _ctx.lineTo(mx + nx * 14 - ny * 5, my + ny * 14 + nx * 5);
+            _ctx.lineTo(mx + nx * 14 + ny * 5, my + ny * 14 - nx * 5);
+            _ctx.closePath();
+            _ctx.fillStyle = color;
+            _ctx.fill();
+            _ctx.restore();
+        }
+        // Draft: dashed preview following the pattern of _drawChannelDraft.
+        if (_drawingGate && _drawingGate.pts.length === 1) {
+            const [px, py] = _drawingGate.pts[0];
+            _ctx.save();
+            _ctx.fillStyle = '#fff';
+            _ctx.beginPath();
+            _ctx.arc(px, py, 5, 0, Math.PI * 2);
+            _ctx.fill();
+            _ctx.restore();
         }
     }
 
@@ -983,13 +1094,27 @@
         let html = '';
         for (const leg of _legs) {
             const color = LEG_COLORS[leg.idx % LEG_COLORS.length];
+            const gateBtn = leg.gate_segment
+                ? `<button class="cal-btn cal-btn--sm" title="Redraw the gate line"
+                       onclick="v3CalibrationDrawGate(${leg.idx})">Gate &#10003;</button>`
+                : `<button class="cal-btn cal-btn--sm" title="Draw where the intersection ends at this leg"
+                       onclick="v3CalibrationDrawGate(${leg.idx})">Gate</button>`;
             html += `<div class="cal-row">
                 <span class="sw" style="border-radius:50%;background:${color};"></span>
                 <span class="cal-row__main">${escapeHtml(leg.label)}
                     <span class="cal-meta">(${escapeHtml(leg.cardinal_direction)}) ${Number(leg.reference_heading).toFixed(0)}&deg;</span></span>
+                ${gateBtn}
                 <button class="cal-btn cal-btn--sm" onclick="v3CalibrationEditLeg(${leg.idx})">Edit</button>
                 <button class="cal-btn cal-btn--danger" onclick="v3CalibrationRemoveLeg(${leg.idx})">Remove</button>
             </div>`;
+        }
+        if (_legs.length) {
+            const nGates = _legs.filter(l => l.gate_segment).length;
+            html += `<p class="cal-meta" style="margin:6px 0 0;">
+                Gate lines: ${nGates}/${_legs.length} drawn — draw each ACROSS
+                its mouth where the intersection ends, spanning the FULL road
+                (both directions of travel). Counting, the cutter, and path
+                fitting all stop at these lines.</p>`;
         }
         if (_legs.length >= 2) {
             html += `<div style="margin-top:6px;">
@@ -1225,6 +1350,18 @@
         }
     };
 
+    window.v3CalibrationDrawGate = function (idx) {
+        _drawingGate = { legIdx: idx, pts: [] };
+        _drawingPath = null;
+        _drawingChannel = null;
+        const statusEl = document.getElementById('v3-calib-status');
+        if (statusEl) statusEl.textContent =
+            'Click the TWO ends of the gate line across this mouth — span ' +
+            'the full road. Esc cancels, Backspace undoes a point. Save ' +
+            'when done.';
+        _redraw();
+    };
+
     window.v3CalibrationSave = async function () {
         const payload = _legs.map(l => ({
             label: l.label,
@@ -1232,6 +1369,7 @@
             sort_order: l.sort_order,
             origin_zone: l.origin_zone,
             reference_heading: l.reference_heading,
+            gate_segment: l.gate_segment || null,
         }));
         const statusEl = document.getElementById('v3-calib-status');
         try {
@@ -1269,6 +1407,18 @@
     };
 
     function _onKeydown(e) {
+        if (_drawingGate) {
+            if (e.key === "Escape") {
+                _drawingGate = null;
+                _redraw();
+                _updateStatus();
+            } else if (e.key === "Backspace") {
+                e.preventDefault();
+                _drawingGate.pts.pop();
+                _redraw();
+            }
+            return;
+        }
         if (_drawingChannel) {
             if (e.key === "Escape") {
                 window.v3CalibrationCancelChannel();

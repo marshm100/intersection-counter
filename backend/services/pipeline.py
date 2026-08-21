@@ -1080,13 +1080,17 @@ class ProcessingPipeline:
         """Build the leg entry gates once (operator mouths + bank tangents —
         the entry_gates service, ported from the proven box-clip machinery)."""
         if self._entry_gates is None:
-            from backend.services.entry_gates import build_gates
-            mouths, heads = {}, {}
+            from backend.services.entry_gates import (
+                build_gates, parse_gate_segment)
+            mouths, heads, drawn = {}, {}, {}
             for lg in self.legs:
                 oz = lg.get("origin_zone")
                 if oz:
                     mouths[lg["leg_id"]] = tuple(oz[0])
                     heads[lg["leg_id"]] = lg.get("reference_heading")
+                    g = parse_gate_segment(lg.get("gate_segment"))
+                    if g:
+                        drawn[lg["leg_id"]] = g
             # Gate geometry must be STABLE: built from _gate_paths (set by
             # callers that inject experimental candidate sets, e.g. replay
             # bank injection) so ablating candidates never rotates the gates
@@ -1100,7 +1104,8 @@ class ProcessingPipeline:
             # depend on arrival order, the instability this method guards.
             self._entry_gates = build_gates(
                 mouths, gate_paths or [], heads,
-                leg_axes=getattr(self, "_gate_axes", None)) if mouths else {}
+                leg_axes=getattr(self, "_gate_axes", None),
+                leg_gates=drawn or None) if mouths else {}
         return self._entry_gates
 
     def _gate_evidence(self, vehicle: dict) -> tuple[int | None, int | None, str | None]:

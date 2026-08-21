@@ -45,7 +45,7 @@ from backend.config import (                                    # noqa: E402
 from backend.database import list_paths_for_camera              # noqa: E402
 from backend.services.classifier import classify_vehicle        # noqa: E402
 from backend.services.entry_gates import (                      # noqa: E402
-    all_crossings, build_gates, cell_census, classify)
+    all_crossings, build_gates, cell_census, classify, parse_gate_segment)
 from backend.services.pass2_replay import load_dump, tracks_dir  # noqa: E402
 from backend.services.track_chains import build_chain_map_ev    # noqa: E402
 from backend.services.trajectory_classifier import (            # noqa: E402
@@ -90,16 +90,20 @@ def geom_hash(project: str, cam: int) -> str:
 def load_window(project: str, cam: int, variant: str) -> dict:
     conn = sqlite3.connect(f"file:data/projects/{project}/project.db?mode=ro",
                            uri=True)
-    legs_full, mouths, heads = {}, {}, {}
-    for lid, oz, rh, card in conn.execute(
+    legs_full, mouths, heads, drawn_gates = {}, {}, {}, {}
+    for lid, oz, rh, card, gs in conn.execute(
             "SELECT leg_id, origin_zone, reference_heading, "
-            "cardinal_direction FROM legs WHERE camera_id=?", (cam,)):
+            "cardinal_direction, gate_segment FROM legs "
+            "WHERE camera_id=?", (cam,)):
         legs_full[lid] = {"leg_id": lid, "reference_heading": rh,
                           "cardinal_direction": card}
         if oz:
             z = json.loads(oz)
             mouths[lid] = tuple(z[0])
             heads[lid] = rh
+            g = parse_gate_segment(gs)
+            if g:
+                drawn_gates[lid] = g
     video = conn.execute(
         "SELECT video_id, fps, recording_start_datetime FROM videos "
         "WHERE camera_id=? ORDER BY sort_order LIMIT 1", (cam,)).fetchone()
@@ -121,7 +125,8 @@ def load_window(project: str, cam: int, variant: str) -> dict:
                   [min(p[0][0] for p in tracks.values()),
                    max(p[-1][0] for p in tracks.values())])
     gates = build_gates(mouths, list_paths_for_camera(project, cam), heads,
-                        leg_axes=gate_axes_for(mouths, tracks.values()))
+                        leg_axes=gate_axes_for(mouths, tracks.values()),
+                        leg_gates=drawn_gates or None)
     # self-calibrated kinematics (px/frame units, like _end_speed)
     npz = Path("runs/v2_week1") / f"tracklets_cam{cam}_{variant}.npz"
     kin = (fit_motion_residual(load_table(npz)) if npz.exists()

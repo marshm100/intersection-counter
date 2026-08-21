@@ -449,24 +449,20 @@ def conserve_pass(project_id: str, camera_id: int, rows: np.ndarray,
                   fps: float, out_db: str | Path) -> dict:
     """Convenience wrapper for run_pass2 + the ablation harness: build the
     pinned gates + fragment-chain map from the dump, then conserve."""
-    from backend.database import list_paths_for_camera
+    from backend.database import (leg_geometry_for_camera,
+                                  list_paths_for_camera)
     from backend.services.entry_gates import build_gates
     from backend.services.track_chains import build_chain_map_ev
-    conn = get_connection(project_id)
-    mouths, heads = {}, {}
-    for lid, oz, rh in conn.execute(
-            "SELECT leg_id, origin_zone, reference_heading FROM legs "
-            "WHERE camera_id = ?", (camera_id,)):
-        if oz:
-            z = json.loads(oz)
-            mouths[lid] = tuple(z[0])
-            heads[lid] = rh
-    conn.close()
+    geom = leg_geometry_for_camera(project_id, camera_id)
+    mouths = {lid: g["mouth"] for lid, g in geom.items()}
+    heads = {lid: g["heading"] for lid, g in geom.items()}
+    drawn = {lid: g["gate"] for lid, g in geom.items() if g["gate"]}
     if not mouths:
         return {"skipped": "no leg mouths"}
     tracks = _tracks_from_rows(rows)
     gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
-                        heads, leg_axes=gate_axes_for(mouths, tracks.values()))
+                        heads, leg_axes=gate_axes_for(mouths, tracks.values()),
+                        leg_gates=drawn or None)
     if not gates:
         return {"skipped": "no gates"}
     chain_map, ev = build_chain_map_ev(tracks, gates, fps)
@@ -481,23 +477,19 @@ def census_expecteds(project_id: str, camera_id: int, rows: np.ndarray,
     assignment. Gates = operator mouths + the APPLIED bank's tangents — the
     same pinned geometry the pipeline's evidence gate uses. Shared by
     run_pass2 and the ablation harness (one source of truth)."""
-    from backend.database import list_paths_for_camera
+    from backend.database import (leg_geometry_for_camera,
+                                  list_paths_for_camera)
     from backend.services.entry_gates import build_gates, cell_census
-    conn = get_connection(project_id)
-    mouths, heads = {}, {}
-    for lid, oz, rh in conn.execute(
-            "SELECT leg_id, origin_zone, reference_heading FROM legs "
-            "WHERE camera_id = ?", (camera_id,)):
-        if oz:
-            z = json.loads(oz)
-            mouths[lid] = tuple(z[0])
-            heads[lid] = rh
-    conn.close()
+    geom = leg_geometry_for_camera(project_id, camera_id)
+    mouths = {lid: g["mouth"] for lid, g in geom.items()}
+    heads = {lid: g["heading"] for lid, g in geom.items()}
+    drawn = {lid: g["gate"] for lid, g in geom.items() if g["gate"]}
     if not mouths:
         return {}
     tracks = _tracks_from_rows(rows)
     gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
-                        heads, leg_axes=gate_axes_for(mouths, tracks.values()))
+                        heads, leg_axes=gate_axes_for(mouths, tracks.values()),
+                        leg_gates=drawn or None)
     if not gates:
         return {}
     return cell_census(tracks.values(), gates, fps)
@@ -509,23 +501,19 @@ def strict_full_census(project_id: str, camera_id: int, rows: np.ndarray,
     V2-demotion selector's census. cell_census's partial-evidence credits
     are too loose for flood detection (day-6b: cam2 28->29 loose census
     >=110 vs 54 strict fulls masked the 4.1x flood ratio)."""
-    from backend.database import list_paths_for_camera
+    from backend.database import (leg_geometry_for_camera,
+                                  list_paths_for_camera)
     from backend.services.entry_gates import build_gates, classify
-    conn = get_connection(project_id)
-    mouths, heads = {}, {}
-    for lid, oz, rh in conn.execute(
-            "SELECT leg_id, origin_zone, reference_heading FROM legs "
-            "WHERE camera_id = ?", (camera_id,)):
-        if oz:
-            z = json.loads(oz)
-            mouths[lid] = tuple(z[0])
-            heads[lid] = rh
-    conn.close()
+    geom = leg_geometry_for_camera(project_id, camera_id)
+    mouths = {lid: g["mouth"] for lid, g in geom.items()}
+    heads = {lid: g["heading"] for lid, g in geom.items()}
+    drawn = {lid: g["gate"] for lid, g in geom.items() if g["gate"]}
     if not mouths:
         return {}
     tracks = _tracks_from_rows(rows)
     gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
-                        heads, leg_axes=gate_axes_for(mouths, tracks.values()))
+                        heads, leg_axes=gate_axes_for(mouths, tracks.values()),
+                        leg_gates=drawn or None)
     if not gates:
         return {}
     # channel families by origin, for the entanglement measure

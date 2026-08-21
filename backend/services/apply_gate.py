@@ -170,22 +170,18 @@ def reattribution_integrity(project_id: str, camera_id: int, variant: str,
     if not moved:
         return out
 
-    conn = get_connection(project_id)
-    mouths, heads = {}, {}
-    for lid, oz, rh in conn.execute(
-            "SELECT leg_id, origin_zone, reference_heading FROM legs "
-            "WHERE camera_id = ?", (camera_id,)):
-        if oz:
-            z = _json.loads(oz)
-            mouths[lid] = tuple(z[0])
-            heads[lid] = rh
-    conn.close()
+    from backend.database import leg_geometry_for_camera
+    geom = leg_geometry_for_camera(project_id, camera_id)
+    mouths = {lid: g["mouth"] for lid, g in geom.items()}
+    heads = {lid: g["heading"] for lid, g in geom.items()}
+    drawn = {lid: g["gate"] for lid, g in geom.items() if g["gate"]}
     rows = load_dump(tracks_dir(_camera_parquet(project_id, camera_id,
                                                 variant)))
     tracks = {tid: sorted(p) for tid, p in _tracks_from_rows(rows).items()}
     gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
                         heads, leg_axes=gate_axes_for(mouths,
-                                                      tracks.values()))
+                                                      tracks.values()),
+                        leg_gates=drawn or None)
     cache: dict = {}
     for _e, (io, idd, tid), (co, cd, _t2) in moved:
         if tid not in cache:

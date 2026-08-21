@@ -25,10 +25,29 @@ class LegInput(BaseModel):
     sort_order: int
     origin_zone: List[List[float]]   # [[x, y]] — one point
     reference_heading: float
+    # B1 (2026-08-21): operator-drawn gate line [[x1,y1],[x2,y2]] — where
+    # the intersection begins/ends at this leg. None = derived gates.
+    gate_segment: List[List[float]] | None = None
 
 
 class CalibrationSaveRequest(BaseModel):
     legs: List[LegInput]
+
+
+def _validate_gate_segment(leg: LegInput) -> None:
+    """422 on a malformed drawn gate: exactly 2 [x, y] points, >= 20 px
+    long (a shorter segment cannot span even one lane and would silently
+    drop crossings)."""
+    gs = leg.gate_segment
+    if gs is None:
+        return
+    if len(gs) != 2 or any(len(p) != 2 for p in gs):
+        raise HTTPException(status_code=422,
+            detail="gate_segment must be exactly [[x1,y1],[x2,y2]]")
+    import math
+    if math.hypot(gs[1][0] - gs[0][0], gs[1][1] - gs[0][1]) < 20.0:
+        raise HTTPException(status_code=422,
+            detail="gate_segment must be at least 20 px long")
 
 
 class DeriveCardinalsBody(BaseModel):
@@ -204,7 +223,7 @@ def get_camera_calibration(project_id: str, camera_id: int):
     conn = get_connection(project_id)
     try:
         rows = conn.execute(
-            "SELECT leg_id, label, cardinal_direction, sort_order, origin_zone, reference_heading "
+            "SELECT leg_id, label, cardinal_direction, sort_order, origin_zone, reference_heading, gate_segment "
             "FROM legs WHERE camera_id = ? ORDER BY sort_order",
             (camera_id,),
         ).fetchall()
@@ -220,6 +239,7 @@ def get_camera_calibration(project_id: str, camera_id: int):
             "sort_order": row[3],
             "origin_zone": json.loads(row[4]) if row[4] else None,
             "reference_heading": row[5],
+            "gate_segment": json.loads(row[6]) if row[6] else None,
         })
     return {"legs": legs}
 
@@ -258,6 +278,8 @@ def save_camera_calibration(
     _require_camera_404(project_id, camera_id)
     if not body.legs:
         raise HTTPException(status_code=422, detail="At least one leg is required.")
+    for leg in body.legs:
+        _validate_gate_segment(leg)
 
     # Refuse if a v3 pipeline is mid-run on this camera. The pipeline thread
     # has the current leg_ids cached and writes events against them; deleting
@@ -308,13 +330,20 @@ def save_camera_calibration(
             return True
 
         if _same_geometry():
+            # gate_segment rides the SAFE branch by design (B1): drawing
+            # where the intersection ends must never wipe counted events
+            # (the cardinal-relabel precedent). The calib_fingerprint
+            # still flips, so pass-2 sidecars correctly go stale.
             with conn:
                 for (lid, _oz), leg in zip(existing, incoming):
                     conn.execute(
                         "UPDATE legs SET label = ?, cardinal_direction = ?, "
-                        "sort_order = ?, reference_heading = ? WHERE leg_id = ?",
+                        "sort_order = ?, reference_heading = ?, "
+                        "gate_segment = ? WHERE leg_id = ?",
                         (leg.label, leg.cardinal_direction, leg.sort_order,
-                         leg.reference_heading, lid))
+                         leg.reference_heading,
+                         json.dumps(leg.gate_segment)
+                         if leg.gate_segment else None, lid))
         else:
             with conn:
                 # Wipe this camera's vehicle events. Match on camera_id when set
@@ -336,8 +365,8 @@ def save_camera_calibration(
                 for leg in body.legs:
                     conn.execute(
                         "INSERT INTO legs (camera_id, label, cardinal_direction, "
-                        "sort_order, origin_zone, reference_heading) "
-                        "VALUES (?, ?, ?, ?, ?, ?)",
+                        "sort_order, origin_zone, reference_heading, gate_segment) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
                         (
                             camera_id,
                             leg.label,
@@ -345,10 +374,12 @@ def save_camera_calibration(
                             leg.sort_order,
                             json.dumps(leg.origin_zone),
                             leg.reference_heading,
+                            json.dumps(leg.gate_segment)
+                            if leg.gate_segment else None,
                         ),
                     )
         rows = conn.execute(
-            "SELECT leg_id, label, cardinal_direction, sort_order, origin_zone, reference_heading "
+            "SELECT leg_id, label, cardinal_direction, sort_order, origin_zone, reference_heading, gate_segment "
             "FROM legs WHERE camera_id = ? ORDER BY sort_order",
             (camera_id,),
         ).fetchall()
@@ -364,6 +395,7 @@ def save_camera_calibration(
             "sort_order": row[3],
             "origin_zone": json.loads(row[4]) if row[4] else None,
             "reference_heading": row[5],
+            "gate_segment": json.loads(row[6]) if row[6] else None,
         })
     return {"legs": saved}
 

@@ -53,7 +53,8 @@ import numpy as np                                               # noqa: E402
 
 from backend.database import (                                   # noqa: E402
     list_paths_for_camera, save_calibration_suggestion)
-from backend.services.entry_gates import build_gates, classify   # noqa: E402
+from backend.services.entry_gates import (                       # noqa: E402
+    build_gates, classify, parse_gate_segment)
 from backend.services.pass2_replay import load_dump, tracks_dir  # noqa: E402
 from backend.services.path_shape import (                        # noqa: E402
     MEMBER_PINCH_DEG, PATH_FOLD_REJECT_DEG, max_concentrated_turn)
@@ -81,10 +82,11 @@ _BASE_VARIANT = re.compile(r"study_\d{4}")
 def load_legs(project: str, cam: int):
     conn = sqlite3.connect(
         f"file:data/projects/{project}/project.db?mode=ro", uri=True)
-    mouths, heads, labels, legs_full = {}, {}, {}, {}
-    for lid, oz, rh, card, label in conn.execute(
+    mouths, heads, labels, legs_full, drawn = {}, {}, {}, {}, {}
+    for lid, oz, rh, card, label, gs in conn.execute(
             "SELECT leg_id, origin_zone, reference_heading, "
-            "cardinal_direction, label FROM legs WHERE camera_id=?", (cam,)):
+            "cardinal_direction, label, gate_segment FROM legs "
+            "WHERE camera_id=?", (cam,)):
         if oz:
             z = json.loads(oz)
             mouths[lid] = tuple(z[0])
@@ -92,6 +94,9 @@ def load_legs(project: str, cam: int):
             labels[lid] = f"{label or ''}({card or '?'})"
             legs_full[lid] = {"leg_id": lid, "reference_heading": rh,
                               "cardinal_direction": card}
+            g = parse_gate_segment(gs)
+            if g:
+                drawn[lid] = g
     video = conn.execute(
         "SELECT fps, width, height FROM videos WHERE camera_id=? "
         "ORDER BY sort_order LIMIT 1", (cam,)).fetchone()
@@ -99,7 +104,7 @@ def load_legs(project: str, cam: int):
     fps = float(video[0]) if video else 25.0
     frame_size = ([int(video[1]), int(video[2])]
                   if video and video[1] and video[2] else [640, 480])
-    return mouths, heads, labels, legs_full, fps, frame_size
+    return mouths, heads, labels, legs_full, fps, frame_size, drawn
 
 
 def load_npz_tracks(npz_path: str):
@@ -247,7 +252,7 @@ def main() -> int:
 
     min_support = resolve_min_support(args.dumps, args.min_support)
 
-    mouths, heads, labels, legs_full, fps, frame_size = load_legs(
+    mouths, heads, labels, legs_full, fps, frame_size, drawn = load_legs(
         args.project, args.camera)
     if len(mouths) < 3:
         print(f"REFUSING: camera {args.camera} has {len(mouths)} legs with "
@@ -285,7 +290,10 @@ def main() -> int:
         units.append(("npz", sample_window, kin, ksrc, lambda: iter(tracks)))
 
     gates = build_gates(mouths, existing, heads,
-                        leg_axes=gate_axes_for(mouths, []))
+                        leg_axes=gate_axes_for(mouths, []),
+                        leg_gates=drawn or None)
+    if drawn:
+        print(f"drawn gates in effect for legs: {sorted(drawn)}")
 
     # Cut every track against the confirmed gates, classify the segments,
     # pool the full journeys per (origin, destination) cell across windows.

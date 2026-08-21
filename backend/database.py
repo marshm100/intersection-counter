@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS legs (
     sort_order         INTEGER NOT NULL,
     origin_zone        TEXT NOT NULL,
     reference_heading  REAL NOT NULL,
+    gate_segment       TEXT DEFAULT NULL,  -- operator-drawn gate line [[x1,y1],[x2,y2]] (B1 2026-08-21)
     FOREIGN KEY (camera_id) REFERENCES cameras(camera_id)
 );
 
@@ -523,6 +524,11 @@ def get_connection(project_id: str) -> sqlite3.Connection:
     leg_cols = [r[1] for r in conn.execute("PRAGMA table_info(legs)").fetchall()]
     if "camera_id" not in leg_cols:
         conn.execute("ALTER TABLE legs ADD COLUMN camera_id INTEGER DEFAULT NULL")
+    if "gate_segment" not in leg_cols:
+        # B1 (2026-08-21): operator-drawn gate line [[x1,y1],[x2,y2]].
+        # NOTE this migration flips every camera's calib_fingerprint
+        # (SELECT * over legs) — pass-2 sidecars recompute on next touch.
+        conn.execute("ALTER TABLE legs ADD COLUMN gate_segment TEXT DEFAULT NULL")
 
     # v3.calibration: per-camera detection/tracking knobs (NULL = use config.py).
     cam_cols = [r[1] for r in conn.execute("PRAGMA table_info(cameras)").fetchall()]
@@ -1517,6 +1523,32 @@ def list_paths_for_camera(project_id: str, camera_id: int) -> list[dict]:
             (camera_id,),
         ).fetchall()
         return [_row_to_path(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def leg_geometry_for_camera(project_id: str, camera_id: int) -> dict:
+    """{leg_id: {"mouth": (x, y), "heading": float, "gate": ((x1,y1),
+    (x2,y2)) | None}} — the ONE reader for per-leg gate geometry (B1
+    2026-08-21). Replaces the mouth/head extraction that was duplicated
+    across two_pass, apply_gate, and the offline scripts, so the
+    operator-drawn gate_segment reaches every build_gates caller."""
+    from backend.services.entry_gates import parse_gate_segment
+    conn = get_connection(project_id)
+    try:
+        out: dict[int, dict] = {}
+        for lid, oz, rh, gs in conn.execute(
+                "SELECT leg_id, origin_zone, reference_heading, "
+                "gate_segment FROM legs WHERE camera_id = ?", (camera_id,)):
+            if not oz:
+                continue
+            try:
+                z = json.loads(oz)
+            except (TypeError, ValueError):
+                continue
+            out[lid] = {"mouth": tuple(z[0]), "heading": rh,
+                        "gate": parse_gate_segment(gs)}
+        return out
     finally:
         conn.close()
 

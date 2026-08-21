@@ -75,6 +75,28 @@ def derive_gate_axes(legs, tracks, radius_px: float = AXIS_RADIUS_PX,
     return out
 
 
+def parse_gate_segment(val):
+    """Operator-drawn gate line -> ((x1,y1),(x2,y2)) | None. Accepts the
+    raw JSON string from the legs row or an already-parsed list; anything
+    that is not exactly two [x, y] points is None (never raises — a
+    malformed row must not take the pipeline down)."""
+    if val is None:
+        return None
+    if isinstance(val, str):
+        import json
+        try:
+            val = json.loads(val)
+        except (TypeError, ValueError):
+            return None
+    try:
+        if len(val) != 2:
+            return None
+        (x1, y1), (x2, y2) = val[0], val[1]
+        return ((float(x1), float(y1)), (float(x2), float(y2)))
+    except (TypeError, ValueError):
+        return None
+
+
 def _closest_on_polyline(poly, pt):
     """(closest point, unit tangent, distance) of poly to pt."""
     best = (None, None, float("inf"))
@@ -94,7 +116,8 @@ def _closest_on_polyline(poly, pt):
     return best
 
 
-def build_gates(legs, bank_paths, leg_head=None, leg_axes=None):
+def build_gates(legs, bank_paths, leg_head=None, leg_axes=None,
+                leg_gates=None):
     """{leg_id: (p1, p2, inward_normal)} — gate segment + which way is 'in'.
 
     Orientation: mean of the leg's channels' local tangents at their closest
@@ -108,11 +131,32 @@ def build_gates(legs, bank_paths, leg_head=None, leg_axes=None):
     window's own tracks (derive_gate_axes). Where a leg has one it REPLACES
     the channel-tangent direction — the drawn artifacts are measured
     unreliable — while span, inward sign and de-overlap are unchanged.
-    Legs absent from the map keep the channel-tangent behavior exactly."""
+    Legs absent from the map keep the channel-tangent behavior exactly.
+
+    leg_gates: optional {leg_id: ((x1,y1),(x2,y2))} OPERATOR-DRAWN gate
+    lines (B1 2026-08-21 — the G-PF2-1 negative measured that derived
+    gates are the accuracy cap: a 94 px stub above the travel lanes
+    zeroed a 379-vehicle movement). A drawn segment is used VERBATIM:
+    its endpoints are the gate, the road direction is its perpendicular,
+    the inward sign comes from the same centroid test, and the entire
+    tangent/axis/span/pad/floor derivation is skipped. Highest
+    precedence; legs without one keep the derived behavior exactly;
+    de-overlap still runs over all gates (drawn included) as safety."""
     centroid = (sum(m[0] for m in legs.values()) / len(legs),
                 sum(m[1] for m in legs.values()) / len(legs))
     gates = {}
     for leg, mouth in legs.items():
+        drawn = (leg_gates or {}).get(leg)
+        if drawn:
+            p1, p2 = drawn
+            gx, gy = p2[0] - p1[0], p2[1] - p1[1]
+            n = math.hypot(gx, gy) or 1.0
+            gx, gy = gx / n, gy / n
+            tx, ty = -gy, gx                    # road dir = perpendicular
+            s = 1.0 if ((centroid[0] - mouth[0]) * tx
+                        + (centroid[1] - mouth[1]) * ty) > 0 else -1.0
+            gates[leg] = (tuple(p1), tuple(p2), (s * tx, s * ty))
+            continue
         tangents, cpts = [], []
         for p in bank_paths:
             if p["origin_leg_id"] != leg and p["destination_leg_id"] != leg:
