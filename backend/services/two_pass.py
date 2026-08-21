@@ -1280,6 +1280,11 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         "replay": stats, "merge": {k: v for k, v in merge.items()
                                    if k != "borderline"},
         "borderline": merge["borderline"], "out_db": str(out_db),
+        # The turn-merge volume-gate basis, recorded so control/arm
+        # geometry pairs can diff WHY merges (de)activated (the W1a
+        # coupling: paths move the corpus bank, which moves these).
+        "merge_expecteds": {f"{o}->{d}": round(v, 1)
+                            for (o, d), v in sorted(expected.items())},
         "applied": False,
         # Evidence-activation decision (None when the flag is off) — the
         # operator-visible record of the blind coverage census + outcome.
