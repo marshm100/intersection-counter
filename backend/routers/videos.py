@@ -9,6 +9,7 @@ will migrate to videos-table reads in subsequent phases.
 import asyncio
 import os
 import re
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -32,10 +33,12 @@ router = APIRouter()
 
 class AddVideoBody(BaseModel):
     path: str
+    copy_in: bool = True
 
 
 class BulkAddBody(BaseModel):
     paths: list[str]
+    copy_in: bool = True
 
 
 class StartTimeBody(BaseModel):
@@ -75,6 +78,53 @@ def _require_video(project_id: str, video_id: int) -> dict:
     if v is None:
         raise HTTPException(status_code=404, detail="Video not found")
     return v
+
+
+# ---- copy-in-by-default ingest (decision 2026-08-23) -----------------------
+# The machine transition stranded every project's videos on a OneDrive this
+# machine couldn't reach: reference-only ingest decouples media from the app.
+# Policy: adding a video COPIES it into the project's own videos/ folder so a
+# project directory is a self-contained study; 'copy_in: false' opts out for
+# huge local files and the row then renders with a 'linked' badge in the UI.
+# See docs/decision_video_ingest_2026-08-23.md.
+
+def _is_managed(project_id: str, path: str) -> bool:
+    try:
+        return (PROJECTS_DIR / project_id).resolve() in Path(path).resolve().parents
+    except OSError:
+        return False
+
+
+def _with_linked(project_id: str, row: dict | None) -> dict | None:
+    if row is not None and "path" in row:
+        row["linked"] = not _is_managed(project_id, row["path"])
+    return row
+
+
+def _ingest_path(project_id: str, src: str, copy_in: bool) -> str:
+    """Resolve where an added video should live, copying it in when asked.
+
+    Already-managed paths pass through. Re-adding the same source file is
+    idempotent: an existing same-name, same-size copy is reused, not
+    duplicated; a same-name different-size file gets a ' (2)' suffix.
+    """
+    srcp = Path(src)
+    if _is_managed(project_id, src):
+        return str(srcp.resolve())
+    if not copy_in:
+        return src
+    vids = PROJECTS_DIR / project_id / "videos"
+    vids.mkdir(parents=True, exist_ok=True)
+    dest = vids / srcp.name
+    if dest.exists():
+        if dest.stat().st_size == srcp.stat().st_size:
+            return str(dest.resolve())
+        k = 2
+        while (vids / f"{srcp.stem} ({k}){srcp.suffix}").exists():
+            k += 1
+        dest = vids / f"{srcp.stem} ({k}){srcp.suffix}"
+    shutil.copy2(str(srcp), str(dest))
+    return str(dest.resolve())
 
 
 def _open_file_dialog() -> str | None:
@@ -119,7 +169,7 @@ def _open_multi_file_dialog() -> list[str]:
 def get_videos(project_id: str):
     """List all videos attached to the project, in sort order."""
     _require_project(project_id)
-    return list_videos(project_id)
+    return [_with_linked(project_id, v) for v in list_videos(project_id)]
 
 
 # --- F3 stage A (plan_f3_playback_studio_2026-07-28) -----------------------
@@ -224,13 +274,16 @@ def post_video(project_id: str, body: AddVideoBody):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    existing = find_video_by_path(project_id, info["path"])
+    final_path = _ingest_path(project_id, info["path"], body.copy_in)
+    existing = (find_video_by_path(project_id, final_path)
+                or find_video_by_path(project_id, info["path"]))
     if existing:
-        return existing
+        return _with_linked(project_id, existing)
+    info["path"] = final_path
 
     info = _enrich_with_parse(info)
     vid = add_video(project_id, info)
-    return get_video(project_id, vid)
+    return _with_linked(project_id, get_video(project_id, vid))
 
 
 @router.post("/projects/{project_id}/videos/bulk")
@@ -257,14 +310,17 @@ def post_videos_bulk(project_id: str, body: BulkAddBody):
             results.append({"path": path, "error": f"Unexpected: {e}"})
             continue
 
-        existing = find_video_by_path(project_id, info["path"])
+        final_path = _ingest_path(project_id, info["path"], body.copy_in)
+        existing = (find_video_by_path(project_id, final_path)
+                    or find_video_by_path(project_id, info["path"]))
         if existing:
-            results.append(existing)
+            results.append(_with_linked(project_id, existing))
             continue
+        info["path"] = final_path
 
         info = _enrich_with_parse(info)
         vid = add_video(project_id, info)
-        row = get_video(project_id, vid)
+        row = _with_linked(project_id, get_video(project_id, vid))
         if row:
             results.append(row)
     return {"results": results}

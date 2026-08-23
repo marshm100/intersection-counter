@@ -135,6 +135,9 @@ async function _renderVideosTab(host) {
     let html = `
         <div class="videos-tab-actions">
             <button class="video-select-btn" onclick="v3PickVideos()">+ Upload videos</button>
+            <label class="helper-text" style="cursor:pointer" title="Default: files are copied into the project folder so the study is self-contained. Check to reference huge local files where they live instead (they can go missing if that location moves).">
+                <input type="checkbox" id="v3-link-in-place"> Leave files in place (link only)
+            </label>
             <span class="helper-text">Drag and drop multiple files; the system auto-fills camera, date, and start time from the filename.</span>
             <button class="${labelBtnClass}" onclick="v3SaveLabels()" ${_v3Videos.length === 0 ? 'disabled' : ''}>
                 ${labelBtnText}
@@ -168,7 +171,7 @@ function _videosTableRowHtml(v) {
     const durMin = v.duration_seconds ? (v.duration_seconds / 60).toFixed(1) + ' min' : '?';
     return `
         <tr class="${lowConf ? 'video-row-low-conf' : ''}" data-video-id="${v.video_id}">
-            <td class="videos-filename" title="${escapeAttr(v.path)}">${escapeHtml(v.filename)}</td>
+            <td class="videos-filename" title="${escapeAttr(v.path)}">${escapeHtml(v.filename)}${v.linked ? ' <span style="background:#f6edd8;color:#a06e14;border-radius:3px;padding:1px 6px;font-size:11px;font-weight:600;" title="This file is referenced where it lives, not copied into the project. If that location moves or disconnects, this video goes missing.">linked</span>' : ''}</td>
             <td>
                 <input type="text" class="cell-input" value="${escapeAttr(v.camera_label_parsed || '')}"
                     onchange="v3PatchLabel(${v.video_id}, 'camera_label', this.value)" />
@@ -212,7 +215,8 @@ async function v3PickVideos() {
 
     let resp;
     try {
-        resp = await API.post(`/api/projects/${pid}/videos/bulk`, { paths });
+        const linkOnly = !!(document.getElementById('v3-link-in-place') || {}).checked;
+        resp = await API.post(`/api/projects/${pid}/videos/bulk`, { paths, copy_in: !linkOnly });
     } catch (e) {
         alert(`Failed to attach videos: ${e.message || e}`);
         return;
