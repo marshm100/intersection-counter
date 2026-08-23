@@ -414,6 +414,14 @@ def get_video_frame(
     try:
         jpeg_bytes = get_frame_at_time(v["path"], seconds)
     except FileNotFoundError:
+        # Video gone (2026-08-23: source videos live on a OneDrive this machine
+        # doesn't have). Fall back to the detection-density backdrop so the
+        # calibration canvas still has a scene in video-pixel coordinates —
+        # see scripts/build_backdrop.py. Same image for every `seconds`.
+        backdrop = (PROJECTS_DIR / project_id /
+                    f"calibration_backdrop_cam{v['camera_id']}.png")
+        if backdrop.exists():
+            return Response(content=backdrop.read_bytes(), media_type="image/png")
         raise HTTPException(status_code=404, detail="Video file no longer accessible")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
