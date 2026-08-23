@@ -40,12 +40,31 @@ See docs/Implementation_Plan_v3.md.
 - Pedestrians OUT of scope for v2.
 
 ## Running
-py start_server.py
+serve.bat
+# or: .venv\Scripts\python.exe start_server.py
 # Runs on http://127.0.0.1:5000 — do NOT use port 8000 or any other port
 # Optional desktop window wrapper: python run.pyw (requires pywebview)
 
+## Environment (machine transition 2026-08-22)
+This project runs on **Python 3.12** and lives in a venv at `.venv`.
+Do NOT use bare `py` / `python` — on this machine that is 3.12's successor 3.13,
+which has no project dependencies and no wheels for the pinned numpy/scipy.
+Rebuild with:
+    %LOCALAPPDATA%\Programs\Python\Python312\python.exe -m venv .venv
+    .venv\Scripts\python.exe -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+    .venv\Scripts\python.exe -m pip install -r requirements.txt
+CUDA is required for practical run times (RTX 3500 Ada, 12 GB, cu124 verified).
+
+WARNING — the environment is NOT part of the measurement basis and never has
+been. requirements.txt pins numpy/scipy but leaves torch undeclared and
+ultralytics at >=8.3, and no run artifact records the versions that produced it.
+The controls scored before 2026-08-22 came from an environment that cannot be
+reconstructed. Re-score one archived control on any new machine BEFORE trusting
+a ctrl/arm comparison against it.
+
 ## Testing
-python -m pytest backend/tests/ -v
+.venv\Scripts\python.exe -m pytest backend/tests/ -q
+# 1008 passing as of 2026-08-22
 
 ## Git
 git commit -m "Step X.X — [title]"

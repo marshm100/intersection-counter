@@ -53,7 +53,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from backend.database import get_camera_calibration_params
 from backend.services.detection_cache import (
-    DEFAULT_VARIANT, DetectionCacheReader, compute_video_content_hash, parquet_path)
+    DEFAULT_VARIANT, DetectionCacheReader, compute_video_content_hash,
+    parquet_path, resolve_content_hash)
 from backend.services.tracker import create_tracker_backend
 from backend.services.trajectory_classifier import derive_movement
 from auto_calibrate import _fit_mean_polyline
@@ -218,7 +219,8 @@ def build_gtfree_bank(*, camera: int, project: str = "97a7849a", out=None,
 
     # --- camera context (NO ground truth anywhere below this line) ----------
     c = sqlite3.connect(f"data/projects/{project}/project.db")
-    v = c.execute("SELECT path,file_size_bytes,total_frames,fps,recording_start_datetime "
+    v = c.execute("SELECT path,file_size_bytes,total_frames,fps,recording_start_datetime,"
+                  "content_hash,content_hash_method "
                   "FROM videos WHERE camera_id=? ORDER BY sort_order LIMIT 1", (cam,)).fetchone()
     leg_rows = c.execute("SELECT leg_id,origin_zone,reference_heading,cardinal_direction "
                          "FROM legs WHERE camera_id=?", (cam,)).fetchall()
@@ -266,7 +268,11 @@ def build_gtfree_bank(*, camera: int, project: str = "97a7849a", out=None,
         # fallback rather than forcing "through".
         return "through" if a in _PRIMARY and b in _PRIMARY else None
     fps = float(v[3])
-    ch, _ = compute_video_content_hash(v[0], file_size_bytes=v[1], total_frames=v[2])
+    # resolve_content_hash: the two-pass flow injects tracks and never needs the
+    # video, and the corridor's source videos are no longer on disk (2026-08-22).
+    ch, _ = resolve_content_hash(project, cam, v[0], file_size_bytes=v[1],
+                                 total_frames=v[2], persisted_hash=v[5],
+                                 persisted_method=v[6])
     if tracks is not None:
         # Two-pass flow: pass-1 dump tracks injected — no cache, no retrack.
         kept = [[tuple(p) for p in pts] for pts in tracks

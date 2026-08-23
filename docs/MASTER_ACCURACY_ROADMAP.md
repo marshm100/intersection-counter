@@ -655,6 +655,30 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-23: MACHINE TRANSITION VERIFIED — repo now lives at
+  C:\dev\intersection-counter on the personal machine; the five corridor
+  source videos stayed on the company OneDrive and are PERMANENTLY GONE
+  (re-detection levers A2/A4 and any pass-1 rerun are dead on this
+  corpus; the detection caches, pass-1 dumps, DB and all backups came
+  across intact). Environment: Python 3.12 venv at .venv (torch
+  2.6.0+cu124, CUDA verified on RTX 3500 Ada; pinned numpy/scipy
+  honored; matplotlib + pypdf now DECLARED in requirements — matplotlib
+  was an undeclared runtime dep of pdf_report that resolved only via
+  ultralytics' transitive deps). Replay chain freed of the video-file
+  dependency: detection_cache.resolve_content_hash prefers the
+  persisted videos-row hash, then the file, then the unambiguous cache
+  dir (wired into two_pass.run_pass2, pass2_replay.replay_camera,
+  build_bank_gtfree; refuses to guess on ambiguity; 11 tests). ~37
+  diagnostic scripts still call compute_video_content_hash on the file
+  and WILL crash until swept. VERDICT ON THE CONTROLS: cam2 study_0700
+  control replay reproduced BYTE-IDENTICAL to the archived
+  2026-08-19 artifact (movement 53.4, approach 50.0; sha256 f3bf4537…;
+  every intermediate — 6253 usable tracks, 13 bank paths, 8320/5734
+  tracks/events, merge 1645/237 — exact) — the 2026-08-19 controls
+  remain valid on this machine, no re-baseline needed. Replay is 3.5×
+  faster here (165 s vs 586 s). Suite 1019 green. Base state archived
+  at C:\dev\_archive\intersection-counter-base-20260823 (frozen copy;
+  duplicate it for a clean slate — see its ARCHIVE-README).
 - 2026-08-21 (midday): B1 SHIPPED — operator-drawn gate lines end to
   end: legs.gate_segment (nullable; migration flips every camera's
   calib_fingerprint once), entry_gates.build_gates(leg_gates=) uses a

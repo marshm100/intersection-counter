@@ -11,6 +11,12 @@ sse-starlette==1.8.2
 python-multipart==0.0.6
 scikit-learn==1.3.2
 pyarrow>=17        # detection cache (Attribution v2): Parquet detection store
+matplotlib>=3.8     # pdf_report.py renders the PDF via matplotlib PdfPages. It was
+                    # undeclared until 2026-08-22 and only resolved because
+                    # ultralytics/supervision/filterpy each pull it in — PDF export
+                    # would have broken silently the day one of them dropped it.
 pytest==7.4.3
 httpx==0.27.2
+pypdf>=5            # tests only: TestPdfReportV3 reads the generated PDF back to
+                    # assert page count and layout (backend/tests/test_v3_aggregator.py)
 pywebview>=4.4.1

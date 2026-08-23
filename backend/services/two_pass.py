@@ -43,7 +43,8 @@ from backend.config import (
     ORIGIN_POSTERIOR_ENABLED,
 )
 from backend.database import get_connection, get_db_path
-from backend.services.detection_cache import compute_video_content_hash, parquet_path
+from backend.services.detection_cache import (
+    compute_video_content_hash, parquet_path, resolve_content_hash)
 from backend.services.flag_feeders import rebuild_flags
 from backend.services.cardinals import bound_approach
 from backend.services.pass2_replay import (
@@ -985,9 +986,16 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     intersection_id = cam_row["intersection_id"]
     fps = float(video["fps"])
 
-    chash, _ = compute_video_content_hash(
-        video["path"], file_size_bytes=video["file_size_bytes"],
-        total_frames=video["total_frames"])
+    # resolve_content_hash, not compute_video_content_hash: pass-2 replays a
+    # pass-1 dump and never opens the video, so a missing source file must not
+    # stop it (2026-08-22 — the corridor's videos stayed on the company
+    # OneDrive). Identical result when the video is present.
+    chash, _ = resolve_content_hash(
+        project_id, camera_id, video["path"],
+        file_size_bytes=video["file_size_bytes"],
+        total_frames=video["total_frames"],
+        persisted_hash=video["content_hash"],
+        persisted_method=video["content_hash_method"])
     tdir = tracks_dir(parquet_path(project_id, camera_id, chash, variant))
     if not (tdir / "count.txt").exists():
         raise FileNotFoundError(

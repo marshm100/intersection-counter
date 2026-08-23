@@ -90,6 +90,88 @@ def cache_dir(project_id: str, camera_id: int, content_hash: str, root: Path | N
     return base / str(camera_id) / content_hash
 
 
+def _camera_cache_root(project_id: str, camera_id: int, root: Path | None = None) -> Path:
+    base = root if root is not None else Path("data/projects") / project_id / "detections"
+    return base / str(camera_id)
+
+
+def resolve_content_hash(
+    project_id: str,
+    camera_id: int,
+    video_path: str | Path,
+    *,
+    file_size_bytes: int | None = None,
+    total_frames: int | None = None,
+    persisted_hash: str | None = None,
+    persisted_method: str | None = None,
+    root: Path | None = None,
+) -> tuple[str, str]:
+    """(hex_digest, method_tag) for a camera's detection cache, WITHOUT
+    requiring the source video to still exist.
+
+    Order, cheapest and most authoritative first:
+
+    1. The hash PERSISTED on the videos row, when its method matches the
+       current recipe. This is what _camera_parquet has always preferred —
+       re-hashing 128 MiB per camera per call is pure cost when the answer was
+       already recorded at ingest.
+    2. Otherwise, compute from the file — byte for byte the behavior every
+       existing cache was written under.
+    3. Otherwise (the OFFLINE case, added 2026-08-22 during the machine
+       transition: the corridor's source videos stayed on a company OneDrive
+       and did not come with the project) fall back to the on-disk cache
+       layout. The hash IS the cache directory name and every variant's
+       .meta.json records it, so a camera with exactly ONE cache directory
+       resolves unambiguously; the directory name is cross-checked against a
+       sidecar before it is trusted.
+
+    Every branch yields the SAME hash the video would have produced, so this
+    cannot change any downstream number — replay reads the identical dump.
+    Ambiguity is never guessed: two or more cache dirs with no video raises.
+    """
+    if persisted_hash and persisted_method == HASH_METHOD:
+        return persisted_hash, persisted_method
+
+    p = Path(video_path)
+    if p.exists():
+        return compute_video_content_hash(
+            p, file_size_bytes=file_size_bytes, total_frames=total_frames)
+
+    cam_root = _camera_cache_root(project_id, camera_id, root)
+    if not cam_root.is_dir():
+        raise FileNotFoundError(
+            f"camera {camera_id}: video missing at {p} and no detection cache "
+            f"at {cam_root} — nothing to replay from")
+
+    dirs = sorted(d for d in cam_root.iterdir() if d.is_dir())
+    if not dirs:
+        raise FileNotFoundError(
+            f"camera {camera_id}: video missing at {p} and no cached detection "
+            f"directory under {cam_root} — run pass 1 with the source video")
+    if len(dirs) > 1:
+        names = ", ".join(d.name[:16] + "..." for d in dirs)
+        raise ValueError(
+            f"camera {camera_id}: video missing at {p} and {len(dirs)} cache "
+            f"directories exist ({names}) — cannot tell which belongs to this "
+            f"video. Restore the video, or remove the stale cache directories.")
+
+    resolved = dirs[0].name
+    for meta in sorted(dirs[0].glob("*.meta.json")):
+        try:
+            recorded = json.loads(meta.read_text()).get("content_hash")
+        except (OSError, ValueError):
+            continue
+        if recorded and recorded != resolved:
+            raise ValueError(
+                f"camera {camera_id}: cache directory {resolved[:16]}... "
+                f"disagrees with {meta.name} content_hash "
+                f"{str(recorded)[:16]}... — refusing to guess")
+        if recorded:
+            break
+
+    return resolved, HASH_METHOD + "+cache-resolved"
+
+
 def parquet_path(project_id: str, camera_id: int, content_hash: str,
                  variant: str = DEFAULT_VARIANT, root: Path | None = None) -> Path:
     return cache_dir(project_id, camera_id, content_hash, root) / f"{variant}.parquet"

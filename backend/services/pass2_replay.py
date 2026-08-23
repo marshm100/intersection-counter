@@ -32,7 +32,7 @@ from backend.database import (
     get_camera_calibration_params, list_paths_for_camera,
 )
 from backend.services.detection_cache import (
-    compute_video_content_hash, parquet_path,
+    compute_video_content_hash, parquet_path, resolve_content_hash,
 )
 from backend.services.pipeline import ProcessingPipeline
 
@@ -118,9 +118,16 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         if leg.get("origin_zone"):
             leg["origin_zone"] = json.loads(leg["origin_zone"])
 
-    chash, _ = compute_video_content_hash(
-        video["path"], file_size_bytes=video["file_size_bytes"],
-        total_frames=video["total_frames"])
+    # resolve_content_hash: replay reads the pass-1 dump and never opens the
+    # video, so a source file that is no longer on disk must not stop it
+    # (2026-08-22 — the corridor's videos stayed on the company OneDrive).
+    # Identical digest when the video is present.
+    chash, _ = resolve_content_hash(
+        project_id, camera_id, video["path"],
+        file_size_bytes=video["file_size_bytes"],
+        total_frames=video["total_frames"],
+        persisted_hash=video["content_hash"],
+        persisted_method=video["content_hash_method"])
     pq = parquet_path(project_id, camera_id, chash, variant)
     tdir = tracks_dir(pq)
     if not tdir.exists():

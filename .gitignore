@@ -48,3 +48,7 @@ evaluations/*.log
 kernel.errors.txt
 *.errors.txt
 runs/detect/
+
+# Python venv (machine-local, 2026-08-22 transition — never commit)
+.venv/
+venv/
