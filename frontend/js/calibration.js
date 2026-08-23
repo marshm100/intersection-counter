@@ -497,6 +497,15 @@
         };
     }
 
+    function _gateHitR() {
+        // Gate-endpoint grab radius in IMAGE px, sized so the target is ~12 px
+        // ON SCREEN whatever the canvas display scale (operator feedback
+        // 2026-08-23: at scaled-down widths the fixed 10 img-px target shrank
+        // enough that endpoint dragging felt unimplemented).
+        const rect = _canvas.getBoundingClientRect();
+        return 12 * (_canvas.width / Math.max(1, rect.width));
+    }
+
     function _onCanvasClick(e) {
         // Gate-drawing mode (B1) wins over everything when active: 2 clicks
         // = the gate line's two ends across the leg's mouth.
@@ -583,7 +592,7 @@
                 if (!leg.gate_segment) continue;
                 for (let end = 0; end < 2; end++) {
                     const [gx, gy] = leg.gate_segment[end];
-                    if (Math.hypot(x - gx, y - gy) <= 10) {
+                    if (Math.hypot(x - gx, y - gy) <= _gateHitR()) {
                         _dragGate = { idx: leg.idx, end };
                         _canvas.style.cursor = 'grabbing';
                         e.preventDefault();
@@ -685,7 +694,21 @@
             const [nx, ny] = _currentLeg.origin_zone[0];
             onNode = Math.hypot(x - nx, y - ny) <= 16;
         }
-        _canvas.style.cursor = onNode ? 'grab' : 'crosshair';
+        // Gate endpoints advertise their draggability (B1 polish): same grab
+        // cursor the leg nodes get, same radius the mousedown hit test uses.
+        let onGateEnd = false;
+        if (!_drawingGate && !_drawingChannel && !_drawingPath) {
+            const gr = _gateHitR();
+            for (const leg of _legs) {
+                if (!leg.gate_segment) continue;
+                for (let end = 0; end < 2 && !onGateEnd; end++) {
+                    const [gx, gy] = leg.gate_segment[end];
+                    if (Math.hypot(x - gx, y - gy) <= gr) onGateEnd = true;
+                }
+                if (onGateEnd) break;
+            }
+        }
+        _canvas.style.cursor = (onNode || onGateEnd) ? 'grab' : 'crosshair';
     }
 
     function _onCanvasMouseup() {
@@ -921,10 +944,11 @@
             _ctx.moveTo(x1, y1);
             _ctx.lineTo(x2, y2);
             _ctx.stroke();
+            const hh = Math.max(5, _gateHitR() / 2);   // handle half-size tracks the grab radius
             for (const [hx, hy] of leg.gate_segment) {
                 _ctx.fillStyle = '#fff';
-                _ctx.fillRect(hx - 5, hy - 5, 10, 10);
-                _ctx.strokeRect(hx - 5, hy - 5, 10, 10);
+                _ctx.fillRect(hx - hh, hy - hh, 2 * hh, 2 * hh);
+                _ctx.strokeRect(hx - hh, hy - hh, 2 * hh, 2 * hh);
             }
             // inward arrow from the segment midpoint
             const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
