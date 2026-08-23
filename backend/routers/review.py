@@ -1,5 +1,6 @@
 import json
 import math
+from datetime import datetime, timedelta
 from typing import Optional
 
 import cv2
@@ -195,14 +196,29 @@ def add_event(project_id: str, body: AddEventBody):
         camera_id = leg[1]
 
         # frame_number from the video's fps when a video is known (used by the
-        # frame-preview endpoint); defaults to 0 otherwise.
+        # frame-preview endpoint); defaults to 0 otherwise. timestamp_real from
+        # the video's wallclock anchor, same derivation as the pipeline's
+        # (_finalize_vehicle_data) — without it an add-missed event is invisible
+        # to the dev scorer's production column (triangulate_manual.load_ours
+        # drops NULL-timestamp rows), i.e. review's headline lever would not
+        # show up in a before/after measurement (R0 pre-work, 2026-08-23).
         frame_number = 0
+        timestamp_real = None
         if body.video_id is not None:
             vrow = conn.execute(
-                "SELECT fps FROM videos WHERE video_id = ?", (body.video_id,)
+                "SELECT fps, recording_start_datetime FROM videos WHERE video_id = ?",
+                (body.video_id,),
             ).fetchone()
             if vrow and vrow[0]:
                 frame_number = max(0, round(body.timestamp_video * float(vrow[0])))
+            if vrow and vrow[1]:
+                try:
+                    start = datetime.fromisoformat(vrow[1])
+                    timestamp_real = (
+                        start + timedelta(seconds=body.timestamp_video)
+                    ).isoformat()
+                except (ValueError, TypeError):
+                    pass
 
         # Minimal trajectory = the click point, so the overlay draws a marker and
         # click-to-reject hit-testing works for the manually-added event too.
@@ -213,12 +229,13 @@ def add_event(project_id: str, body: AddEventBody):
             """INSERT INTO vehicle_events
                (video_id, camera_id, trim_id, vehicle_track_id, origin_leg_id,
                 destination_leg_id, movement, trajectory_data, trajectory_confidence,
-                vehicle_class, detection_confidence, timestamp_video, frame_number,
-                manually_edited, rejected)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,0)""",
+                vehicle_class, detection_confidence, timestamp_video, timestamp_real,
+                frame_number, manually_edited, rejected)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0)""",
             (body.video_id, camera_id, body.trim_id, -1, body.origin_leg_id,
              body.destination_leg_id, body.movement, traj, 1.0,
-             body.vehicle_class, 1.0, body.timestamp_video, frame_number),
+             body.vehicle_class, 1.0, body.timestamp_video, timestamp_real,
+             frame_number),
         )
         event_id = cur.lastrowid
         conn.commit()

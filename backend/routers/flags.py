@@ -144,23 +144,34 @@ def post_rebuild_flags(project_id: str, intersection_id: int):
 
 @router.get("/projects/{project_id}/intersections/{intersection_id}/flags")
 def get_flags(project_id: str, intersection_id: int, status: str = "open",
-              kind: str | None = None, limit: int | None = None, offset: int = 0):
+              kind: str | None = None, limit: int | None = None, offset: int = 0,
+              window: str | None = None):
     """The worklist: flags for this intersection, impact-DESC then oldest-first.
-    status='all' returns every status."""
+    status='all' returns every status. window='HHMM-HHMM' scopes the queue to
+    one wallclock window (R0: work one window until clean); flags with no
+    window evidence are excluded — see database._flag_in_window."""
     _require_project(project_id)
     _require_intersection(project_id, intersection_id)
-    flags = list_flags(project_id, intersection_id, status=status, kind=kind,
-                       limit=limit, offset=offset)
+    try:
+        flags = list_flags(project_id, intersection_id, status=status, kind=kind,
+                           limit=limit, offset=offset, window=window)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     return {"flags": flags, "summary": flag_summary(project_id, intersection_id)}
 
 
 @router.get("/projects/{project_id}/intersections/{intersection_id}/flags/next")
-def get_next_flag(project_id: str, intersection_id: int, status: str = "open"):
+def get_next_flag(project_id: str, intersection_id: int, status: str = "open",
+                  window: str | None = None):
     """Serve the single highest-impact flag, enriched with everything needed to
     decide it on one screen. `{flag: null}` when the queue is empty."""
     _require_project(project_id)
     _require_intersection(project_id, intersection_id)
-    flags = list_flags(project_id, intersection_id, status=status, limit=1)
+    try:
+        flags = list_flags(project_id, intersection_id, status=status, limit=1,
+                           window=window)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     if not flags:
         return {"flag": None, "summary": flag_summary(project_id, intersection_id)}
     return {"flag": _enrich(project_id, flags[0]),

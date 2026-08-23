@@ -21,6 +21,7 @@ let _wlSeconds = 0;          // current scrub position (video seconds)
 let _wlBusy = false;
 let _wlFlipTimer = null, _wlFlipFrames = [], _wlFlipIdx = 0;   // looping clip state
 let _wlUndoStack = [];       // session-only action stack for Z (plan_C_polish §3b)
+let _wlWindow = null;        // 'HHMM-HHMM' wallclock scope from the URL (R0)
 const _WL_UNDO_CAP = 50;
 
 const _WL_MOVE = { '1': 'through', '2': 'left', '3': 'right', '4': 'u_turn' };
@@ -69,7 +70,13 @@ async function _wlRebuild() {
 }
 
 async function _wlRefreshList() {
-    const r = await API.get(`/api/projects/${_wlPid}/intersections/${_wlIid}/flags?status=open`);
+    // Optional wallclock window scope (R0: work ONE window until clean).
+    // Set via URL: index.html#worklist?window=1600-1800 — sticky for the
+    // session, cleared by removing the param and reloading.
+    const winMatch = (location.hash || '').match(/[?&]window=(\d{4}-\d{4})/);
+    _wlWindow = winMatch ? winMatch[1] : null;
+    const winQ = _wlWindow ? `&window=${_wlWindow}` : '';
+    const r = await API.get(`/api/projects/${_wlPid}/intersections/${_wlIid}/flags?status=open${winQ}`);
     _wlList = r.flags || [];
     _wlSummary = r.summary || _wlSummary;
     // Roll the flag list up into CARDS (plan_flood_control_2026-07-09): flags
@@ -136,6 +143,12 @@ function _wlRender() {
 
 function _wlBannerHtml() {
     let html = '';
+    if (_wlWindow) {
+        const w = _wlWindow.replace('-', '–').replace(/(\d\d)(\d\d)/g, '$1:$2');
+        html += `<div style="margin:8px 0;padding:8px 14px;border-radius:6px;background:#e0e9f5;
+            color:#1e3a5f;font-weight:600;">Queue scoped to ${w} only (R0 window mode).
+            <span style="font-weight:400;">Whole-day flags are hidden; remove ?window= from the URL and reload to see everything.</span></div>`;
+    }
     if (_wlGate && _wlGate.overall === 'ship') {
         html += `<div style="margin:8px 0;padding:10px 14px;border-radius:6px;background:#dcfce7;
             color:#166534;font-weight:700;">✓ Ready to export — within the ±5% bar.

@@ -2001,6 +2001,45 @@ def insert_flags(project_id: str, intersection_id: int, flags: list[dict]) -> in
         conn.close()
 
 
+def _parse_window(window: str) -> tuple[int, int]:
+    """'1600-1800' -> (57600, 64800) seconds-of-day. Raises ValueError on junk."""
+    a, b = window.split("-")
+    if len(a) != 4 or len(b) != 4:
+        raise ValueError(f"window must be HHMM-HHMM, got {window!r}")
+    s = int(a[:2]) * 3600 + int(a[2:]) * 60
+    e = int(b[:2]) * 3600 + int(b[2:]) * 60
+    if not (0 <= s < e <= 24 * 3600):
+        raise ValueError(f"window out of range: {window!r}")
+    return s, e
+
+
+def _flag_in_window(row, start_sec: int, end_sec: int) -> bool:
+    """Wallclock-window membership for one flag (R0 pre-work, 2026-08-23).
+
+    Event flags: the autoresolve batch_key ends in the 15-min wallclock bin
+    ('bin|{cam}|{cell}|{HH:MM}') — parse it. Gap flags: interval_start_seconds
+    is video-time, ~= seconds-of-day here (the corridor anchor is 00:00:02; a
+    2 s skew cannot move a 900 s-aligned bin across a 15-min boundary).
+    STRICT SCOPE by design: flags with no window evidence — whole-day
+    cell-level gap flags (interval IS NULL) and event flags never re-keyed to
+    a bin — are EXCLUDED when a window filter is active. The R0 scope note
+    accounts for them explicitly rather than letting them blur the window.
+    """
+    bk = row["batch_key"]
+    if bk and bk.startswith("bin|"):
+        tail = bk.rsplit("|", 1)[-1]
+        try:
+            h, m = tail.split(":")
+            t = int(h) * 3600 + int(m) * 60
+        except (ValueError, AttributeError):
+            return False
+        return start_sec <= t < end_sec
+    iss = row["interval_start_seconds"]
+    if iss is not None:
+        return start_sec <= float(iss) < end_sec
+    return False
+
+
 def list_flags(
     project_id: str,
     intersection_id: int,
@@ -2009,9 +2048,12 @@ def list_flags(
     kind: str | None = None,
     limit: int | None = None,
     offset: int = 0,
+    window: str | None = None,
 ) -> list[dict]:
     """Flags for an intersection, impact-DESC then oldest-first. status=None or
-    'all' returns every status; otherwise filter to that one status."""
+    'all' returns every status; otherwise filter to that one status.
+    window='HHMM-HHMM' keeps only flags attributable to that wallclock window
+    (see _flag_in_window); limit/offset then apply to the filtered list."""
     where = ["intersection_id = ?"]
     params: list = [intersection_id]
     if status not in (None, "all"):
@@ -2020,12 +2062,17 @@ def list_flags(
         where.append("kind = ?"); params.append(kind)
     sql = (f"SELECT * FROM review_flags WHERE {' AND '.join(where)} "
            "ORDER BY impact DESC, created_at ASC, flag_id ASC")
-    if limit is not None:
+    if window is None and limit is not None:
         sql += " LIMIT ? OFFSET ?"; params += [int(limit), int(offset)]
     conn = get_connection(project_id)
     try:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(sql, params).fetchall()
+        if window is not None:
+            ws, we = _parse_window(window)
+            rows = [r for r in rows if _flag_in_window(r, ws, we)]
+            if limit is not None:
+                rows = rows[int(offset):int(offset) + int(limit)]
         return [_row_to_flag(r) for r in rows]
     finally:
         conn.close()
