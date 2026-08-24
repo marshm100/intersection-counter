@@ -136,6 +136,7 @@ def items_for_flag(project_id: str, flag: dict) -> dict:
             "movement": movement,
             "tag": tag,
             "t_first": round(pts[0][0] / fps, 2),
+            "t_last": round(pts[-1][0] / fps, 2),
             "t_cross": round(float(cross_f) / fps, 2),
             "x": round(float(pos[0]), 1),
             "y": round(float(pos[1]), 1),

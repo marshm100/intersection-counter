@@ -946,12 +946,15 @@ function _wlItemSel(i) {
     if (!_wlItems || !_wlItems[i]) return;
     _wlItemPos = i;
     _wlSelTid = Number(_wlItems[i].tid);
-    // Operator feedback (2026-08-24): a static thin box among dozens of
-    // gray ones is invisible — play a short LOOP around the item's
-    // moment so its thick yellow box MOVES. Space pauses; the loop ends
-    // when the item is ruled on or another is selected.
-    const t = Math.max(0, _wlItems[i].t_cross - 1.5);
-    _wlItemLoop = [t, _wlItems[i].t_cross + 3];
+    // Operator feedback (2026-08-24, twice): the yellow box must MOVE,
+    // and the loop must play the track's WHOLE story — approach, queue
+    // wait, drop — not a fixed peek around the crossing ("you cut off
+    // the loop before the path is fully played out"). Loop birth to
+    // last-seen; space pauses; ruling on the item or selecting another
+    // ends it.
+    const it = _wlItems[i];
+    const t = Math.max(0, (it.t_first != null ? it.t_first : it.t_cross) - 1);
+    _wlItemLoop = [t, (it.t_last != null ? it.t_last : it.t_cross + 3) + 1.5];
     const vid = document.getElementById('wl-video');
     if (vid) {
         vid.currentTime = t;
