@@ -123,4 +123,19 @@ re-tests the same mechanism; or (b) shelve pass-2 repair and open Stage 4
 (pass-1 lock persistence: fix the tracker so tracks never need cutting) —
 the operator's original diagnosis.
 
-## SHIPPED — no. MISS; production untouched (scratch-only replays).
+## SHIPPED — no. G-TR-1 MISS; production untouched (scratch-only replays).
+
+## G-TR-2 — the debris-eligibility re-test (declared 2026-08-24, before
+## any scored run; operator ruling: option (a))
+
+ARM = A3_CUT_DUMPS=1 at the rev-6 amendment commit: cut segments survive
+only with a PHYSICAL gate crossing (temporally adjacent bracketing points
+at physical speed — a crossing synthesized across a latch teleport is a
+theft artifact, not evidence); all-debris cut tracks pass through uncut.
+Both G-TR-1 mechanisms addressed at the dump layer: debris can neither be
+counted nor vote on evidence activation. CONTROL, PASS thresholds, MISS
+handling: IDENTICAL to G-TR-1 (pooled movement > 64.8; floors 65.3 /
+60.0 / 63.2; approach secondary). Fresh workdir trackrepair2_20260824;
+armed-verification now also checks rule_rev 6 + debris stats present.
+
+## G-TR-2 Verdict — pending
