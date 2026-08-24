@@ -598,7 +598,13 @@ REPORT_LETTERHEAD = {
 # single vehicle into many one-point "tracks" that get dropped as
 # insufficient_data. Bytetrack's own lost_buffer is TRACKER_LOST_BUFFER
 # frames; this should be ≤ that so we don't outlive the tracker.
-TRACK_FINALIZE_GAP_FRAMES = 60   # 2s @ 30fps
+# Env-overridable for A/B replays (G-LP-1, 2026-08-25): the tracker's
+# identity memory and this finalize grace are ONE mechanism — a locked-
+# recipe dump carries healed occlusion gaps that a 60-frame grace would
+# split back apart and double-count. Default unchanged: production
+# behavior byte-identical.
+TRACK_FINALIZE_GAP_FRAMES = int(_os2.environ.get(
+    "TRACK_FINALIZE_GAP_FRAMES", "60"))   # 2s @ 30fps
 
 # --- Articulated (semi-truck) classification (§3-D, 2026-07-06) -------------
 # The COCO "truck" class is one bucket; distinguishing an articulated semi

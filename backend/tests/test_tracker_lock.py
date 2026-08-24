@@ -223,3 +223,21 @@ class TestGateStraddleSplit:
         n = _split_gate_straddles(arr, self.GATE, 25.0)
         assert n == 2
         assert len(set(arr[:, 0].tolist())) == 3
+
+
+class TestFinalizeGraceOverride:
+    def test_default_pinned(self):
+        from backend.config import TRACK_FINALIZE_GAP_FRAMES
+        assert TRACK_FINALIZE_GAP_FRAMES == 60
+
+    def test_env_respected(self):
+        import subprocess
+        import sys
+        out = subprocess.run(
+            [sys.executable, "-c",
+             "from backend.config import TRACK_FINALIZE_GAP_FRAMES; "
+             "print(TRACK_FINALIZE_GAP_FRAMES)"],
+            capture_output=True, text=True, cwd=".",
+            env={**__import__('os').environ,
+                 "TRACK_FINALIZE_GAP_FRAMES": "650"})
+        assert out.stdout.strip() == "650"

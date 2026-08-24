@@ -1,0 +1,86 @@
+# Lock-persistence scored gate (G-LP-1) — gate doc
+
+Declared BEFORE any scored run (house gate discipline). Mechanism: the
+bus-law tracker (operator identity law, 2026-08-24: occlusion does not
+end identity — incompatible motion does), recipe botsort_locked at the
+4c-amendment commit: theft mask + physics recovery + probation with
+revocation + gate-break re-stamp + claim-cone cap (frozen stitch
+windows) + gate-straddle splits (a join may not span a gate) + mover
+expiry. Operator demo-review rulings ledgered in
+docs/diag_lock_demo_review_2026-08-24.md; amendment demo (4c-2) acked.
+Lineage: 4a hygiene + 4b gate bfc807d; iterations 2-3 + meter a585484;
+amendment (this basis). 17 bus-law tests; full suite green.
+
+## What is being tested
+
+ARM = ONE mechanism, two knobs, declared together: (1) the three cam2
+study windows re-tracked under botsort_locked with lost buffer 750
+(fps-rescaled 625 frames = 25 s; injected via
+runs/s4_lock/s4_pass1_runner.py — production calibration untouched);
+(2) the replay's finalize grace raised to match via env
+TRACK_FINALIZE_GAP_FRAMES=650 (buffer 625 + 1 s) — without it the
+counting stage splits 1,629 healed identities back apart and
+double-counts them; the tracker's memory and the counter's patience
+are one identity mechanism. Geometry, gates, supremacy, paths: all
+unchanged (the shipped basis).
+
+CONTROL = shipped production = the gatesup scores (G-GS-1 SHIPPED
+2026-08-24). Valid per the code/data-arm precedent; new score JSONs
+self-record the production basis.
+
+## G-LP-1 (the ship gate)
+
+- Controls: pooled movement 64.8% (214/330); per-window 67.3 (72/107) /
+  62.0 (67/108) / 65.2 (75/115); approach 43.8 / 50.0 / 40.6
+  (pooled 44.8, 43/96).
+- PASS: arm pooled movement > 64.8%, AND no window more than 2.0 below
+  its control (floors 65.3 / 60.0 / 63.2). Approach recorded alongside
+  (secondary).
+- MISS: zero revert (botsort_locked is opt-in; grace default
+  unchanged); negative ledgered here + roadmap.
+
+## Interactions ledgered (pre-registered readouts)
+
+- (a) EVIDENCE-ACTIVATION COUPLING: "the tracker choice controls pair
+  activation" (measured three times). Controls 0.566/0.496/0.493 vs the
+  0.45 bar; the amended s4_study_1100 measured above-bar before the
+  final amendment. Record all three arm coverages; if any window flips
+  vs control, run the ft2-precedent flag-off decomposition pair
+  (EVIDENCE_ACTIVATION_ENABLED=0 both sides) — else the mechanism
+  measurement is void.
+- (b) RAISED GRACE compresses index-time across intra-track gaps in
+  the pipeline's trajectory model. For queue joins the gap precedes the
+  entry crossing, so crossing evidence is largely safe; u-turn counts
+  ctrl-vs-arm are the canary readout.
+- (c) QD LAW: any added volume in deficit cells triggers a mandatory
+  human-review sample sheet before any ship.
+- (d) ID-TRANSFER KILL GATE: duplicate-tid census (production 95 tids /
+  195 events @1600 — the split-on-reuse class the raised grace should
+  collapse), gate_breaks, gate_straddle_splits reported per window.
+- (e) KNOWN LIMITATION carried: the born-parked residual class (755
+  flip-at-gap tracks at 1100) — count-neutrality argued (the parked
+  half carries no crossings; A2 forbids synthetic ones); this gate
+  adjudicates it empirically.
+
+## Procedure
+
+1. Copy detection caches study_0700/1600 -> s4_ variants (parquet +
+   meta sidecar; cache_exists must be true before launch). 1100's
+   amended dump rebuilds under the final amendment in-run guard:
+   rebuild it fresh at this commit for basis purity.
+2. Pass-1 x3 under the runner (background, ~15 min each, sequential).
+3. Armed-verification per meta: backend botsort_locked, lost_buffer
+   750, gate_breaks + gate_straddle_splits keys present.
+4. Replays x3: fresh workdir _replay_scratch/s4lock_20260825, env
+   TRACK_FINALIZE_GAP_FRAMES=650, v2_run_pass2 from the repo root.
+5. Copy to stems s4arm_cam2_study_* (sqlite backup API); score all
+   three in one v2_score_dev call.
+6. Verdict + readouts here + roadmap changelog; commit PASS or MISS.
+
+## Verdict — pending
+
+## SHIPPED — pending (operator go required; ship design drafted at
+## verdict time: calib flip, grace productization decided with the
+## operator, dump rebuilds with old dirs renamed aside, pre-ship
+## backup, Confirm & process + force_once ladder). Sequencing law:
+## no cam2 production write before R0 closes (Phase 2).
