@@ -655,6 +655,24 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-24: G-TR-1 MISS — TRACK-REPAIR CUT DUMPS FAIL THE SCORED GATE
+  ON ALL THREE WINDOWS (docs/plan_track_repair_2026-08-24.md; arm =
+  A3_CUT_DUMPS=1 at 455bebc vs shipped gatesup control). Movement pooled
+  64.8 -> 37.4 (50.5/34.3/28.4); approach 44.8 -> 14.6. Two structural
+  causes, neither a cutter defect: (1) coverage dilution — no-crossing
+  debris segments push evidence activation below 0.45, replaying
+  1100/1600 with gates+supremacy OFF (gate_full 0 vs 579/605); (2) debris
+  counting — 54-61% of arm events come from cut segments classified via
+  posterior/bank machinery calibrated for whole tracks. Flag stays
+  default-off; production untouched. Positives kept: chain direction
+  gate (39k-98k false-chain vetoes/window), segment-namespace collision
+  fix, split-on-reuse duplicate quantification (95 tids/195 events at
+  1600 in production; cutting collapses it to 39). Stage-2 glue
+  separately ledgered DEAD (queue caterpillar, 455bebc). Open next
+  (operator ruling pending): segment-eligibility amendment (debris out of
+  the coverage denominator + only gate-full segments countable) vs going
+  straight to Stage 4 pass-1 lock persistence.
+
 - 2026-08-24: GATE SUPREMACY SHIPPED THROUGH G-GS-1 — the operator's
   architectural ruling ("gates are the law: enter through a gate, cut at the
   exit gate, movement = the gate pair") implemented as GATE_FULL_SUPREMACY

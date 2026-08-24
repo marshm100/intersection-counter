@@ -75,6 +75,52 @@ the honest adjudicator.
    API); score all three with v2_score_dev in one call.
 4. Verdict here + roadmap changelog, commit — PASS or MISS.
 
-## Verdict — pending
+## Verdict — G-TR-1 MISS on all three windows (2026-08-24)
 
-## SHIPPED — pending (operator go required)
+| window | movement ctrl -> arm | approach ctrl -> arm |
+|---|---|---|
+| study_0700 | 67.3 -> **50.5** (-16.8) | 43.8 -> 0.0 |
+| study_1100 | 62.0 -> **34.3** (-27.7) | 50.0 -> 21.9 |
+| study_1600 | 65.2 -> **28.4** (-36.8) | 40.6 -> 21.9 |
+| pooled | 64.8 -> **37.4** (119/318; bar >64.8) | 44.8 -> **14.6** |
+
+Mechanism (two coupled structural failures; neither is a cutter defect —
+the cut rules themselves remain splice-validated 54/56):
+
+1. **COVERAGE DILUTION — the repair de-activated the gates it serves.**
+   Evidence activation coverage: ctrl 0.566 -> arm 0.474 / 0.410 / 0.397
+   against threshold 0.45. Windows 1100+1600 replayed with the entire
+   evidence-gate machinery OFF (gate_full events 0 vs ctrl 579/605);
+   0700 barely activated (gate_full 291 vs ctrl 502). Cause: cutting
+   mints thousands of no-crossing debris segments (10,720/9,413/14,327
+   segments from 2,810/2,474/3,859 cut tracks) and the activation
+   denominator counts every track.
+
+2. **DEBRIS COUNTING — non-full segments stay countable.** Cut segments
+   carry 54-61% of arm events (3,891/3,186/5,500 of 7,154/5,429/9,022):
+   fragments with no or partial gate evidence are still classified via
+   the posterior/bank path machinery — whose corpus bank is itself built
+   from cut fragments. SB_thru balloons to 3,346 vs Mio 2,247 at 1600
+   while EB_thru/WB_left/NB_right collapse. The offline census could not
+   see this class: it only credited gate-full verdicts. Under the
+   operator's law (vehicles counted only when entering through a gate),
+   cut DEBRIS must not be independently countable — the pipeline's
+   eligibility thresholds were calibrated for whole tracks and were left
+   unchanged.
+
+Confirmed predictions retained for the record: split-on-reuse duplicate
+tids collapse under cutting (production 95 -> arm 39 at study_1600);
+armed-verification worked (all three sidecars a3_study_*, rev 5, glue
+off, kin fitted); arm wall-clock 185/137/156 s per window.
+
+MISS handling per the declaration: A3_CUT_DUMPS stays default-off
+(already was — zero revert); this negative ledgered here + roadmap.
+
+Open next (operator ruling): (a) a SEGMENT-ELIGIBILITY amendment — cut
+debris excluded from the evidence-coverage denominator and from non-gate
+counting (segments count only via gates), the smallest change that
+re-tests the same mechanism; or (b) shelve pass-2 repair and open Stage 4
+(pass-1 lock persistence: fix the tracker so tracks never need cutting) —
+the operator's original diagnosis.
+
+## SHIPPED — no. MISS; production untouched (scratch-only replays).
