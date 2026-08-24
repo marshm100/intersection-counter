@@ -225,3 +225,108 @@ def cut_dump_rows(rows: np.ndarray, gates: dict, fps: float,
         stats["dropped_points"] += len(pts) - used
     out = np.concatenate(out_chunks, axis=0) if out_chunks else rows_sorted[:0]
     return np.ascontiguousarray(out, dtype=np.float32), stats
+
+
+# ---------------------------------------------------------------------------
+# Derived-dump resolution (Track Repair Stage 1)
+# ---------------------------------------------------------------------------
+
+def _geom_hash(project_id: str, camera_id: int) -> str:
+    """Gate-relevant geometry fingerprint (legs + paths + channels), the
+    v2_a3_split geom_hash recipe — pins a cut dump to the geometry it was
+    cut under so a gate redraw forces a rebuild."""
+    import hashlib
+    import sqlite3
+    from backend.config import PROJECTS_DIR
+    db = PROJECTS_DIR / project_id / "project.db"
+    conn = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
+    h = hashlib.sha256()
+    try:
+        for table in ("legs", "intersection_paths", "channels"):
+            for row in conn.execute(
+                    f"SELECT * FROM {table} WHERE camera_id=? ORDER BY 1",
+                    (camera_id,)):
+                h.update(repr(row).encode())
+    finally:
+        conn.close()
+    return h.hexdigest()[:16]
+
+
+def ensure_cut_dump(project_id: str, camera_id: int, variant: str,
+                    chash: str, fps: float, base_tdir, base_rows,
+                    base_meta: dict):
+    """Materialize (or reuse) the a3_-cut derived dump for a base window.
+
+    Returns (variant', tdir', meta', rows'). Reuse when the derived dir
+    exists AND its recorded geom_hash matches current geometry AND it was cut
+    from the same base row count. kin: fitted from the window's tracklets npz
+    when present, else FALLBACK_KIN (px/s) — never the old wrong-units values.
+
+    Deterministic, side-effect-safe: the base dump is never touched.
+    """
+    import json as _json
+    from pathlib import Path
+    import numpy as _np
+    from backend.database import leg_geometry_for_camera, list_paths_for_camera
+    from backend.services.entry_gates import build_gates
+
+    new_variant = f"a3_{variant}"
+    dst = Path(str(base_tdir).replace(f"{variant}.tracks",
+                                      f"{new_variant}.tracks"))
+    ghash = _geom_hash(project_id, camera_id)
+    meta_p = dst / "meta.json"
+    if meta_p.exists():
+        m = _json.loads(meta_p.read_text())
+        cut_info = m.get("a3_cut") or {}
+        if (cut_info.get("geom_hash") == ghash
+                and cut_info.get("base_rows") == int(len(base_rows))):
+            # plain load (no mmap): a lingering mmap handle blocks the
+            # rebuild's overwrite on Windows (EINVAL on open-for-write)
+            rows = _np.load(dst / "rows.npy")
+            return new_variant, dst, m, rows
+
+    # build gates exactly the way the replay does (drawn gates verbatim;
+    # axes derived from the base tracks)
+    from backend.services.two_pass import _tracks_from_rows, gate_axes_for
+    geom = leg_geometry_for_camera(project_id, camera_id)
+    mouths = {lid: g["mouth"] for lid, g in geom.items()}
+    heads = {lid: g["heading"] for lid, g in geom.items()}
+    drawn = {lid: g["gate"] for lid, g in geom.items() if g["gate"]}
+    tracks = _tracks_from_rows(base_rows)
+    gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
+                        heads, leg_axes=gate_axes_for(mouths, tracks.values()),
+                        leg_gates=drawn or None)
+    if not gates:
+        raise RuntimeError(f"cam{camera_id}: no gates — cannot cut")
+
+    kin, kin_src = dict(FALLBACK_KIN), "fallback"
+    npz = Path("runs/v2_week1") / f"tracklets_cam{camera_id}_{variant}.npz"
+    if npz.exists():
+        try:
+            import sys as _sys
+            if "scripts" not in _sys.path:
+                _sys.path.insert(0, "scripts")
+            from v2_common import fit_motion_residual, load_table
+            kin = fit_motion_residual(load_table(npz))
+            kin_src = "fitted"
+        except Exception:
+            pass  # fallback kin stands
+
+    out_rows, stats = cut_dump_rows(_np.asarray(base_rows), gates, fps, kin)
+    out_rows = out_rows[_np.lexsort((out_rows[:, 0], out_rows[:, 1]))]
+    dst.mkdir(parents=True, exist_ok=True)
+    meta2 = dict(base_meta)
+    meta2["variant"] = new_variant
+    meta2["complete"] = True
+    meta2["a3_cut"] = {
+        "geom_hash": ghash, "base_variant": variant,
+        "base_rows": int(len(base_rows)), "kin_src": kin_src,
+        "kin": {k: round(float(v), 3) for k, v in kin.items()
+                if k != "table" and isinstance(v, (int, float))},
+        **{k: int(v) for k, v in stats.items()},
+    }
+    _np.save(dst / "rows.npy", _np.ascontiguousarray(out_rows,
+                                                     dtype=_np.float32))
+    (dst / "count.txt").write_text(str(len(out_rows)))
+    meta_p.write_text(_json.dumps(meta2))
+    return new_variant, dst, meta2, out_rows

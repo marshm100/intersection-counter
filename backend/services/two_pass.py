@@ -1005,6 +1005,26 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     window_seconds = (f_hi - f_lo) / fps
     rows = load_dump(tdir)
 
+    # --- Track Repair Stage 1 (operator ruling 2026-08-24): resolve base
+    # study_* windows to the a3_-CUT derived dump before anything reads the
+    # rows. Every cut ends a vehicle identity — segments are separate
+    # vehicles, classified by their own gate crossings; classify() and every
+    # census/threshold downstream see the same cut tid space. Fail-safe:
+    # resolution errors fall back to the base dump (processing never breaks
+    # on the repair layer).
+    from backend.config import A3_CUT_DUMPS
+    if A3_CUT_DUMPS and variant.startswith("study_"):
+        try:
+            from backend.services.track_cut import ensure_cut_dump
+            variant, tdir, meta, rows = ensure_cut_dump(
+                project_id, camera_id, variant, chash, fps, tdir, rows, meta)
+            f_lo, f_hi = meta["frames"]
+            window_seconds = (f_hi - f_lo) / fps
+        except Exception as e:                      # pragma: no cover
+            logger.warning("a3 cut-dump resolution failed for cam%s %s: %s "
+                           "— falling back to the base dump",
+                           camera_id, variant, e)
+
     # --- 0. reuse: a prior compute of THIS dump is still valid ----------------
     # (apply=True used to recompute the whole pass-2 — 2x wall time for
     # nothing when the working DB was just measured. The stats sidecar records

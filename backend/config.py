@@ -179,6 +179,15 @@ APPLY_GATE_ENABLED = _os2.environ.get("APPLY_GATE", "1") in ("1", "true", "on")
 # per cam2 window, top flip = gate-said-through relabeled right (55/80/139),
 # mirroring the Miovision error table. Env-overridable for A/B replays.
 GATE_FULL_SUPREMACY = _os2.environ.get("GATE_FULL_SUPREMACY", "1") in ("1", "true", "on")
+
+# Track Repair Stage 1 (operator ruling 2026-08-24: every cut ends a vehicle
+# identity — a track cannot exit mouth-to-gate and "return" as the same
+# vehicle; segments are separate vehicles): pass-2 resolves base study_*
+# windows to an a3_-cut derived dump (the validated A3 splice cutter applied
+# to every track, segments renumbered tid*10+k) before classification.
+# Geom-hash pinned; rebuilt when gates/paths/channels change. Fail-safe: any
+# resolution error falls back to the base dump with a warning.
+A3_CUT_DUMPS = _os2.environ.get("A3_CUT_DUMPS", "1") in ("1", "true", "on")
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
 APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
 APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)

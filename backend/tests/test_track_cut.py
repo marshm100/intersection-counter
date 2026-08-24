@@ -105,3 +105,84 @@ class TestKinPolicy:
         segments, records = cut_track(pts, {}, FPS, dict(FALLBACK_KIN))
         assert records == []
         assert len(segments) == 1 and len(segments[0]) == len(pts)
+
+
+# ---------------------------------------------------------------------------
+# Stage 1 — ensure_cut_dump (derived-dump resolution)
+# ---------------------------------------------------------------------------
+
+import json
+import sqlite3
+
+import pytest as _pytest
+
+from backend.services.track_cut import ensure_cut_dump
+
+
+@_pytest.fixture
+def cutenv(tmp_path, monkeypatch):
+    """A minimal project with one camera, drawn gates, and a base dump."""
+    import backend.config as cfg
+    import backend.database as dbm
+    proj_root = tmp_path / "projects"
+    (proj_root / "p1").mkdir(parents=True)
+    monkeypatch.setattr(cfg, "PROJECTS_DIR", proj_root)
+    monkeypatch.setattr(dbm, "PROJECTS_DIR", proj_root)
+    db = proj_root / "p1" / "project.db"
+    conn = sqlite3.connect(str(db))
+    conn.executescript(dbm.SCHEMA)
+    conn.execute("INSERT INTO intersections (intersection_id, name, date, sort_order, leg_count, created_at) "
+                 "VALUES (1, 'T', '2026-05-12', 0, 2, '2026-05-12')")
+    conn.execute("INSERT INTO cameras (camera_id, intersection_id, label, sort_order, created_at) "
+                 "VALUES (2, 1, 'c', 0, '2026-05-12')")
+    for lid, gs in ((28, [[0, 100], [200, 100]]), (29, [[0, 300], [200, 300]])):
+        conn.execute("INSERT INTO legs (leg_id, camera_id, label, cardinal_direction, sort_order, "
+                     "origin_zone, reference_heading, gate_segment) VALUES (?, 2, 'L', 'N', 0, ?, 90.0, ?)",
+                     (lid, json.dumps([[100, 100 if lid == 28 else 300]]), json.dumps(gs)))
+    conn.commit(); conn.close()
+
+    base = tmp_path / "study_0700.tracks"
+    base.mkdir()
+    rows = _rows({7: _spliced_track(), 9: _clean_track()})
+    np.save(base / "rows.npy", rows)
+    (base / "count.txt").write_text(str(len(rows)))
+    (base / "meta.json").write_text(json.dumps(
+        {"frames": [0, 200], "variant": "study_0700", "complete": True}))
+    return {"tdir": base, "rows": rows, "proj": "p1"}
+
+
+class TestEnsureCutDump:
+    def test_builds_reuses_and_repins(self, cutenv):
+        v2, tdir2, meta2, rows2 = ensure_cut_dump(
+            cutenv["proj"], 2, "study_0700", "hash", 25.0,
+            cutenv["tdir"], cutenv["rows"], json.loads((cutenv["tdir"] / "meta.json").read_text()))
+        assert v2 == "a3_study_0700"
+        assert tdir2.name == "a3_study_0700.tracks"
+        assert meta2["a3_cut"]["base_rows"] == len(cutenv["rows"])
+        assert (tdir2 / "count.txt").exists()
+        stamp = (tdir2 / "rows.npy").stat().st_mtime_ns
+
+        # second call: reused, not rebuilt
+        v3, tdir3, meta3, rows3 = ensure_cut_dump(
+            cutenv["proj"], 2, "study_0700", "hash", 25.0,
+            cutenv["tdir"], cutenv["rows"], json.loads((cutenv["tdir"] / "meta.json").read_text()))
+        assert (tdir3 / "rows.npy").stat().st_mtime_ns == stamp
+        assert np.array_equal(rows2, rows3)
+
+        # geometry change (gate redraw) forces a rebuild
+        import backend.config as cfg
+        conn = sqlite3.connect(str(cfg.PROJECTS_DIR / "p1" / "project.db"))
+        conn.execute("UPDATE legs SET gate_segment=? WHERE leg_id=29",
+                     (json.dumps([[0, 310], [200, 310]]),))
+        conn.commit(); conn.close()
+        v4, tdir4, meta4, rows4 = ensure_cut_dump(
+            cutenv["proj"], 2, "study_0700", "hash", 25.0,
+            cutenv["tdir"], cutenv["rows"], json.loads((cutenv["tdir"] / "meta.json").read_text()))
+        assert (tdir4 / "rows.npy").stat().st_mtime_ns != stamp
+
+    def test_base_dump_untouched(self, cutenv):
+        before = (cutenv["tdir"] / "rows.npy").read_bytes()
+        ensure_cut_dump(cutenv["proj"], 2, "study_0700", "hash", 25.0,
+                        cutenv["tdir"], cutenv["rows"],
+                        json.loads((cutenv["tdir"] / "meta.json").read_text()))
+        assert (cutenv["tdir"] / "rows.npy").read_bytes() == before
