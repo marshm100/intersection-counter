@@ -74,3 +74,27 @@ old basis 46.7 -> drawn gates 57.8 -> gate supremacy **64.8** (+18.1).
 
 SHIP: the pending operator Confirm & process click on the Town East card now
 lands drawn gates + supremacy together in production counts.
+
+## SHIPPED (2026-08-24, operator "go for it")
+
+Confirm & process run 1: replays computed, **apply gate stood down all three
+windows on no_headroom** — it is a VOLUME gate (incumbent within 3% of census)
+and supremacy improves ATTRIBUTION at equal volume, structurally invisible to
+it. Resolution: the designed operator mechanism — disposition **force_once**
+on cam2 study_0700/1100/1600 (noted with the G-GS-1 PASS citation) — then
+Confirm & process run 2: **applied: true x3**.
+
+Verified in production after apply:
+- production score = the arm exactly: movement 67.3 / 62.0 / 65.2,
+  approach 43.8 / 50.0 / 40.6
+- posterior_source='gate_full': 1,686 events
+- events total 97,109 -> 96,421 (cam2 17,078 -> 16,448: the apply replaced
+  the pre-gates cam2 window events wholesale with the new-basis set — fewer,
+  better-attributed events; turn-merge/dedup differences absorbed the delta)
+- force_once consumed: all three dispositions back to 'auto' (the volume gate
+  guards again)
+- pre-ship restore point: backups/project_20260824T040724_pre_ship.db
+
+Lesson ledgered: attribution-improving applies will ALWAYS stand down at the
+volume gate; force_once with a measured pre-registered PASS is the intended
+route. Candidate future work: teach the gate a movement-bar headroom term.
