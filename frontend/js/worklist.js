@@ -32,6 +32,13 @@ const _WL_MOVE = { '1': 'through', '2': 'left', '3': 'right', '4': 'u_turn' };
 const _WL_CLIP_FRAMES = 10;
 const _WL_FLIP_MS = 150;     // ~6.7 fps playback
 
+// R0 instrument v2 (operator spec 2026-08-24): gap cards are LINE ITEMS.
+let _wlItems = null;      // machine-proposed candidates for the open card
+let _wlItemPos = 0;       // item cursor
+let _wlSelTid = null;     // item's dump track, highlighted on the overlay
+let _wlDid = [];          // this card's action history ("what you did")
+let _wlCardKey = null;    // stable card key for the review_log
+
 function openWorklist(iid) {
     AppState.currentIntersectionId = iid;
     _wlIid = iid;
@@ -120,7 +127,11 @@ async function _wlShow() {
         } catch (e) { _wlLegs = []; }
     }
     _wlSeconds = (_wlFlag.clip && _wlFlag.clip.center_seconds) || 0;
+    _wlItems = null; _wlItemPos = 0; _wlSelTid = null; _wlDid = [];
+    _wlCardKey = card.key || `f${id}`;
     _wlRender();
+    if (_wlFlag.kind === 'suspected_gap'
+            && _wlFlag.interval_start_seconds != null) _wlLoadItems();
 }
 
 // --- rendering --------------------------------------------------------------
@@ -342,17 +353,30 @@ function _wlAnswerRowsHtml(f) {
 }
 
 function _wlGapHtml(f) {
+    // R0 instrument v2: closed-ended line items + a bin ledger + a
+    // verdict close — never an open scrub canvas alone.
     const c = f.clip || {};
+    const added = _wlDid.filter(d => d.action === 'added').length;
+    const short = Math.round(Number(f.impact || 0));
+    const ledger = f.subtype === 'echo_suspect'
+        ? `<b>Double-count check.</b> Suspected duplicates on the ${escapeHtml(f.approach || '')}B approach.`
+        : `<b>Bin ledger:</b> this interval reads short by ~<b>${short}</b> on the
+           ${escapeHtml(f.approach || '')}B approach · you added <b id="wl-added-n">${added}</b>
+           → est. remaining ~<b id="wl-rem-n">${Math.max(0, short - added)}</b>`;
+    const did = _wlDid.length
+        ? `<div style="margin-top:6px;font-size:12px;color:#374151;" id="wl-did">
+             ${_wlDid.map(d => `· ${escapeHtml(d.label)}`).join('<br>')}</div>`
+        : `<div id="wl-did"></div>`;
     return `
-        <div style="margin-top:8px;font-size:13px;">
-            ${f.subtype === 'echo_suspect'
-                ? `<b>Double-count check.</b> Scrub the window — where the same vehicle
-                   was counted twice on the ${escapeHtml(f.approach || '')}B approach,
-                   open the Review screen for this movement and reject the duplicates.`
-                : `<b>Interval review.</b> Scrub the window and add any vehicles the system missed
-                   on the ${escapeHtml(f.approach || '')}B approach.`}
+        <div style="margin-top:8px;font-size:13px;">${ledger}</div>
+        ${did}
+        <div id="wl-items" style="margin-top:8px;">
+            <p class="helper-text">Looking for tracked-but-uncounted vehicles in this interval…</p>
         </div>
-        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+        <div style="margin-top:10px;font-size:12px;color:#6b7280;"><b>Residual scrub</b>
+            — after the items, if the ledger still reads short: scrub and
+            <b>A</b>+click any vehicle the items missed (one click = one counted vehicle).</div>
+        <div style="margin-top:4px;display:flex;align-items:center;gap:8px;">
             <input id="wl-scrub" type="range" min="${Math.floor(c.start_seconds || 0)}"
                 max="${Math.ceil(c.end_seconds || (c.start_seconds || 0) + 900)}"
                 value="${Math.floor(_wlSeconds)}" step="1" style="flex:1;"
@@ -360,17 +384,25 @@ function _wlGapHtml(f) {
             <span id="wl-scrub-label" class="helper-text">${_wlFmt(_wlSeconds)}</span>
         </div>
         <div id="wl-add-form"></div>
-        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
             <button onclick="_wlToggleAdd()"><b>A</b> Add missed</button>
-            <button onclick="_wlResolveGap()" style="${_WL_BIG}background:#dcfce7;border:2px solid #16a34a;">
-                ${f.subtype === 'echo_suspect' ? 'Done — duplicates handled'
-                                               : 'Done — looks counted'} <b>(Enter)</b></button>
-            <button class="btn-secondary" onclick="_wlDismiss()"><b>D</b> Dismiss
-                ${f.subtype === 'echo_suspect' ? '(they are separate vehicles)' : '(real low volume)'}</button>
+            <input id="wl-note" placeholder="optional note for the record"
+                style="flex:1;min-width:140px;font-size:12px;" />
+        </div>
+        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
+            <button onclick="_wlVerdictClose('fixed_as_asked')"
+                style="${_WL_BIG}background:#dcfce7;border:2px solid #16a34a;">
+                Fixed what it asked <b>(Enter)</b></button>
+            <button class="btn-secondary" onclick="_wlVerdictClose('nothing_wrong')">
+                <b>W</b> Nothing actually wrong</button>
+            <button class="btn-secondary" onclick="_wlVerdictClose('different_problem')">
+                <b>Q</b> Different problem than asked</button>
+            <button class="btn-secondary" onclick="_wlDismiss()"><b>D</b> Dismiss</button>
             <button class="btn-secondary" onclick="_wlSkip()"><b>&rarr;</b> Skip</button>
             <span class="helper-text">Z undoes anything</span>
         </div>`;
 }
+
 
 // The stopping rule (plan_C_polish §3a): which gate items block export and
 // what action closes each. The queue can only clear review_flags — the
@@ -607,9 +639,11 @@ function _wlDrawOverlay() {
     const t = vid ? (vid.currentTime || 0) : _wlSeconds;
     const evTid = _wlFlag && _wlFlag.event
         ? Number(_wlFlag.event.vehicle_track_id) : null;
-    // all-tracks layer (dim) + the flag's own track (bright yellow)
+    // all-tracks layer (dim) + the flag's own track OR the selected
+    // item's track (bright yellow — R0 instrument v2)
     for (const tr of _wlTracks) {
-        const isEv = evTid != null && tr.tid === evTid;
+        const isEv = (evTid != null && tr.tid === evTid)
+            || (_wlSelTid != null && tr.tid === _wlSelTid);
         if (!isEv && !_wlOverlayAll) continue;
         const box = _wlBoxAt(tr.pts, t);
         if (!box) continue;
@@ -808,6 +842,138 @@ function _wlNudge(sec) {
     vid.currentTime = Math.max(0, (vid.currentTime || 0) + sec);
 }
 
+async function _wlLoadItems() {
+    const fid = _wlFlag && _wlFlag.flag_id;
+    if (!fid) return;
+    let r;
+    try { r = await API.get(`/api/projects/${_wlPid}/flags/${fid}/items`); }
+    catch (e) { r = { items: [], error: String(e) }; }
+    if (!_wlFlag || _wlFlag.flag_id !== fid) return;   // card moved on
+    _wlItems = r.items || [];
+    if (r.card_key) _wlCardKey = r.card_key;
+    _wlItemPos = 0;
+    _wlRenderItems();
+    if (_wlItems.length) _wlItemSel(0);
+}
+
+function _wlItemsHtml() {
+    if (_wlItems === null) return '<p class="helper-text">Loading…</p>';
+    if (!_wlItems.length) return `<p class="helper-text">No tracked-but-uncounted
+        candidates found in this interval — use the residual scrub below.</p>`;
+    const movOpts = m => ['through', 'left', 'right', 'u_turn'].map(v =>
+        `<option value="${v}" ${v === (m || 'through') ? 'selected' : ''}>${v}</option>`).join('');
+    const rows = _wlItems.map((it, i) => {
+        const sel = i === _wlItemPos;
+        const doneBadge = it.done === 'added'
+            ? '<span style="color:#16a34a;font-weight:700;">✓ counted</span>'
+            : it.done ? '<span style="color:#6b7280;">✕ not a vehicle</span>' : '';
+        const desc = it.tag === 'full'
+            ? `tracked vehicle, never counted — reads as <b>${escapeHtml(it.movement || '?')}</b>`
+            : `enters the approach, exit unseen — movement
+               <select id="wl-item-mov-${i}" onclick="event.stopPropagation()">${movOpts(it.movement)}</select>`;
+        return `<div onclick="_wlItemSel(${i})" style="display:flex;gap:8px;align-items:center;
+                padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px;
+                ${sel ? 'background:#eff6ff;outline:2px solid #3b82f6;' : 'background:#f9fafb;'}">
+            <b>${i + 1}.</b> <span style="font-variant-numeric:tabular-nums;">${_wlFmt(it.t_cross)}</span>
+            <span style="flex:1;">${desc}</span>
+            ${doneBadge || `<button onclick="event.stopPropagation();_wlItemYes(${i})"
+                    style="background:#dcfce7;"><b>Y</b> count it</button>
+                <button class="btn-secondary"
+                    onclick="event.stopPropagation();_wlItemNo(${i})"><b>N</b> not a vehicle</button>`}
+        </div>`;
+    }).join('');
+    return `<div style="display:flex;flex-direction:column;gap:4px;">
+        <div class="helper-text">Machine-proposed items — click a row to cue the video
+        (its box turns yellow); <b>Y</b> counts it once, <b>N</b> marks it not a vehicle.</div>
+        ${rows}</div>`;
+}
+
+function _wlRenderItems() {
+    const el = document.getElementById('wl-items');
+    if (el) el.innerHTML = _wlItemsHtml();
+    const didEl = document.getElementById('wl-did');
+    if (didEl) didEl.innerHTML = _wlDid.map(d => `· ${escapeHtml(d.label)}`).join('<br>');
+    const addedEl = document.getElementById('wl-added-n');
+    if (addedEl) {
+        const added = _wlDid.filter(d => d.action === 'added').length;
+        addedEl.textContent = added;
+        const remEl = document.getElementById('wl-rem-n');
+        if (remEl) remEl.textContent =
+            Math.max(0, Math.round(Number(_wlFlag.impact || 0)) - added);
+    }
+}
+
+function _wlItemSel(i) {
+    if (!_wlItems || !_wlItems[i]) return;
+    _wlItemPos = i;
+    _wlSelTid = Number(_wlItems[i].tid);
+    _wlScrub(Math.max(0, _wlItems[i].t_cross - 1));
+    _wlRenderItems();
+}
+
+function _wlItemNext() {
+    if (!_wlItems || !_wlItems.length) return;
+    _wlItemSel((_wlItemPos + 1) % _wlItems.length);
+}
+
+async function _wlLog(payload) {
+    try {
+        await API.post(`/api/projects/${_wlPid}/review-log`, Object.assign({
+            camera_id: _wlFlag.camera_id, card_key: _wlCardKey || `f${_wlFlag.flag_id}`,
+        }, payload));
+    } catch (e) { /* the log is best-effort; the edit itself already landed */ }
+}
+
+async function _wlItemYes(i) {
+    const it = _wlItems && _wlItems[i];
+    if (!it || it.done) return;
+    const movSel = document.getElementById(`wl-item-mov-${i}`);
+    const movement = it.tag === 'full' ? (it.movement || 'through')
+        : ((movSel && movSel.value) || 'through');
+    let ev;
+    try {
+        ev = await API.post(`/api/projects/${_wlPid}/review`, {
+            origin_leg_id: it.origin_leg_id, movement,
+            destination_leg_id: it.destination_leg_id || null,
+            timestamp_video: it.t_cross,
+            video_id: _wlFlag.clip && _wlFlag.clip.video_id,
+            x: it.x, y: it.y,
+        });
+    } catch (e) { alert(`Add failed: ${e.message || e}`); return; }
+    it.done = 'added';
+    const label = `Added #${ev.event_id} — 1 vehicle, ${movement} @ ${_wlFmt(it.t_cross)} (item ${i + 1})`;
+    _wlDid.push({ action: 'added', label });
+    _wlToast(label);
+    _wlLog({ item_key: `tid:${it.tid}`, action: 'added',
+             event_id: ev.event_id, source_tid: it.tid,
+             detail_json: JSON.stringify({ movement, t: it.t_cross }) });
+    await _wlRefreshList();
+    _wlRenderItems();
+    _wlRenderSideOnly();
+}
+
+function _wlItemNo(i) {
+    const it = _wlItems && _wlItems[i];
+    if (!it || it.done) return;
+    it.done = 'not_a_vehicle';
+    const label = `Item ${i + 1} @ ${_wlFmt(it.t_cross)}: not a vehicle`;
+    _wlDid.push({ action: 'not_a_vehicle', label });
+    _wlLog({ item_key: `tid:${it.tid}`, action: 'not_a_vehicle',
+             source_tid: it.tid });
+    _wlRenderItems();
+}
+
+async function _wlVerdictClose(verdict) {
+    const noteEl = document.getElementById('wl-note');
+    const note = (noteEl && noteEl.value) || '';
+    _wlLog({ item_key: 'card', action: 'verdict', verdict, note,
+             detail_json: JSON.stringify({
+                 n_added: _wlDid.filter(d => d.action === 'added').length,
+                 n_not_vehicle: _wlDid.filter(d => d.action === 'not_a_vehicle').length,
+             }) });
+    await _wlResolveGap();
+}
+
 function _wlToggleAdd() {
     _wlAddMode = !_wlAddMode;
     const form = document.getElementById('wl-add-form');
@@ -838,15 +1004,22 @@ function _wlCanvasClick(ev) {
 async function _wlConfirmAdd(x, y) {
     const leg = document.getElementById('wl-add-leg'), mov = document.getElementById('wl-add-mov');
     if (!leg) return;
+    let ev;
     try {
-        await API.post(`/api/projects/${_wlPid}/review`, {
+        ev = await API.post(`/api/projects/${_wlPid}/review`, {
             origin_leg_id: Number(leg.value), movement: mov.value,
             timestamp_video: _wlSeconds, video_id: _wlFlag.clip.video_id, x, y,
         });
     } catch (e) { alert(`Add failed: ${e.message || e}`); return; }
+    const label = `Added #${ev.event_id} — 1 vehicle, ${mov.value} @ ${_wlFmt(_wlSeconds)} (scrub)`;
+    _wlDid.push({ action: 'added', label });
+    _wlToast(label);
+    _wlLog({ item_key: 'residual', action: 'added', event_id: ev.event_id,
+             detail_json: JSON.stringify({ movement: mov.value, t: _wlSeconds, x, y }) });
     await _wlRefreshList();   // count + gate update; keep reviewing this interval
     const form = document.getElementById('wl-add-form');
-    if (form) form.innerHTML = `<p class="helper-text" style="color:#16a34a;">Added. Click another, or Enter when done.</p>`;
+    if (form) form.innerHTML = `<p class="helper-text" style="color:#16a34a;">${escapeHtml(label)}. Click another, or close with a verdict when done.</p>`;
+    _wlRenderItems();
     _wlRenderSideOnly();
 }
 
@@ -879,7 +1052,11 @@ function _wlKeydown(e) {
     let handled = true;
     // REVIEW-UI (operator spec): arrows scrub the video 1 s, [ ] step a
     // single frame, space pauses. Skip moved to X (arrows no longer skip).
-    if (k === 'Enter') gap ? _wlResolveGap() : _wlAccept();
+    if (k === 'Enter') gap ? _wlVerdictClose('fixed_as_asked') : _wlAccept();
+    else if (gap && (k === 'w' || k === 'W')) _wlVerdictClose('nothing_wrong');
+    else if (gap && (k === 'q' || k === 'Q')) _wlVerdictClose('different_problem');
+    else if (gap && (k === 'y' || k === 'Y')) _wlItemYes(_wlItemPos);
+    else if (gap && (k === 'n' || k === 'N')) _wlItemNo(_wlItemPos);
     else if (k === 'd' || k === 'D') _wlDismiss();
     else if (k === 'ArrowLeft') _wlNudge(-1);
     else if (k === 'ArrowRight') _wlNudge(1);
@@ -891,7 +1068,7 @@ function _wlKeydown(e) {
     }
     else if (k === 'o' || k === 'O') { _wlOverlayAll = !_wlOverlayAll; }
     else if (k === 'x' || k === 'X') _wlSkip();
-    else if (k === '.' || k === 'ArrowDown') _wlNextInCard();
+    else if (k === '.' || k === 'ArrowDown') gap ? _wlItemNext() : _wlNextInCard();
     else if ((k === 'b' || k === 'B') && _wlFlag.batch_key && _wlGroupSize() > 1) _wlBatch('resolved');
     else if (gap && (k === 'a' || k === 'A')) _wlToggleAdd();
     else if (shiftMove && (_wlFlag.batch_key || '').startsWith('dest|') && _wlGroupSize() > 1)
