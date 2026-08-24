@@ -187,7 +187,13 @@ GATE_FULL_SUPREMACY = _os2.environ.get("GATE_FULL_SUPREMACY", "1") in ("1", "tru
 # to every track, segments renumbered tid*10+k) before classification.
 # Geom-hash pinned; rebuilt when gates/paths/channels change. Fail-safe: any
 # resolution error falls back to the base dump with a warning.
-A3_CUT_DUMPS = _os2.environ.get("A3_CUT_DUMPS", "1") in ("1", "true", "on")
+# DEFAULT OFF (2026-08-24 Demo-1 negative): blanket Type-1 cutting on the
+# full-span DRAWN gates decapitates legitimate journeys — long gate lines
+# cross each other's traffic mid-box, and a mid-box graze of another
+# leg's line fires the geometry cut (SB_thru projected -479 -> -1126 at
+# 1600). The A3 validation predated drawn gates (short derived stubs were
+# rarely grazed). Awaiting the operator-ruled graze amendment + G-TR gate.
+A3_CUT_DUMPS = _os2.environ.get("A3_CUT_DUMPS", "0") in ("1", "true", "on")
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
 APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
 APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)
