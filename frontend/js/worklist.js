@@ -970,11 +970,18 @@ function _wlItemNext() {
 }
 
 async function _wlLog(payload) {
+    // Operator bug (2026-08-24): a fire-and-forget save let a T ruling
+    // flip back to its original on the next refetch. Rulings must
+    // confirm: callers only mark an item done when this returns true.
     try {
         await API.post(`/api/projects/${_wlPid}/review-log`, Object.assign({
             camera_id: _wlFlag.camera_id, card_key: _wlCardKey || `f${_wlFlag.flag_id}`,
         }, payload));
-    } catch (e) { /* the log is best-effort; the edit itself already landed */ }
+        return true;
+    } catch (e) {
+        _wlToast(`⚠ ruling NOT saved (${e.message || e}) — try again`);
+        return false;
+    }
 }
 
 async function _wlItemYes(i) {
@@ -992,43 +999,48 @@ async function _wlItemYes(i) {
             x: it.x, y: it.y,
         });
     } catch (e) { alert(`Add failed: ${e.message || e}`); return; }
-    it.done = 'added';
+    it.done = 'added';           // the COUNT is real (event created) even
+                                 // if the marker save below needs a retry
     const label = `Added #${ev.event_id} — 1 vehicle, ${movement} @ ${_wlFmt(it.t_cross)} (item ${i + 1})`;
     _wlDid.push({ action: 'added', label });
     _wlToast(label);
-    _wlLog({ item_key: `tid:${it.tid}`, action: 'added',
+    await _wlLog({ item_key: `tid:${it.tid}`, action: 'added',
              event_id: ev.event_id, source_tid: it.tid,
-             detail_json: JSON.stringify({ movement, t: it.t_cross }) });
+             detail_json: JSON.stringify({ movement, proposed: it.movement,
+                                           tag: it.tag, t: it.t_cross }) });
     await _wlRefreshList();
     _wlRenderItems();
     _wlRenderSideOnly();
 }
 
-function _wlItemBad(i) {
+async function _wlItemBad(i) {
     // Operator verb (2026-08-24): "we have a thief and no option to mark
     // it" — the track is a splice riding two vehicles; counting it under
     // any single movement would be wrong. Counts NOTHING; the ruling is
-    // recorded with the tid — an operator-labeled splice, free.
+    // recorded with the tid — an operator-labeled splice, free. The item
+    // is marked done only AFTER the ruling is confirmed saved.
     const it = _wlItems && _wlItems[i];
     if (!it || it.done) return;
+    const ok = await _wlLog({ item_key: `tid:${it.tid}`, action: 'bad_track',
+             source_tid: it.tid,
+             detail_json: JSON.stringify({ proposed: it.movement, tag: it.tag }) });
+    if (!ok) return;
     it.done = 'bad_track';
     const label = `Item ${i + 1} @ ${_wlFmt(it.t_cross)}: bad track (thief/splice)`;
     _wlDid.push({ action: 'bad_track', label });
-    _wlLog({ item_key: `tid:${it.tid}`, action: 'bad_track',
-             source_tid: it.tid,
-             detail_json: JSON.stringify({ proposed: it.movement, tag: it.tag }) });
     _wlToast(label);
     _wlRenderItems();
 }
 
-function _wlItemNo(i) {
+async function _wlItemNo(i) {
     const it = _wlItems && _wlItems[i];
     if (!it || it.done) return;
+    const ok = await _wlLog({ item_key: `tid:${it.tid}`,
+             action: 'not_a_vehicle', source_tid: it.tid });
+    if (!ok) return;
     it.done = 'not_a_vehicle';
     const label = `Item ${i + 1} @ ${_wlFmt(it.t_cross)}: not a vehicle`;
     _wlDid.push({ action: 'not_a_vehicle', label });
-    _wlLog({ item_key: `tid:${it.tid}`, action: 'not_a_vehicle',
-             source_tid: it.tid });
     _wlRenderItems();
 }
 
