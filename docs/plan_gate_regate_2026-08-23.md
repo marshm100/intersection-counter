@@ -101,8 +101,13 @@ to the operator-vetted production set even when fit from 14,819 cut-clean
 fulls against correct gates. Mechanism echo of W1a: arm events fell
 (5735->5669 / 4574->4498 / 7272->7182), insufficient rose, merge_kept and
 merged_away both fell (240/368/503 -> 179/279/350) — path swaps depress
-classification + partially deactivate turn-merge. Working conclusion:
-path REFIT is a dead lever on this corpus; gate GEOMETRY was the live one.
+classification + partially deactivate turn-merge. Operator ruling (2026-08-23, post-verdict): this condemns the current
+path-match IMPLEMENTATION, not path averaging as a concept. Track-level
+diagnosis in docs/diag_regate_arbitration_2026-08-23.md: the loss is
+pre-divergence truncated tracks being shape-arbitrated between sibling
+guides that geometry cannot distinguish (EB right<->through). The
+divergence rule needed already exists in path_divergence.py and is not
+enforced in pass-2 arbitration.
 
 Score artifacts: runs/v2_week1/score_regatectrl_cam2_study_*.json and
 score_regatearm_cam2_study_*.json.

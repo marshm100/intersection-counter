@@ -664,9 +664,14 @@ redistributes echo mass instead of deleting it.
   suggestion back to pending. THE CONTROL IS THE STORY: drawn gates +
   existing curated paths = pooled movement **57.8 (188/325), +11.1 over
   the old basis**, study_0700 approach 25.0 -> 43.8. Third consecutive
-  pathfit negative on a third basis — path refit is judged a DEAD LEVER
-  on this corpus; operator gate geometry was the live one, exactly as the
-  G-PF2-1 root-cause predicted. Ship = Confirm & process on the card
+  pathfit negative on a third basis. OPERATOR RULING: the negatives condemn
+  the current path-match implementation, not averaging — track-level
+  post-mortem (docs/diag_regate_arbitration_2026-08-23.md) isolates the loss
+  to pre-divergence truncated tracks shape-arbitrated between sibling guides
+  (EB right<->through flips of 164/259/499 tracks; arm overshoots Mio truth
+  4x); the needed divergence rule exists in path_divergence.py, unenforced
+  in pass-2 arbitration. Next lever: divergence-gated arbitration +
+  expecteds prior. Ship = Confirm & process on the card
   (production events still pre-gates until pass-2 re-runs). Videos
   retrieved from the company OneDrive same day (all 7 hash-verified,
   now copied INTO projects per docs/decision_video_ingest_2026-08-23.md);
