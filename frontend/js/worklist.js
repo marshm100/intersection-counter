@@ -38,6 +38,7 @@ let _wlItemPos = 0;       // item cursor
 let _wlSelTid = null;     // item's dump track, highlighted on the overlay
 let _wlDid = [];          // this card's action history ("what you did")
 let _wlCardKey = null;    // stable card key for the review_log
+let _wlItemLoop = null;   // [lo, hi] — the selected item's playback loop
 
 function openWorklist(iid) {
     AppState.currentIntersectionId = iid;
@@ -568,6 +569,10 @@ function _wlStartOverlayLoop() {
             if (t < _wlTrackWin[0] + 5 || t > _wlTrackWin[1] - 5) {
                 _wlFetchOverlayTracks(t);
             }
+            // selected-item loop: while playing, cycle its moment
+            if (_wlItemLoop && !vid.paused && t > _wlItemLoop[1]) {
+                vid.currentTime = _wlItemLoop[0];
+            }
         }
     };
     _wlRafId = requestAnimationFrame(step);
@@ -641,20 +646,48 @@ function _wlDrawOverlay() {
         ? Number(_wlFlag.event.vehicle_track_id) : null;
     // all-tracks layer (dim) + the flag's own track OR the selected
     // item's track (bright yellow — R0 instrument v2)
+    const dimOthers = _wlSelTid != null;
     for (const tr of _wlTracks) {
-        const isEv = (evTid != null && tr.tid === evTid)
-            || (_wlSelTid != null && tr.tid === _wlSelTid);
+        const isSel = _wlSelTid != null && tr.tid === _wlSelTid;
+        const isEv = (evTid != null && tr.tid === evTid) || isSel;
         if (!isEv && !_wlOverlayAll) continue;
         const box = _wlBoxAt(tr.pts, t);
-        if (!box) continue;
-        const [cx, cy, bw, bh] = box;
-        ctx.lineWidth = isEv ? 3 : 1.5;
-        ctx.strokeStyle = isEv ? '#ffd479' : 'rgba(180,190,200,0.55)';
-        ctx.strokeRect(cx - bw / 2, cy - bh / 2, bw, bh);
-        if (isEv) {
-            ctx.fillStyle = '#ffd479';
-            ctx.font = 'bold 13px system-ui';
-            ctx.fillText('#' + tr.tid, cx - bw / 2, cy - bh / 2 - 5);
+        if (!box) {
+            if (!isSel) continue;
+        }
+        if (!isSel) {
+            if (!box) continue;
+            const [cx, cy, bw, bh] = box;
+            ctx.lineWidth = isEv ? 3 : 1.5;
+            ctx.strokeStyle = isEv ? '#ffd479'
+                : (dimOthers ? 'rgba(180,190,200,0.22)'
+                             : 'rgba(180,190,200,0.55)');
+            ctx.strokeRect(cx - bw / 2, cy - bh / 2, bw, bh);
+            continue;
+        }
+        // the SELECTED item: full path + thick pulsing box + label —
+        // unmissable even when the vehicle is parked
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#ffd400';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(tr.pts[0][1], tr.pts[0][2]);
+        for (let i = 1; i < tr.pts.length; i++)
+            ctx.lineTo(tr.pts[i][1], tr.pts[i][2]);
+        ctx.stroke();
+        if (box) {
+            const [cx, cy, bw, bh] = box;
+            const pulse = 3 + 2 * Math.abs(Math.sin(performance.now() / 250));
+            ctx.lineWidth = pulse;
+            ctx.strokeStyle = '#ffd400';
+            ctx.strokeRect(cx - bw / 2 - 3, cy - bh / 2 - 3, bw + 6, bh + 6);
+            const label = `ITEM ${_wlItemPos + 1}`;
+            ctx.font = 'bold 15px system-ui';
+            const tw = ctx.measureText(label).width;
+            ctx.fillStyle = '#ffd400';
+            ctx.fillRect(cx - bw / 2 - 3, cy - bh / 2 - 24, tw + 10, 19);
+            ctx.fillStyle = '#111';
+            ctx.fillText(label, cx - bw / 2 + 2, cy - bh / 2 - 10);
         }
     }
     // the event's stored trajectory (fallback identity when tid = -1,
@@ -866,11 +899,13 @@ function _wlItemsHtml() {
         const sel = i === _wlItemPos;
         const doneBadge = it.done === 'added'
             ? '<span style="color:#16a34a;font-weight:700;">✓ counted</span>'
-            : it.done ? '<span style="color:#6b7280;">✕ not a vehicle</span>' : '';
-        const desc = it.tag === 'full'
-            ? `tracked vehicle, never counted — reads as <b>${escapeHtml(it.movement || '?')}</b>`
-            : `enters the approach, exit unseen — movement
-               <select id="wl-item-mov-${i}" onclick="event.stopPropagation()">${movOpts(it.movement)}</select>`;
+            : it.done === 'bad_track'
+                ? '<span style="color:#b45309;font-weight:700;">⚡ bad track</span>'
+                : it.done ? '<span style="color:#6b7280;">✕ not a vehicle</span>' : '';
+        const desc = `${it.tag === 'full'
+                ? 'tracked vehicle, never counted — reads as'
+                : 'enters the approach, exit unseen — movement'}
+            <select id="wl-item-mov-${i}" onclick="event.stopPropagation()">${movOpts(it.movement)}</select>`;
         return `<div onclick="_wlItemSel(${i})" style="display:flex;gap:8px;align-items:center;
                 padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px;
                 ${sel ? 'background:#eff6ff;outline:2px solid #3b82f6;' : 'background:#f9fafb;'}">
@@ -879,12 +914,16 @@ function _wlItemsHtml() {
             ${doneBadge || `<button onclick="event.stopPropagation();_wlItemYes(${i})"
                     style="background:#dcfce7;"><b>Y</b> count it</button>
                 <button class="btn-secondary"
-                    onclick="event.stopPropagation();_wlItemNo(${i})"><b>N</b> not a vehicle</button>`}
+                    onclick="event.stopPropagation();_wlItemNo(${i})"><b>N</b> not a vehicle</button>
+                <button class="btn-secondary" title="the box hops vehicles — a splice/thief; counts nothing, recorded as a labeled splice"
+                    onclick="event.stopPropagation();_wlItemBad(${i})"><b>T</b> bad track</button>`}
         </div>`;
     }).join('');
     return `<div style="display:flex;flex-direction:column;gap:4px;">
         <div class="helper-text">Machine-proposed items — click a row to cue the video
-        (its box turns yellow); <b>Y</b> counts it once, <b>N</b> marks it not a vehicle.</div>
+        (its box plays in yellow). Fix the movement if the guess is wrong, then:
+        <b>Y</b> count it once · <b>N</b> not a vehicle · <b>T</b> bad track
+        (the box hops vehicles — a thief; counts nothing, ruling recorded).</div>
         ${rows}</div>`;
 }
 
@@ -907,7 +946,18 @@ function _wlItemSel(i) {
     if (!_wlItems || !_wlItems[i]) return;
     _wlItemPos = i;
     _wlSelTid = Number(_wlItems[i].tid);
-    _wlScrub(Math.max(0, _wlItems[i].t_cross - 1));
+    // Operator feedback (2026-08-24): a static thin box among dozens of
+    // gray ones is invisible — play a short LOOP around the item's
+    // moment so its thick yellow box MOVES. Space pauses; the loop ends
+    // when the item is ruled on or another is selected.
+    const t = Math.max(0, _wlItems[i].t_cross - 1.5);
+    _wlItemLoop = [t, _wlItems[i].t_cross + 3];
+    const vid = document.getElementById('wl-video');
+    if (vid) {
+        vid.currentTime = t;
+        vid.play().catch(() => {});
+    }
+    _wlSeconds = t;
     _wlRenderItems();
 }
 
@@ -928,8 +978,7 @@ async function _wlItemYes(i) {
     const it = _wlItems && _wlItems[i];
     if (!it || it.done) return;
     const movSel = document.getElementById(`wl-item-mov-${i}`);
-    const movement = it.tag === 'full' ? (it.movement || 'through')
-        : ((movSel && movSel.value) || 'through');
+    const movement = (movSel && movSel.value) || it.movement || 'through';
     let ev;
     try {
         ev = await API.post(`/api/projects/${_wlPid}/review`, {
@@ -950,6 +999,23 @@ async function _wlItemYes(i) {
     await _wlRefreshList();
     _wlRenderItems();
     _wlRenderSideOnly();
+}
+
+function _wlItemBad(i) {
+    // Operator verb (2026-08-24): "we have a thief and no option to mark
+    // it" — the track is a splice riding two vehicles; counting it under
+    // any single movement would be wrong. Counts NOTHING; the ruling is
+    // recorded with the tid — an operator-labeled splice, free.
+    const it = _wlItems && _wlItems[i];
+    if (!it || it.done) return;
+    it.done = 'bad_track';
+    const label = `Item ${i + 1} @ ${_wlFmt(it.t_cross)}: bad track (thief/splice)`;
+    _wlDid.push({ action: 'bad_track', label });
+    _wlLog({ item_key: `tid:${it.tid}`, action: 'bad_track',
+             source_tid: it.tid,
+             detail_json: JSON.stringify({ proposed: it.movement, tag: it.tag }) });
+    _wlToast(label);
+    _wlRenderItems();
 }
 
 function _wlItemNo(i) {
@@ -1057,6 +1123,7 @@ function _wlKeydown(e) {
     else if (gap && (k === 'q' || k === 'Q')) _wlVerdictClose('different_problem');
     else if (gap && (k === 'y' || k === 'Y')) _wlItemYes(_wlItemPos);
     else if (gap && (k === 'n' || k === 'N')) _wlItemNo(_wlItemPos);
+    else if (gap && (k === 't' || k === 'T')) _wlItemBad(_wlItemPos);
     else if (k === 'd' || k === 'D') _wlDismiss();
     else if (k === 'ArrowLeft') _wlNudge(-1);
     else if (k === 'ArrowRight') _wlNudge(1);
