@@ -43,6 +43,10 @@ let _wlItemLoop = null;   // [lo, hi] — the selected item's playback loop
 function openWorklist(iid) {
     AppState.currentIntersectionId = iid;
     _wlIid = iid;
+    // reload-survivable (operator feedback 2026-08-24: reload kicked the
+    // review session back to home): the page restore needs the iid; the
+    // window scope already survives in the hash
+    try { localStorage.setItem('lastWorklistIid', String(iid)); } catch (e) {}
     showPage('page-worklist');
     loadWorklistPage();
 }

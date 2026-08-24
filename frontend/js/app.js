@@ -76,6 +76,18 @@ async function restoreAppState() {
             case 'page-review':
                 if (typeof loadReviewPage === 'function') loadReviewPage();
                 break;
+            case 'page-worklist': {
+                // restore the review session in place (operator feedback
+                // 2026-08-24) — iid from storage, window scope from the hash
+                const iid = Number(localStorage.getItem('lastWorklistIid'));
+                if (iid && typeof openWorklist === 'function') {
+                    openWorklist(iid);
+                } else {
+                    showPage('page-setup');
+                    if (typeof loadSetupPage === 'function') loadSetupPage();
+                }
+                break;
+            }
             default:
                 AppState.currentProject = null;
                 showPage('page-projects');
