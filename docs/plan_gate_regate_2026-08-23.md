@@ -29,8 +29,15 @@ Fresh controls are replayed AFTER gates are drawn, BEFORE the arm.
   compliant/scored) **> fresh-control pooled**, AND no single window
   more than **2.0 points below** its fresh control.
 - Approach bar recorded alongside (secondary).
-- Numeric control values are filled into this doc when the fresh
-  controls are scored — before the arm replays start, per discipline.
+- Numeric control values (measured 2026-08-23 evening, BEFORE the arm):
+  fresh-control pooled movement **57.8% (188/325)**; per-window movement
+  study_0700 **61.9** (65/105), study_1100 **53.3** (57/107),
+  study_1600 **58.4** (66/113). Approach pooled 43.8% (42/96):
+  43.8 / 46.9 / 40.6. So G-DG-1 PASS requires arm pooled > 57.8% and
+  no window below 59.9 / 51.3 / 56.4 respectively.
+  NOTE, ledgered: the drawn gates ALONE (old paths still live) already
+  beat the old-gate replay basis by ~+11 movement points pooled
+  (46.7 -> 57.8) and turned study_0700 approach from 25.0 to 43.8.
 - MISS: row-scoped byte-verified restore of intersection_paths from the
   pre-apply backup; refit suggestion back to pending; negative ledgered
   here + roadmap. Drawn gates REMAIN (operator geometry).
@@ -72,6 +79,37 @@ row-scoped (intersection_paths), never whole-file.**
 7. Diff merged_away + merge_expecteds ctrl-vs-arm from stats sidecars.
 8. Verdict here + roadmap changelog + commit, either way.
 
-## Verdict
+## Verdict — G-DG-1 MISS on the refit paths; the CONTROL is the ship (2026-08-23 night)
 
-(pending)
+| window | movement ctrl -> arm | approach ctrl -> arm |
+|---|---|---|
+| study_0700 | 61.9 -> 56.2 (**-5.7, breach**) | 43.8 -> 34.4 |
+| study_1100 | 53.3 -> 50.5 (**-2.8, breach**) | 46.9 -> 40.6 |
+| study_1600 | 58.4 -> 51.3 (**-7.1, breach**) | 40.6 -> 34.4 |
+| pooled | 57.8 -> **52.6** (bar: >57.8) | 43.8 -> 36.5 |
+
+All three windows breach. Row-scoped restore executed BYTE-VERIFIED from
+project_20260824T010947_postgates.db (10 rows, ids 119-128 back; refit ids
+149-161 removed; suggestion 2 back to pending; events untouched 97,109).
+
+**The finding that matters is the CONTROL, not the arm.** Operator-drawn
+gates + the existing curated production paths measured pooled movement
+**57.8% (188/325)** — +11.1 points over the old-gate replay basis (46.7) —
+with study_0700 approach 25.0 -> 43.8. Third consecutive pathfit negative
+(W1a, G-PF2-1, G-DG-1), each on a different basis: machine-fit paths lose
+to the operator-vetted production set even when fit from 14,819 cut-clean
+fulls against correct gates. Mechanism echo of W1a: arm events fell
+(5735->5669 / 4574->4498 / 7272->7182), insufficient rose, merge_kept and
+merged_away both fell (240/368/503 -> 179/279/350) — path swaps depress
+classification + partially deactivate turn-merge. Working conclusion:
+path REFIT is a dead lever on this corpus; gate GEOMETRY was the live one.
+
+Score artifacts: runs/v2_week1/score_regatectrl_cam2_study_*.json and
+score_regatearm_cam2_study_*.json.
+
+**SHIP STEP (the control basis):** the drawn gates are already production
+geometry and the restored paths are production paths — production
+vehicle_events still reflect the pre-gates basis until pass-2 re-runs.
+Operator clicks **Confirm & process** on the Town East card (pass-1 reuses
+dumps; pass-2 re-runs ~10 min) to land the measured 57.8/43.8 basis in
+production counts.

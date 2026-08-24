@@ -655,6 +655,22 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-23 (night): B1 GATES DRAWN + REGATE RUN — the operator drew all
+  four cam2 gate lines (spans 245-577 px; the leg-28 stub is dead) and the
+  full pre-registered G-DG-1 gate ran same-day
+  (docs/plan_gate_regate_2026-08-23.md). ARM (gates + dumps-refit paths,
+  12 cells all self-evidenced incl. (27,28) 5 -> 1,278 fulls) MISSED on
+  all three windows (pooled 57.8 -> 52.6); restored byte-verified,
+  suggestion back to pending. THE CONTROL IS THE STORY: drawn gates +
+  existing curated paths = pooled movement **57.8 (188/325), +11.1 over
+  the old basis**, study_0700 approach 25.0 -> 43.8. Third consecutive
+  pathfit negative on a third basis — path refit is judged a DEAD LEVER
+  on this corpus; operator gate geometry was the live one, exactly as the
+  G-PF2-1 root-cause predicted. Ship = Confirm & process on the card
+  (production events still pre-gates until pass-2 re-runs). Videos
+  retrieved from the company OneDrive same day (all 7 hash-verified,
+  now copied INTO projects per docs/decision_video_ingest_2026-08-23.md);
+  gate-endpoint drag affordances fixed after operator feedback.
 - 2026-08-23: MACHINE TRANSITION VERIFIED — repo now lives at
   C:\dev\intersection-counter on the personal machine; the five corridor
   source videos stayed on the company OneDrive and are PERMANENTLY GONE
