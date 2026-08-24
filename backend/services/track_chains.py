@@ -15,12 +15,36 @@ import bisect
 import math
 
 from backend.services.entry_gates import classify
+from backend.services.track_cut import _bdiff
 
 STITCH_MOVE_GAP_S = (-0.48, 3.0)  # seconds: occlusion break mid-box
 STITCH_MOVE_DIST = 70.0           # px
 STITCH_STAT_SPEED_PXS = 10.0      # px/SECOND: "ended stationary" (stop bar)
 STITCH_STAT_GAP_S = 50.0          # seconds (~a red): resumes where it stopped
 STITCH_STAT_DIST = 35.0           # px
+
+# Stage-2a direction gate (plan_cam5_lane_echo AMENDMENT 1 tolerance; 174
+# cross-direction false chains measured). Applied only when BOTH endpoint
+# bearings exist — a stopped or jittering endpoint has no direction and
+# waives the test on its side (the operator's queue-dwell law).
+CHAIN_DIR_TOL_DEG = 55.0
+CHAIN_BEARING_D_MIN = 12.0   # px net displacement per bearing chord
+CHAIN_BEARING_END_S = 1.0    # bearing must reflect motion within this of
+                             # the endpoint, else the endpoint was dwelling
+
+
+def endpoint_bearings(pts, fps):
+    """(arrival, departure) bearing of a fragment in degrees, or None per
+    side when that endpoint has no direction: no jitter-immune displacement
+    chord reaches within CHAIN_BEARING_END_S of it (the fragment was
+    stopped or churning in place there)."""
+    from backend.services.track_cut import displacement_chords
+    ch = displacement_chords(pts, CHAIN_BEARING_D_MIN)
+    if not ch:
+        return None, None
+    b_start = ch[0][2] if ch[0][0] - pts[0][0] <= CHAIN_BEARING_END_S * fps else None
+    b_end = ch[-1][2] if pts[-1][0] - ch[-1][1] <= CHAIN_BEARING_END_S * fps else None
+    return b_start, b_end
 
 
 def _end_speed(pts, tail=6):
@@ -30,12 +54,17 @@ def _end_speed(pts, tail=6):
             if df > 0 else 0.0)
 
 
-def chain_tracks(recs, fps):
+def chain_tracks(recs, fps, stats=None):
     """B3 (docs/plan_boxclip_b3_chaining_2026-07-08.md): global fragment
     chaining. Edge A->B iff B plausibly continues A (the proven break rules,
     applied to EVERY pair, not just entry x exit). Greedy on (dist + 0.5*gap),
     each rec <=1 predecessor and <=1 successor; chains strictly extend in time
-    (no cycles). Returns a list of chains (time-ordered lists of recs)."""
+    (no cycles). Returns a list of chains (time-ordered lists of recs).
+
+    Stage-2a (2026-08-24): a candidate edge is VETOED when both endpoint
+    bearings exist and disagree by more than CHAIN_DIR_TOL_DEG — recs
+    without bearing keys (older callers) or with a dwelling endpoint are
+    waived. Optional stats dict receives 'direction_rejections'."""
     rs = sorted(recs, key=lambda r: r["birth"][0])
     births = [r["birth"][0] for r in rs]
     # Tag-gating (the dedup_ceiling lesson): death->birth proximity CANNOT
@@ -64,6 +93,13 @@ def chain_tracks(recs, fps):
                 continue
             gap = b["birth"][0] - fa
             dist = math.hypot(b["birth"][1] - xa, b["birth"][2] - ya)
+            ba, bb = a.get("b_end"), b.get("b_start")
+            if (ba is not None and bb is not None
+                    and _bdiff(ba, bb) > CHAIN_DIR_TOL_DEG):
+                if stats is not None:
+                    stats["direction_rejections"] = (
+                        stats.get("direction_rejections", 0) + 1)
+                continue
             moving = (STITCH_MOVE_GAP_S[0] * fps <= gap <= STITCH_MOVE_GAP_S[1] * fps
                       and dist <= STITCH_MOVE_DIST)
             stat = a_slow and 0 < gap <= STITCH_STAT_GAP_S * fps and dist <= STITCH_STAT_DIST
@@ -103,10 +139,12 @@ def build_chain_map_ev(tracks, gates, fps, min_points: int = 5):
             continue
         o, d, *_rest, tag = classify(pts, gates, fps)
         evidence[tid] = (o, d, tag)
+        bs, be = endpoint_bearings(pts, fps)
         recs.append({"tid": tid,
                      "birth": (pts[0][0], pts[0][1], pts[0][2]),
                      "death": (pts[-1][0], pts[-1][1], pts[-1][2]),
-                     "tag": tag, "v_end": _end_speed(pts)})
+                     "tag": tag, "v_end": _end_speed(pts),
+                     "b_start": bs, "b_end": be})
     chains = chain_tracks(recs, fps)
     return ({r["tid"]: ci for ci, ch in enumerate(chains) for r in ch}, evidence)
 

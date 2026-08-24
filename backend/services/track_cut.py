@@ -39,10 +39,18 @@ DECEL_K = 3.0             # impossible decel = K x fitted a_allow
 CHORD_K = 3               # chord span (points) for bearing/speed series
 RE_ENTRY_S = 2.0          # inbound within this after an exit = graze
 MIN_SEG_PTS = 5
-# Cut-rule revision. Bumped by the GRAZE AMENDMENT (2026-08-24, operator
-# identity law): derived a3_ dumps record it, so amended cuts never reuse a
-# dump built under an earlier rule.
-RULE_REV = 4
+# Cut-rule revision. Bumped by the GRAZE AMENDMENT (rev 4, 2026-08-24,
+# operator identity law) and by Stage 2 (rev 5: chain glue + the segment
+# renumber collision fix): derived a3_ dumps record it, so amended rules
+# never reuse a dump built under an earlier rule.
+RULE_REV = 5
+
+# Cut segments renumber into a namespace DISJOINT from original tids:
+# plain tid*10+k collided with real uncut tids (track 1's segments became
+# 10 and 11 -- legitimate vehicle ids in every window) and the two were
+# silently merged by every by-tid consumer. 1e6 + tid*10 + k stays exact
+# in float32 (2**24) for tids into the hundreds of thousands.
+CUT_SEG_BASE = 1_000_000.0
 
 # Correct-units fallback (px/SECOND), from run_pathfit_cli.py — the only
 # fallback permitted when no fitted kinematics exist for the window.
@@ -287,12 +295,116 @@ def cut_dump_rows(rows: np.ndarray, gates: dict, fps: float,
                 break
             idxs = [frame_to_idx[p[0]] for p in seg if p[0] in frame_to_idx]
             sub = chunk[idxs].copy()
-            sub[:, 0] = tid * 10.0 + k
+            sub[:, 0] = CUT_SEG_BASE + tid * 10.0 + k
             out_chunks.append(sub)
             stats["segments"] += 1
             used += len(idxs)
         stats["dropped_points"] += len(pts) - used
     out = np.concatenate(out_chunks, axis=0) if out_chunks else rows_sorted[:0]
+    return np.ascontiguousarray(out, dtype=np.float32), stats
+
+
+def glue_chained_fragments(rows: np.ndarray, gates: dict, fps: float,
+                           min_points: int = 5) -> tuple[np.ndarray, dict]:
+    """Track Repair Stage 2 (operator identity law, 2026-08-24): re-join the
+    fragments of ONE vehicle inside the (already cut) dump, so the replay
+    counts each family exactly once — the one-vehicle-one-track guard the
+    Stage-1 census demanded (a counted fragment and its recovered
+    continuation were the same vehicle counted twice).
+
+    Chains: the frozen track_chains rules + tag gating (A lacks exit, B
+    lacks entry) + the Stage-2a direction veto. Members renumber to
+    min(member tids); inter-member gaps are BRIDGED one row per frame —
+    the replay finalizes any tid silent > TRACK_FINALIZE_GAP_FRAMES and
+    re-splits reused tids, and the pipeline timestamps gate crossings by
+    trajectory INDEX, so an unbridged or sparse glue is undone or
+    time-distorted. Bridge rows are inert by construction: linear cx/cy
+    (~= a hold within STITCH_STAT_DIST for stop gaps — the vehicle IS
+    parked there), bw/bh = min of the bracketing real rows (bbox length is
+    a running max), conf linearly interpolated (a low marker would
+    un-protect track_quality and dilute detection_confidence), class_id 2
+    (adds no articulated/single-unit votes; birth class comes from the
+    first REAL row). Overlapping member rows (STITCH_MOVE allows B born up
+    to 0.48 s before A dies) dedupe to one row per (tid, frame): the
+    earlier member wins through its death.
+
+    Deterministic. Returns (rows' frame-major, stats);
+    stats["families"] maps composite tid -> ordered member tids."""
+    from backend.services.entry_gates import classify
+    from backend.services.track_chains import (
+        _end_speed, chain_tracks, endpoint_bearings)
+
+    order = np.lexsort((rows[:, 1], rows[:, 0]))
+    rows_sorted = np.asarray(rows)[order]
+    stats = {"chains_glued": 0, "glued_members": 0, "bridged_rows": 0,
+             "overlap_dropped_rows": 0, "direction_rejections": 0,
+             "families": {}}
+    if not len(rows_sorted):
+        return np.ascontiguousarray(rows_sorted, dtype=np.float32), stats
+    ncol = rows_sorted.shape[1]
+    boundaries = np.flatnonzero(np.diff(rows_sorted[:, 0])) + 1
+    chunks, recs = {}, []
+    for chunk in np.split(rows_sorted, boundaries):
+        tid = float(chunk[0, 0])
+        chunks[tid] = chunk
+        if len(chunk) < min_points:
+            continue
+        pts = [(float(r[1]), float(r[2]), float(r[3])) for r in chunk]
+        o, d, *_rest, tag = classify(pts, gates, fps)
+        bs, be = endpoint_bearings(pts, fps)
+        recs.append({"tid": tid,
+                     "birth": (pts[0][0], pts[0][1], pts[0][2]),
+                     "death": (pts[-1][0], pts[-1][1], pts[-1][2]),
+                     "tag": tag, "v_end": _end_speed(pts),
+                     "b_start": bs, "b_end": be})
+    glued: set = set()
+    out_chunks = []
+    for ch in chain_tracks(recs, fps, stats=stats):
+        if len(ch) < 2:
+            continue
+        members = [r["tid"] for r in ch]
+        comp = min(members)
+        last = None                       # last emitted real row
+        parts = []
+        for tid in members:
+            chunk = chunks[tid]
+            if last is not None:
+                keep = chunk[:, 1] > last[1]
+                stats["overlap_dropped_rows"] += int((~keep).sum())
+                chunk = chunk[keep]
+                if not len(chunk):
+                    continue
+                gap = int(chunk[0, 1] - last[1])
+                if gap > 1:
+                    nb = gap - 1
+                    br = np.zeros((nb, ncol), dtype=np.float64)
+                    br[:, 0] = comp
+                    br[:, 1] = last[1] + 1 + np.arange(nb)
+                    t = (br[:, 1] - last[1]) / gap
+                    br[:, 2] = last[2] + t * (chunk[0, 2] - last[2])
+                    br[:, 3] = last[3] + t * (chunk[0, 3] - last[3])
+                    if ncol >= 8:
+                        br[:, 4] = min(last[4], chunk[0, 4])
+                        br[:, 5] = min(last[5], chunk[0, 5])
+                        br[:, 6] = last[6] + t * (chunk[0, 6] - last[6])
+                        br[:, 7] = 2.0
+                    parts.append(br.astype(np.float32))
+                    stats["bridged_rows"] += nb
+            sub = chunk.copy()
+            sub[:, 0] = comp
+            parts.append(sub)
+            last = sub[-1]
+        glued.update(members)
+        stats["chains_glued"] += 1
+        stats["glued_members"] += len(members)
+        stats["families"][str(int(comp))] = [int(m) for m in members]
+        out_chunks.append(np.concatenate(parts, axis=0))
+    for tid, chunk in chunks.items():
+        if tid not in glued:
+            out_chunks.append(chunk)
+    out = (np.concatenate(out_chunks, axis=0) if out_chunks
+           else rows_sorted[:0])
+    out = out[np.lexsort((out[:, 0], out[:, 1]))]      # frame-major
     return np.ascontiguousarray(out, dtype=np.float32), stats
 
 
@@ -346,10 +458,12 @@ def ensure_cut_dump(project_id: str, camera_id: int, variant: str,
     meta_p = dst / "meta.json"
     if meta_p.exists():
         m = _json.loads(meta_p.read_text())
+        from backend.config import CHAIN_GLUE as _glue_on
         cut_info = m.get("a3_cut") or {}
         if (cut_info.get("geom_hash") == ghash
                 and cut_info.get("rule_rev") == RULE_REV
-                and cut_info.get("base_rows") == int(len(base_rows))):
+                and cut_info.get("base_rows") == int(len(base_rows))
+                and (cut_info.get("glue") or {}).get("enabled") == _glue_on):
             # plain load (no mmap): a lingering mmap handle blocks the
             # rebuild's overwrite on Windows (EINVAL on open-for-write)
             rows = _np.load(dst / "rows.npy")
@@ -383,6 +497,12 @@ def ensure_cut_dump(project_id: str, camera_id: int, variant: str,
             pass  # fallback kin stands
 
     out_rows, stats = cut_dump_rows(_np.asarray(base_rows), gates, fps, kin)
+    from backend.config import CHAIN_GLUE
+    glue_info = {"enabled": False}
+    if CHAIN_GLUE:
+        out_rows, gstats = glue_chained_fragments(out_rows, gates, fps)
+        glue_info = {"enabled": True, "families": gstats.pop("families"),
+                     **{k: int(v) for k, v in gstats.items()}}
     out_rows = out_rows[_np.lexsort((out_rows[:, 0], out_rows[:, 1]))]
     dst.mkdir(parents=True, exist_ok=True)
     meta2 = dict(base_meta)
@@ -393,6 +513,7 @@ def ensure_cut_dump(project_id: str, camera_id: int, variant: str,
         "base_rows": int(len(base_rows)), "kin_src": kin_src,
         "kin": {k: round(float(v), 3) for k, v in kin.items()
                 if k != "table" and isinstance(v, (int, float))},
+        "glue": glue_info,
         **{k: int(v) for k, v in stats.items()},
     }
     _np.save(dst / "rows.npy", _np.ascontiguousarray(out_rows,

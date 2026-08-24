@@ -194,6 +194,19 @@ GATE_FULL_SUPREMACY = _os2.environ.get("GATE_FULL_SUPREMACY", "1") in ("1", "tru
 # 1600). The A3 validation predated drawn gates (short derived stubs were
 # rarely grazed). Awaiting the operator-ruled graze amendment + G-TR gate.
 A3_CUT_DUMPS = _os2.environ.get("A3_CUT_DUMPS", "0") in ("1", "true", "on")
+
+# Track Repair Stage 2 (2026-08-24): within the a3_ repair, glue chained
+# fragments back into one bridged track (one vehicle = one event). DEFAULT
+# OFF after the Demo-2 negative (2026-08-24): on real cam2 dumps the frozen
+# stationary chain rule daisy-chains QUEUE DEBRIS of different counted
+# vehicles (rendered: a 9-member caterpillar of 8 counted vehicles minting
+# a phantom EB_right; every sampled 2-member glue merged two counted
+# vehicles), and linear bridges CROSS drawn gates, minting crossings no
+# vehicle made. Census: EB_right error +246 -> +429 at 1600. Re-enable only
+# behind a redesign (extrapolation-continuity across the gap + bridge-gate
+# veto), gated like everything else. Only consulted when A3_CUT_DUMPS
+# resolves a derived dump.
+CHAIN_GLUE = _os2.environ.get("CHAIN_GLUE", "0") in ("1", "true", "on")
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
 APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
 APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)

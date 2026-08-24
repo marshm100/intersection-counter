@@ -54,13 +54,13 @@ class TestCutDumpRows:
         out, stats = cut_dump_rows(rows, GATES, FPS, dict(FALLBACK_KIN))
         assert stats["cut_tracks"] == 1
         tids = sorted(set(out[:, 0].tolist()))
-        assert tids == [70.0, 71.0]           # tid*10+k
+        assert tids == [1000070.0, 1000071.0]   # CUT_SEG_BASE + tid*10 + k
         # each segment respects MIN_SEG_PTS
         for t in tids:
             assert (out[:, 0] == t).sum() >= MIN_SEG_PTS
         # segment 0 ends before segment 1 begins (cut extends in time)
-        f0 = out[out[:, 0] == 70.0][:, 1].max()
-        f1 = out[out[:, 0] == 71.0][:, 1].min()
+        f0 = out[out[:, 0] == 1000070.0][:, 1].max()
+        f1 = out[out[:, 0] == 1000071.0][:, 1].min()
         assert f0 < f1
 
     def test_deterministic(self):
@@ -75,7 +75,7 @@ class TestCutDumpRows:
         tids = set(out[:, 0].tolist())
         assert 9.0 in tids                    # clean tid untouched
         assert 7.0 not in tids                # spliced tid replaced by segments
-        assert {70.0, 71.0} <= tids
+        assert {1000070.0, 1000071.0} <= tids
 
     def test_float32_tid_exactness(self):
         big = 200000                          # realistic upper tid range
@@ -83,7 +83,8 @@ class TestCutDumpRows:
         rows = _rows({big: pts})
         out, _ = cut_dump_rows(rows, GATES, FPS, dict(FALLBACK_KIN))
         tids = sorted(set(out[:, 0].tolist()))
-        assert tids == [float(big * 10), float(big * 10 + 1)]  # exact in float32
+        assert tids == [1_000_000.0 + big * 10,
+                        1_000_000.0 + big * 10 + 1]  # exact in float32
 
 
 class TestKinPolicy:
@@ -264,3 +265,184 @@ class TestGrazeAmendment:
         geo = [r for r in records if r[1].get("rule") == "geometry"]
         assert len(geo) == 1
         assert abs(geo[0][0] - (75 + 25)) <= 3     # crossing ~f75 + 1s margin
+
+
+# ---------------------------------------------------------------------------
+# Stage 2 — direction gate + chain glue (operator identity law, 2026-08-24)
+# ---------------------------------------------------------------------------
+
+from backend.config import TRACK_FINALIZE_GAP_FRAMES
+from backend.services.track_cut import CUT_SEG_BASE, glue_chained_fragments
+from backend.services.track_chains import (
+    STITCH_STAT_DIST, _end_speed, chain_tracks, endpoint_bearings,
+)
+
+
+def _rec(tid, pts, tag):
+    """A chain_tracks rec built exactly the way glue builds them."""
+    bs, be = endpoint_bearings(pts, FPS)
+    return {"tid": tid, "birth": (pts[0][0], pts[0][1], pts[0][2]),
+            "death": (pts[-1][0], pts[-1][1], pts[-1][2]),
+            "tag": tag, "v_end": _end_speed(pts),
+            "b_start": bs, "b_end": be}
+
+
+def _east(tid_f0, n, x0, y=300.0, v=4.0):
+    f0 = float(tid_f0)
+    return [(f0 + i, x0 + v * i, y) for i in range(n)]
+
+
+class TestDirectionGate:
+    def test_opposite_direction_moving_pair_vetoed(self):
+        a = _east(0, 51, 10.0)                       # dies (210,300) moving E
+        b = [(52.0 + i, 215.0 - 4.0 * i, 300.0) for i in range(50)]  # moving W
+        stats = {}
+        chains = chain_tracks([_rec(1, a, "entry_only"),
+                               _rec(2, b, "exit_only")], FPS, stats=stats)
+        assert all(len(c) == 1 for c in chains)
+        assert stats["direction_rejections"] >= 1
+
+    def test_same_direction_chains(self):
+        a = _east(0, 51, 10.0)
+        b = _east(52, 50, 215.0)
+        chains = chain_tracks([_rec(1, a, "entry_only"),
+                               _rec(2, b, "exit_only")], FPS)
+        assert any(len(c) == 2 for c in chains)
+
+    def test_stop_side_waiver(self):
+        """A ends stationary (queue dwell has no direction) — even a 90°
+        discharge (a turner) chains under the frozen stationary rule."""
+        a = ([(float(f), 100.0, 100.0 + 2.0 * f) for f in range(0, 50)]
+             + [(float(f), 100.0, 198.0) for f in range(50, 120)])  # SB, stops
+        b = [(500.0 + i, 105.0 + 4.0 * i, 200.0) for i in range(50)]  # E out
+        ra, rb = _rec(1, a, "entry_only"), _rec(2, b, "exit_only")
+        assert ra["b_end"] is None            # dwelling endpoint: no bearing
+        chains = chain_tracks([ra, rb], FPS)
+        assert any(len(c) == 2 for c in chains)
+
+    def test_recs_without_bearing_keys_waived(self):
+        """Older callers build recs without bearing keys — untouched."""
+        a = _east(0, 51, 10.0)
+        b = [(52.0 + i, 215.0 - 4.0 * i, 300.0) for i in range(50)]
+        recs = []
+        for tid, pts, tag in ((1, a, "entry_only"), (2, b, "exit_only")):
+            recs.append({"tid": tid,
+                         "birth": (pts[0][0], pts[0][1], pts[0][2]),
+                         "death": (pts[-1][0], pts[-1][1], pts[-1][2]),
+                         "tag": tag, "v_end": _end_speed(pts)})
+        chains = chain_tracks(recs, FPS)
+        assert any(len(c) == 2 for c in chains)   # veto waived, rule holds
+
+    def test_endpoint_bearings_shapes(self):
+        moving = _east(0, 50, 10.0)
+        bs, be = endpoint_bearings(moving, FPS)
+        assert bs is not None and be is not None
+        stopped_end = ([(float(f), 100.0, 100.0 + 2.0 * f) for f in range(50)]
+                       + [(float(f), 100.0, 198.0) for f in range(50, 120)])
+        bs2, be2 = endpoint_bearings(stopped_end, FPS)
+        assert bs2 is not None and be2 is None
+        jitter = [(float(f), 100.0 + (f % 2), 200.0) for f in range(40)]
+        assert endpoint_bearings(jitter, FPS) == (None, None)
+
+
+class TestChainGlue:
+    def _stop_gap_rows(self):
+        # A (tid 7): SB, then parked 2 s at (100,200); B (tid 9): resumes
+        # 30 s later 5 px away — the frozen stationary rule's shape.
+        a = ([(float(f), 100.0, 50.0 + 2.0 * f) for f in range(0, 76)]
+             + [(float(f), 100.0, 200.0) for f in range(76, 126)])
+        b = [(875.0 + i, 105.0, 200.0 + 2.0 * i) for i in range(60)]
+        return _rows({7: a, 9: b})
+
+    def test_stop_gap_family_glued_and_bridged(self):
+        out, stats = glue_chained_fragments(self._stop_gap_rows(), {}, FPS)
+        assert stats["chains_glued"] == 1 and stats["glued_members"] == 2
+        tids = set(out[:, 0].tolist())
+        assert tids == {7.0}                       # composite = min(members)
+        fr = np.sort(out[out[:, 0] == 7.0][:, 1])
+        assert np.all(np.diff(fr) == 1.0)          # one row per frame
+        assert np.diff(fr).max(initial=1.0) <= TRACK_FINALIZE_GAP_FRAMES
+        assert len(np.unique(fr)) == len(fr)       # unique (tid, frame)
+        # bridge rows: linear ~ hold within the stationary rule's distance
+        bridge = out[(out[:, 1] > 125) & (out[:, 1] < 875)]
+        assert len(bridge) == stats["bridged_rows"] == 749
+        d = np.hypot(bridge[:, 2] - 100.0, bridge[:, 3] - 200.0)
+        assert d.max() <= STITCH_STAT_DIST
+        assert np.all(bridge[:, 7] == 2.0)         # no truck votes
+        assert np.all(bridge[:, 4] <= 20.0) and np.all(bridge[:, 5] <= 12.0)
+        assert np.all((bridge[:, 6] > 0.0) & (bridge[:, 6] <= 0.9))
+
+    def test_overlap_dedupe(self):
+        # B born 5 frames BEFORE A dies (the negative-gap move rule)
+        a = _east(0, 51, 10.0)                     # dies f50 at (210,300)
+        b = [(45.0 + i, 205.0 + 4.0 * i, 300.0) for i in range(56)]
+        out, stats = glue_chained_fragments(_rows({3: a, 5: b}), {}, FPS)
+        assert stats["chains_glued"] == 1
+        assert stats["overlap_dropped_rows"] == 6  # B frames 45..50 dropped
+        fr = np.sort(out[out[:, 0] == 3.0][:, 1])
+        assert np.all(np.diff(fr) == 1.0)
+        assert len(np.unique(fr)) == len(fr)
+
+    def test_direction_veto_end_to_end(self):
+        a = _east(0, 51, 10.0)
+        b = [(52.0 + i, 215.0 - 4.0 * i, 300.0) for i in range(50)]
+        out, stats = glue_chained_fragments(_rows({11: a, 13: b}), {}, FPS)
+        assert stats["chains_glued"] == 0
+        assert stats["direction_rejections"] >= 1
+        assert set(out[:, 0].tolist()) == {11.0, 13.0}
+
+    def test_full_journey_never_glues(self):
+        full = _sb_through_graze()                 # 27 -> 29, tag full
+        tail = [(92.0 + i, 100.0, 360.0 + 4.0 * i) for i in range(30)]
+        out, stats = glue_chained_fragments(_rows({7: full, 8: tail}),
+                                            GATES3, FPS)
+        assert stats["chains_glued"] == 0
+        assert {7.0, 8.0} <= set(out[:, 0].tolist())
+
+    def test_deterministic(self):
+        rows = self._stop_gap_rows()
+        a, _ = glue_chained_fragments(rows, {}, FPS)
+        b, _ = glue_chained_fragments(rows, {}, FPS)
+        assert np.array_equal(a, b)
+
+
+class TestCollisionFix:
+    def test_cut_segments_disjoint_from_uncut_tids(self):
+        """Pre-fix, track 1's segments became tids 10 and 11 — colliding
+        with the real uncut track 10 and silently merging two vehicles."""
+        rows = _rows({1: _spliced_track(), 10: _clean_track()})
+        out, stats = cut_dump_rows(rows, GATES, FPS, dict(FALLBACK_KIN))
+        assert stats["cut_tracks"] == 1
+        tids = set(out[:, 0].tolist())
+        assert tids == {10.0, CUT_SEG_BASE + 10.0, CUT_SEG_BASE + 11.0}
+        # the clean vehicle's rows are exactly its own
+        assert (out[:, 0] == 10.0).sum() == len(_clean_track())
+
+
+class TestEnsureCutDumpGlue:
+    def test_glue_recorded_and_flag_repins(self, cutenv, monkeypatch):
+        import backend.config as cfg
+        m0 = json.loads((cutenv["tdir"] / "meta.json").read_text())
+        monkeypatch.setattr(cfg, "CHAIN_GLUE", True)
+        _v, tdir, meta, _r = ensure_cut_dump(
+            cutenv["proj"], 2, "study_0700", "hash", 25.0,
+            cutenv["tdir"], cutenv["rows"], m0)
+        assert meta["a3_cut"]["glue"]["enabled"] is True
+        assert "families" in meta["a3_cut"]["glue"]
+        stamp = (tdir / "rows.npy").stat().st_mtime_ns
+        # flipping the flag invalidates reuse (rule-state is part of the key)
+        monkeypatch.setattr(cfg, "CHAIN_GLUE", False)
+        _v2, tdir2, meta2, _r2 = ensure_cut_dump(
+            cutenv["proj"], 2, "study_0700", "hash", 25.0,
+            cutenv["tdir"], cutenv["rows"], m0)
+        assert (tdir2 / "rows.npy").stat().st_mtime_ns != stamp
+        assert meta2["a3_cut"]["glue"] == {"enabled": False}
+
+    def test_default_off_records_disabled(self, cutenv):
+        """CHAIN_GLUE defaults OFF (Demo-2 negative): the repair is
+        cut-only and the meta says so."""
+        m0 = json.loads((cutenv["tdir"] / "meta.json").read_text())
+        _v, _t, meta, _r = ensure_cut_dump(
+            cutenv["proj"], 2, "study_0700", "hash", 25.0,
+            cutenv["tdir"], cutenv["rows"], m0)
+        assert meta["a3_cut"]["glue"] == {"enabled": False}
