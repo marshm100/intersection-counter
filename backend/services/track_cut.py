@@ -29,7 +29,7 @@ import math
 
 import numpy as np
 
-from backend.services.entry_gates import all_crossings
+from backend.services.entry_gates import all_crossings, classify
 
 # ---- declared constants (gate doc; frozen before validation) --------------
 MARGIN_S = 1.0            # geometry cut margin past the exit crossing
@@ -40,10 +40,17 @@ CHORD_K = 3               # chord span (points) for bearing/speed series
 RE_ENTRY_S = 2.0          # inbound within this after an exit = graze
 MIN_SEG_PTS = 5
 # Cut-rule revision. Bumped by the GRAZE AMENDMENT (rev 4, 2026-08-24,
-# operator identity law) and by Stage 2 (rev 5: chain glue + the segment
-# renumber collision fix): derived a3_ dumps record it, so amended rules
-# never reuse a dump built under an earlier rule.
-RULE_REV = 5
+# operator identity law), Stage 2 (rev 5: chain glue + the segment renumber
+# collision fix), and the DEBRIS-ELIGIBILITY amendment (rev 6, 2026-08-24,
+# operator ruling after the G-TR-1 MISS: a cut piece with no PHYSICAL gate
+# crossing can neither be counted nor vote on gate activation — it is
+# dropped from the dump; a crossing synthesized across a latch teleport is
+# a theft artifact, not evidence; a cut track whose EVERY segment is debris
+# passes through uncut — the repair claims no authority where gates give
+# no evidence).
+# Derived a3_ dumps record the rev, so amended rules never reuse a dump
+# built under an earlier rule.
+RULE_REV = 6
 
 # Cut segments renumber into a namespace DISJOINT from original tids:
 # plain tid*10+k collided with real uncut tids (track 1's segments became
@@ -257,6 +264,27 @@ def cut_track(pts, gates, fps, kin):
 # Dump-level transform (Track Repair Stage 1)
 # ---------------------------------------------------------------------------
 
+def _has_physical_crossing(seg, gates, fps) -> bool:
+    """Gate evidence that survives the identity law: a crossing counts only
+    when the track PHYSICALLY carried the vehicle across the line. A
+    crossing synthesized across a latch gap (the teleport hop of an
+    identity theft frequently straddles a gate line) is a theft artifact,
+    not evidence — the bracketing points must be temporally adjacent
+    (<= 0.5 s) and moving at a physical speed (<= LATCH_JUMP_PX px/frame).
+    """
+    for c in all_crossings(seg, gates, fps):
+        f = c[0]
+        for i in range(len(seg) - 1):
+            if seg[i][0] <= f <= seg[i + 1][0]:
+                dfr = seg[i + 1][0] - seg[i][0]
+                step = math.hypot(seg[i + 1][1] - seg[i][1],
+                                  seg[i + 1][2] - seg[i][2])
+                if 0 < dfr <= 0.5 * fps and step / dfr <= LATCH_JUMP_PX:
+                    return True
+                break
+    return False
+
+
 def cut_dump_rows(rows: np.ndarray, gates: dict, fps: float,
                   kin: dict) -> tuple[np.ndarray, dict]:
     """Apply cut_track to every track of a pass-1 dump, renumbering segments
@@ -273,7 +301,9 @@ def cut_dump_rows(rows: np.ndarray, gates: dict, fps: float,
     rows_sorted = rows[order]
     out_chunks = []
     stats = {"tracks": 0, "cut_tracks": 0, "segments": 0,
-             "dropped_points": 0, "overflow_segments": 0}
+             "dropped_points": 0, "overflow_segments": 0,
+             "debris_segments": 0, "debris_rows": 0,
+             "debris_fallback_tracks": 0}
     tids = rows_sorted[:, 0]
     boundaries = np.flatnonzero(np.diff(tids)) + 1
     for chunk in np.split(rows_sorted, boundaries):
@@ -285,6 +315,25 @@ def cut_dump_rows(rows: np.ndarray, gates: dict, fps: float,
             out_chunks.append(chunk)      # uncut: rows pass through verbatim
             stats["segments"] += 1
             continue
+        # Debris eligibility (rev 6): only segments with gate evidence
+        # survive the cut. no_crossing pieces are the splice middles and
+        # stubs that (G-TR-1 MISS) flooded the evidence-activation
+        # denominator and got counted via the path machinery. A track whose
+        # every segment is debris keeps its ORIGINAL rows — same treatment
+        # production gives any gate-blind track.
+        survivors = []
+        for seg in segments:
+            if _has_physical_crossing(seg, gates, fps):
+                survivors.append(seg)
+            else:
+                stats["debris_segments"] += 1
+                stats["debris_rows"] += len(seg)
+        if not survivors:
+            out_chunks.append(chunk)
+            stats["debris_fallback_tracks"] += 1
+            stats["segments"] += 1
+            continue
+        segments = survivors
         stats["cut_tracks"] += 1
         # frame -> row index within the chunk for slicing by membership
         frame_to_idx = {float(r[1]): i for i, r in enumerate(chunk)}

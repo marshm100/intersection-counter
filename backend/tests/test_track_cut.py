@@ -49,19 +49,17 @@ class TestCutDumpRows:
         assert np.array_equal(np.sort(out, axis=0), np.sort(rows, axis=0))
         assert out.dtype == np.float32
 
-    def test_spliced_track_is_segmented_and_renumbered(self):
+    def test_spliced_track_cut_and_thief_debris_dropped(self):
+        # rev 6: segment 1 (the real journey, gate-crossing) survives under
+        # its new tid; the thief ride never crosses a gate -> debris, gone.
         rows = _rows({7: _spliced_track()})
         out, stats = cut_dump_rows(rows, GATES, FPS, dict(FALLBACK_KIN))
         assert stats["cut_tracks"] == 1
+        assert stats["debris_segments"] == 1
+        assert stats["debris_rows"] > 0
         tids = sorted(set(out[:, 0].tolist()))
-        assert tids == [1000070.0, 1000071.0]   # CUT_SEG_BASE + tid*10 + k
-        # each segment respects MIN_SEG_PTS
-        for t in tids:
-            assert (out[:, 0] == t).sum() >= MIN_SEG_PTS
-        # segment 0 ends before segment 1 begins (cut extends in time)
-        f0 = out[out[:, 0] == 1000070.0][:, 1].max()
-        f1 = out[out[:, 0] == 1000071.0][:, 1].min()
-        assert f0 < f1
+        assert tids == [1000070.0]              # CUT_SEG_BASE + tid*10 + k
+        assert (out[:, 0] == 1000070.0).sum() >= MIN_SEG_PTS
 
     def test_deterministic(self):
         rows = _rows({7: _spliced_track(), 9: _clean_track()})
@@ -75,7 +73,8 @@ class TestCutDumpRows:
         tids = set(out[:, 0].tolist())
         assert 9.0 in tids                    # clean tid untouched
         assert 7.0 not in tids                # spliced tid replaced by segments
-        assert {1000070.0, 1000071.0} <= tids
+        assert 1000070.0 in tids              # thief debris dropped (rev 6)
+        assert 1000071.0 not in tids
 
     def test_float32_tid_exactness(self):
         big = 200000                          # realistic upper tid range
@@ -83,8 +82,7 @@ class TestCutDumpRows:
         rows = _rows({big: pts})
         out, _ = cut_dump_rows(rows, GATES, FPS, dict(FALLBACK_KIN))
         tids = sorted(set(out[:, 0].tolist()))
-        assert tids == [1_000_000.0 + big * 10,
-                        1_000_000.0 + big * 10 + 1]  # exact in float32
+        assert tids == [1_000_000.0 + big * 10]  # exact in float32
 
 
 class TestKinPolicy:
@@ -414,7 +412,7 @@ class TestCollisionFix:
         out, stats = cut_dump_rows(rows, GATES, FPS, dict(FALLBACK_KIN))
         assert stats["cut_tracks"] == 1
         tids = set(out[:, 0].tolist())
-        assert tids == {10.0, CUT_SEG_BASE + 10.0, CUT_SEG_BASE + 11.0}
+        assert tids == {10.0, CUT_SEG_BASE + 10.0}   # thief debris dropped
         # the clean vehicle's rows are exactly its own
         assert (out[:, 0] == 10.0).sum() == len(_clean_track())
 
@@ -446,3 +444,35 @@ class TestEnsureCutDumpGlue:
             cutenv["proj"], 2, "study_0700", "hash", 25.0,
             cutenv["tdir"], cutenv["rows"], m0)
         assert meta["a3_cut"]["glue"] == {"enabled": False}
+
+
+class TestDebrisEligibility:
+    """Rev 6 (operator ruling after the G-TR-1 MISS): a cut piece with no
+    gate crossings can neither be counted nor vote on gate activation."""
+
+    def test_gate_blind_cut_track_falls_back_uncut(self):
+        # A pinch-cuttable out-and-back far from any gate: every segment
+        # would be debris, so the repair stands down and the ORIGINAL rows
+        # pass through — production behavior for gate-blind tracks.
+        pts = [(float(f), 10.0 + 4.0 * f, 300.0) for f in range(0, 30)]
+        pts += [(30.0 + i, 126.0 - 4.0 * i, 300.0) for i in range(1, 30)]
+        segments, records = cut_track(pts, {}, FPS, dict(FALLBACK_KIN))
+        assert records, "fixture must actually pinch-cut"
+        rows = _rows({7: pts})
+        out, stats = cut_dump_rows(rows, GATES, FPS, dict(FALLBACK_KIN))
+        assert stats["debris_fallback_tracks"] == 1
+        assert stats["cut_tracks"] == 0
+        assert set(out[:, 0].tolist()) == {7.0}
+        assert len(out) == len(rows)
+
+    def test_partial_evidence_segments_survive(self):
+        # exit_only / entry_only segments carry gate evidence and stay
+        # countable (the window-clipped-journey class must not vanish).
+        pts = _spliced_track()
+        rows = _rows({7: pts})
+        out, _ = cut_dump_rows(rows, GATES, FPS, dict(FALLBACK_KIN))
+        from backend.services.entry_gates import classify
+        seg1 = sorted((float(r[1]), float(r[2]), float(r[3]))
+                      for r in out[out[:, 0] == 1000070.0])
+        *_r, tag = classify(seg1, GATES, FPS)
+        assert tag != "no_crossing"
