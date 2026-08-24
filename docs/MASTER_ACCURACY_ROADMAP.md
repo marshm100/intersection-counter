@@ -655,6 +655,19 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-24: G-TR-2 MISS (pooled 64.8 -> 61.3) — TRACK-REPAIR FAMILY
+  CLOSED AT TWO-ITERATION BUDGET (docs/plan_track_repair_2026-08-24.md).
+  The rev-6 debris-eligibility amendment (only physically-crossed pieces
+  count or vote; teleport-synthesized crossings are theft artifacts)
+  restored evidence activation (coverage 0.619/0.538/0.522, gate_full
+  back) but the repaired basis still scores below shipped production —
+  downstream thresholds are calibrated on the broken-track world
+  (activation-coupling law). A3_CUT_DUMPS default-off permanently.
+  Assets retained for Stage 4: cutter library (splice-validated 54/56),
+  chain direction gate, physical-crossing evidence rule, split-on-reuse
+  double-count quantification (95 tids/195 events @1600). Next: Stage 4
+  pass-1 lock persistence — the operator's original diagnosis.
+
 - 2026-08-24: G-TR-1 MISS — TRACK-REPAIR CUT DUMPS FAIL THE SCORED GATE
   ON ALL THREE WINDOWS (docs/plan_track_repair_2026-08-24.md; arm =
   A3_CUT_DUMPS=1 at 455bebc vs shipped gatesup control). Movement pooled

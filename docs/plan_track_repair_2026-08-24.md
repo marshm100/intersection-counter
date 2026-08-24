@@ -138,4 +138,37 @@ handling: IDENTICAL to G-TR-1 (pooled movement > 64.8; floors 65.3 /
 60.0 / 63.2; approach secondary). Fresh workdir trackrepair2_20260824;
 armed-verification now also checks rule_rev 6 + debris stats present.
 
-## G-TR-2 Verdict — pending
+## G-TR-2 Verdict — MISS (2026-08-24); mechanism family CLOSED at budget
+
+| window | movement ctrl -> arm | approach ctrl -> arm |
+|---|---|---|
+| study_0700 | 67.3 -> **61.0** (-6.3; floor 65.3 breached) | 43.8 -> 34.4 |
+| study_1100 | 62.0 -> **61.9** (-0.1; floor 60.0 held) | 50.0 -> 40.6 |
+| study_1600 | 65.2 -> **60.9** (-4.3; floor 63.2 breached) | 40.6 -> 34.4 |
+| pooled | 64.8 -> **61.3** (193/315; bar >64.8) | 44.8 -> **36.5** |
+
+The amendment did what it declared: debris dropped (2,655/2,394/3,675
+segments; 101/54/144 all-debris tracks passed through uncut), evidence
+coverage restored ABOVE control at 0700 (0.619/0.538/0.522 vs ctrl 0.566;
+activated x3), supremacy back (gate_full 276/321/500). The repair still
+scores below shipped production: gate_full is ~half of control's
+502/579/605 (production's whole spliced tracks classify full — sometimes
+via theft-synthesized crossings that happen to be right — while honest
+cut segments classify partial), and 2,881/2,443/3,992 events still come
+from partial-evidence cut segments through the path machinery, whose
+every threshold was calibrated on the broken-track world. The
+activation-coupling law called this: a repaired track basis moves
+everything downstream, and re-tuning the downstream for it is a larger
+project than the repair itself.
+
+VERDICT: two scored MISSes (G-TR-1 37.4, G-TR-2 61.3) = the
+two-iteration budget for the pass-2 cut-dump repair family is SPENT.
+Family CLOSED (reopen only on new evidence). A3_CUT_DUMPS stays
+default-off permanently; the cutter library, the direction gate, the
+split-on-reuse quantification, and the physical-crossing evidence rule
+remain in the codebase as validated components for Stage 4.
+
+Open next: Stage 4 — pass-1 lock persistence (fix the tracker so tracks
+never need cutting): lost-buffer pass-through + meta recording (hygiene),
+then motion-gated re-association per the operator's bus law, its own
+plan + scored gate. This was the operator's original diagnosis.

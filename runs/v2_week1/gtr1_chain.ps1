@@ -1,7 +1,7 @@
 # G-TR-1 arm chain (docs/plan_track_repair_2026-08-24.md, procedure step 1)
 $ErrorActionPreference = "Continue"
 Set-Location C:\dev\intersection-counter
-$wd = "data\projects\97a7849a\_replay_scratch\trackrepair_20260824"
+$wd = "data\projects\97a7849a\_replay_scratch\trackrepair2_20260824"
 New-Item -ItemType Directory -Force $wd | Out-Null
 $env:A3_CUT_DUMPS = "1"
 foreach ($v in @("study_0700", "study_1100", "study_1600")) {
