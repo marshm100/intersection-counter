@@ -57,6 +57,20 @@ shuffling — those cells are short of VEHICLES, not labels).
    n_gate_supremacy counter and posterior_source='gate_full' population
    reported in the verdict.
 
-## Verdict
+## Verdict — G-GS-1 PASS on all three windows (2026-08-24)
 
-(pending)
+| window | movement ctrl -> arm | approach ctrl -> arm |
+|---|---|---|
+| study_0700 | 61.9 -> **67.3** (+5.4) | 43.8 -> 43.8 |
+| study_1100 | 53.3 -> **62.0** (+8.7) | 46.9 -> 50.0 |
+| study_1600 | 58.4 -> **65.2** (+6.8) | 40.6 -> 40.6 |
+| pooled | 57.8 -> **64.8** (+7.0; bar >57.8) | 43.8 -> 44.8 |
+
+Population: posterior_source='gate_full' on 502/579/605 events (1,686 total)
+— the vehicles whose observed exit crossing now beats the path match.
+
+Cumulative cam2 arc, one operator session plus one ruling:
+old basis 46.7 -> drawn gates 57.8 -> gate supremacy **64.8** (+18.1).
+
+SHIP: the pending operator Confirm & process click on the Town East card now
+lands drawn gates + supremacy together in production counts.

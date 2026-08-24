@@ -655,6 +655,23 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-24: GATE SUPREMACY SHIPPED THROUGH G-GS-1 — the operator's
+  architectural ruling ("gates are the law: enter through a gate, cut at the
+  exit gate, movement = the gate pair") implemented as GATE_FULL_SUPREMACY
+  (commit d9e7c74) after the operator hand-labeled 5 demo vehicles and the
+  existing gate classifier matched 5/5 while path matching got 2-3 wrong.
+  Path matching had been overriding 146/176/247 observed full journeys per
+  cam2 window. G-GS-1 PASS on ALL windows: pooled movement 57.8 -> 64.8
+  (+7.0), per-window +5.4/+8.7/+6.8, approach 43.8 -> 44.8; 1,686 events
+  reclassified by their observed crossings. Cumulative cam2 arc:
+  46.7 -> 57.8 (drawn gates) -> 64.8 (supremacy), +18.1 in two days of
+  operator-led fixes. The demo-driven process (render real vehicles ->
+  operator labels -> implement the ruling -> score) is the method of record.
+  Open next: no_crossing phantom taxonomy (505-644 counted events/window
+  cross no gate — operator ruling needed with examples); entry_only
+  arbitration (divergence/prior work, now narrowed to ~130-420 tracks/window);
+  cut-at-first-exit-gate refinement; then C0, R0, cam5 gates.
+
 - 2026-08-23 (night): B1 GATES DRAWN + REGATE RUN — the operator drew all
   four cam2 gate lines (spans 245-577 px; the leg-28 stub is dead) and the
   full pre-registered G-DG-1 gate ran same-day
