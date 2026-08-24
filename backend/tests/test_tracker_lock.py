@@ -140,3 +140,86 @@ class TestBusLawGate:
         assert len(breaks) == 1
         old, new, resume_f = breaks[0]
         assert old == tid and new != tid and resume_f == 75
+
+
+class TestClaimConeCap:
+    """A1 (operator ruling 2026-08-24): movers re-claimable only within
+    the frozen move-stitch window; long mover gaps are lotteries."""
+
+    def test_mover_long_gap_refused(self):
+        # on-trajectory resume after 5 s — physics-compatible, but beyond
+        # the 3 s mover window: the claim is refused, a new vehicle is born
+        frames = {f: [_eb_car(f)] for f in range(1, 51)}
+        frames.update({f: [_eb_car(f)] for f in range(176, 186)})
+        out = run(backend(), frames)
+        tid = out[50][0]
+        assert out[185] and tid not in out[185]
+
+    def test_mover_short_gap_still_heals(self):
+        # the existing 1.6 s case, re-pinned beside the refusal
+        frames = {f: [_eb_car(f)] for f in range(1, 51)}
+        frames.update({f: [_eb_car(f)] for f in range(91, 101)})
+        out = run(backend(), frames)
+        assert out[91] == [out[50][0]]
+
+    def test_stopped_long_gap_still_heals(self):
+        # the bus law's protected case is untouched by the cap
+        frames = {f: [det(100.0, 100.0 + 4.0 * f)] for f in range(1, 41)}
+        frames.update({f: [det(100.0, 260.0)] for f in range(41, 81)})
+        frames.update({f: [det(103.0, 260.0)] for f in range(281, 291)})
+        out = run(backend(), frames)
+        assert out[281] == [out[80][0]]
+
+
+class TestGateStraddleSplit:
+    """A2: a join may not span a gate — the dotted line can't cross one."""
+
+    GATE = [[[0.0, 100.0], [200.0, 100.0]]]
+
+    def _arr(self, spec):
+        import numpy as np
+        rows = []
+        for tid, pts in spec:
+            for f, x, y in pts:
+                rows.append([tid, f, x, y, 30.0, 20.0, 0.9, 2.0])
+        return np.array(rows, dtype=np.float32)
+
+    def test_straddling_join_split(self):
+        from backend.services.two_pass import _split_gate_straddles
+        arr = self._arr([(1.0,
+                          [(f, 100.0, 120.0) for f in range(0, 41)]
+                          + [(f, 100.0, 80.0) for f in range(80, 121)])])
+        n = _split_gate_straddles(arr, self.GATE, 25.0)
+        assert n == 1
+        pre = arr[arr[:, 1] <= 40][:, 0]
+        post = arr[arr[:, 1] >= 80][:, 0]
+        assert set(pre.tolist()) == {1.0}
+        assert len(set(post.tolist())) == 1 and post[0] != 1.0
+
+    def test_non_straddling_join_kept(self):
+        from backend.services.two_pass import _split_gate_straddles
+        # same gap shape, but outside the gate segment's span (x=300)
+        arr = self._arr([(1.0,
+                          [(f, 300.0, 120.0) for f in range(0, 41)]
+                          + [(f, 300.0, 80.0) for f in range(80, 121)])])
+        n = _split_gate_straddles(arr, self.GATE, 25.0)
+        assert n == 0
+        assert set(arr[:, 0].tolist()) == {1.0}
+
+    def test_short_gap_within_grace_kept(self):
+        from backend.services.two_pass import _split_gate_straddles
+        arr = self._arr([(1.0,
+                          [(f, 100.0, 120.0) for f in range(0, 41)]
+                          + [(f, 100.0, 80.0) for f in range(50, 91)])])
+        n = _split_gate_straddles(arr, self.GATE, 25.0)
+        assert n == 0
+
+    def test_chained_straddles_split_twice(self):
+        from backend.services.two_pass import _split_gate_straddles
+        arr = self._arr([(1.0,
+                          [(f, 100.0, 120.0) for f in range(0, 41)]
+                          + [(f, 100.0, 80.0) for f in range(80, 121)]
+                          + [(f, 100.0, 130.0) for f in range(180, 221)])])
+        n = _split_gate_straddles(arr, self.GATE, 25.0)
+        assert n == 2
+        assert len(set(arr[:, 0].tolist())) == 3

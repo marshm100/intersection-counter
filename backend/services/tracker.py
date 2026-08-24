@@ -309,8 +309,8 @@ def _gated_botsort_class():
         embedding_distance, fuse_score, iou_distance, linear_assignment)
 
     from backend.services.track_chains import (
-        CHAIN_BEARING_D_MIN, CHAIN_DIR_TOL_DEG, STITCH_STAT_DIST,
-        STITCH_STAT_SPEED_PXS)
+        CHAIN_BEARING_D_MIN, CHAIN_DIR_TOL_DEG, STITCH_MOVE_DIST,
+        STITCH_MOVE_GAP_S, STITCH_STAT_DIST, STITCH_STAT_SPEED_PXS)
     from backend.services.track_cut import PINCH_ANGLE, _bdiff, _bearing
 
     def _center(xyxy):
@@ -359,6 +359,43 @@ def _gated_botsort_class():
             # break minted a flip-shaped tail on the old track).
             self.gate_breaks: list[tuple[int, int, int]] = []
             super().__init__(*args, **kwargs)
+
+        def _loss_profile(self, track):
+            """(lx, ly, moving, b_pre, vx, vy) at the track's loss, from
+            its OBSERVED history (never the drifting Kalman coast)."""
+            hist = list(track.history_observations)
+            if not hist:
+                return None
+            lx, ly = _center(hist[-1])
+            k = min(len(hist) - 1, 6)
+            moving, b_pre, vx, vy = False, None, 0.0, 0.0
+            if k >= 1:
+                px, py = _center(hist[-1 - k])
+                net = math.hypot(lx - px, ly - py)
+                if (net >= CHAIN_BEARING_D_MIN
+                        and (net / k) * self._gate_fr >= STITCH_STAT_SPEED_PXS):
+                    moving = True
+                    b_pre = _bearing((0.0, px, py), (0.0, lx, ly))
+                    vx, vy = (lx - px) / k, (ly - py) / k
+            return lx, ly, moving, b_pre, vx, vy
+
+        def _expire_movers(self):
+            """A1 companion: a MOVER past the claim window can never be
+            legally re-claimed, so its coasted ghost must not linger —
+            measured failure: remove_duplicate_stracks deletes the
+            legitimate NEW track wherever the ghost still overlaps it
+            (the ghost suppressed the very identity the veto protected).
+            Stopped tracks keep the full buffer (the bus law)."""
+            window = STITCH_MOVE_GAP_S[1] * self._gate_fr
+            kept = []
+            for t in self.lost_stracks:
+                if self.frame_count - t.end_frame > window:
+                    prof = self._loss_profile(t)
+                    if prof is not None and prof[2]:
+                        t.mark_removed()
+                        continue
+                kept.append(t)
+            self.lost_stracks = kept
 
         @staticmethod
         def _approach_bearing(hist):
@@ -441,23 +478,18 @@ def _gated_botsort_class():
             gap = self.frame_count - track.end_frame
             if gap <= self.GATE_GRACE_S * self._gate_fr:
                 return None
-            hist = list(track.history_observations)
-            if not hist:
+            prof = self._loss_profile(track)
+            if prof is None:
                 return None
-            lx, ly = _center(hist[-1])            # LAST OBSERVED position
-            k = min(len(hist) - 1, 6)             # _end_speed tail precedent
-            moving = False
-            b_pre = None
-            vx = vy = 0.0
-            if k >= 1:
-                px, py = _center(hist[-1 - k])
-                net = math.hypot(lx - px, ly - py)
-                speed_pf = net / k
-                if (net >= CHAIN_BEARING_D_MIN
-                        and speed_pf * self._gate_fr >= STITCH_STAT_SPEED_PXS):
-                    moving = True
-                    b_pre = _bearing((0.0, px, py), (0.0, lx, ly))
-                    vx, vy = (lx - px) / k, (ly - py) / k
+            lx, ly, moving, b_pre, vx, vy = prof
+            # A1 claim-cone cap (operator ruling, diag_lock_demo_review
+            # 2026-08-24): a MOVER may only be re-claimed within the frozen
+            # move-stitch window — beyond it the prediction is a lottery
+            # (387/1,162 long re-finds had claim cones wider than two
+            # lanes). Stopped vehicles keep the full buffer (the bus law's
+            # protected case).
+            if moving and gap > STITCH_MOVE_GAP_S[1] * self._gate_fr:
+                return ([True] * len(detections), [1.0] * len(detections))
             veto = [False] * len(detections)
             cost = [1.0] * len(detections)
             span = self.RECOVERY_COST_HI - self.RECOVERY_COST_LO
@@ -477,13 +509,12 @@ def _gated_botsort_class():
                     veto[j] = True                # wrong direction = thief
                     continue
                 ex, ey = lx + vx * gap, ly + vy * gap
-                tol = max(STITCH_STAT_DIST,
-                          0.6 * math.hypot(vx, vy) * gap)
                 dev = math.hypot(cx - ex, cy - ey)
-                if dev > tol:
-                    veto[j] = True                # physically unreachable
+                if dev > STITCH_MOVE_DIST:        # frozen 70 px, never
+                    veto[j] = True                # gap-scaled (A1 cap)
                 else:
-                    cost[j] = self.RECOVERY_COST_LO + span * (dev / tol)
+                    cost[j] = (self.RECOVERY_COST_LO
+                               + span * (dev / STITCH_MOVE_DIST))
             return veto, cost
 
         def _first_association(self, dets, dets_first, active_tracks,
@@ -494,6 +525,7 @@ def _gated_botsort_class():
             # inserted before linear_assignment and probation judgment on
             # previously re-activated tracks.
             self._judge_probations(strack_pool)
+            self._expire_movers()
             STrack.multi_predict(strack_pool)
             self._apply_camera_motion_compensation(
                 dets, img, strack_pool, unconfirmed)

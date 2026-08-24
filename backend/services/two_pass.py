@@ -563,6 +563,57 @@ def strict_full_census(project_id: str, camera_id: int, rows: np.ndarray,
     return out, confusion, full_by_tid
 
 
+
+def _split_gate_straddles(arr, drawn, fps):
+    """Amendment A2 (operator ruling 2026-08-24,
+    docs/diag_lock_demo_review_2026-08-24.md): a join may not span a gate.
+    A gate crossing that falls inside an UNOBSERVED stretch of a track is
+    synthetic evidence — the same physical-crossing law the cutter carries
+    (rev 6), enforced at the dump. Any intra-track gap longer than the
+    re-association grace whose chord (last observed point -> first after)
+    crosses a drawn gate segment is SPLIT: post-gap rows move to a fresh
+    id. Joined tracks that classify full therefore have BOTH crossings
+    observed; straddling joins become entry_only + exit_only partials,
+    counted like today's fragments.
+
+    Operates IN PLACE on arr (rows [tid, frame, ...]); returns n_split."""
+    import numpy as np
+
+    from backend.services.entry_gates import _seg_cross
+
+    if not len(arr) or not drawn:
+        return 0
+    grace = 0.5 * fps
+    order = np.lexsort((arr[:, 1], arr[:, 0]))
+    tids = arr[order, 0].copy()
+    frames = arr[order, 1].copy()
+    xs = arr[order, 2].copy()
+    ys = arr[order, 3].copy()
+    next_id = float(np.max(arr[:, 0])) + 1.0
+    n_split = 0
+    bnd = np.flatnonzero(np.diff(tids)) + 1
+    starts = np.concatenate(([0], bnd))
+    ends = np.concatenate((bnd, [len(tids)]))
+    for s0, s1 in zip(starts, ends):
+        fr = frames[s0:s1]
+        gaps = np.flatnonzero(np.diff(fr) > grace)
+        if not len(gaps):
+            continue
+        tid = tids[s0]
+        for gi in gaps:
+            a = (float(xs[s0 + gi]), float(ys[s0 + gi]))
+            b = (float(xs[s0 + gi + 1]), float(ys[s0 + gi + 1]))
+            if any(_seg_cross(a, b, (g[0][0], g[0][1]), (g[1][0], g[1][1]))
+                   is not None for g in drawn):
+                f_split = float(fr[gi + 1])
+                sel = (arr[:, 0] == tid) & (arr[:, 1] >= f_split)
+                arr[:, 0][sel] = next_id
+                tid = next_id          # later gaps belong to the new id
+                next_id += 1.0
+                n_split += 1
+    return n_split
+
+
 def run_pass1(project_id: str, camera_id: int, *, variant: str,
               start_frame: int, end_frame: int, backend: str | None = None,
               resume: bool = True, progress=None, should_cancel=None) -> dict:
@@ -749,6 +800,21 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         meta["gate_breaks"] = len(breaks)
         meta["gate_break_rows_moved"] = n_moved
         (out / "gate_breaks.json").write_text(json.dumps(breaks))
+    # Amendment A2: locked-recipe dumps only (applying it to the stock
+    # recipe would silently change the production basis).
+    if tracker_backend == "botsort_locked" and state["mm"] is not None:
+        try:
+            from backend.database import leg_geometry_for_camera
+            drawn = [g["gate"] for g in
+                     leg_geometry_for_camera(project_id, camera_id).values()
+                     if g.get("gate")]
+        except Exception:
+            drawn = []
+        if drawn:
+            n_split = _split_gate_straddles(
+                state["mm"][:state["w"]], drawn, fps)
+            if n_split:
+                meta["gate_straddle_splits"] = n_split
     mm = state["mm"]
     mm.flush(); del mm
     state["mm"] = None
