@@ -655,6 +655,21 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-24: G-LP-1 MISS (pooled 64.8 -> 55.1; approach 44.8 -> 18.8)
+  — THE BUS-LAW TRACKER SCORES HONESTLY AND LOSES ON VOLUME
+  (docs/plan_lock_persistence_2026-08-25.md). Activation ROSE on all
+  windows (0.56-0.60); duplicate-event class eliminated (dup-tids
+  95 -> 0 at 1600) — which is the finding: production's volume
+  equilibrium is partly built on identity errors (fragments counted
+  twice offset detection-dark misses). Identity repair lowers counted
+  volume below the calibrated equilibrium; the true deficit is
+  DETECTION (67% of fast-mover deaths detection-dark). Second
+  iteration RESERVED: G-LP-2 only with a volume-recovery companion
+  (R0 measured review or Stage-5 detector). Assets standing:
+  botsort_locked recipe (opt-in, 17 tests), grace env override,
+  armed s4_ dumps. Production untouched at 64.8. Next: R0 (Phase 2).
+
+
 - 2026-08-24: G-TR-2 MISS (pooled 64.8 -> 61.3) — TRACK-REPAIR FAMILY
   CLOSED AT TWO-ITERATION BUDGET (docs/plan_track_repair_2026-08-24.md).
   The rev-6 debris-eligibility amendment (only physically-crossed pieces

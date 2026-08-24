@@ -77,10 +77,54 @@ self-record the production basis.
    three in one v2_score_dev call.
 6. Verdict + readouts here + roadmap changelog; commit PASS or MISS.
 
-## Verdict — pending
+## Verdict — G-LP-1 MISS on all three windows (2026-08-24)
 
-## SHIPPED — pending (operator go required; ship design drafted at
-## verdict time: calib flip, grace productization decided with the
-## operator, dump rebuilds with old dirs renamed aside, pre-ship
-## backup, Confirm & process + force_once ladder). Sequencing law:
-## no cam2 production write before R0 closes (Phase 2).
+| window | movement ctrl -> arm | approach ctrl -> arm | coverage |
+|---|---|---|---|
+| study_0700 | 67.3 -> **56.8** (-10.5) | 43.8 -> 31.2 | 0.566 -> 0.595 |
+| study_1100 | 62.0 -> **57.9** (-4.1) | 50.0 -> 15.6 | 0.496 -> 0.600 |
+| study_1600 | 65.2 -> **50.8** (-14.4) | 40.6 -> 9.4 | 0.493 -> 0.559 |
+| pooled | 64.8 -> **55.1** (190/345) | 44.8 -> 18.8 | activated x3 |
+
+No activation excuse: coverage ROSE on every window (the healed dumps
+strengthen the evidence channel). The mechanism scored honestly and
+lost on VOLUME:
+
+- Events collapsed: 4,662/3,407/5,514 vs production ~5,500-6,500 per
+  window. Every deficit cell deepened (1600: SB_thru 1,768 -> 1,361 vs
+  Mio 2,247; NB_thru 1,696 -> 1,310; EB_left 267 -> 213).
+- The duplicate class is GONE: dup-tids 0/0/0 (production: 95 tids /
+  195 events at 1600). Confirmed prediction — and it is exactly the
+  problem: production's volume equilibrium is PARTLY BUILT ON identity
+  errors. Fragmented identities count twice; those double counts
+  offset genuinely missed (detection-dark) vehicles in the same cells.
+  Healing identity removes the compensating inflation without
+  recovering the real missing vehicles.
+- Canary fired: u-turns 25/28/56 vs Mio ~1/3/12 — index-time
+  compression across healed gaps mints same-leg journeys, a secondary
+  distortion consistent with (b).
+
+STRUCTURAL READING (the same wall as G-TR, now measured from the other
+side): the counting stage's accuracy against Miovision is an
+equilibrium calibrated on broken tracks — identity errors inflate
+volume toward Miovision's higher truth. ANY repair that makes identity
+more honest (cuts, glue, or a better tracker) lowers counted volume
+below that equilibrium and scores worse, because the true deficit is
+DETECTION (measured: 67% of fast-mover track deaths are detection-dark,
+the detector's, not association's). Identity repair is necessary for
+correctness but cannot pay for itself on this bar until the missing
+volume is recovered by real detection or measured review.
+
+Iteration budget: ONE scored iteration spent; the second is
+deliberately RESERVED (not burned on a blind re-tune) until a
+volume-recovery companion exists — either R0's measured review
+(Phase 2, the un-inflated path to volume) or Stage-5 detector work.
+Revival condition, ledgered: re-run G-LP-2 = botsort_locked + grace
+WITH one volume-recovery mechanism in the arm.
+
+Assets standing: recipe botsort_locked (opt-in, fully tested, 17
+bus-law tests), the finalize-grace env override (default pinned 60),
+dup-elimination proof, three armed s4_ dumps + score artifacts.
+Production untouched at 64.8.
+
+## SHIPPED — no. MISS; production untouched (scratch-only replays).
