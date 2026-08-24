@@ -186,3 +186,81 @@ class TestEnsureCutDump:
                         cutenv["tdir"], cutenv["rows"],
                         json.loads((cutenv["tdir"] / "meta.json").read_text()))
         assert (cutenv["tdir"] / "rows.npy").read_bytes() == before
+
+
+# ---------------------------------------------------------------------------
+# Stage 1a — the graze amendment (operator identity law, 2026-08-24)
+# ---------------------------------------------------------------------------
+
+# Two horizontal gates: 28 at y=100 (the grazed line), 29 at y=300 (real
+# exit for a southbound through). Inward normals point at the box interior
+# between them (28's +y, 29's -y). Entry gate 27 at y=20 (+y inward).
+GATES3 = {
+    27: ((0.0, 20.0), (200.0, 20.0), (0.0, 1.0)),
+    28: ((0.0, 100.0), (200.0, 100.0), (0.0, -1.0)),
+    29: ((0.0, 300.0), (200.0, 300.0), (0.0, -1.0)),
+}
+
+
+def _sb_through_graze():
+    """IN:27 -> graze OUT:28 -> real OUT:29, smooth throughout."""
+    return [(float(f), 100.0, 4.0 * f) for f in range(0, 90)]  # y 0..356
+
+
+def _real_exit_then_thief():
+    """IN:27 -> OUT:29 (real, smooth) then a teleport latch and a long
+    opposite ride — the 14859 class."""
+    a = [(float(f), 100.0, 4.0 * f) for f in range(0, 80)]      # exits y=300 ~f75
+    b = [(float(f), 140.0, 320.0 - 3.0 * (f - 120)) for f in range(120, 180)]
+    return a + b
+
+
+class TestGrazeAmendment:
+    def test_smooth_graze_is_skipped_cut_at_real_exit(self):
+        segments, records = cut_track(_sb_through_graze(), GATES3, FPS,
+                                      dict(FALLBACK_KIN))
+        geo = [r for r in records if r[1].get("rule") == "geometry"]
+        assert len(geo) == 1
+        # cut at the FINAL crossing (29 at y=300 ~ frame 75), not the graze (28 ~ f25)
+        assert geo[0][0] > 60 * 1.0
+        # segment 1 retains the full journey: crosses 27 in, 28 graze, 29 out
+        from backend.services.entry_gates import classify
+        o, d, *_r, tag = classify(segments[0], GATES3, FPS)
+        assert (o, d, tag) == (27, 29, "full")
+
+    def test_thief_after_real_exit_cut_at_the_theft(self):
+        pts = _real_exit_then_thief()
+        segments, records = cut_track(pts, GATES3, FPS, dict(FALLBACK_KIN))
+        geo = [r for r in records if r[1].get("rule") == "geometry"]
+        assert len(geo) == 1
+        # the discontinuity follows the ~f75 exit -> cut there (+1s margin)
+        assert 70 <= geo[0][0] <= 110
+        from backend.services.entry_gates import classify
+        o, d, *_r, tag = classify(segments[0], GATES3, FPS)
+        assert (o, d) == (27, 29) and tag == "full"
+        assert len(segments) >= 2          # the thief survives as its own track
+
+    def test_tail_discontinuity_does_not_cut_at_graze(self):
+        """A teleport AFTER the final crossing must not implicate the graze
+        (span bounding): the geometry cut stays at the final crossing."""
+        pts = _sb_through_graze()
+        # teleport tail beyond the final crossing
+        pts += [(float(f), 400.0, 380.0) for f in range(150, 160)]
+        segments, records = cut_track(pts, GATES3, FPS, dict(FALLBACK_KIN))
+        geo = [r for r in records if r[1].get("rule") == "geometry"]
+        assert len(geo) == 1
+        assert geo[0][0] > 60          # at the y=300 crossing, not the graze
+        from backend.services.entry_gates import classify
+        o, d, *_r, tag = classify(segments[0], GATES3, FPS)
+        assert (o, d, tag) == (27, 29, "full")
+
+    def test_single_exit_tail_trim_unchanged(self):
+        """Simple track with one exit and a short smooth tail: cut at the
+        exit + margin — identical to pre-amendment behavior."""
+        pts = [(float(f), 100.0, 4.0 * f) for f in range(0, 100)]  # one entry 27? crosses 27,28,29
+        # use a single-gate world to isolate: entry-free single outbound
+        one = {29: ((0.0, 300.0), (200.0, 300.0), (0.0, -1.0))}
+        segments, records = cut_track(pts, one, FPS, dict(FALLBACK_KIN))
+        geo = [r for r in records if r[1].get("rule") == "geometry"]
+        assert len(geo) == 1
+        assert abs(geo[0][0] - (75 + 25)) <= 3     # crossing ~f75 + 1s margin

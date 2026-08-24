@@ -39,6 +39,10 @@ DECEL_K = 3.0             # impossible decel = K x fitted a_allow
 CHORD_K = 3               # chord span (points) for bearing/speed series
 RE_ENTRY_S = 2.0          # inbound within this after an exit = graze
 MIN_SEG_PTS = 5
+# Cut-rule revision. Bumped by the GRAZE AMENDMENT (2026-08-24, operator
+# identity law): derived a3_ dumps record it, so amended cuts never reuse a
+# dump built under an earlier rule.
+RULE_REV = 4
 
 # Correct-units fallback (px/SECOND), from run_pathfit_cli.py — the only
 # fallback permitted when no fitted kinematics exist for the window.
@@ -109,6 +113,70 @@ def pinch_cuts(pts, kin, fps):
     return cuts
 
 
+LATCH_JUMP_PX = 25.0     # a latch hands the box to ANOTHER vehicle — at
+                         # least a car-width away. Position-continuous stops
+                         # and resumes are the SAME vehicle (operator law).
+
+
+def _moving_median_step(pts, v_stop_pf):
+    """Median per-frame speed over the track's MOVING samples (steps above
+    the stop speed). The overall median collapses when the vehicle dwells at
+    a red, making its own resume look like a teleport — the moving median is
+    the honest driving-speed scale."""
+    speeds = []
+    for i in range(len(pts) - 1):
+        dfr = pts[i + 1][0] - pts[i][0]
+        if dfr > 0:
+            v = math.hypot(pts[i + 1][1] - pts[i][1],
+                           pts[i + 1][2] - pts[i][2]) / dfr
+            if v > v_stop_pf:
+                speeds.append(v)
+    if not speeds:
+        return v_stop_pf
+    speeds.sort()
+    return speeds[len(speeds) // 2]
+
+
+def _pre_velocity(pts, i, lookback=5):
+    """Mean velocity (vx, vy) px/frame over up to `lookback` steps ending at
+    index i — the extrapolation basis for the continuity test."""
+    j = max(0, i - lookback)
+    dfr = pts[i][0] - pts[j][0]
+    if dfr <= 0:
+        return 0.0, 0.0
+    return ((pts[i][1] - pts[j][1]) / dfr, (pts[i][2] - pts[j][2]) / dfr)
+
+
+def _latch_in_span(pts, f_lo, f_hi, fps, v_stop_pf, med_step):
+    """Identity-theft detector, span-scoped, per the operator's law
+    (2026-08-24, the bus refinement): occlusion does not end identity —
+    INCOMPATIBLE MOTION does. Across any discontinuity, extrapolate the
+    prior motion through the gap; reappearing where physics says the SAME
+    vehicle would be is continuity (a stopped car resuming in place, a
+    mover re-emerging on its trajectory after an occluder). A latch is a
+    reappearance that DEVIATES from the extrapolation by a real jump —
+    the box was handed to a different vehicle."""
+    bar = max(4.0 * v_stop_pf, 5.0 * med_step)
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        if b[0] <= f_lo or a[0] > f_hi:
+            continue
+        dfr = b[0] - a[0]
+        step = math.hypot(b[1] - a[1], b[2] - a[2])
+        if dfr > 0.5 * fps:
+            vx, vy = _pre_velocity(pts, i)
+            ex_x, ex_y = a[1] + vx * dfr, a[2] + vy * dfr
+            deviation = math.hypot(b[1] - ex_x, b[2] - ex_y)
+            # tolerance grows with the gap's expected travel (extrapolation
+            # is imperfect over long occlusions) but never below a car-jump
+            tol = max(LATCH_JUMP_PX, 0.6 * math.hypot(vx, vy) * dfr)
+            if deviation > tol:
+                return True
+        elif dfr > 0 and step / dfr > bar and step >= LATCH_JUMP_PX:
+            return True
+    return False
+
+
 def cut_track(pts, gates, fps, kin):
     """All cut frames for a track: geometry (Type 1) + pinch (Type 2).
     Returns (segments, cut_records). Segments = [pts_slice, ...]."""
@@ -120,33 +188,34 @@ def cut_track(pts, gates, fps, kin):
     # a pre-entry jitter blip must not decapitate a good track.
     if entries:
         exits = [c for c in exits if c[0] > entries[0][0]]
-    # Amendment 2: graze-vs-latch. An outbound ends the journey only
-    # if no inbound follows within RE_ENTRY_S — UNLESS that inbound
-    # arrives via a discontinuity (frame gap or teleport step), which
-    # is the lost-track latch signature and CONFIRMS the splice.
+    # GRAZE AMENDMENT (2026-08-24, operator identity law — supersedes and
+    # SUBSUMES Amendment 2): full-span drawn gates cross each other's travel
+    # paths, so a through vehicle GRAZES another leg's line mid-box before
+    # its real exit (measured: every SB through reads IN:27 -> OUT:28 ->
+    # OUT:29; blanket first-exit cutting projected SB_thru -479 -> -1126).
+    # The discriminator between "graze then real exit" and "real exit then
+    # thief" is what happens BETWEEN crossings: smooth continuation = same
+    # vehicle (graze — skip); latch discontinuity = identity theft (cut at
+    # the exit the theft followed). The final crossing is always a real
+    # exit (harmless tail trim). Amendment 2's inbound-graze case falls out:
+    # a smooth inbound follow-up is smooth continuation with further
+    # crossings ahead; a latch-inbound is a discontinuity.
     v_stop_pf = max(float(kin.get("v_stop", 8.0)), 1e-3) / fps
+    med_step = _moving_median_step(pts, v_stop_pf)
     chosen = None
-    for ex in exits:
-        following = [c for c in kept
-                     if c[2] and ex[0] < c[0] <= ex[0] + RE_ENTRY_S * fps]
-        if not following:
-            chosen = ex
-            break
-        fin = following[0]
-        # locate the step that produced the inbound crossing
-        latch = False
-        for i in range(len(pts) - 1):
-            if pts[i][0] <= fin[0] <= pts[i + 1][0]:
-                dfr = pts[i + 1][0] - pts[i][0]
-                step = math.hypot(pts[i + 1][1] - pts[i][1],
-                                  pts[i + 1][2] - pts[i][2])
-                if dfr > 0.5 * fps or (dfr > 0
-                                       and step / dfr > 4.0 * v_stop_pf):
-                    latch = True
+    if exits:
+        cross_frames = sorted(c[0] for c in kept)
+        last_cross = cross_frames[-1]
+        for ex in exits:
+            nxt = next((f for f in cross_frames if f > ex[0]), None)
+            span_hi = nxt if nxt is not None else pts[-1][0]
+            if _latch_in_span(pts, ex[0], span_hi, fps, v_stop_pf, med_step):
+                chosen = ex             # identity broke after this exit
                 break
-        if latch:
-            chosen = ex
-            break
+            if ex[0] >= last_cross:
+                chosen = ex             # final crossing = the real exit
+                break
+            # else: graze — smooth continuation, further crossings ahead
     if chosen is not None:
         records.append((chosen[0] + MARGIN_S * fps,
                         {"rule": "geometry", "leg": chosen[1]}))
@@ -279,6 +348,7 @@ def ensure_cut_dump(project_id: str, camera_id: int, variant: str,
         m = _json.loads(meta_p.read_text())
         cut_info = m.get("a3_cut") or {}
         if (cut_info.get("geom_hash") == ghash
+                and cut_info.get("rule_rev") == RULE_REV
                 and cut_info.get("base_rows") == int(len(base_rows))):
             # plain load (no mmap): a lingering mmap handle blocks the
             # rebuild's overwrite on Windows (EINVAL on open-for-write)
@@ -319,7 +389,7 @@ def ensure_cut_dump(project_id: str, camera_id: int, variant: str,
     meta2["variant"] = new_variant
     meta2["complete"] = True
     meta2["a3_cut"] = {
-        "geom_hash": ghash, "base_variant": variant,
+        "geom_hash": ghash, "rule_rev": RULE_REV, "base_variant": variant,
         "base_rows": int(len(base_rows)), "kin_src": kin_src,
         "kin": {k: round(float(v), 3) for k, v in kin.items()
                 if k != "table" and isinstance(v, (int, float))},
