@@ -126,3 +126,17 @@ class TestBusLawGate:
         a = run(backend(), frames)
         b = run(backend(), frames)
         assert a == b
+
+    def test_probation_break_recorded_for_restamp(self):
+        """Each break records (old, new, resume_frame) so the dump writer
+        can re-stamp the thief's contaminated rows to the thief's id."""
+        be = backend()
+        frames = {f: [_eb_car(f)] for f in range(1, 51)}
+        frames.update({f: [det(400.0 - 4.0 * (f - 75), 300.0)]
+                       for f in range(75, 100)})
+        out = run(be, frames)
+        tid = out[50][0]
+        breaks = be.bot.gate_breaks
+        assert len(breaks) == 1
+        old, new, resume_f = breaks[0]
+        assert old == tid and new != tid and resume_f == 75

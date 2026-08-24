@@ -733,6 +733,22 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
             start_frame, end_frame, warm_frames, resume, progress, state,
             _step, _check_resume_meta, open_memmap, _np, should_cancel)
 
+    # Gate-break re-stamp (Stage 4b): each probation break recorded
+    # (old_id, new_id, resume_frame) — rows the thief contaminated between
+    # re-acquisition and judgment move to the thief's id, so the old track
+    # ends at its loss. Must run before the final flush.
+    breaks = getattr(getattr(be, "bot", None), "gate_breaks", None)
+    if breaks and state["mm"] is not None:
+        mm = state["mm"]
+        w = state["w"]
+        n_moved = 0
+        for old_id, new_id, resume_f in breaks:
+            sel = (mm[:w, 0] == float(old_id)) & (mm[:w, 1] >= float(resume_f))
+            n_moved += int(sel.sum())
+            mm[:w, 0][sel] = float(new_id)
+        meta["gate_breaks"] = len(breaks)
+        meta["gate_break_rows_moved"] = n_moved
+        (out / "gate_breaks.json").write_text(json.dumps(breaks))
     mm = state["mm"]
     mm.flush(); del mm
     state["mm"] = None

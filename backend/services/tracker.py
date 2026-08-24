@@ -352,6 +352,12 @@ def _gated_botsort_class():
 
         def __init__(self, *args, **kwargs):
             self._gate_fr = int(kwargs.get("frame_rate") or 30)
+            # (old_id, new_id, resume_frame) per probation break — the dump
+            # writer re-stamps rows [resume_frame..break) from old to new,
+            # so the old track ends AT ITS LOSS and the thief owns its
+            # whole post-gap track (zero contamination; without this every
+            # break minted a flip-shaped tail on the old track).
+            self.gate_breaks: list[tuple[int, int, int]] = []
             super().__init__(*args, **kwargs)
 
         @staticmethod
@@ -369,20 +375,46 @@ def _gated_botsort_class():
                     return _bearing((0.0, px, py), (0.0, lx, ly))
             return None
 
+        def _break(self, track, prob):
+            old = int(track.id)
+            track.id = track.next_id()           # identity broke at the gap
+            self.gate_breaks.append((old, int(track.id), int(prob["frame"])))
+
         def _judge_probations(self, strack_pool):
             for track in strack_pool:
                 prob = getattr(track, "_gate_probation", None)
-                if prob is None or track.state != TrackState.Tracked:
+                if prob is None:
                     continue
-                cx, cy = _center(track.xyxy)
                 rx, ry = prob["resume"]
-                if math.hypot(cx - rx, cy - ry) < 2.0 * CHAIN_BEARING_D_MIN:
-                    continue                      # direction not shown yet
                 b_pre = prob["b_pre"]
-                if b_pre is not None:
+                if track.state == TrackState.Tracked:
+                    cx, cy = _center(track.xyxy)
+                    if math.hypot(cx - rx, cy - ry) < 2.0 * CHAIN_BEARING_D_MIN:
+                        continue                  # direction not shown yet
+                    if b_pre is not None:
+                        b_post = _bearing((0.0, rx, ry), (0.0, cx, cy))
+                        if _bdiff(b_post, b_pre) > PINCH_ANGLE:
+                            self._break(track, prob)
+                    track._gate_probation = None
+                    continue
+                # Re-lost while on probation. A transient flicker gets
+                # grace; past that, the claim died unproven — measured on
+                # the first arm dump: 930 of 1,215 theft-shaped tracks
+                # were exactly this (thief re-lost before judgment).
+                # Identity claims must PROVE compatibility: judge with
+                # whatever motion exists, else REVOKE at the gap.
+                if (self.frame_count - track.end_frame
+                        <= self.GATE_GRACE_S * self._gate_fr):
+                    continue
+                hist = list(track.history_observations)
+                cx, cy = _center(hist[-1]) if hist else (rx, ry)
+                net = math.hypot(cx - rx, cy - ry)
+                if net >= CHAIN_BEARING_D_MIN and b_pre is not None:
                     b_post = _bearing((0.0, rx, ry), (0.0, cx, cy))
                     if _bdiff(b_post, b_pre) > PINCH_ANGLE:
-                        track.id = track.next_id()   # identity broke at gap
+                        self._break(track, prob)
+                else:
+                    self._break(track, prob)      # unproven claim: revoked
                 track._gate_probation = None
 
         # Physics-recovery costs sit ABOVE any live IoU match (an active
@@ -504,6 +536,7 @@ def _gated_botsort_class():
                         cx, cy = _center(det.xyxy)
                         track._gate_probation = {
                             "resume": (cx, cy),
+                            "frame": self.frame_count,
                             "b_pre": self._approach_bearing(
                                 list(track.history_observations)),
                         }
