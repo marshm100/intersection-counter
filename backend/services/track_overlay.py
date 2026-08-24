@@ -81,8 +81,25 @@ def _load(project_id: str, camera_id: int, variant: str):
         rows = np.asarray(rows)[np.argsort(frames, kind="stable")]
         frames = rows[:, 1]
     meta = json.loads(meta_p.read_text()) if meta_p.exists() else {}
+    fps = meta.get("fps")
+    if not fps:
+        # pass-1 metas don't record fps; the old 25.0 default silently
+        # mistimed every 10-fps camera's overlay. The videos row is
+        # authoritative (R0 instrument v2, 2026-08-24).
+        try:
+            from backend.database import get_connection
+            conn = get_connection(project_id)
+            try:
+                row = conn.execute(
+                    "SELECT fps FROM videos WHERE camera_id = ? "
+                    "ORDER BY sort_order LIMIT 1", (camera_id,)).fetchone()
+                fps = row[0] if row and row[0] else None
+            finally:
+                conn.close()
+        except Exception:
+            fps = None
     entry = {"rows": rows, "frames": frames,
-             "fps": float(meta.get("fps") or 25.0), "variant": variant}
+             "fps": float(fps or 25.0), "variant": variant}
     with _LOCK:
         _CACHE[key] = entry
     return entry

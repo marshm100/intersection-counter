@@ -328,6 +328,30 @@ CREATE TABLE IF NOT EXISTS dispositions (
 
 -- Apply-gate audit trail: one row per adjudication, either direction, so
 -- the gate's behavior is reviewable from the product without the docs.
+-- Review-action log (R0 instrument v2, 2026-08-24): the operator's
+-- findings as data — one row per item action or card verdict. Append-only;
+-- REBUILD-IMMUNE by design: card_key is the batch key (stable across flag
+-- rebuilds) and there is deliberately NO FK to review_flags (rebuilds
+-- delete open flags) nor to vehicle_events (re-banks delete events) —
+-- the same reasoning as review_flags.event_id.
+CREATE TABLE IF NOT EXISTS review_log (
+    log_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id   INTEGER NOT NULL,
+    card_key    TEXT NOT NULL,
+    item_key    TEXT NOT NULL DEFAULT '',   -- 'tid:N' | 'residual' | 'card'
+    action      TEXT NOT NULL,              -- added | not_a_vehicle |
+                                            -- confirmed_counted | movement |
+                                            -- rejected | verdict
+    verdict     TEXT,                       -- fixed_as_asked | nothing_wrong
+                                            -- | different_problem (card close)
+    event_id    INTEGER,                    -- created/edited event (no FK)
+    source_tid  INTEGER,                    -- dump track a candidate add
+                                            -- came from (dedup guard)
+    note        TEXT NOT NULL DEFAULT '',
+    detail_json TEXT,
+    created_at  TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS apply_adjudications (
     adjudication_id INTEGER PRIMARY KEY AUTOINCREMENT,
     camera_id       INTEGER NOT NULL,
@@ -2104,6 +2128,52 @@ def update_flag_status(project_id: str, flag_id: int, status: str) -> None:
     finally:
         conn.close()
 
+
+
+def append_review_log(project_id: str, camera_id: int, card_key: str,
+                      item_key: str = "", action: str = "",
+                      verdict: str | None = None,
+                      event_id: int | None = None,
+                      source_tid: int | None = None, note: str = "",
+                      detail_json: str | None = None) -> int:
+    """Append one review-log row (R0 instrument v2). Returns log_id."""
+    conn = get_connection(project_id)
+    try:
+        cur = conn.execute(
+            "INSERT INTO review_log (camera_id, card_key, item_key, action,"
+            " verdict, event_id, source_tid, note, detail_json, created_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (camera_id, card_key, item_key, action, verdict, event_id,
+             source_tid, note, detail_json,
+             datetime.now().isoformat(timespec="seconds")))
+        conn.commit()
+        return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def list_review_log(project_id: str, card_key: str | None = None,
+                    camera_id: int | None = None) -> list[dict]:
+    """Review-log rows, oldest first (the card's action history)."""
+    q = ("SELECT log_id, camera_id, card_key, item_key, action, verdict,"
+         " event_id, source_tid, note, detail_json, created_at"
+         " FROM review_log")
+    conds, args = [], []
+    if card_key is not None:
+        conds.append("card_key = ?"); args.append(card_key)
+    if camera_id is not None:
+        conds.append("camera_id = ?"); args.append(camera_id)
+    if conds:
+        q += " WHERE " + " AND ".join(conds)
+    q += " ORDER BY log_id ASC"
+    cols = ("log_id", "camera_id", "card_key", "item_key", "action",
+            "verdict", "event_id", "source_tid", "note", "detail_json",
+            "created_at")
+    conn = get_connection(project_id)
+    try:
+        return [dict(zip(cols, r)) for r in conn.execute(q, args)]
+    finally:
+        conn.close()
 
 def clear_open_flags(project_id: str, intersection_id: int) -> int:
     """Delete this intersection's OPEN and auto_resolved flags (the

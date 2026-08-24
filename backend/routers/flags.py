@@ -111,10 +111,18 @@ def _enrich(project_id: str, flag: dict) -> dict:
                 chosen = v
                 break
             base += dur
+        else:
+            base = 0.0                 # fell through: no containing file
         chosen = chosen or (vids[0] if vids else None)
         if chosen is not None:
-            out["clip"] = {"video_id": chosen["video_id"], "start_seconds": start,
-                           "end_seconds": end, "center_seconds": start}
+            # Offsets are WITHIN the chosen file: the containment walk
+            # accumulated preceding durations in `base` but the emitted
+            # seconds never subtracted it, so any flag landing in a 2nd+
+            # file cued the player wrong (R0 instrument v2 fix).
+            out["clip"] = {"video_id": chosen["video_id"],
+                           "start_seconds": start - base,
+                           "end_seconds": end - base,
+                           "center_seconds": start - base}
     return out
 
 
@@ -132,6 +140,71 @@ def get_tracks_in_range(project_id: str, camera_id: int, t_lo: float,
         # overlay is best-effort decoration; the reviewer works without it
         return {"variant": None, "fps": None, "tracks": [],
                 "error": f"{type(e).__name__}: {e}"}
+
+
+class ReviewLogBody(BaseModel):
+    camera_id: int
+    card_key: str
+    item_key: str = ""
+    action: str            # added | not_a_vehicle | confirmed_counted |
+                           # movement | rejected | verdict
+    verdict: str | None = None
+    event_id: int | None = None
+    source_tid: int | None = None
+    note: str = ""
+    detail_json: str | None = None
+
+
+@router.get("/projects/{project_id}/flags/{flag_id}/items")
+def get_flag_items(project_id: str, flag_id: int):
+    """Machine-proposed line items for a gap card (R0 instrument v2):
+    tracked-but-uncounted vehicles in the flag's bin + approach, each
+    cued to its moment. Proposals only — the human rules each one (the
+    G-QD-1 standing law). Items already ruled on (per review_log) are
+    marked done."""
+    _require_project(project_id)
+    flag = get_flag(project_id, flag_id)
+    if flag is None:
+        raise HTTPException(status_code=404, detail="flag not found")
+    from backend.database import list_review_log
+    from backend.services.gap_items import items_for_flag
+    try:
+        out = items_for_flag(project_id, flag)
+    except Exception as e:
+        return {"variant": None, "items": [], "n_eventless": 0,
+                "capped": False, "error": f"{type(e).__name__}: {e}"}
+    card_key = flag.get("batch_key") or f"f{flag_id}"
+    done = {}
+    for row in list_review_log(project_id, card_key=card_key):
+        if row.get("source_tid") is not None:
+            done[int(row["source_tid"])] = row["action"]
+    for it in out["items"]:
+        it["done"] = done.get(int(it["tid"]))
+    out["card_key"] = card_key
+    return out
+
+
+@router.post("/projects/{project_id}/review-log")
+def post_review_log(project_id: str, body: ReviewLogBody):
+    """Append one review-log row — the operator's findings as data
+    (R0 instrument v2). Append-only; rebuild-immune by design."""
+    _require_project(project_id)
+    from backend.database import append_review_log
+    log_id = append_review_log(
+        project_id, body.camera_id, body.card_key, item_key=body.item_key,
+        action=body.action, verdict=body.verdict, event_id=body.event_id,
+        source_tid=body.source_tid, note=body.note,
+        detail_json=body.detail_json)
+    return {"log_id": log_id}
+
+
+@router.get("/projects/{project_id}/review-log")
+def get_review_log(project_id: str, card_key: str | None = None,
+                   camera_id: int | None = None):
+    _require_project(project_id)
+    from backend.database import list_review_log
+    return {"rows": list_review_log(project_id, card_key=card_key,
+                                    camera_id=camera_id)}
 
 
 @router.post("/projects/{project_id}/intersections/{intersection_id}/flags/rebuild")
