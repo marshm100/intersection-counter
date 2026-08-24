@@ -62,7 +62,7 @@ from backend.services.trajectory_classifier import derive_movement  # noqa: E402
 from backend.services.two_pass import (                          # noqa: E402
     _camera_parquet, derive_windows, dump_status, gate_axes_for)
 from v2_common import fit_motion_residual, load_table            # noqa: E402
-from v2_a3_split import MIN_SEG_PTS, cut_track                   # noqa: E402
+from backend.services.track_cut import MIN_SEG_PTS, cut_track   # noqa: E402
 # auto_calibrate is heavy (pulls the detector) but is the one true home of
 # the polyline fitter — byte-consistent fits matter more than import time.
 from auto_calibrate import (                                     # noqa: E402

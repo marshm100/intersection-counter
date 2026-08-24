@@ -57,16 +57,20 @@ from v2_f2m_pilot import score_track                            # noqa: E402
 from v2_ppt_reattr import calibrate                             # noqa: E402
 
 # ---- declared constants (gate doc; frozen before validation) --------------
-MARGIN_S = 1.0            # geometry cut margin past the exit crossing
-PINCH_ANGLE = 120.0       # arrival->departure bearing change (deg)
-PINCH_SPREAD = 6          # >this many turning chords = smooth turn, no cut
-DECEL_K = 3.0             # impossible decel = K x fitted a_allow
-CHORD_K = 3               # chord span (points) for bearing/speed series
-RE_ENTRY_S = 2.0          # inbound within this after an exit = graze
+# Cutter constants + functions now live in backend.services.track_cut (the
+# Track Repair Stage-0 port, 2026-08-24) — this script re-imports them, the
+# entry_gates/track_chains one-source-of-truth pattern. NOTE the port also
+# removed this script's old wrong-units kin fallback (v_stop 0.8/a_allow 0.5
+# were px/frame-scale values pinch_cuts divides by fps AGAIN); use
+# track_cut.FALLBACK_KIN (px/s) when no fitted kinematics exist.
+from backend.services.track_cut import (                        # noqa: E402,F401
+    CHORD_K, DECEL_K, FALLBACK_KIN, MARGIN_S, MIN_SEG_PTS, PINCH_ANGLE,
+    PINCH_SPREAD, RE_ENTRY_S, _bdiff, _bearing, cut_track,
+    displacement_chords, pinch_cuts,
+)
 T_DWELL = 3.0             # QD freeze (geometry unchanged; hash re-pinned)
 QD_LANE_TOL_PX = 25.0
 QD_TAIL_DIST_PX = 70.0
-MIN_SEG_PTS = 5
 SEED = 42
 PROJECT_DEFAULT = "97a7849a"
 
@@ -129,8 +133,10 @@ def load_window(project: str, cam: int, variant: str) -> dict:
                         leg_gates=drawn_gates or None)
     # self-calibrated kinematics (px/frame units, like _end_speed)
     npz = Path("runs/v2_week1") / f"tracklets_cam{cam}_{variant}.npz"
+    # port 2026-08-24: fallback is track_cut.FALLBACK_KIN (px/s) — the old
+    # in-script fallback carried wrong-units values pinch_cuts re-divides by fps
     kin = (fit_motion_residual(load_table(npz)) if npz.exists()
-           else {"v_stop": 0.8, "a_allow": 0.5, "zv_radius": 20.0})
+           else dict(FALLBACK_KIN))
     info = {}
     for tid, pts in tracks.items():
         pts_in = [p for p in pts if f_lo <= p[0] < f_hi]
@@ -154,137 +160,6 @@ def load_window(project: str, cam: int, variant: str) -> dict:
 # ---------------------------------------------------------------------------
 # The cutter
 # ---------------------------------------------------------------------------
-
-def _bearing(p, q):
-    return math.degrees(math.atan2(q[1] - p[1], -(q[2] - p[2]))) % 360
-
-
-def _bdiff(a, b):
-    return abs((a - b + 180) % 360 - 180)
-
-
-def displacement_chords(pts, d_min):
-    """Amendment 3: chords spanning >= d_min px of NET displacement —
-    bearings over these are real motion, not jitter. Returns
-    [(f_start, f_end, bearing_deg, speed_px_per_frame, i_start)]."""
-    out = []
-    i = 0
-    n = len(pts)
-    while i < n - 1:
-        j = i + 1
-        while j < n and math.hypot(pts[j][1] - pts[i][1],
-                                   pts[j][2] - pts[i][2]) < d_min:
-            j += 1
-        if j >= n:
-            break
-        df = pts[j][0] - pts[i][0]
-        if df > 0:
-            d = math.hypot(pts[j][1] - pts[i][1], pts[j][2] - pts[i][2])
-            out.append((pts[i][0], pts[j][0],
-                        _bearing(pts[i], pts[j]), d / df, i))
-        i = j
-    return out
-
-
-def pinch_cuts(pts, kin, fps):
-    """Pinch (Type-2) cuts per amendments 2+3: bearings over
-    displacement-chords (2 x fitted zv_radius — beyond-jitter motion
-    only); flip >= PINCH_ANGLE between consecutive chords fires:
-    gap <= 2 s -> flip_at_speed; gap > 2 s -> stop_flip requiring the
-    impossible-decel corroborator (px/s units converted per fps)."""
-    d_min = max(2.0 * float(kin.get("zv_radius", 12.0)), 8.0)
-    ch = displacement_chords(pts, d_min)
-    if len(ch) < 2:
-        return []
-    v_stop = max(float(kin.get("v_stop", 8.0)), 1e-3) / fps
-    a_allow = max(float(kin.get("a_allow", 12.0)), 1e-3) / (fps * fps)
-    cuts = []
-    for a, b in zip(ch, ch[1:]):
-        flip = _bdiff(a[2], b[2])
-        if flip < PINCH_ANGLE:
-            continue
-        gap = b[0] - a[1]              # frames between chord end/start
-        if gap <= 2.0 * fps:
-            cuts.append((a[1], {"rule": "flip_at_speed",
-                                "flip": round(flip, 1)}))
-        else:
-            # stop-flip: require impossible decel INTO the stop — the
-            # arrival chord's speed must vanish faster than DECEL_K x
-            # the window's fitted allowance
-            decel = a[3] / max(1.0, gap * 0.25)
-            if a[3] > 2.0 * v_stop and decel > DECEL_K * a_allow:
-                cuts.append((a[1], {"rule": "stop_flip",
-                                    "flip": round(flip, 1),
-                                    "gap_s": round(gap / fps, 1)}))
-    return cuts
-
-
-def cut_track(pts, gates, fps, kin):
-    """All cut frames for a track: geometry (Type 1) + pinch (Type 2).
-    Returns (segments, cut_records). Segments = [pts_slice, ...]."""
-    records = []
-    kept = all_crossings(pts, gates, fps)
-    entries = [c for c in kept if c[2]]
-    exits = [c for c in kept if not c[2]]
-    # Amendment 1: only outbound crossings AFTER the journey's entry —
-    # a pre-entry jitter blip must not decapitate a good track.
-    if entries:
-        exits = [c for c in exits if c[0] > entries[0][0]]
-    # Amendment 2: graze-vs-latch. An outbound ends the journey only
-    # if no inbound follows within RE_ENTRY_S — UNLESS that inbound
-    # arrives via a discontinuity (frame gap or teleport step), which
-    # is the lost-track latch signature and CONFIRMS the splice.
-    v_stop_pf = max(float(kin.get("v_stop", 8.0)), 1e-3) / fps
-    chosen = None
-    for ex in exits:
-        following = [c for c in kept
-                     if c[2] and ex[0] < c[0] <= ex[0] + RE_ENTRY_S * fps]
-        if not following:
-            chosen = ex
-            break
-        fin = following[0]
-        # locate the step that produced the inbound crossing
-        latch = False
-        for i in range(len(pts) - 1):
-            if pts[i][0] <= fin[0] <= pts[i + 1][0]:
-                dfr = pts[i + 1][0] - pts[i][0]
-                step = math.hypot(pts[i + 1][1] - pts[i][1],
-                                  pts[i + 1][2] - pts[i][2])
-                if dfr > 0.5 * fps or (dfr > 0
-                                       and step / dfr > 4.0 * v_stop_pf):
-                    latch = True
-                break
-        if latch:
-            chosen = ex
-            break
-    if chosen is not None:
-        records.append((chosen[0] + MARGIN_S * fps,
-                        {"rule": "geometry", "leg": chosen[1]}))
-    for f, diag in pinch_cuts(pts, kin, fps):
-        records.append((f, diag))
-    records.sort(key=lambda r: r[0])
-    # dedup cuts within 1 s
-    dedup = []
-    for f, diag in records:
-        if dedup and f - dedup[-1][0] < 1.0 * fps:
-            continue
-        dedup.append((f, diag))
-    # slice
-    segments, start = [], 0
-    cutpoints = [f for f, _ in dedup]
-    for cf in cutpoints:
-        seg = [p for p in pts[start:] if p[0] <= cf]
-        idx = start + len(seg)
-        if len(seg) >= MIN_SEG_PTS:
-            segments.append(seg)
-        start = idx
-    tail = pts[start:]
-    if len(tail) >= MIN_SEG_PTS:
-        segments.append(tail)
-    if not segments:                      # everything stubbed — keep whole
-        segments = [pts]
-    return segments, dedup
-
 
 # ---------------------------------------------------------------------------
 # Funnel / guards (ported from the QD composer)

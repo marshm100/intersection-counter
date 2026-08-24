@@ -13,7 +13,7 @@ sys.path.insert(0, ".")
 from backend.services.entry_gates import all_crossings, classify  # noqa: E402
 from backend.services.trajectory_classifier import (              # noqa: E402
     compute_cumulative_curvature, heading_series)
-from v2_a3_split import cut_track, pinch_cuts                     # noqa: E402
+from backend.services.track_cut import cut_track, pinch_cuts     # noqa: E402
 
 FPS = 25.0
 # Two vertical gates at x=100 (west) and x=500 (east), inward normals
