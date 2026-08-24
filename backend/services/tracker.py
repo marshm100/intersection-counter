@@ -298,6 +298,238 @@ class BotSortBackend:
         self.bot = pickle.loads(state)  # noqa: S301
 
 
+def _gated_botsort_class():
+    """Build the bus-law-gated BotSort subclass (lazy: boxmot + the gate
+    constants import only when the locked recipe is actually used)."""
+    import math
+
+    from boxmot.trackers.botsort.basetrack import TrackState
+    from boxmot.trackers.botsort.botsort import BotSort, STrack
+    from boxmot.utils.matching import (
+        embedding_distance, fuse_score, iou_distance, linear_assignment)
+
+    from backend.services.track_chains import (
+        CHAIN_BEARING_D_MIN, CHAIN_DIR_TOL_DEG, STITCH_STAT_DIST,
+        STITCH_STAT_SPEED_PXS)
+    from backend.services.track_cut import PINCH_ANGLE, _bdiff, _bearing
+
+    def _center(xyxy):
+        return ((float(xyxy[0]) + float(xyxy[2])) / 2.0,
+                (float(xyxy[1]) + float(xyxy[3])) / 2.0)
+
+    class GatedBotSort(BotSort):
+        """BoT-SORT + the operator's identity law at re-association
+        (Stage 4, 2026-08-24). Occlusion does NOT end identity —
+        INCOMPATIBLE MOTION does: a lost track may only re-activate onto a
+        detection its physics could have reached. Stock BoT-SORT
+        re-activates a lost track onto whatever detection wins pure-IoU
+        assignment against its Kalman-coasted box — a queued car's coast
+        catches opposite-direction traffic (the splice/theft mechanism,
+        docs/plan_track_repair_2026-08-24.md). The gate masks the cost
+        matrix BEFORE assignment, so a vetoed detection flows naturally to
+        new-track init; Tracked-state rows are never masked, and lost
+        tracks never reach the second association (stock BoT filters it to
+        Tracked). Constants are the validated chain-rule constants, not new
+        numbers. NB: veto cost is 1.0, the library's own mask convention —
+        effective for any match_thresh < 1.0 (production 0.8/0.9).
+
+        Second mechanism, PROBATION: at the single re-acquisition frame a
+        thief's detection can be positionally indistinguishable from the
+        owner reappearing (it is passing over the coasted/parked box) —
+        the discriminator is what the box does NEXT. Any long-gap
+        re-activation is placed on probation; once the resumed motion has
+        accumulated enough displacement to show its direction, it is
+        judged against the track's pre-loss APPROACH bearing. A flip
+        beyond PINCH_ANGLE (120°, the splice-validated theft signature —
+        wide enough to spare real turns) breaks the identity THERE: the
+        track continues under a fresh id, bounding thief contamination to
+        the judgment window (~a second) instead of a 60 s ride. A parked
+        car discharging forward, a turner curving, a car resuming its
+        journey all pass; only impossible motion breaks identity — the
+        operator's bus law, stated temporally."""
+
+        GATE_GRACE_S = 0.5      # short flicker: plain IoU is fine
+
+        def __init__(self, *args, **kwargs):
+            self._gate_fr = int(kwargs.get("frame_rate") or 30)
+            super().__init__(*args, **kwargs)
+
+        @staticmethod
+        def _approach_bearing(hist):
+            """Pre-loss travel bearing: walk back from the last observation
+            until net displacement reaches CHAIN_BEARING_D_MIN — finds the
+            APPROACH direction even when the track dwelled at a stop before
+            it was lost. None when the whole history is a dwell."""
+            if len(hist) < 2:
+                return None
+            lx, ly = _center(hist[-1])
+            for i in range(len(hist) - 2, -1, -1):
+                px, py = _center(hist[i])
+                if math.hypot(lx - px, ly - py) >= CHAIN_BEARING_D_MIN:
+                    return _bearing((0.0, px, py), (0.0, lx, ly))
+            return None
+
+        def _judge_probations(self, strack_pool):
+            for track in strack_pool:
+                prob = getattr(track, "_gate_probation", None)
+                if prob is None or track.state != TrackState.Tracked:
+                    continue
+                cx, cy = _center(track.xyxy)
+                rx, ry = prob["resume"]
+                if math.hypot(cx - rx, cy - ry) < 2.0 * CHAIN_BEARING_D_MIN:
+                    continue                      # direction not shown yet
+                b_pre = prob["b_pre"]
+                if b_pre is not None:
+                    b_post = _bearing((0.0, rx, ry), (0.0, cx, cy))
+                    if _bdiff(b_post, b_pre) > PINCH_ANGLE:
+                        track.id = track.next_id()   # identity broke at gap
+                track._gate_probation = None
+
+        # Physics-recovery costs sit ABOVE any live IoU match (an active
+        # track claims its own detection at cost ~0.1) and BELOW
+        # match_thresh, so a lost vehicle only wins detections nobody
+        # alive is claiming — and among competing lost tracks, the one
+        # whose physics fits best wins.
+        RECOVERY_COST_LO = 0.55
+        RECOVERY_COST_HI = 0.90
+
+        def _gate_row(self, track, detections):
+            """Per-detection (veto, physics_cost) for one LOST track, or
+            None when the gate does not apply (short gap / no history).
+
+            Verified failure this replaces: over a long gap the Kalman
+            coast DRIFTS (a dwelling track retains residual velocity —
+            measured 35 px over 100 frames), so coast-IoU alone cannot
+            re-find honest reappearances; that is why a bigger buffer
+            alone measured inert. Stopped tracks may be claimed near the
+            LOSS position (STITCH_STAT_DIST); moving tracks near the
+            EXTRAPOLATED position within the rev-4 latch tolerance
+            (max(stat dist, 0.6 * speed * gap)) — the cutter's
+            extrapolation-continuity law, applied prospectively."""
+            gap = self.frame_count - track.end_frame
+            if gap <= self.GATE_GRACE_S * self._gate_fr:
+                return None
+            hist = list(track.history_observations)
+            if not hist:
+                return None
+            lx, ly = _center(hist[-1])            # LAST OBSERVED position
+            k = min(len(hist) - 1, 6)             # _end_speed tail precedent
+            moving = False
+            b_pre = None
+            vx = vy = 0.0
+            if k >= 1:
+                px, py = _center(hist[-1 - k])
+                net = math.hypot(lx - px, ly - py)
+                speed_pf = net / k
+                if (net >= CHAIN_BEARING_D_MIN
+                        and speed_pf * self._gate_fr >= STITCH_STAT_SPEED_PXS):
+                    moving = True
+                    b_pre = _bearing((0.0, px, py), (0.0, lx, ly))
+                    vx, vy = (lx - px) / k, (ly - py) / k
+            veto = [False] * len(detections)
+            cost = [1.0] * len(detections)
+            span = self.RECOVERY_COST_HI - self.RECOVERY_COST_LO
+            for j, det in enumerate(detections):
+                cx, cy = _center(det.xyxy)
+                if not moving:
+                    d = math.hypot(cx - lx, cy - ly)
+                    if d > STITCH_STAT_DIST:
+                        veto[j] = True            # parked cars don't teleport
+                    else:
+                        cost[j] = (self.RECOVERY_COST_LO
+                                   + span * (d / STITCH_STAT_DIST))
+                    continue
+                brg = _bearing((0.0, lx, ly), (0.0, cx, cy))
+                d = math.hypot(cx - lx, cy - ly)
+                if d > STITCH_STAT_DIST and _bdiff(brg, b_pre) > CHAIN_DIR_TOL_DEG:
+                    veto[j] = True                # wrong direction = thief
+                    continue
+                ex, ey = lx + vx * gap, ly + vy * gap
+                tol = max(STITCH_STAT_DIST,
+                          0.6 * math.hypot(vx, vy) * gap)
+                dev = math.hypot(cx - ex, cy - ey)
+                if dev > tol:
+                    veto[j] = True                # physically unreachable
+                else:
+                    cost[j] = self.RECOVERY_COST_LO + span * (dev / tol)
+            return veto, cost
+
+        def _first_association(self, dets, dets_first, active_tracks,
+                               unconfirmed, img, detections,
+                               activated_stracks, refind_stracks,
+                               strack_pool):
+            # Body mirrors boxmot 19.0.0 (pinned) with the theft mask
+            # inserted before linear_assignment and probation judgment on
+            # previously re-activated tracks.
+            self._judge_probations(strack_pool)
+            STrack.multi_predict(strack_pool)
+            self._apply_camera_motion_compensation(
+                dets, img, strack_pool, unconfirmed)
+            ious_dists = iou_distance(strack_pool, detections,
+                                      is_obb=self.is_obb)
+            ious_dists_mask = ious_dists > self.proximity_thresh
+            if self.fuse_first_associate:
+                ious_dists = fuse_score(ious_dists, detections)
+            if self.with_reid:
+                emb_dists = embedding_distance(strack_pool, detections)
+                emb_dists[emb_dists > self.appearance_thresh] = 1.0
+                emb_dists[ious_dists_mask] = 1.0
+                dists = np.minimum(ious_dists, emb_dists)
+            else:
+                dists = ious_dists
+            if len(detections) and dists.size:
+                for i, track in enumerate(strack_pool):
+                    if track.state == TrackState.Tracked:
+                        continue
+                    row = self._gate_row(track, detections)
+                    if row is None:
+                        continue
+                    veto, cost = row
+                    for j in range(len(detections)):
+                        if veto[j]:
+                            dists[i, j] = 1.0
+                        elif cost[j] < dists[i, j]:
+                            dists[i, j] = cost[j]
+            matches, u_track, u_detection = linear_assignment(
+                dists, thresh=self.match_thresh)
+            for itracked, idet in matches:
+                track = strack_pool[itracked]
+                det = detections[idet]
+                if track.state == TrackState.Tracked:
+                    track.update(detections[idet], self.frame_count)
+                    activated_stracks.append(track)
+                else:
+                    gap = self.frame_count - track.end_frame
+                    if gap > self.GATE_GRACE_S * self._gate_fr:
+                        cx, cy = _center(det.xyxy)
+                        track._gate_probation = {
+                            "resume": (cx, cy),
+                            "b_pre": self._approach_bearing(
+                                list(track.history_observations)),
+                        }
+                    track.re_activate(det, self.frame_count, new_id=False)
+                    refind_stracks.append(track)
+            return matches, u_track, u_detection
+
+    return GatedBotSort
+
+
+class GatedBotSortBackend(BotSortBackend):
+    """The 'botsort_locked' recipe: BotSortBackend with the bus-law
+    re-association gate and an observation history that outlives a
+    generous lost buffer (stock max_obs=50 truncates the pre-loss motion
+    the gate reads)."""
+
+    def __init__(self, lost_track_buffer: int = TRACKER_LOST_BUFFER,
+                 **kwargs):
+        super().__init__(lost_track_buffer=lost_track_buffer, **kwargs)
+        fr = int(self._kwargs.get("frame_rate") or 30)
+        buffer_frames = int(fr / 30.0 * lost_track_buffer)
+        self._kwargs["max_obs"] = max(60, buffer_frames + 10)
+        self._BotSort = _gated_botsort_class()
+        self.bot = self._BotSort(**self._kwargs)
+
+
 # NB: a position-NN track-recovery wrapper over OC-SORT was tried 2026-05-29 and
 # REMOVED as net-harmful: on the dense arterial OC-SORT does drop-and-respawn and
 # the nearby respawn is a FOLLOWER -> wrong merge (NB-thru 150->77, NB-left
@@ -313,6 +545,7 @@ _BACKENDS = {
     "bytetrack": ByteTrackBackend,
     "ocsort": OcSortBackend,
     "botsort": BotSortBackend,
+    "botsort_locked": GatedBotSortBackend,
 }
 
 

@@ -622,7 +622,14 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
     if nms_iou is None:
         nms_iou = PRE_TRACK_NMS_IOU
     ntt = calib.get("new_track_thresh")
+    # Stage-4a hygiene (2026-08-24): the lost buffer was honored live
+    # (pipeline.py tracker property) but silently ignored here — every
+    # dump ever built ran at the library default. Pass it through, record
+    # it, and guard it in the resume-drift check.
+    lb = calib.get("tracker_lost_buffer")
     tracker_kwargs: dict = {}
+    if lb is not None:
+        tracker_kwargs["lost_track_buffer"] = int(lb)
     if ntt is not None and tracker_backend == "botsort":
         tracker_kwargs["new_track_thresh"] = float(ntt)
     if with_reid:
@@ -651,6 +658,7 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         "frames": [start_frame, end_frame],
         "nms_iou": nms_iou, "new_track_thresh": ntt,
         "activation": activation, "match": match, "bbox_buffer": buf,
+        "lost_buffer": (int(lb) if lb is not None else None),
     }
     out.mkdir(parents=True, exist_ok=True)
     warm_frames = int(PASS1_SEAM_WARMUP_SECONDS * fps)
@@ -658,7 +666,8 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
     def _check_resume_meta():
         old_meta = json.loads((out / "meta.json").read_text())
         mismatches = [k for k in ("format", "frames", "backend", "nms_iou",
-                                  "activation", "match", "bbox_buffer")
+                                  "activation", "match", "bbox_buffer",
+                                  "lost_buffer")
                       if old_meta.get(k) != meta.get(k)]
         if mismatches:
             raise ValueError(
