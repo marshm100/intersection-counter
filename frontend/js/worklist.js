@@ -905,7 +905,8 @@ function _wlItemsHtml() {
         const desc = `${it.tag === 'full'
                 ? 'tracked vehicle, never counted — reads as'
                 : 'enters the approach, exit unseen — movement'}
-            <select id="wl-item-mov-${i}" onclick="event.stopPropagation()">${movOpts(it.movement)}</select>`;
+            <select id="wl-item-mov-${i}" onclick="event.stopPropagation()"
+                onchange="_wlItemMov(${i}, this.value)">${movOpts(it.mov_sel || it.movement)}</select>`;
         return `<div onclick="_wlItemSel(${i})" style="display:flex;gap:8px;align-items:center;
                 padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px;
                 ${sel ? 'background:#eff6ff;outline:2px solid #3b82f6;' : 'background:#f9fafb;'}">
@@ -940,6 +941,15 @@ function _wlRenderItems() {
         if (remEl) remEl.textContent =
             Math.max(0, Math.round(Number(_wlFlag.impact || 0)) - added);
     }
+}
+
+function _wlItemMov(i, v) {
+    // Operator bug (2026-08-24): the movement choice lived only in the
+    // DOM, so any list re-render (row click, ruling elsewhere) flipped
+    // it back to the machine's guess. The choice is stored on the item
+    // (mov_sel); the machine's original (movement) stays pristine for
+    // the proposed-vs-chosen record.
+    if (_wlItems && _wlItems[i]) _wlItems[i].mov_sel = v;
 }
 
 function _wlItemSel(i) {
@@ -988,7 +998,8 @@ async function _wlItemYes(i) {
     const it = _wlItems && _wlItems[i];
     if (!it || it.done) return;
     const movSel = document.getElementById(`wl-item-mov-${i}`);
-    const movement = (movSel && movSel.value) || it.movement || 'through';
+    const movement = (movSel && movSel.value) || it.mov_sel
+        || it.movement || 'through';
     let ev;
     try {
         ev = await API.post(`/api/projects/${_wlPid}/review`, {
