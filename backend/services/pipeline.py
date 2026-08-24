@@ -17,6 +17,7 @@ import cv2
 
 from backend.config import (
     CHECKPOINT_INTERVAL_SECONDS,
+    GATE_FULL_SUPREMACY,
     ENTRY_TIEBREAK_COLLINEAR_PX,
     ENTRY_TIEBREAK_DECISIVE_PX,
     NATIVE_ARTICULATED_CLASS_ID,
@@ -295,6 +296,7 @@ class ProcessingPipeline:
         self.n_posterior_origin: int = 0     # branch 1: unevidenced origin
         self.n_posterior_dest: int = 0       # branch 2: truncated dest tie
         self.n_posterior_rescued: int = 0    # evidenced insufficient-rescue
+        self.n_gate_supremacy: int = 0       # full-journey path overrides reverted to gate cell
         self.n_origin_ambiguous: int = 0     # origin margin < floor
         self.n_posterior_vetoed: int = 0     # branch-1 pools trimmed by the
                                              # straight-track turn veto
@@ -1566,6 +1568,48 @@ class ProcessingPipeline:
                 derive_movement(origin_leg, destination_leg, all_legs=self.legs)
                 if origin_leg else "insufficient_data"
             )
+        # --- Gate supremacy: a FULL journey's crossings ARE the class ------
+        # (operator ruling 2026-08-24; CLAUDE.md: "the box sides ARE origin/
+        # destination gates"). A track observed crossing an entry gate inward
+        # AND an exit gate outward is classified by those crossings; path
+        # matching may not override an observed exit. Movement label follows
+        # the rescue_full convention verbatim: the cell's applied path label
+        # when one exists, else derive_movement. Applies only in evidence
+        # mode "on", like every other posterior consumer of gate evidence.
+        if (GATE_FULL_SUPREMACY and self._posterior_on
+                and gate_tag == "full"
+                and gate_origin is not None and gate_dest is not None
+                and (origin_leg_id != gate_origin
+                     or destination_leg_id != gate_dest)):
+            g_oleg = next((lg for lg in self.legs
+                           if lg["leg_id"] == gate_origin), None)
+            g_dleg = next((lg for lg in self.legs
+                           if lg["leg_id"] == gate_dest), None)
+            cell_paths = [p for p in (self._paths or [])
+                          if p.get("origin_leg_id") == gate_origin
+                          and p.get("destination_leg_id") == gate_dest]
+            mv = None
+            if cell_paths:
+                winp = max(cell_paths,
+                           key=lambda p: p.get("supporting_count") or 0)
+                mv = winp.get("movement_label")
+            elif g_oleg and g_dleg:
+                mv = derive_movement(g_oleg, g_dleg, all_legs=self.legs)
+            if mv and mv != "insufficient_data":
+                if gate_origin != origin_leg_id:
+                    origin_leg_id = gate_origin
+                    origin_leg = g_oleg
+                    vehicle["origin_leg_id"] = gate_origin
+                destination_leg_id = gate_dest
+                destination_leg = g_dleg
+                movement = mv
+                dest_result = {
+                    "destination_leg_id": gate_dest, "confidence": 1.0,
+                    "posterior": {gate_dest: 1.0}, "via": "gate_full",
+                }
+                posterior_source = "gate_full"
+                self.n_gate_supremacy += 1
+
         # Fall through to insufficient_data path if derivation couldn't
         # produce a turn label (no origin leg found, no destination, etc.).
         if movement == "insufficient_data":

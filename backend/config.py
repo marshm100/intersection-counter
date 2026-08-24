@@ -170,6 +170,15 @@ V2_GATE_AXIS = _os2.environ.get("V2_GATE_AXIS", "0") in ("1", "true", "on")
 # saturation ceiling is the demotion contrast guard's shipped 0.25,
 # hoisted here so both mechanisms share one constant.
 APPLY_GATE_ENABLED = _os2.environ.get("APPLY_GATE", "1") in ("1", "true", "on")
+
+# Gate supremacy (operator ruling 2026-08-24, docs/plan_divergence_arbitration):
+# a track whose entry AND exit gate crossings were both observed (tag='full')
+# is classified by those crossings — the box sides ARE origin/destination
+# (CLAUDE.md hard constraint). Path matching may not override an observed exit.
+# Measured before this flag: path matching overrode 146/176/247 full journeys
+# per cam2 window, top flip = gate-said-through relabeled right (55/80/139),
+# mirroring the Miovision error table. Env-overridable for A/B replays.
+GATE_FULL_SUPREMACY = _os2.environ.get("GATE_FULL_SUPREMACY", "1") in ("1", "true", "on")
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
 APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
 APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)

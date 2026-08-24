@@ -29,6 +29,9 @@ sys.path.insert(0, ".")
 sys.path.insert(0, "scripts")
 
 from auto_calibrate_viz import load_video_frame                     # noqa: E402
+from backend.services.entry_gates import (                          # noqa: E402
+    build_gates, classify as gate_classify, parse_gate_segment,
+)
 from backend.services.path_divergence import (                      # noqa: E402
     _arc_positions, coverage_s_max, divergence_s,
 )
@@ -114,6 +117,19 @@ def main() -> int:
         guides[r["mv"]] = {"poly": json.loads(r["polyline"]), "sup": r["sup"], "dest": r["d"]}
     right, thru = guides["right"]["poly"], guides["through"]["poly"]
 
+    # the operator's drawn gates + the gate classifier (the machinery whose
+    # verdict matched the operator's hand labels 5/5)
+    mouths, heads, drawn_gates = {}, {}, {}
+    for lg in ctrl.execute("SELECT leg_id, origin_zone, reference_heading, gate_segment FROM legs WHERE camera_id=2"):
+        oz = json.loads(lg["origin_zone"])
+        mouths[lg["leg_id"]] = tuple(oz[0]); heads[lg["leg_id"]] = lg["reference_heading"]
+        g = parse_gate_segment(lg["gate_segment"])
+        if g: drawn_gates[lg["leg_id"]] = g
+    gpaths = [dict(r) | {"polyline": json.loads(r["polyline"])} for r in
+              ctrl.execute("SELECT origin_leg_id, destination_leg_id, polyline FROM intersection_paths WHERE camera_id=2")]
+    gates = build_gates(mouths, gpaths, heads, leg_gates=drawn_gates or None)
+    GATE_COLOR = (255, 0, 255)   # magenta: the operator's drawn gate lines
+
     # divergence: arc position along each guide where it separates from its sibling
     s_div_right = divergence_s(right, thru)
     s_div_thru = divergence_s(thru, right)
@@ -171,6 +187,11 @@ def main() -> int:
             img = cv2.imread("data/projects/97a7849a/calibration_backdrop_cam2.png")
         img = img.copy()
 
+        for glid, (g1, g2) in drawn_gates.items():
+            cv2.line(img, (int(g1[0]), int(g1[1])), (int(g2[0]), int(g2[1])),
+                     GATE_COLOR, 2, cv2.LINE_AA)
+            cv2.putText(img, f"gate {glid}", (int((g1[0]+g2[0])/2)+4, int((g1[1]+g2[1])/2)-4),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, GATE_COLOR, 1, cv2.LINE_AA)
         draw_poly(img, right, COL_RIGHT, 2)
         draw_poly(img, thru, COL_THRU, 2)
         draw_poly(img, traj, COL_TRACK, 2)
@@ -183,6 +204,9 @@ def main() -> int:
         cv2.circle(img, (int(traj[0][0]), int(traj[0][1])), 4, (0, 230, 230), -1, cv2.LINE_AA)
         cv2.circle(img, (int(traj[-1][0]), int(traj[-1][1])), 6, COL_DEATH, -1, cv2.LINE_AA)
 
+        f0 = r["start_frame"] or 0
+        gpts = [(float(f0 + i), float(pt[0]), float(pt[1])) for i, pt in enumerate(traj)]
+        g_o, g_d, _, _, _, _, g_tag = gate_classify(gpts, gates, FPS)
         cov = coverage_s_max(traj, thru)
         gap = (s_split or 0) - cov
         c_r, tp_r = score_like_joint(traj, right)
@@ -195,7 +219,11 @@ def main() -> int:
             f"  -> turn gate {'REJECTS (tail<0.85)' if tp_r < 0.85 else 'admits'}",
             f"ORANGE through guide (sup {guides['through']['sup']}): mdh {c_t:.1f}  tail_prior {tp_t:.2f}"
             f"  -> exempt from turn gate",
-            f"decision: CTRL (no thru guide) = RIGHT   |   ARM (thru guide exists) = THROUGH",
+            f"decision: CTRL = RIGHT | ARM = THROUGH | GATES (magenta): origin={g_o} dest={g_d} tag={g_tag}",
+            f"NEW PIPELINE (gate supremacy): "
+            + ("NOT A COUNTED FULL JOURNEY - falls to entry-only/no-crossing handling"
+               if g_tag != "full" else
+               f"classified by gate crossings -> {g_o}->{g_d}"),
             f"RIGHT guide NEVER leaves 30px of THROUGH (max ~13px over its whole 216px arc)"
             if s_div_right is None else "guides separate at the cyan circles",
             "cyan circle = first point the pair is distinguishable   red dot = where the tracker lost it",

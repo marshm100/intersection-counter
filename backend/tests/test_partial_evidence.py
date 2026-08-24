@@ -318,8 +318,12 @@ class TestPipelineWiring:
 
     def test_rescue_full_journey_counts_hard(self, env, monkeypatch):
         """Evidenced box-full track the whole chain fails to place is counted
-        at the evidenced cell instead of dropped (phase-0's unclaimed pool)."""
-        plmod = _enable(monkeypatch)
+        at the evidenced cell instead of dropped (phase-0's unclaimed pool).
+        Pinned to GATE_FULL_SUPREMACY=False: with the flag on (default since
+        2026-08-24) gate supremacy claims this track FIRST with the same cell
+        and label (see test_gate_supremacy.py) and the rescue never fires —
+        this test preserves coverage of the flag-off rescue branch."""
+        plmod = _enable(monkeypatch, GATE_FULL_SUPREMACY=False)
         monkeypatch.setattr(ProcessingPipeline, "_gate_evidence",
                             lambda self, v: (1, 3, "full"))
         _canned_joint(monkeypatch, plmod, {
