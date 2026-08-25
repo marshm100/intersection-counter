@@ -650,6 +650,29 @@ function _wlDrawOverlay() {
         ? Number(_wlFlag.event.vehicle_track_id) : null;
     // all-tracks layer (dim) + the flag's own track OR the selected
     // item's track (bright yellow — R0 instrument v2)
+    // Leg labels + drawn gate lines (operator feedback 2026-08-24:
+    // "legs are not labeled in this" — observations couldn't name a
+    // direction). Every frame, cheap.
+    for (const lg of (_wlLegs || [])) {
+        if (lg.gate_segment && lg.gate_segment.length === 2) {
+            ctx.strokeStyle = 'rgba(255,0,255,0.45)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(lg.gate_segment[0][0], lg.gate_segment[0][1]);
+            ctx.lineTo(lg.gate_segment[1][0], lg.gate_segment[1][1]);
+            ctx.stroke();
+        }
+        const oz = lg.origin_zone && lg.origin_zone[0];
+        if (oz) {
+            const txt = lg.label || `leg ${lg.leg_id}`;
+            ctx.font = 'bold 13px system-ui';
+            const tw = ctx.measureText(txt).width;
+            ctx.fillStyle = 'rgba(17,24,39,0.75)';
+            ctx.fillRect(oz[0] - tw / 2 - 5, oz[1] - 10, tw + 10, 19);
+            ctx.fillStyle = '#f9fafb';
+            ctx.fillText(txt, oz[0] - tw / 2, oz[1] + 4);
+        }
+    }
     const dimOthers = _wlSelTid != null;
     for (const tr of _wlTracks) {
         const isSel = _wlSelTid != null && tr.tid === _wlSelTid;
@@ -911,21 +934,32 @@ function _wlItemsHtml() {
                 : 'enters the approach, exit unseen — movement'}
             <select id="wl-item-mov-${i}" onclick="event.stopPropagation()"
                 onchange="_wlItemMov(${i}, this.value)">${movOpts(it.mov_sel || it.movement)}</select>`;
+        const noteBadge = it.noted
+            ? '<span title="has a note">📝</span>' : '';
+        const noteRow = sel && !it.done ? `
+            <div style="flex-basis:100%;display:flex;gap:6px;margin-top:4px;"
+                 onclick="event.stopPropagation()">
+                <input id="wl-item-note-${i}" placeholder="note on THIS item (C focuses; Enter saves)"
+                    style="flex:1;font-size:12px;"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();_wlItemNote(${i});}" />
+                <button onclick="_wlItemNote(${i})" style="font-size:12px;">save note</button>
+            </div>` : '';
         const suspectBadge = it.suspect === 'thief'
             ? `<span style="color:#b45309;font-weight:700;white-space:nowrap;"
                  title="the validated splice signature fired on this track — verify and press T">⚡ reads like a thief</span>`
             : '';
         return `<div onclick="_wlItemSel(${i})" style="display:flex;gap:8px;align-items:center;
-                padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px;
+                flex-wrap:wrap;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px;
                 ${sel ? 'background:#eff6ff;outline:2px solid #3b82f6;' : 'background:#f9fafb;'}">
             <b>${i + 1}.</b> <span style="font-variant-numeric:tabular-nums;">${_wlFmt(it.t_cross)}</span>
-            <span style="flex:1;">${desc} ${suspectBadge}</span>
+            <span style="flex:1;">${desc} ${suspectBadge} ${noteBadge}</span>
             ${doneBadge || `<button onclick="event.stopPropagation();_wlItemYes(${i})"
                     style="background:#dcfce7;"><b>Y</b> count it</button>
                 <button class="btn-secondary"
                     onclick="event.stopPropagation();_wlItemNo(${i})"><b>N</b> not a vehicle</button>
                 <button class="btn-secondary" title="the box hops vehicles — a splice/thief; counts nothing, recorded as a labeled splice"
                     onclick="event.stopPropagation();_wlItemBad(${i})"><b>T</b> bad track</button>`}
+            ${noteRow}
         </div>`;
     }).join('');
     return `<div style="display:flex;flex-direction:column;gap:4px;">
@@ -949,6 +983,21 @@ function _wlRenderItems() {
         if (remEl) remEl.textContent =
             Math.max(0, Math.round(Number(_wlFlag.impact || 0)) - added);
     }
+}
+
+async function _wlItemNote(i) {
+    const el = document.getElementById(`wl-item-note-${i}`);
+    const it = _wlItems && _wlItems[i];
+    if (!el || !it || !el.value.trim()) return;
+    const note = el.value.trim();
+    const ok = await _wlLog({ item_key: `tid:${it.tid}`, action: 'note',
+                              source_tid: it.tid, note });
+    if (!ok) return;
+    it.noted = true;
+    el.value = '';
+    _wlDid.push({ action: 'note', label: `Note on item ${i + 1}: ${note.slice(0, 60)}` });
+    _wlToast(`Note saved on item ${i + 1}`);
+    _wlRenderItems();
 }
 
 function _wlItemMov(i, v) {
@@ -1158,6 +1207,10 @@ function _wlKeydown(e) {
     else if (gap && (k === 'y' || k === 'Y')) _wlItemYes(_wlItemPos);
     else if (gap && (k === 'n' || k === 'N')) _wlItemNo(_wlItemPos);
     else if (gap && (k === 't' || k === 'T')) _wlItemBad(_wlItemPos);
+    else if (gap && (k === 'c' || k === 'C')) {
+        const el = document.getElementById(`wl-item-note-${_wlItemPos}`);
+        if (el) el.focus();
+    }
     else if (k === 'd' || k === 'D') _wlDismiss();
     else if (k === 'ArrowLeft') _wlNudge(-1);
     else if (k === 'ArrowRight') _wlNudge(1);

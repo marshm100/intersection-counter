@@ -174,12 +174,17 @@ def get_flag_items(project_id: str, flag_id: int):
         return {"variant": None, "items": [], "n_eventless": 0,
                 "capped": False, "error": f"{type(e).__name__}: {e}"}
     card_key = flag.get("batch_key") or f"f{flag_id}"
-    done = {}
+    done, noted = {}, set()
     for row in list_review_log(project_id, card_key=card_key):
-        if row.get("source_tid") is not None:
+        if row.get("source_tid") is None:
+            continue
+        if row["action"] in ("added", "not_a_vehicle", "bad_track"):
             done[int(row["source_tid"])] = row["action"]
+        elif row["action"] == "note":
+            noted.add(int(row["source_tid"]))
     for it in out["items"]:
         it["done"] = done.get(int(it["tid"]))
+        it["noted"] = int(it["tid"]) in noted
     out["card_key"] = card_key
     return out
 
