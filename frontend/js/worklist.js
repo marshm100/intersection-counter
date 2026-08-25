@@ -136,6 +136,13 @@ async function _wlShow() {
     _wlSeconds = (_wlFlag.clip && _wlFlag.clip.center_seconds) || 0;
     _wlItems = null; _wlItemPos = 0; _wlSelTid = null; _wlDid = [];
     _wlItemLoop = null; _wlEvSpan = null;
+    // event cards: the counted vehicle IS the selection — same
+    // unmissable highlight as a chosen gap item (operator: "there is
+    // no vehicle being highlighted?")
+    if (_wlFlag && _wlFlag.kind === 'uncertain_event' && _wlFlag.event
+            && Number(_wlFlag.event.vehicle_track_id) >= 0) {
+        _wlSelTid = Number(_wlFlag.event.vehicle_track_id);
+    }
     _wlCardKey = card.key || `f${id}`;
     _wlRender();
     if (_wlFlag.kind === 'suspected_gap'
@@ -724,7 +731,8 @@ function _wlDrawOverlay() {
             ctx.lineWidth = pulse;
             ctx.strokeStyle = '#ffd400';
             ctx.strokeRect(cx - bw / 2 - 3, cy - bh / 2 - 3, bw + 6, bh + 6);
-            const label = `ITEM ${_wlItemPos + 1}`;
+            const label = (_wlItems && _wlItems.length)
+                ? `ITEM ${_wlItemPos + 1}` : 'THIS VEHICLE';
             ctx.font = 'bold 15px system-ui';
             const tw = ctx.measureText(label).width;
             ctx.fillStyle = '#ffd400';
