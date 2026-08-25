@@ -97,7 +97,31 @@ failing channel + NB-thru control, dets/frame at conf 0.10/0.25,
 entry-third density, NOVEL dets (no production det within 25 px).
 CUDA rate recorded per recipe -> full re-detect cost.
 
-RESULT: (filled when the probe lands)
+RESULT (2026-08-25, scripts/id_detect_bin.py, caches id_l1280/id_l960/
+id_s1280 beside the study caches):
+
+  FAILING zone (SB-right, the 58% recall cell), dets/frame:
+    recipe        >=0.10   >=0.25   novel>=0.25   CUDA fps
+    prod s960      1.618    0.873        —            —
+    l1280          2.303    1.135      6.7%         21.9
+    l960           2.096    0.979      2.6%         37.4
+    s1280          1.836    0.874      1.6%         39.3
+  CONTROL zone (NB-thru): l1280 uplift only x1.02 @0.10 / x1.06
+  @0.25, novel 1.0% — the gain is CONCENTRATED in the failing zone
+  (x1.42 @0.10), a genuine failing-zone recovery, not a uniform gain.
+
+READ: yolo26l@1280 is the recipe — +30% birth-grade (>=0.25)
+detections in the deficit zone and 6.7% novel vehicles production
+never sees; s1280 is dead (resolution alone recovers nothing without
+the larger model); l960 recovers half of l1280's novel rate for 1.7x
+the speed. Full three-window re-detect cost at the measured rates:
+l1280 ~6.9 h GPU, l960 ~4.0 h. diagnose_fast_misses (birth-gate vs
+assoc split) deferred to the arm build — the novel-det rate already
+answers the C2 question.
+
+C2 decision: OPERATOR — l1280 (~7 h GPU, full recovery) vs l960
+(~4 h, roughly half the novel yield). No re-detect launched without
+the go.
 
 C2 decision (operator): best zero-training recipe -> full three-window
 re-detect into id_ caches, cost from the measured rate. C3 (fine-tune)
