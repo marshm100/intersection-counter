@@ -33,6 +33,18 @@ async function loadSetupPage() {
         return;
     }
 
+    // Refresh returns the operator to the exact view they were on
+    // (operator feedback 2026-08-24: "a refresh opens me to the videos
+    // tab, not the intersection QA tab I was on").
+    try {
+        const t = localStorage.getItem('v3ActiveTab');
+        if (['videos', 'intersections', 'processing'].includes(t)) _v3ActiveTab = t;
+        const iid = Number(localStorage.getItem('v3OpenIntersectionId'));
+        if (iid) _v3OpenIntersectionId = iid;
+        const st = localStorage.getItem('v3DetailSubTab');
+        if (['settings', 'cameras', 'trims', 'qa'].includes(st)) _v3DetailSubTab = st;
+    } catch (e) {}
+
     section.innerHTML = _projectHeaderHtml() + _tabBarHtml() + '<div id="v3-tab-content"></div>';
 
     // Header name input binding
@@ -80,6 +92,7 @@ async function v3SwitchTab(tabId) {
         _v3ProcessingPollTimer = null;
     }
     _v3ActiveTab = tabId;
+    try { localStorage.setItem('v3ActiveTab', tabId); } catch (e) {}
     // Re-render only the tab bar buttons + content, not the header.
     const tabBar = document.querySelector('.v3-tabbar');
     if (tabBar) tabBar.outerHTML = _tabBarHtml();
@@ -386,6 +399,10 @@ async function v3ExportIntersection(iid, kind) {
 async function v3OpenIntersection(iid) {
     _v3OpenIntersectionId = iid;
     _v3DetailSubTab = 'settings';
+    try {
+        localStorage.setItem('v3OpenIntersectionId', String(iid));
+        localStorage.setItem('v3DetailSubTab', 'settings');
+    } catch (e) {}
     // Force the active tab to Intersections. Otherwise opening an intersection
     // from a Processing-tab chip (Configure / Restart / Open) leaves
     // _v3ActiveTab='processing' so the 2-second processing-chips poll keeps
@@ -400,6 +417,7 @@ async function v3OpenIntersection(iid) {
 
 function v3CloseIntersection() {
     _v3OpenIntersectionId = null;
+    try { localStorage.removeItem('v3OpenIntersectionId'); } catch (e) {}
     _v3IntersectionDetail = null;
     _renderIntersectionsTab(document.getElementById('v3-tab-content'));
 }
@@ -412,6 +430,7 @@ function v3CloseIntersection() {
 // dry-run grid timeouts were this).
 function _v3LeaveIntersection() {
     _v3OpenIntersectionId = null;
+    try { localStorage.removeItem('v3OpenIntersectionId'); } catch (e) {}
     _v3IntersectionDetail = null;
 }
 
@@ -596,6 +615,7 @@ async function _renderTwoPassPlan() {
 
 async function v3SwitchDetailSubTab(tabId) {
     _v3DetailSubTab = tabId;
+    try { localStorage.setItem('v3DetailSubTab', tabId); } catch (e) {}
     const bar = document.querySelector('.v3-subtabbar');
     if (bar) {
         bar.querySelectorAll('.v3-subtab').forEach(b => {
