@@ -952,7 +952,7 @@ function _wlItemsHtml() {
             ? `<span style="color:#b45309;font-weight:700;white-space:nowrap;"
                  title="the validated splice signature fired on this track — verify and press T">⚡ reads like a thief</span>`
             : '';
-        return `<div onclick="_wlItemSel(${i})" style="display:flex;gap:8px;align-items:center;
+        return `<div id="wl-item-row-${i}" onclick="_wlItemSel(${i})" style="display:flex;gap:8px;align-items:center;
                 flex-wrap:wrap;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px;
                 ${sel ? 'background:#eff6ff;outline:2px solid #3b82f6;' : 'background:#f9fafb;'}">
             <b>${i + 1}.</b> <span style="font-variant-numeric:tabular-nums;">${_wlFmt(it.t_cross)}</span>
@@ -969,9 +969,11 @@ function _wlItemsHtml() {
     return `<div style="display:flex;flex-direction:column;gap:4px;">
         <div class="helper-text">Machine-proposed items — click a row to cue the video
         (its box plays in yellow). Fix the movement if the guess is wrong, then:
-        <b>Y</b> count it once · <b>N</b> not a vehicle · <b>T</b> bad track
-        (the box hops vehicles — a thief; counts nothing, ruling recorded).</div>
-        ${rows}</div>`;
+        <b>Y</b> count it once · <b>N</b> not a vehicle · <b>T</b> bad track ·
+        <b>U</b> undo · <b>C</b> note.</div>
+        <div id="wl-items-scroll" style="max-height:250px;overflow-y:auto;
+             display:flex;flex-direction:column;gap:4px;border:1px solid #e5e7eb;
+             border-radius:6px;padding:4px;">${rows}</div></div>`;
 }
 
 function _wlRenderItems() {
@@ -1066,6 +1068,10 @@ function _wlItemSel(i) {
     }
     _wlSeconds = t;
     _wlRenderItems();
+    // keep the selection visible inside the item scrollbox (operator:
+    // the video must never leave the screen to reach the next row)
+    const row = document.getElementById(`wl-item-row-${i}`);
+    if (row) row.scrollIntoView({ block: 'nearest' });
 }
 
 function _wlItemNext() {
