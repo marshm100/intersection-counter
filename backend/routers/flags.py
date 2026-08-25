@@ -174,13 +174,20 @@ def get_flag_items(project_id: str, flag_id: int):
         return {"variant": None, "items": [], "n_eventless": 0,
                 "capped": False, "error": f"{type(e).__name__}: {e}"}
     card_key = flag.get("batch_key") or f"f{flag_id}"
-    done, noted, movs = {}, set(), {}
+    done, noted, movs, ev_ids = {}, set(), {}, {}
     for row in list_review_log(project_id, card_key=card_key):
         if row.get("source_tid") is None:
             continue
         tid = int(row["source_tid"])
         if row["action"] in ("added", "not_a_vehicle", "bad_track"):
             done[tid] = row["action"]
+            if row.get("event_id"):
+                ev_ids[tid] = row["event_id"]
+        elif row["action"] == "undo":
+            # per-item undo (operator demand 2026-08-24): the log is
+            # append-only, so an undo is itself an event; last state wins
+            done.pop(tid, None)
+            ev_ids.pop(tid, None)
         elif row["action"] == "note":
             noted.add(tid)
         elif row["action"] == "movement_set":
@@ -196,6 +203,7 @@ def get_flag_items(project_id: str, flag_id: int):
     for it in out["items"]:
         tid = int(it["tid"])
         it["done"] = done.get(tid)
+        it["done_event_id"] = ev_ids.get(tid)
         it["noted"] = tid in noted
         if movs.get(tid):
             it["mov_sel"] = movs[tid]

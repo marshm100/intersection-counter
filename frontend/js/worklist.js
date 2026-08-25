@@ -924,11 +924,14 @@ function _wlItemsHtml() {
         `<option value="${v}" ${v === (m || 'through') ? 'selected' : ''}>${v}</option>`).join('');
     const rows = _wlItems.map((it, i) => {
         const sel = i === _wlItemPos;
+        const undoBtn = `<button class="btn-secondary" style="font-size:11px;"
+            onclick="event.stopPropagation();_wlItemUndo(${i})"
+            title="U — unwind this ruling (an added count is rejected)">undo</button>`;
         const doneBadge = it.done === 'added'
-            ? '<span style="color:#16a34a;font-weight:700;">✓ counted</span>'
+            ? `<span style="color:#16a34a;font-weight:700;">✓ counted</span> ${undoBtn}`
             : it.done === 'bad_track'
-                ? '<span style="color:#b45309;font-weight:700;">⚡ bad track</span>'
-                : it.done ? '<span style="color:#6b7280;">✕ not a vehicle</span>' : '';
+                ? `<span style="color:#b45309;font-weight:700;">⚡ bad track</span> ${undoBtn}`
+                : it.done ? `<span style="color:#6b7280;">✕ not a vehicle</span> ${undoBtn}` : '';
         const desc = `${it.tag === 'full'
                 ? 'tracked vehicle, never counted — reads as'
                 : 'enters the approach, exit unseen — movement'}
@@ -936,11 +939,12 @@ function _wlItemsHtml() {
                 onchange="_wlItemMov(${i}, this.value)">${movOpts(it.mov_sel || it.movement)}</select>`;
         const noteBadge = it.noted
             ? '<span title="has a note">📝</span>' : '';
-        const noteRow = sel && !it.done ? `
+        const noteRow = sel ? `
             <div style="flex-basis:100%;display:flex;gap:6px;margin-top:4px;"
                  onclick="event.stopPropagation()">
                 <input id="wl-item-note-${i}" placeholder="note on THIS item (C focuses; Enter saves)"
-                    style="flex:1;font-size:12px;"
+                    style="flex:1;font-size:12px;" value="${escapeAttr(it.note_draft || '')}"
+                    oninput="if(_wlItems[${i}])_wlItems[${i}].note_draft=this.value"
                     onkeydown="if(event.key==='Enter'){event.preventDefault();_wlItemNote(${i});}" />
                 <button onclick="_wlItemNote(${i})" style="font-size:12px;">save note</button>
             </div>` : '';
@@ -985,6 +989,32 @@ function _wlRenderItems() {
     }
 }
 
+async function _wlItemUndo(i) {
+    // Per-item undo (operator demand 2026-08-24: "the bad track button
+    // locks the row and there is no undo mechanism"). The log is
+    // append-only — an undo is itself a logged event. Undoing a Y also
+    // rejects the event it created (the count is unwound, not erased).
+    const it = _wlItems && _wlItems[i];
+    if (!it || !it.done) return;
+    const evId = it.done_event_id;
+    if (it.done === 'added' && evId) {
+        try {
+            await API.patch(`/api/projects/${_wlPid}/review/${evId}`,
+                            { rejected: true });
+        } catch (e) { _wlToast(`⚠ undo failed: ${e.message || e}`); return; }
+    }
+    const ok = await _wlLog({ item_key: `tid:${it.tid}`, action: 'undo',
+                              source_tid: it.tid,
+                              detail_json: JSON.stringify({ was: it.done, event_id: evId || null }) });
+    if (!ok) return;
+    _wlDid.push({ action: 'undo', label: `Undid item ${i + 1} (was ${it.done})` });
+    it.done = null;
+    it.done_event_id = null;
+    _wlToast(`Item ${i + 1}: ruling undone`);
+    if (it.done === null && evId) { await _wlRefreshList(); _wlRenderSideOnly(); }
+    _wlRenderItems();
+}
+
 async function _wlItemNote(i) {
     const el = document.getElementById(`wl-item-note-${i}`);
     const it = _wlItems && _wlItems[i];
@@ -994,6 +1024,7 @@ async function _wlItemNote(i) {
                               source_tid: it.tid, note });
     if (!ok) return;
     it.noted = true;
+    it.note_draft = '';
     el.value = '';
     _wlDid.push({ action: 'note', label: `Note on item ${i + 1}: ${note.slice(0, 60)}` });
     _wlToast(`Note saved on item ${i + 1}`);
@@ -1074,6 +1105,7 @@ async function _wlItemYes(i) {
         });
     } catch (e) { alert(`Add failed: ${e.message || e}`); return; }
     it.done = 'added';           // the COUNT is real (event created) even
+    it.done_event_id = ev.event_id;
                                  // if the marker save below needs a retry
     const label = `Added #${ev.event_id} — 1 vehicle, ${movement} @ ${_wlFmt(it.t_cross)} (item ${i + 1})`;
     _wlDid.push({ action: 'added', label });
@@ -1213,6 +1245,7 @@ function _wlKeydown(e) {
     else if (gap && (k === 'y' || k === 'Y')) _wlItemYes(_wlItemPos);
     else if (gap && (k === 'n' || k === 'N')) _wlItemNo(_wlItemPos);
     else if (gap && (k === 't' || k === 'T')) _wlItemBad(_wlItemPos);
+    else if (gap && (k === 'u' || k === 'U')) _wlItemUndo(_wlItemPos);
     else if (gap && (k === 'c' || k === 'C')) {
         const el = document.getElementById(`wl-item-note-${_wlItemPos}`);
         if (el) el.focus();
