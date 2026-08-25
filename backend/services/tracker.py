@@ -10,6 +10,7 @@ API — update(list[dict], frame) -> list[dict], reset, get_state/load_state
 """
 
 import pickle
+from collections import deque as _deque
 
 import numpy as np
 import supervision as sv
@@ -252,6 +253,14 @@ class BotSortBackend:
         self._active_track_ids: set[int] = set()
 
     def update(self, detections: list[dict], frame_number: int) -> list[dict]:
+        # The bot's internal frame_count is LOCAL (1..N from tracker
+        # birth); dump rows are stamped with the ABSOLUTE video frame.
+        # Hand the bot the absolute frame so anything it records for
+        # the dump post-pass (gate_breaks) is minted in ROW units — a
+        # local frame in gate_breaks made every re-stamp select the old
+        # track's whole life (frame >= small_local is always true),
+        # turning each intended split into a whole-track rename.
+        self.bot._abs_now = int(frame_number)
         if not detections:
             dets = np.empty((0, 6), dtype=np.float32)
         else:
@@ -414,12 +423,105 @@ def _gated_botsort_class():
                     return _bearing((0.0, px, py), (0.0, lx, ly))
             return None
 
+        def _to_abs(self, local_f):
+            """Local frame_count units -> ABSOLUTE video-frame units
+            (the units dump rows carry). gate_breaks must be minted in
+            row units or the re-stamp's frame >= resume_f test matches
+            the old track's entire life — measured: all 15,978 breaks
+            on s4_study_1600 degenerated into whole-track renames,
+            gluing every severed thief straight back on."""
+            abs_now = getattr(self, "_abs_now", None)
+            if abs_now is None:            # unit streams feed abs frames
+                return int(local_f)
+            return int(local_f) + (int(abs_now) - int(self.frame_count))
+
         def _break(self, track, prob):
             old = int(track.id)
             track.id = track.next_id()           # identity broke at the gap
             self.gate_breaks.append((old, int(track.id), int(prob["frame"])))
 
         FLIP_CHECK_EVERY = 5          # frames between per-track flip scans
+
+        def _ledger_obs(self, track):
+            """Parallel deque of TRUE observation frames, index-aligned
+            with track.history_observations. boxmot appends one box per
+            STrack.update() ONLY (re_activate advances end_frame without
+            appending), so growth is detected by tail-object identity —
+            each append pushes a fresh array. Needed because the linear
+            index->frame assumption breaks across re-association gaps
+            (measured: a 359-frame gap placed a break ~14 s off the
+            labeled theft) and gaps are exactly where thefts live."""
+            hist = track.history_observations
+            tail = hist[-1] if hist else None
+            lf = getattr(track, "_obs_frames", None)
+            if lf is None:
+                n = len(hist)
+                end = int(track.end_frame)
+                lf = track._obs_frames = _deque(
+                    range(end - n + 1, end + 1), maxlen=hist.maxlen)
+            elif tail is not None and tail is not getattr(
+                    track, "_obs_tail", None):
+                lf.append(int(track.end_frame))
+            track._obs_tail = tail
+            return lf
+
+        def _obs_frame(self, track, idx, hist_len):
+            lf = getattr(track, "_obs_frames", None)
+            if lf is not None and len(lf) == hist_len:
+                return int(lf[int(idx)])
+            return int(self.frame_count - (hist_len - 1 - int(idx)))
+
+        def _judge_flips(self, track, final):
+            """Judge EVERY not-yet-judged consecutive chord pair on this
+            track's observed history; sever at the first flip. Two
+            hard-won rules live here:
+            - all pairs, not just the latest: chords complete about as
+              fast as the 5-frame scan cadence on a dense mover, so a
+              latest-pair-only judge skips the flip pair outright
+              (measured: 3 of 4 probed carried thefts had the flip in
+              their chords, unjudged).
+            - dedup on the pair's TRUE end frame, never a window index:
+              once the deque saturates at max_obs, indices slide left
+              each frame and an index watermark freezes judging for the
+              rest of the track's life.
+            Still judged on COMPLETED chords only (ch[-1] forming; a
+            still-forming chord fired on transients — measured 16,359
+            breaks). final=True (end of run) also judges the last,
+            still-open chord — at death it IS final (thieves ride to
+            the horizon)."""
+            hist = list(track.history_observations)
+            if len(hist) < 6:
+                return
+            self._ledger_obs(track)
+            pts = [(float(k), *_center(h)) for k, h in enumerate(hist)]
+            ch = displacement_chords(pts, 2.0 * CHAIN_BEARING_D_MIN)
+            last = len(ch) - (1 if final else 2)
+            if last < 1:
+                return
+            upto = getattr(track, "_flip_upto", -1)
+            for i in range(1, last + 1):
+                a, b = ch[i - 1], ch[i]
+                b_end = self._obs_frame(track, b[1], len(hist))
+                if b_end <= upto:
+                    continue
+                upto = track._flip_upto = b_end
+                if _bdiff(a[2], b[2]) > PINCH_ANGLE:
+                    old = int(track.id)
+                    track.id = track.next_id()
+                    flip_f = self._to_abs(
+                        self._obs_frame(track, b[4], len(hist)))
+                    self.gate_breaks.append((old, int(track.id),
+                                             int(max(0, flip_f))))
+                    # keep only the post-flip tail (frames ledger in
+                    # step) so the same flip cannot re-trigger on the
+                    # new identity; chord indices are stale after the
+                    # trim — stop judging this track this round
+                    lf = track._obs_frames
+                    while len(track.history_observations) > 2:
+                        track.history_observations.popleft()
+                        if len(lf) > 2:
+                            lf.popleft()
+                    return
 
         def _monitor_flips(self, strack_pool):
             """Identity-stack Pillar B (operator label class 2026-08-24:
@@ -433,32 +535,26 @@ def _gated_botsort_class():
             recorded via gate_breaks so the dump re-stamp hands the
             thief its own track. A smooth turn never fires it — turns
             curve chord-by-chord; thefts flip."""
-            d_min = 2.0 * CHAIN_BEARING_D_MIN   # the fallback-kin chord
             for track in strack_pool:
                 if track.state != TrackState.Tracked:
                     continue
+                self._ledger_obs(track)   # every frame, cadence-free
                 last = getattr(track, "_flip_checked", 0)
                 if self.frame_count - last < self.FLIP_CHECK_EVERY:
                     continue
                 track._flip_checked = self.frame_count
-                hist = list(track.history_observations)
-                if len(hist) < 6:
-                    continue
-                pts = [(float(k), *_center(h)) for k, h in enumerate(hist)]
-                ch = displacement_chords(pts, d_min)
-                if len(ch) < 2:
-                    continue
-                if _bdiff(ch[-1][2], ch[-2][2]) > PINCH_ANGLE:
-                    old = int(track.id)
-                    track.id = track.next_id()
-                    flip_f = self.frame_count - (len(hist) - 1
-                                                 - int(ch[-1][4]))
-                    self.gate_breaks.append((old, int(track.id),
-                                             int(max(0, flip_f))))
-                    # keep only the post-flip tail of the history so the
-                    # same flip cannot re-trigger on the new identity
-                    while len(track.history_observations) > 2:
-                        track.history_observations.popleft()
+                self._judge_flips(track, final=False)
+
+        def flush_flips(self):
+            """End-of-run sweep with final=True: the last chord never
+            completes for a theft riding to the track's end (measured:
+            13/29 labeled flips carried, most at track ends). The dump
+            re-stamp runs after this, so late breaks still hand the
+            thief its own track."""
+            pools = (list(self.active_tracks) + list(self.lost_stracks)
+                     + list(self.removed_stracks))
+            for track in pools:
+                self._judge_flips(track, final=True)
 
         def _judge_probations(self, strack_pool):
             for track in strack_pool:
@@ -612,7 +708,7 @@ def _gated_botsort_class():
                         cx, cy = _center(det.xyxy)
                         track._gate_probation = {
                             "resume": (cx, cy),
-                            "frame": self.frame_count,
+                            "frame": self._to_abs(self.frame_count),
                             "b_pre": self._approach_bearing(
                                 list(track.history_observations)),
                         }
@@ -637,6 +733,14 @@ class GatedBotSortBackend(BotSortBackend):
         self._kwargs["max_obs"] = max(60, buffer_frames + 10)
         self._BotSort = _gated_botsort_class()
         self.bot = self._BotSort(**self._kwargs)
+
+    def finalize(self):
+        """End-of-run flip flush (called by run_pass1 before the
+        gate-break re-stamp)."""
+        try:
+            self.bot.flush_flips()
+        except Exception:
+            pass
 
 
 # NB: a position-NN track-recovery wrapper over OC-SORT was tried 2026-05-29 and

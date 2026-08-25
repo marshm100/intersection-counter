@@ -71,44 +71,65 @@ def main() -> int:
                         leg_gates=drawn or None)
 
     kin = dict(FALLBACK_KIN)
-    severed = carried = unlocatable = 0
+    tally = {"flip": [0, 0], "dwell": [0, 0]}   # class -> [severed, carried]
+    unlocatable = 0
     for tid in labels:
         pts = sorted(base.get(tid, []))
         if len(pts) < 5:
             unlocatable += 1
             continue
         _segs, records = cut_track(pts, gates, fps, kin)
-        theft_f = records[0][0] if records else pts[len(pts) // 2][0]
-        pre = min(pts, key=lambda p: abs(p[0] - (theft_f - PAD_S * fps)))
-        post = min(pts, key=lambda p: abs(p[0] - (theft_f + PAD_S * fps)))
-        if pre[0] >= post[0]:
+        flips = [r for r in records
+                 if r[1].get("rule") in ("flip_at_speed", "stop_flip")]
+        klass = "flip" if flips else "dwell"
+        theft_f = (flips[0][0] if flips
+                   else records[0][0] if records
+                   else pts[len(pts) // 2][0])
+        # PATH-FOLLOWING carried test (dense traffic defeats point
+        # proximity — measured: four unrelated neighbors "spanned" one
+        # theft). Sample 5 points along the base track on each side of
+        # the theft; carried = ONE candidate track follows >= 4/5 of
+        # BOTH sides.
+        side = int(PAD_S * fps)
+        pre_refs = [min(pts, key=lambda p: abs(p[0] - (theft_f - k)))
+                    for k in range(10, side + 40, max(1, side // 4))][:5]
+        post_refs = [min(pts, key=lambda p: abs(p[0] - (theft_f + k)))
+                     for k in range(10, side + 40, max(1, side // 4))][:5]
+        if not pre_refs or not post_refs                 or pre_refs[0][0] >= post_refs[0][0]:
             unlocatable += 1
             continue
 
-        def near(track_pts, ref):
-            return any(abs(p[0] - ref[0]) <= PAD_S * fps
+        def follows(track_pts, refs):
+            hit = 0
+            for ref in refs:
+                if any(abs(p[0] - ref[0]) <= 12
                        and math.hypot(p[1] - ref[1], p[2] - ref[2])
-                       <= NEAR_PX for p in track_pts)
+                       <= NEAR_PX for p in track_pts):
+                    hit += 1
+            return hit >= max(1, int(0.8 * len(refs)))
 
         carried_here = False
         for _ct, cpts in cand.items():
             cs = sorted(cpts)
-            if cs[-1][0] < pre[0] or cs[0][0] > post[0]:
+            if cs[-1][0] < pre_refs[0][0] or cs[0][0] > post_refs[-1][0]:
                 continue
-            if near(cs, pre) and near(cs, post):
+            if follows(cs, pre_refs) and follows(cs, post_refs):
                 carried_here = True
                 break
-        if carried_here:
-            carried += 1
-        else:
-            severed += 1
+        tally[klass][1 if carried_here else 0] += 1
 
     n = len(labels)
     print(f"labeled thefts: {n}  (base {args.base} -> candidate "
           f"{args.candidate})")
-    print(f"  SEVERED (identity broken at the theft): {severed}")
-    print(f"  CARRIED (theft survived):               {carried}")
-    print(f"  unlocatable (short/edge tracks):        {unlocatable}")
+    fs, fc = tally["flip"]
+    ds, dc = tally["dwell"]
+    print(f"  FLIP class (a theft with a flip signature — the live "
+          f"monitor's target):")
+    print(f"    severed {fs} / carried {fc}")
+    print(f"  DWELL class (camped on an idle vehicle — no flip to sever;"
+          f" the claim-rule/MQE domain):")
+    print(f"    severed {ds} / carried {dc}")
+    print(f"  unlocatable: {unlocatable}")
     return 0
 
 

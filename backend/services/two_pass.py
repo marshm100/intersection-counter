@@ -784,6 +784,9 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
             start_frame, end_frame, warm_frames, resume, progress, state,
             _step, _check_resume_meta, open_memmap, _np, should_cancel)
 
+    fin = getattr(be, "finalize", None)
+    if fin is not None:
+        fin()          # end-of-run flip flush: late thefts still re-stamp
     # Gate-break re-stamp (Stage 4b): each probation break recorded
     # (old_id, new_id, resume_frame) — rows the thief contaminated between
     # re-acquisition and judgment move to the thief's id, so the old track
