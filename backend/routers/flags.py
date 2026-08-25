@@ -74,6 +74,7 @@ def _enrich(project_id: str, flag: dict) -> dict:
             conn.row_factory = sqlite3.Row
             row = conn.execute(
                 "SELECT e.event_id, e.camera_id, e.video_id, e.origin_leg_id, "
+                "e.vehicle_track_id, "
                 "l.label AS leg_label, e.movement, e.vehicle_class, e.fhwa_class, "
                 "e.detection_confidence, e.trajectory_confidence, "
                 "e.destination_leg_id, e.destination_confidence, "
