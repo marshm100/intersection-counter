@@ -25,6 +25,21 @@ pillar's flag/recipe stays opt-in until then.
   index-time; a gap-spanning creep can false-pass the speed floor.
   The u-turn canary covers it.
 
+RESULT (2026-08-25, workdir gmq1_20260825, scores
+runs/v2_week1/score_gmq1_cam2_study_*.json): MQE solo pooled
+215/330 = 65.2 vs control 214/330 = 64.8 — ABOVE control, against
+the declared at-or-below expectation. Per window: 65.4/63.0/67.0 vs
+67.3/62.0/65.2 (0700 -1.9, inside the 2.0 floor; 1100 +1.0;
+1600 +1.8). The equilibrium lesson does not bind MQE: voiding
+creep-crossing evidence removes false journeys without removing true
+tracks (the posterior machinery absorbs the degraded evidence).
+Approach bar dips 40.6/46.9/37.5 vs 43.8/50.0/40.6 — recorded,
+secondary. Evidence activation unchanged (0.562/0.489/0.488 vs
+control 0.564/0.487/0.485; all above the 0.45 bar) — no
+decomposition contingency. U-turn canary at 1600: EB 15 vs 16,
+others equal — the creep class shrinks slightly, no mint. Flag stays
+default-off; ship decision belongs to G-ID-1.
+
 ## G-LP-2 — Pillar B acceptance (the reserved tracker iteration)
 
 Mechanism: botsort_locked + the online flip-split — the cutter's
