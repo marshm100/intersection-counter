@@ -1001,12 +1001,18 @@ async function _wlItemNote(i) {
 }
 
 function _wlItemMov(i, v) {
-    // Operator bug (2026-08-24): the movement choice lived only in the
-    // DOM, so any list re-render (row click, ruling elsewhere) flipped
-    // it back to the machine's guess. The choice is stored on the item
-    // (mov_sel); the machine's original (movement) stays pristine for
-    // the proposed-vs-chosen record.
-    if (_wlItems && _wlItems[i]) _wlItems[i].mov_sel = v;
+    // Operator bugs (2026-08-24, twice): the movement choice lived only
+    // in the DOM (re-renders flipped it), then only in memory (refresh
+    // deleted it). Now it saves to the log the moment it changes; the
+    // items endpoint hands it back on every reload. The machine's
+    // original (movement) stays pristine for proposed-vs-chosen.
+    if (!_wlItems || !_wlItems[i]) return;
+    const it = _wlItems[i];
+    it.mov_sel = v;
+    _wlLog({ item_key: `tid:${it.tid}`, action: 'movement_set',
+             source_tid: it.tid,
+             detail_json: JSON.stringify({ movement: v }) })
+        .then(ok => { if (!ok) _wlToast('⚠ movement choice not saved — set it again'); });
 }
 
 function _wlItemSel(i) {

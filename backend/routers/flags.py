@@ -174,17 +174,31 @@ def get_flag_items(project_id: str, flag_id: int):
         return {"variant": None, "items": [], "n_eventless": 0,
                 "capped": False, "error": f"{type(e).__name__}: {e}"}
     card_key = flag.get("batch_key") or f"f{flag_id}"
-    done, noted = {}, set()
+    done, noted, movs = {}, set(), {}
     for row in list_review_log(project_id, card_key=card_key):
         if row.get("source_tid") is None:
             continue
+        tid = int(row["source_tid"])
         if row["action"] in ("added", "not_a_vehicle", "bad_track"):
-            done[int(row["source_tid"])] = row["action"]
+            done[tid] = row["action"]
         elif row["action"] == "note":
-            noted.add(int(row["source_tid"]))
+            noted.add(tid)
+        elif row["action"] == "movement_set":
+            # the operator's dropdown choice, durable across reloads
+            # (operator bug 2026-08-24: "the refresh deleted my path
+            # corrections"); rows are oldest-first -> last write wins
+            try:
+                import json as _json
+                movs[tid] = _json.loads(row.get("detail_json") or "{}"
+                                        ).get("movement")
+            except Exception:
+                pass
     for it in out["items"]:
-        it["done"] = done.get(int(it["tid"]))
-        it["noted"] = int(it["tid"]) in noted
+        tid = int(it["tid"])
+        it["done"] = done.get(tid)
+        it["noted"] = tid in noted
+        if movs.get(tid):
+            it["mov_sel"] = movs[tid]
     out["card_key"] = card_key
     return out
 
