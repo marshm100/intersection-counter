@@ -655,6 +655,13 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-25: CORRECTION — the "A2/A4 re-detection dead on this corpus
+  (videos gone)" listing is STALE: all five corridor videos are on disk
+  at data/projects/97a7849a/videos/ (hash-verified retrieval,
+  2026-08-23, docs/decision_video_ingest_2026-08-23.md). Detector-side
+  re-detection is ALIVE and is Pillar C of the identity-stack campaign
+  (docs/plan_identity_stack_2026-08-25.md, forthcoming).
+
 - 2026-08-25: R0 RUN AND MEASURED (docs/plan_r0_review_2026-08-25.md).
   Score effect: ZERO (65.2/40.6 -> 65.2/40.6 at 1600; +1 event). The
   verdict is the finding: the volume deficit is detection-dark and the

@@ -37,6 +37,8 @@ def main() -> int:
     ap.add_argument("--lr-gamma", type=float, default=0.6,
                     help="per-chunk lr0 decay (chunk k trains at lr0*gamma^k)")
     ap.add_argument("--batch", type=int, default=4)
+    ap.add_argument("--device", default="cpu",
+                    help="cpu (laptop-chunked) or cuda (RTX 3500 Ada; raise --batch, drop --freeze)")
     ap.add_argument("--status", action="store_true")
     args = ap.parse_args()
 
@@ -68,7 +70,7 @@ def main() -> int:
     model = YOLO(weights)
     results = model.train(
         data=args.data, epochs=epochs, imgsz=args.imgsz, batch=args.batch,
-        device="cpu", freeze=args.freeze, lr0=lr0, patience=0,
+        device=args.device, freeze=args.freeze, lr0=lr0, patience=0,
         project=str(run_dir), name=f"chunk{k}", exist_ok=True,
         verbose=True, plots=False, val=True)
     last = str(Path(results.save_dir) / "weights" / "last.pt")
