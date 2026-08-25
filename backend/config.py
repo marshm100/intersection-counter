@@ -207,6 +207,16 @@ A3_CUT_DUMPS = _os2.environ.get("A3_CUT_DUMPS", "0") in ("1", "true", "on")
 # veto), gated like everything else. Only consulted when A3_CUT_DUMPS
 # resolves a derived dump.
 CHAIN_GLUE = _os2.environ.get("CHAIN_GLUE", "0") in ("1", "true", "on")
+
+# Identity stack Pillar A (operator ruling 2026-08-24: "the mouth and
+# gate infrastructure is not working properly" — queue creep across a
+# drawn gate line mints journeys). When on, _gate_evidence voids
+# crossings made below the frozen stationary threshold: creep entries
+# stop making origins, creep exits stop making destinations. Filters
+# EVIDENCE only — census/classify consumers keep calibrated volumes.
+# Default OFF; arm-only until G-ID-1 ships.
+MOTION_QUALIFIED_EVIDENCE = _os2.environ.get(
+    "MOTION_QUALIFIED_EVIDENCE", "0") in ("1", "true", "on")
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
 APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
 APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)

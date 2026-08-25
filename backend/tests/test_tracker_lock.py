@@ -241,3 +241,41 @@ class TestFinalizeGraceOverride:
             env={**__import__('os').environ,
                  "TRACK_FINALIZE_GAP_FRAMES": "650"})
         assert out.stdout.strip() == "650"
+
+
+class TestMotionQualifiedEvidence:
+    """Pillar A: creep crossings are not evidence (flag-gated)."""
+
+    GATES = {29: ((0.0, 100.0), (200.0, 100.0), (0.0, 1.0))}
+
+    def _evidence(self, traj, monkeypatch, flag):
+        import backend.config as cfg
+        monkeypatch.setattr(cfg, "MOTION_QUALIFIED_EVIDENCE", flag)
+        from backend.services.pipeline import ProcessingPipeline
+        pipe = ProcessingPipeline.__new__(ProcessingPipeline)
+        pipe.fps = 25.0
+        pipe._entry_gates = self.GATES
+        pipe._ensure_entry_gates = lambda: self.GATES
+        return pipe._gate_evidence({"start_frame": 0, "trajectory": traj})
+
+    def _creep_then_drive(self):
+        # creeps ACROSS the gate line (0.2 px/frame = 5 px/s < 10 px/s
+        # floor), then drives on at speed — the dwell/u-turn debris shape
+        traj = [(100.0, 96.0 + 0.2 * i) for i in range(0, 40)]
+        traj += [(100.0, 104.0 + 4.0 * i) for i in range(1, 40)]
+        return traj
+
+    def test_flag_off_unchanged(self, monkeypatch):
+        o, d, tag = self._evidence(self._creep_then_drive(), monkeypatch,
+                                   False)
+        assert tag in ("entry_only", "full") and o == 29
+
+    def test_creep_entry_voided_when_on(self, monkeypatch):
+        o, d, tag = self._evidence(self._creep_then_drive(), monkeypatch,
+                                   True)
+        assert o is None                  # creep entry mints no origin
+
+    def test_motion_crossing_survives(self, monkeypatch):
+        traj = [(100.0, 60.0 + 4.0 * i) for i in range(40)]  # at speed
+        o, d, tag = self._evidence(traj, monkeypatch, True)
+        assert o == 29 and tag == "entry_only"

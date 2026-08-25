@@ -1128,6 +1128,24 @@ class ProcessingPipeline:
         if len(pts) < 2:
             return None, None, None
         origin, dest, _fo, _fd, _op, _dp, tag = gate_classify(pts, gates, self.fps)
+        # Identity stack Pillar A (flag-gated, default off): a crossing is
+        # evidence only when crossed IN MOTION — queue creep across a gate
+        # line is not a journey (operator ruling 2026-08-24; the exact
+        # degradation shape the operator validated in the review
+        # enumerator). classify() itself is untouched. KNOWN
+        # APPROXIMATION (ledgered): pts are index-time, so speed across a
+        # coasted gap over-estimates; u-turn counts are the canary.
+        from backend.config import MOTION_QUALIFIED_EVIDENCE
+        if MOTION_QUALIFIED_EVIDENCE and tag not in (None, "no_crossing"):
+            from backend.services.entry_gates import crossing_speed
+            from backend.services.track_chains import STITCH_STAT_SPEED_PXS
+            floor_pf = STITCH_STAT_SPEED_PXS / max(self.fps, 1e-9)
+            if _fo is not None and crossing_speed(pts, _fo) < floor_pf:
+                origin = None                     # creep entry: no origin
+                tag = "exit_only" if dest is not None else "no_crossing"
+            if _fd is not None and dest is not None                     and crossing_speed(pts, _fd) < floor_pf:
+                dest = None                       # creep exit: no dest
+                tag = "entry_only" if origin is not None else "no_crossing"
         return origin, dest, tag
 
     def _finalize_vehicle_data(self, track_id: int, vehicle: dict, frame_number: int):

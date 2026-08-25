@@ -42,18 +42,7 @@ MAX_ITEMS = 60           # a card is workable, not infinite; count reported
 # (STITCH_STAT_SPEED_PXS).
 CROSS_MOTION_MIN_PXS = 10.0
 
-
-def _crossing_speed(pts, f):
-    """Local speed (px/s equivalent per-frame basis) at frame f."""
-    import math
-    for i in range(len(pts) - 1):
-        if pts[i][0] <= f <= pts[i + 1][0]:
-            dfr = pts[i + 1][0] - pts[i][0]
-            if dfr <= 0:
-                return 0.0
-            return math.hypot(pts[i + 1][1] - pts[i][1],
-                              pts[i + 1][2] - pts[i][2]) / dfr
-    return 0.0
+from backend.services.entry_gates import crossing_speed as _crossing_speed  # noqa: E402
 
 
 def items_for_flag(project_id: str, flag: dict) -> dict:

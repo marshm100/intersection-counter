@@ -271,6 +271,26 @@ def gate_lane_clusters(gates, bank_paths):
     return lanes
 
 
+
+def crossing_speed(pts, f):
+    """Local speed at frame f (px per frame-step): the length of the
+    bracketing segment over its frame span. Pure helper — classify()
+    and all_crossings() are untouched (their census consumers calibrate
+    every volume threshold in the system). Used by the review
+    enumerator and the flag-gated motion-qualified-evidence veto
+    (operator ruling 2026-08-24: queue creep across a gate line is not
+    a journey)."""
+    import math
+    for i in range(len(pts) - 1):
+        if pts[i][0] <= f <= pts[i + 1][0]:
+            dfr = pts[i + 1][0] - pts[i][0]
+            if dfr <= 0:
+                return 0.0
+            return math.hypot(pts[i + 1][1] - pts[i][1],
+                              pts[i + 1][2] - pts[i][2]) / dfr
+    return 0.0
+
+
 def all_crossings(track, gates, fps):
     """Every gate crossing of a track, jitter-collapsed, time-ordered:
     [(frame_interp, leg, inward: bool, pos: (x, y)), ...].
