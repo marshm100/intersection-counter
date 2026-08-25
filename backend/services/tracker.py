@@ -311,7 +311,9 @@ def _gated_botsort_class():
     from backend.services.track_chains import (
         CHAIN_BEARING_D_MIN, CHAIN_DIR_TOL_DEG, STITCH_MOVE_DIST,
         STITCH_MOVE_GAP_S, STITCH_STAT_DIST, STITCH_STAT_SPEED_PXS)
-    from backend.services.track_cut import PINCH_ANGLE, _bdiff, _bearing
+    from backend.services.track_cut import (PINCH_ANGLE, _bdiff,
+                                            _bearing,
+                                            displacement_chords)
 
     def _center(xyxy):
         return ((float(xyxy[0]) + float(xyxy[2])) / 2.0,
@@ -416,6 +418,47 @@ def _gated_botsort_class():
             old = int(track.id)
             track.id = track.next_id()           # identity broke at the gap
             self.gate_breaks.append((old, int(track.id), int(prob["frame"])))
+
+        FLIP_CHECK_EVERY = 5          # frames between per-track flip scans
+
+        def _monitor_flips(self, strack_pool):
+            """Identity-stack Pillar B (operator label class 2026-08-24:
+            the SAME-LEG mid-motion handoff — lock hops from vehicle A
+            turning right to vehicle B going straight, continuously, no
+            loss event, so the re-association gate never fires). The
+            cutter's splice-validated signature applied LIVE: two
+            consecutive displacement chords disagreeing by more than
+            PINCH_ANGLE (120°) at chord-qualifying displacement = the
+            identity ends AT THE FLIP. New id forward; the flip is
+            recorded via gate_breaks so the dump re-stamp hands the
+            thief its own track. A smooth turn never fires it — turns
+            curve chord-by-chord; thefts flip."""
+            d_min = 2.0 * CHAIN_BEARING_D_MIN   # the fallback-kin chord
+            for track in strack_pool:
+                if track.state != TrackState.Tracked:
+                    continue
+                last = getattr(track, "_flip_checked", 0)
+                if self.frame_count - last < self.FLIP_CHECK_EVERY:
+                    continue
+                track._flip_checked = self.frame_count
+                hist = list(track.history_observations)
+                if len(hist) < 6:
+                    continue
+                pts = [(float(k), *_center(h)) for k, h in enumerate(hist)]
+                ch = displacement_chords(pts, d_min)
+                if len(ch) < 2:
+                    continue
+                if _bdiff(ch[-1][2], ch[-2][2]) > PINCH_ANGLE:
+                    old = int(track.id)
+                    track.id = track.next_id()
+                    flip_f = self.frame_count - (len(hist) - 1
+                                                 - int(ch[-1][4]))
+                    self.gate_breaks.append((old, int(track.id),
+                                             int(max(0, flip_f))))
+                    # keep only the post-flip tail of the history so the
+                    # same flip cannot re-trigger on the new identity
+                    while len(track.history_observations) > 2:
+                        track.history_observations.popleft()
 
         def _judge_probations(self, strack_pool):
             for track in strack_pool:
@@ -526,6 +569,7 @@ def _gated_botsort_class():
             # previously re-activated tracks.
             self._judge_probations(strack_pool)
             self._expire_movers()
+            self._monitor_flips(strack_pool)
             STrack.multi_predict(strack_pool)
             self._apply_camera_motion_compensation(
                 dets, img, strack_pool, unconfirmed)

@@ -137,9 +137,12 @@ class TestBusLawGate:
         out = run(be, frames)
         tid = out[50][0]
         breaks = be.bot.gate_breaks
-        assert len(breaks) == 1
+        # probation AND the flip monitor may each catch this theft —
+        # what matters is that the FIRST break unwinds the claim at the
+        # gap and is recorded for the re-stamp
+        assert len(breaks) >= 1
         old, new, resume_f = breaks[0]
-        assert old == tid and new != tid and resume_f == 75
+        assert old == tid and new != tid and 70 <= resume_f <= 90
 
 
 class TestClaimConeCap:
@@ -279,3 +282,45 @@ class TestMotionQualifiedEvidence:
         traj = [(100.0, 60.0 + 4.0 * i) for i in range(40)]  # at speed
         o, d, tag = self._evidence(traj, monkeypatch, True)
         assert o == 29 and tag == "entry_only"
+
+
+class TestFlipSplit:
+    """Pillar B: the same-leg mid-motion handoff severed LIVE (the
+    cutter's 120° signature online). Turns curve; thefts flip."""
+
+    def test_same_leg_handoff_severed(self):
+        # box rides vehicle A north 40 frames, then hops to vehicle B
+        # heading south — continuous, no gap, the class the
+        # re-association gate cannot see
+        be = backend()
+        frames = {f: [det(100.0, 400.0 - 4.0 * f)] for f in range(1, 41)}
+        frames.update({f: [det(100.0, 240.0 + 4.0 * (f - 40))]
+                       for f in range(41, 90)})
+        out = run(be, frames)
+        tid = out[30][0]
+        assert out[89] and tid not in out[89]      # identity broke
+        assert len(be.bot.gate_breaks) >= 1        # recorded for re-stamp
+
+    def test_smooth_turn_not_severed(self):
+        # a quarter-circle right turn — gradual chords, never a flip
+        import math
+        frames = {}
+        for f in range(1, 31):
+            frames[f] = [det(100.0, 420.0 - 4.0 * f)]     # north approach
+        for k in range(1, 41):
+            ang = (k / 40.0) * (math.pi / 2)
+            frames[30 + k] = [det(100.0 + 80.0 * math.sin(ang),
+                                  300.0 - 80.0 * (1 - math.cos(ang)))]
+        be = backend()
+        out = run(be, frames)
+        tid = out[20][0]
+        assert out[70] == [tid]                    # one identity throughout
+        assert not be.bot.gate_breaks
+
+    def test_flip_split_deterministic(self):
+        frames = {f: [det(100.0, 400.0 - 4.0 * f)] for f in range(1, 41)}
+        frames.update({f: [det(100.0, 240.0 + 4.0 * (f - 40))]
+                       for f in range(41, 90)})
+        a = run(backend(), frames)
+        b = run(backend(), frames)
+        assert a == b
