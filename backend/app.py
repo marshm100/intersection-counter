@@ -32,6 +32,21 @@ app = FastAPI(title="Intersection Counter")
 
 
 @app.middleware("http")
+async def _no_stale_frontend(request, call_next):
+    """Frontend assets must never be served stale (operator bug
+    2026-08-24: the browser cached old JS across deploys, so fixes
+    'didn't take' and un-saved state kept vanishing — 'the refresh
+    deleted my path corrections' was cached-JS all along). no-cache =
+    revalidate every load; 304s keep it fast."""
+    resp = await call_next(request)
+    path = request.url.path
+    if path.endswith((".js", ".css", ".html")) or path == "/":
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+
+@app.middleware("http")
 async def no_cache_static(request, call_next):
     """Disable browser caching on /static/* so JS/CSS edits show up on refresh.
     This is a localhost dev tool — bandwidth is irrelevant, stale UI is painful."""
