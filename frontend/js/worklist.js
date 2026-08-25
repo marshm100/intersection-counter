@@ -911,11 +911,15 @@ function _wlItemsHtml() {
                 : 'enters the approach, exit unseen — movement'}
             <select id="wl-item-mov-${i}" onclick="event.stopPropagation()"
                 onchange="_wlItemMov(${i}, this.value)">${movOpts(it.mov_sel || it.movement)}</select>`;
+        const suspectBadge = it.suspect === 'thief'
+            ? `<span style="color:#b45309;font-weight:700;white-space:nowrap;"
+                 title="the validated splice signature fired on this track — verify and press T">⚡ reads like a thief</span>`
+            : '';
         return `<div onclick="_wlItemSel(${i})" style="display:flex;gap:8px;align-items:center;
                 padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px;
                 ${sel ? 'background:#eff6ff;outline:2px solid #3b82f6;' : 'background:#f9fafb;'}">
             <b>${i + 1}.</b> <span style="font-variant-numeric:tabular-nums;">${_wlFmt(it.t_cross)}</span>
-            <span style="flex:1;">${desc}</span>
+            <span style="flex:1;">${desc} ${suspectBadge}</span>
             ${doneBadge || `<button onclick="event.stopPropagation();_wlItemYes(${i})"
                     style="background:#dcfce7;"><b>Y</b> count it</button>
                 <button class="btn-secondary"

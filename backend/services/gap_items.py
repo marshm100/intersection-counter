@@ -25,6 +25,7 @@ from backend.database import (
 from backend.services.cardinals import bound_approach
 from backend.services.entry_gates import build_gates, classify
 from backend.services.track_chains import _end_speed
+from backend.services.track_cut import FALLBACK_KIN, cut_track
 from backend.services.track_overlay import _load, _resolve_variant
 from backend.services.trajectory_classifier import derive_movement
 
@@ -32,6 +33,27 @@ PAD_SECONDS = 5.0        # bin edges are soft: tracks straddle them
 MIN_POINTS = 5           # MIN_SEG_PTS — below this a track can't classify
 SPEED_FLOOR_PXS = 25.0   # the QD floor: drop parked/jitter tracks
 MAX_ITEMS = 60           # a card is workable, not infinite; count reported
+
+# Operator ruling (2026-08-24, round 1: "all bad tracks — thieves or
+# lingering on idle left-turners... the mouth and gate infrastructure is
+# not working properly"): a gate crossing qualifies a CANDIDATE only if
+# the vehicle was IN MOTION through the line — queue creep across a gate
+# is not a journey. 10 px/s is the frozen stationary threshold
+# (STITCH_STAT_SPEED_PXS).
+CROSS_MOTION_MIN_PXS = 10.0
+
+
+def _crossing_speed(pts, f):
+    """Local speed (px/s equivalent per-frame basis) at frame f."""
+    import math
+    for i in range(len(pts) - 1):
+        if pts[i][0] <= f <= pts[i + 1][0]:
+            dfr = pts[i + 1][0] - pts[i][0]
+            if dfr <= 0:
+                return 0.0
+            return math.hypot(pts[i + 1][1] - pts[i][1],
+                              pts[i + 1][2] - pts[i][2]) / dfr
+    return 0.0
 
 
 def items_for_flag(project_id: str, flag: dict) -> dict:
@@ -123,6 +145,28 @@ def items_for_flag(project_id: str, flag: dict) -> dict:
         card = (legs_full.get(int(o)) or {}).get("cardinal_direction")
         if approach and bound_approach(card) != approach:
             continue
+        # MOTION-QUALIFIED crossings (operator ruling): entry creep-
+        # crossings below the stationary threshold do not make a
+        # candidate — the dwell/u-turn debris class dies here.
+        if of is not None and (_crossing_speed(pts, of) * fps
+                               < CROSS_MOTION_MIN_PXS):
+            continue
+        if (tag == "full" and df is not None
+                and (_crossing_speed(pts, df) * fps
+                     < CROSS_MOTION_MIN_PXS)):
+            tag = "entry_only"        # exit was a creep — not evidence
+            d = None
+        # THIEF SIGNATURE (the validated cutter, fallback kin): a
+        # flip-at-speed inside the track = it reads like a splice. Not
+        # hidden — proposed WITH the label so the operator's T is a
+        # one-glance confirmation, never a diagnosis.
+        suspect = None
+        try:
+            _segs, recs = cut_track(pts, gates, fps, dict(FALLBACK_KIN))
+            if any(r[1].get("rule") == "flip_at_speed" for r in recs):
+                suspect = "thief"
+        except Exception:
+            pass
         movement = None
         if tag == "full" and d is not None:
             movement = derive_movement(legs_full[int(o)],
@@ -130,6 +174,7 @@ def items_for_flag(project_id: str, flag: dict) -> dict:
         pos = op or dp or (pts[0][1], pts[0][2])
         cross_f = of if of is not None else pts[0][0]
         items.append({
+            "suspect": suspect,
             "tid": tid,
             "origin_leg_id": int(o),
             "destination_leg_id": int(d) if d is not None else None,
