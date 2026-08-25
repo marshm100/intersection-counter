@@ -41,6 +41,9 @@ let _wlCardKey = null;    // stable card key for the review_log
 let _wlItemLoop = null;   // [lo, hi] — the selected item's playback loop
 let _wlEvSpan = null;     // event card: the vehicle's track span (merged
                           // across overlay fetches) — loops the FULL path
+let _wlMembers = null;    // uncertain card: enriched member flags (stable
+                          // for the card's life — rows don't vanish as
+                          // they're ruled; operator row-format spec)
 
 function openWorklist(iid) {
     AppState.currentIntersectionId = iid;
@@ -135,7 +138,16 @@ async function _wlShow() {
     }
     _wlSeconds = (_wlFlag.clip && _wlFlag.clip.center_seconds) || 0;
     _wlItems = null; _wlItemPos = 0; _wlSelTid = null; _wlDid = [];
-    _wlItemLoop = null; _wlEvSpan = null;
+    _wlItemLoop = null; _wlEvSpan = null; _wlMembers = null;
+    if (_wlFlag.kind === 'uncertain_event' && card.flags.length) {
+        // row format (operator spec): every member enriched up front so
+        // the card is a stable, navigable list like the gap items
+        try {
+            _wlMembers = await Promise.all(card.flags.map(fl =>
+                fl.flag_id === id ? Promise.resolve(_wlFlag)
+                    : API.get(`/api/projects/${_wlPid}/flags/${fl.flag_id}`)));
+        } catch (e) { _wlMembers = [_wlFlag]; }
+    }
     // event cards: the counted vehicle IS the selection — same
     // unmissable highlight as a chosen gap item (operator: "there is
     // no vehicle being highlighted?")
@@ -279,8 +291,105 @@ function _wlMainHtml() {
         </div>`;
     return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;">
         ${head}${frame}
-        ${f.kind === 'uncertain_event' ? _wlUncertainHtml(f) : _wlGapHtml(f)}
+        ${f.kind === 'uncertain_event'
+            ? `${_wlEventRowsHtml()}<div id="wl-evpanel">${_wlUncertainHtml(f)}</div>`
+            : _wlGapHtml(f)}
     </div>`;
+}
+
+function _wlEventRowsHtml() {
+    if (!_wlMembers || _wlMembers.length < 1) return '';
+    const rows = _wlMembers.map((m, i) => {
+        const ev = m.event || {};
+        const sel = i === _wlInner;
+        const st = m._ruled
+            ? ({resolved: '<span style="color:#16a34a;font-weight:700;">✓</span>',
+                dismissed: '<span style="color:#6b7280;">✕</span>'}[m._ruled]
+               || `<span style="color:#16a34a;">${escapeHtml(m._ruled)}</span>`)
+            : '';
+        const bad = m._bad ? '<span style="color:#b45309;font-weight:700;">⚡</span>' : '';
+        const t = ev.timestamp_video != null ? _wlFmt(ev.timestamp_video) : '—';
+        let claim = `${escapeHtml(ev.movement || '?')}`;
+        if (m.evidence && m.evidence.top2 && m.evidence.top2.length === 2) {
+            claim += ` <span class="helper-text">(${m.evidence.top2.map(x =>
+                `${escapeHtml(x.label)} ${(x.p * 100).toFixed(0)}%`).join(' vs ')})</span>`;
+        }
+        return `<div id="wl-evrow-${i}" onclick="_wlMemberSel(${i})"
+            style="display:flex;gap:8px;align-items:center;padding:4px 8px;border-radius:6px;
+            cursor:pointer;font-size:13px;
+            ${sel ? 'background:#eff6ff;outline:2px solid #3b82f6;' : 'background:#f9fafb;'}">
+            <b>${i + 1}.</b>
+            <span style="font-variant-numeric:tabular-nums;">${t}</span>
+            <span style="flex:1;">${claim}</span>
+            ${bad} ${st}
+        </div>`;
+    }).join('');
+    return `<div id="wl-evrows" style="margin-top:8px;">
+        <div class="helper-text">This card's events — click a row to watch that
+        vehicle (yellow, full-path loop); rulings below apply to the selected row.</div>
+        <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;
+             gap:3px;border:1px solid #e5e7eb;border-radius:6px;padding:4px;">${rows}</div>
+    </div>`;
+}
+
+async function _wlMemberSel(i) {
+    if (!_wlMembers || !_wlMembers[i]) return;
+    _wlInner = i;
+    _wlFlag = _wlMembers[i];
+    _wlSelTid = (_wlFlag.event && Number(_wlFlag.event.vehicle_track_id) >= 0)
+        ? Number(_wlFlag.event.vehicle_track_id) : null;
+    _wlEvSpan = null; _wlItemLoop = null;
+    const c = _wlFlag.clip || {};
+    const at = Number(c.center_seconds || c.start_seconds || 0);
+    const vid = document.getElementById('wl-video');
+    if (vid && at) { vid.currentTime = at; vid.play().catch(() => {}); }
+    _wlSeconds = at;
+    _wlFetchOverlayTracks(at);
+    _wlRenderEventPanel();
+}
+
+function _wlRenderEventPanel() {
+    // partial re-render: rows + claim/answers — the video never remounts
+    const rowsEl = document.getElementById('wl-evrows');
+    if (rowsEl) rowsEl.outerHTML = _wlEventRowsHtml();
+    const panel = document.getElementById('wl-evpanel');
+    if (panel) panel.innerHTML = _wlUncertainHtml(_wlFlag);
+    const row = document.getElementById(`wl-evrow-${_wlInner}`);
+    if (row) row.scrollIntoView({ block: 'nearest' });
+}
+
+async function _wlEventBad() {
+    // T on a counted event (operator: a SAME-LEG thief — lock hops from
+    // vehicle A turning right to vehicle B going straight mid-motion).
+    // Records the labeled splice; the COUNT stays yours to keep/fix/
+    // remove with the normal verbs.
+    const ev = _wlFlag && _wlFlag.event;
+    if (!ev) return;
+    const tid = Number(ev.vehicle_track_id);
+    const ok = await _wlLog({ item_key: `ev:${ev.event_id}`,
+        action: 'bad_track', source_tid: tid >= 0 ? tid : null,
+        detail_json: JSON.stringify({ event_id: ev.event_id,
+            movement: ev.movement, subtype: _wlFlag.subtype }) });
+    if (!ok) return;
+    if (_wlMembers && _wlMembers[_wlInner]) _wlMembers[_wlInner]._bad = true;
+    _wlDid.push({ action: 'bad_track',
+                  label: `Event #${ev.event_id}: bad track (thief)` });
+    _wlToast('Recorded: bad track — now keep, fix, or remove the count');
+    _wlRenderEventPanel();
+}
+
+async function _wlEventNote() {
+    const el = document.getElementById('wl-ev-note');
+    const ev = _wlFlag && _wlFlag.event;
+    if (!el || !ev || !el.value.trim()) return;
+    const note = el.value.trim();
+    const tid = Number(ev.vehicle_track_id);
+    const ok = await _wlLog({ item_key: `ev:${ev.event_id}`, action: 'note',
+        source_tid: tid >= 0 ? tid : null, note });
+    if (!ok) return;
+    el.value = '';
+    _wlDid.push({ action: 'note', label: `Note on #${ev.event_id}: ${note.slice(0, 60)}` });
+    _wlToast('Note saved');
 }
 
 function _wlUncertainHtml(f) {
@@ -299,6 +408,14 @@ function _wlUncertainHtml(f) {
             traj ${pct(ev.trajectory_confidence)} · dest ${pct(ev.destination_confidence)})</span>
         </div>${top2}
         ${_wlAnswerRowsHtml(f)}
+        <div style="margin-top:6px;display:flex;gap:6px;align-items:center;">
+            <button class="btn-secondary"
+                title="record this counted event as a thief/splice (labeled data); then keep, fix, or remove the count"
+                onclick="_wlEventBad()"><b>T</b> bad track</button>
+            <input id="wl-ev-note" placeholder="note on this event (C focuses; Enter saves)"
+                style="flex:1;font-size:12px;"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();_wlEventNote();}" />
+        </div>
         ${_wlGroupSize() > 1 ? `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb;">
             <button onclick="_wlBatch('resolved')"><b>B</b> Resolve all ${_wlGroupSize()} like this</button>
             <button class="btn-secondary" onclick="_wlBatch('dismissed')">Dismiss all</button>
@@ -764,7 +881,19 @@ async function _wlPatchFlag(status) {
     await API.patch(`/api/projects/${_wlPid}/flags/${_wlFlag.flag_id}`, { status });
 }
 
-async function _wlAfterTerminal() {
+async function _wlAfterTerminal(status) {
+    // Row-format cards (operator spec): ruling one member marks its row
+    // and moves selection to the next un-ruled member — the card holds
+    // until every row is ruled; only then advance.
+    if (_wlMembers && _wlMembers.length > 1) {
+        if (_wlMembers[_wlInner]) _wlMembers[_wlInner]._ruled = status || 'resolved';
+        const next = _wlMembers.findIndex(m => !m._ruled);
+        if (next >= 0) {
+            _wlRefreshList().then(() => _wlRenderSideOnly());
+            await _wlMemberSel(next);
+            return;
+        }
+    }
     await _wlRefreshList();   // the resolved flag left the open list; stay at _wlPos
     await _wlShow();
 }
@@ -826,7 +955,7 @@ async function _wlAccept() {
         const fid = _wlFlag.flag_id;
         await _wlPatchFlag('resolved');
         _wlPushUndo('accept', [fid]);
-        await _wlAfterTerminal();
+        await _wlAfterTerminal('resolved');
     });
 }
 async function _wlDismiss() {
@@ -834,7 +963,7 @@ async function _wlDismiss() {
         const fid = _wlFlag.flag_id;
         await _wlPatchFlag('dismissed');
         _wlPushUndo('dismiss', [fid]);
-        await _wlAfterTerminal();
+        await _wlAfterTerminal('dismissed');
     });
 }
 async function _wlResolveGap() {
@@ -1291,7 +1420,17 @@ function _wlKeydown(e) {
     }
     else if (k === 'o' || k === 'O') { _wlOverlayAll = !_wlOverlayAll; }
     else if (k === 'x' || k === 'X') _wlSkip();
-    else if (k === '.' || k === 'ArrowDown') gap ? _wlItemNext() : _wlNextInCard();
+    else if (k === '.' || k === 'ArrowDown') {
+        if (gap) _wlItemNext();
+        else if (_wlMembers && _wlMembers.length > 1)
+            _wlMemberSel((_wlInner + 1) % _wlMembers.length);
+        else _wlNextInCard();
+    }
+    else if (!gap && (k === 't' || k === 'T')) _wlEventBad();
+    else if (!gap && (k === 'c' || k === 'C')) {
+        const el = document.getElementById('wl-ev-note');
+        if (el) el.focus();
+    }
     else if ((k === 'b' || k === 'B') && _wlFlag.batch_key && _wlGroupSize() > 1) _wlBatch('resolved');
     else if (gap && (k === 'a' || k === 'A')) _wlToggleAdd();
     else if (shiftMove && (_wlFlag.batch_key || '').startsWith('dest|') && _wlGroupSize() > 1)
