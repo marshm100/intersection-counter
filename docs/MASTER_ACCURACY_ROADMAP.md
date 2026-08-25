@@ -655,6 +655,33 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-25: PILLAR B VALIDATED against the 36 labeled thefts
+  (commit 6b4ddb3; artifact "Flip-Split Demo"). ROOT-CAUSE FINDING —
+  the split-became-merge bug: gate_breaks were recorded in tracker-
+  local frame units while dump rows carry absolute video frames, so
+  the re-stamp's frame >= resume_f test matched the old track's
+  ENTIRE life and every break (probation, revocation, flip) became a
+  whole-track rename gluing thief back onto victim. All 15,978 breaks
+  on s4_study_1600 degenerated this way — the flip monitor had been
+  firing correctly at labeled theft moments the whole time and the
+  bookkeeping undid it. NOTE: the G-LP-1 arm (55.1 MISS) ran with
+  this bug; that measurement was of a tracker whose splits were all
+  merges. Also fixed in the same commit: the monitor now judges every
+  completed chord pair (latest-pair-only skipped flips on dense
+  movers) with a true-frame watermark (a window-index watermark froze
+  judging once history saturated at max_obs), and places breaks via a
+  per-track observation-frame ledger (exact across re-association
+  gaps). Results at 1600: labeled FLIP-thefts severed 16/29 -> 26/29;
+  splice-shaped tracks 10.7% -> 1.4%; tracks 10,196 -> 22,491
+  (median life 5.3s -> 2.4s — honest fragmentation, ships only inside
+  the stack gate). The 3 carried flips + 2 dwell labels are all
+  DWELL-TIME thefts (base speed 0-17 px/s at the theft): the
+  operator's waiting-left-turner class — detector starts losing the
+  still car, the idle identity claims passing traffic. Candidate fix
+  ledgered for its own plan: a stopped identity may not claim a
+  detection already moving at speed (a real waiting car resumes from
+  rest). Operator demo ack pending; 0700/1100 rebuilds in flight.
+
 - 2026-08-25: CORRECTION — the "A2/A4 re-detection dead on this corpus
   (videos gone)" listing is STALE: all five corridor videos are on disk
   at data/projects/97a7849a/videos/ (hash-verified retrieval,
