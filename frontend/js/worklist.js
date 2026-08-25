@@ -39,6 +39,8 @@ let _wlSelTid = null;     // item's dump track, highlighted on the overlay
 let _wlDid = [];          // this card's action history ("what you did")
 let _wlCardKey = null;    // stable card key for the review_log
 let _wlItemLoop = null;   // [lo, hi] — the selected item's playback loop
+let _wlEvSpan = null;     // event card: the vehicle's track span (merged
+                          // across overlay fetches) — loops the FULL path
 
 function openWorklist(iid) {
     AppState.currentIntersectionId = iid;
@@ -133,6 +135,7 @@ async function _wlShow() {
     }
     _wlSeconds = (_wlFlag.clip && _wlFlag.clip.center_seconds) || 0;
     _wlItems = null; _wlItemPos = 0; _wlSelTid = null; _wlDid = [];
+    _wlItemLoop = null; _wlEvSpan = null;
     _wlCardKey = card.key || `f${id}`;
     _wlRender();
     if (_wlFlag.kind === 'suspected_gap'
@@ -511,7 +514,7 @@ function _wlMountFrame() {
     }, { once: true });
     // event clips loop over their padded window
     vid.addEventListener('timeupdate', () => {
-        if (_wlFlag && _wlFlag.kind === 'uncertain_event'
+        if (_wlFlag && _wlFlag.kind === 'uncertain_event' && !_wlItemLoop
                 && vid.currentTime > Number(c.end_seconds || 0) + 1.5) {
             vid.currentTime = Number(c.start_seconds || 0);
         }
@@ -554,6 +557,19 @@ async function _wlFetchOverlayTracks(center) {
             `/tracks?t_lo=${lo.toFixed(1)}&t_hi=${hi.toFixed(1)}`);
         _wlTracks = (r && r.tracks) || [];
         _wlTrackWin = [lo, hi];
+        // event cards loop the vehicle's FULL path (operator spec) —
+        // merge the track's span across fetches and drive the loop
+        if (f.kind === 'uncertain_event' && f.event) {
+            const tid = Number(f.event.vehicle_track_id);
+            const tr = tid >= 0 ? _wlTracks.find(x => x.tid === tid) : null;
+            if (tr && tr.pts.length) {
+                const s0 = tr.pts[0][0], s1 = tr.pts[tr.pts.length - 1][0];
+                _wlEvSpan = _wlEvSpan
+                    ? [Math.min(_wlEvSpan[0], s0), Math.max(_wlEvSpan[1], s1)]
+                    : [s0, s1];
+                _wlItemLoop = [Math.max(0, _wlEvSpan[0] - 0.5), _wlEvSpan[1] + 0.5];
+            }
+        }
     } catch (e) { /* overlay is decoration; the reviewer works without it */ }
     finally { _wlTrackBusy = false; }
 }
