@@ -655,6 +655,19 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-25: R0 RUN AND MEASURED (docs/plan_r0_review_2026-08-25.md).
+  Score effect: ZERO (65.2/40.6 -> 65.2/40.6 at 1600; +1 event). The
+  verdict is the finding: the volume deficit is detection-dark and the
+  attribution deficit is identity-level - review labels thieves in
+  seconds but cannot repair counts. Review = certification + labeled
+  data layer, NOT score recovery; the ML+review 70-85 portfolio
+  scenario is dead at this basis. Produced: REVIEW-UI v2 (15 operator
+  rulings built in live), 36 operator-labeled splices, two NEW failure
+  subclasses (same-leg mid-motion handoff; parked-row theft zone), the
+  motion-qualified-evidence charter. Everything funnels to the identity
+  stack: G-LP-2 (reserved, now armed), motion-qualified gate evidence
+  (declared gate next), detector recall (Stage 5).
+
 - 2026-08-24: G-LP-1 MISS (pooled 64.8 -> 55.1; approach 44.8 -> 18.8)
   — THE BUS-LAW TRACKER SCORES HONESTLY AND LOSES ON VOLUME
   (docs/plan_lock_persistence_2026-08-25.md). Activation ROSE on all
