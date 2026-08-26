@@ -655,6 +655,8 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-26: G-ID-1 MISS (~33 pooled vs 64.8; docs/plan_identity_stack_2026-08-25.md VERDICT): the stack equals solo-B within noise - fragmentation alone kills evidence activation (0.26-0.35 vs 0.45 bar) and attribution collapses to posterior guessing. MQE solo +0.4 (the one solo positive); C2 detections real (+727 events, dup doubles 95->0) but inexpressible through fragments. Next formal plan if continued: the identity-evidence fragment REJOINER (proximity glue stays dead). Production untouched at 64.8.
+
 - 2026-08-25: PILLAR B VALIDATED against the 36 labeled thefts
   (commit 6b4ddb3; artifact "Flip-Split Demo"). ROOT-CAUSE FINDING —
   the split-became-merge bug: gate_breaks were recorded in tracker-
