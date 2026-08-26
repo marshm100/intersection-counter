@@ -167,3 +167,39 @@ only if C1 shows the ceiling demands it.
   aside), pre-ship VACUUM backup, Confirm & process + force_once
   ladder. MISS: ledgered; everything stays opt-in; the pillar assets
   stand (harness, meters, MQE flag, tracker recipe).
+
+## VERDICT (2026-08-26): G-ID-1 MISS — and the mechanism is pinned
+
+Operator demo ack received (both scenes correct) before the run.
+
+  arm                     0700    1100    1600   pooled
+  control (shipped)       67.3    62.0    65.2    64.8
+  STACK (A+B+C)           35.2    34.9    29.0    ~33
+  solo-B (s4+grace650)    34.0    38.2    32.7    ~35
+  solo-A (G-MQ-1, prior)  65.4    63.0    67.0    65.2
+
+DECOMPOSITION IS CONCLUSIVE: the stack equals solo-B within noise —
+Pillar B's fragmentation alone causes the whole collapse. MQE is
+mildly positive solo; the C2 detections add real volume (+727 events
+at 1600, dup-tid double counts 95 -> 0) but cannot express through a
+fragmented identity layer.
+
+MECHANISM: evidence activation DIED in every arm window
+(0.26-0.35 vs the 0.45 bar; control 0.49-0.56). Severed journeys
+never carry a paired entry+exit crossing, coverage falls below the
+bar, the evidence channel deactivates, attribution falls back to
+posterior guessing — dominant cells overshoot Miovision itself
+(SB_thru 2,525 vs 2,247 ref; SB_left 585 vs 307) while the rest
+starve (EB_thru 77 vs 454). U-turn canary fired (12 -> 49 at 1600).
+
+THE MEASURED LESSON (completes the campaign's arc): honest severing
+REQUIRES same-vehicle recovery. Cutting thieves apart is correct and
+validated (26/29 labeled thefts); leaving the victim's own journey in
+pieces kills the evidence basis that attribution stands on. The
+missing mechanism is the fragment REJOINER — identity-evidence-based
+(not proximity: CHAIN_GLUE's caterpillar negative stands) — the
+volume-recovery companion the G-LP-1 reservation named. Its design is
+the next formal plan if the operator continues this thread.
+
+Production untouched at 64.8. All flags/recipes remain opt-in.
+Scores: runs/v2_week1/score_gid1_* and score_solob_*.
