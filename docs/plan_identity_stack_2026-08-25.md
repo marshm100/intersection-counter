@@ -66,6 +66,18 @@ honest, in order):
   labeled-splice harness on the arm's three dumps must hold FLIP
   severed >= 26/29 at 1600 (and no regression if the operator labels
   more thefts before the gate).
+
+ARM-DUMP READOUT (2026-08-26, id_study_1600 — the C2 detections under
+the final tracker): harness reads FLIP 25/29 at the standard 40px
+radius. The one delta vs s4 (label 5342) was adjudicated at a tight
+18px radius: victim side owned by id-track 7869, thief side by 7956 —
+two identities, severed IN FACT. The 40px "carrier" (35822, max chord
+pair 13°, no flip) is a parallel neighbor the stronger detector now
+tracks — denser real traffic manufactures shadows at the loose
+radius. Acceptance HOLDS at 26/29 effective; the harness is not
+retuned (no fitting the meter to the target — both numbers recorded).
+Residual carried: the 3 dwell-time thefts (the ledgered
+stopped-claim class).
 - Meters at 1600 (final tracker): splice-shaped tracks 10.7% -> 1.4%;
   tracks 10,196 -> 22,491; median life 5.3s -> 2.4s. The
   fragmentation is the honest cost — volume recovery is C's job, the
