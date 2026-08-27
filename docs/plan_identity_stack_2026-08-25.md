@@ -177,6 +177,20 @@ Operator demo ack received (both scenes correct) before the run.
   STACK (A+B+C)           35.2    34.9    29.0    ~33
   solo-B (s4+grace650)    34.0    38.2    32.7    ~35
   solo-A (G-MQ-1, prior)  65.4    63.0    67.0    65.2
+  solo-C (2026-08-27)     62.4    66.7    64.0    64.3
+
+solo-C (operator-prompted: "we are apparently not detecting all
+vehicles even"): the C2 detections filtered to the production floor
+(conf>=0.10), STOCK tracker, production replay defaults — only the
+detector changes. Scores runs/v2_week1/score_soloc_*. Result: FLAT
+pooled (64.3 vs 64.8; +4.7 at 1100, -4.9 at 0700, -1.2 at 1600),
+activation healthy (0.49-0.57). Anatomy at 0700: the recovered
+volume is real (SB_thru 1170->1241 toward Mio 1384) but an equal
+mass lands in already-overcounted cells (WB_right 323->373 vs Mio
+293) and attribution shifts lose others (EB_left 174->145 vs Mio
+229). The production identity/attribution layer converts extra real
+vehicles into fragments and misattributions at roughly the rate it
+heals deficits.
 
 DECOMPOSITION IS CONCLUSIVE: the stack equals solo-B within noise —
 Pillar B's fragmentation alone causes the whole collapse. MQE is
@@ -192,7 +206,15 @@ posterior guessing — dominant cells overshoot Miovision itself
 (SB_thru 2,525 vs 2,247 ref; SB_left 585 vs 307) while the rest
 starve (EB_thru 77 vs 454). U-turn canary fired (12 -> 49 at 1600).
 
-THE MEASURED LESSON (completes the campaign's arc): honest severing
+THE MEASURED LESSON (completed by solo-C):
+every single lever is now measured alone and none converts. The
+detector recovers real vehicles the stack wastes; the honest tracker
+severs thefts but bleeds evidence coverage; MQE is a small clean win.
+Identity integrity (sever + REJOIN) is the keystone gating every
+accuracy path — including "just detect all the vehicles."
+
+(original text follows)
+ honest severing
 REQUIRES same-vehicle recovery. Cutting thieves apart is correct and
 validated (26/29 labeled thefts); leaving the victim's own journey in
 pieces kills the evidence basis that attribution stands on. The
