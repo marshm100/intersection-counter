@@ -31,6 +31,14 @@
     let _img = null;
     let _numLegs = 4;
     let _legs = [];
+    let _loadedLegs = 0;      // legs present when the editor opened: an
+                              // already-calibrated camera (e.g. a 3-leg T
+                              // whose intersection row says 4) must stay
+                              // savable when the operator only adds gates
+    function _saveReady() {
+        return _legs.length >= _numLegs
+            || (_loadedLegs >= 3 && _legs.length >= _loadedLegs);
+    }
     let _currentLeg = null;
     let _currentSeconds = 5;
     let _videoDuration = 0;
@@ -93,6 +101,7 @@
         _onClose = typeof opts.onClose === 'function' ? opts.onClose : null;
         _numLegs = parseInt(opts.legCount, 10) || 4;
         _videoDuration = parseFloat(opts.videoDuration) || 0;
+        _loadedLegs = 0;
         _legs = [];
         _currentLeg = null;
         _currentSeconds = 5;
@@ -122,6 +131,7 @@
         } catch (e) {
             // start fresh
         }
+        _loadedLegs = _legs.length;
 
         // Fetch the intersection row so we have current calib_* overrides
         // + defaults to display in the params editor.
@@ -175,7 +185,7 @@
             return;
         }
 
-        const allDone = _legs.length >= _numLegs;
+        const allDone = _saveReady();
         const camLabel = opts.cameraLabel || `Camera ${cid}`;
 
         const step = (n, id, title) => `
@@ -217,18 +227,20 @@
                     <div id="v3-calib-suggestion" style="margin-bottom:10px;"></div>
                     <div id="v3-calib-form" style="display:none;margin-bottom:10px;"></div>
                     <div class="cal-steps">
-                        ${step(1, 'legs', 'Legs')}
-                        ${step(2, 'channels', 'Channels')}
-                        ${step(3, 'bank', 'Path bank')}
+                        ${step(1, 'legs', 'Legs & gates')}
                     </div>
                     <details class="cal-disc" style="margin-top:8px;">
-                        <summary>Road paths <span id="cal-paths-count" class="cal-meta"></span></summary>
-                        <div class="cal-disc__body"><div id="v3-calib-paths"></div></div>
-                    </details>
-                    <details class="cal-disc" style="margin-top:8px;">
-                        <summary>Advanced &middot; fallback only</summary>
+                        <summary>Advanced &middot; channels, path bank, road paths</summary>
                         <div class="cal-disc__body">
-                            <p class="cal-hint">Tunes the no-bank fallback (perpendicular tripwire + angle buckets). Does not affect a bank-calibrated count.</p>
+                            <div class="cal-steps">
+                                ${step(2, 'channels', 'Channels')}
+                                ${step(3, 'bank', 'Path bank')}
+                            </div>
+                            <details class="cal-disc" style="margin-top:8px;">
+                                <summary>Road paths <span id="cal-paths-count" class="cal-meta"></span></summary>
+                                <div class="cal-disc__body"><div id="v3-calib-paths"></div></div>
+                            </details>
+                            <p class="cal-hint" style="margin-top:8px;">Fallback tuning (perpendicular tripwire + angle buckets). Does not affect a bank-calibrated count.</p>
                             <div id="v3-calib-params"></div>
                         </div>
                     </details>
@@ -269,7 +281,7 @@
             v3CalibrationResumeAutoCalPoll();   // re-attach to a live auto-cal job
             _renderLayers();
             _updateStepStatus();
-            _setOpenStep(_legs.length >= _numLegs ? 'channels' : 'legs');
+            _setOpenStep('legs');
         };
         _img.onerror = () => {
             const el = document.getElementById('v3-calib-status');
@@ -515,6 +527,8 @@
             if (_drawingGate.pts.length === 2) {
                 const leg = _legs.find(l => l.idx === _drawingGate.legIdx);
                 if (leg) leg.gate_segment = _drawingGate.pts;
+                const sb = document.getElementById('v3-calib-save-btn');
+                if (sb) sb.disabled = !_saveReady();
                 _drawingGate = null;
                 _updateLegList();
                 _updateStatus();
@@ -832,7 +846,7 @@
         _redraw();
         _updateLegList();
         _updateStatus();
-        if (_legs.length >= _numLegs) {
+        if (_saveReady()) {
             const btn = document.getElementById('v3-calib-save-btn');
             if (btn) btn.disabled = false;
         }
@@ -852,7 +866,7 @@
         _updateLegList();
         _updateStatus();
         const saveBtn = document.getElementById('v3-calib-save-btn');
-        if (saveBtn) saveBtn.disabled = _legs.length < _numLegs;
+        if (saveBtn) saveBtn.disabled = !_saveReady();
     };
 
     window.v3CalibrationEditLeg = _editLeg;
