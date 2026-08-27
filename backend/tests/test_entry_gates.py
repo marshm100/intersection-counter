@@ -175,10 +175,14 @@ _CAM2_DUMPS = sorted(Path("data/projects/97a7849a/detections/2").glob(
 
 @pytest.mark.skipif(not (CORRIDOR.exists() and _CAM2_DUMPS),
                     reason="corridor project / cam2 study_0700 dump not present")
-def test_gate_evidence_dump_fidelity_n500():
+def test_gate_evidence_dump_fidelity_n500(monkeypatch):
     """Tuple fidelity on real data: _gate_evidence must agree with a direct
     entry_gates.classify call on the same points for 500 cam2 dump tracks —
-    the pipeline hook may never drift from the service (one source of truth)."""
+    the pipeline hook may never drift from the service (one source of truth).
+    Pinned on the MQE-OFF path (since the 2026-08-27 ship the flag defaults
+    ON and deliberately degrades creep-crossing evidence)."""
+    import backend.config as _cfg
+    monkeypatch.setattr(_cfg, "MOTION_QUALIFIED_EVIDENCE", False)
     import numpy as np
 
     conn = sqlite3.connect(CORRIDOR)

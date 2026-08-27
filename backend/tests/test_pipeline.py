@@ -335,7 +335,11 @@ class TestPipelineInit:
         assert p.n_origin_rescued == 1
 
         # Flag OFF -> no rescue, dropped as insufficient_data, no new event.
+        # (Since the 2026-08-27 ship, FLOW_ORIGIN_INFERENCE defaults ON and
+        # would rescue this track via the flow tier — pin the LEGACY path
+        # with both tiers off.)
         monkeypatch.setattr(mod, "ORIGIN_CLAIM_VETO_ENABLED", False)
+        monkeypatch.setattr(mod, "FLOW_ORIGIN_INFERENCE", False)
         p2 = ProcessingPipeline(
             project_id="test", db_path=pipeline_env["db_path"],
             video_path=pipeline_env["video_path"], legs=legs, fps=30.0,

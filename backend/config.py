@@ -59,6 +59,20 @@ _nms_env = _os.environ.get("PRE_TRACK_NMS_IOU")
 PRE_TRACK_NMS_IOU = float(_nms_env) if (_nms_env and _nms_env != "off") else None
 
 PROCESSING_MODES = {
+    # SHIPPED 2026-08-27 (G-CP-1 PASS, docs/plan_counted_path_2026-08-27.md:
+    # 70.6 pooled vs 64.8 shipped; SB_right healed 379/378). The corridor
+    # production recipe: the large model at 1280 with the production
+    # confidence floor.
+    "counted_path": {
+        "yolo_model": "yolo26l.pt",
+        "yolo_imgsz": 1280,
+        "yolo_confidence": 0.10,
+        "detection_skip": 1,
+        "tracker_match_threshold": 0.8,
+        "tracker_activation_threshold": 0.25,
+        "label": "Counted-path (yolo26l @1280)",
+        "description": "The G-CP-1 shipped recipe: large model at 1280 px, every frame, production confidence floor 0.10. CPU-impractical for full days; built for CUDA detects.",
+    },
     "accurate": {
         "yolo_model": "yolo26l.pt",
         "yolo_imgsz": 1280,
@@ -214,13 +228,16 @@ CHAIN_GLUE = _os2.environ.get("CHAIN_GLUE", "0") in ("1", "true", "on")
 # crossings made below the frozen stationary threshold: creep entries
 # stop making origins, creep exits stop making destinations. Filters
 # EVIDENCE only — census/classify consumers keep calibrated volumes.
-# Default OFF; arm-only until G-ID-1 ships.
+# SHIPPED default-ON 2026-08-27 with the G-CP-1 stack (measured +0.4
+# solo at G-MQ-1; in the shipped arm).
 MOTION_QUALIFIED_EVIDENCE = _os2.environ.get(
-    "MOTION_QUALIFIED_EVIDENCE", "0") in ("1", "true", "on")
+    "MOTION_QUALIFIED_EVIDENCE", "1") in ("1", "true", "on")
 
 # Counted-path campaign (operator diagnosis 2026-08-27,
-# docs/diag_waste_reel_2026-08-27.md). Three mechanisms, all default
-# OFF; arm-only until G-CP-1 ships.
+# docs/diag_waste_reel_2026-08-27.md). SHIPPED default-ON 2026-08-27
+# after the G-CP-1 PASS (70.6 pooled vs 64.8; every window above its
+# control). Cams 1/3/4/5 feel these only on their next operator-
+# triggered apply — blocked by the standing fleet-gates caveat.
 # A — queue-aware merge: the turn-fragment merge's pair predicate
 # additionally requires near-disjoint time spans. Real fragments of
 # one vehicle occupy disjoint spans; queue successors COEXIST (born
@@ -228,24 +245,24 @@ MOTION_QUALIFIED_EVIDENCE = _os2.environ.get(
 # measured discard engine (177 SB_right merged-away vs that cell's
 # 141-vehicle deficit at 0700).
 QUEUE_AWARE_MERGE = _os2.environ.get(
-    "QUEUE_AWARE_MERGE", "0") in ("1", "true", "on")
+    "QUEUE_AWARE_MERGE", "1") in ("1", "true", "on")
 # B — flow-informed origin inference: entry-less tracks (born past
 # the gate: occlusion/faint far band; 41% of the deficit corridor)
 # get their origin inferred from birth position + the dominant-flow
 # structure, guarded by the operator's pertinence law.
 FLOW_ORIGIN_INFERENCE = _os2.environ.get(
-    "FLOW_ORIGIN_INFERENCE", "0") in ("1", "true", "on")
+    "FLOW_ORIGIN_INFERENCE", "1") in ("1", "true", "on")
 # C — stop-fracture collapse: the red-light dup engine (track lost at
 # a stop; twin births at the rest position; both counted). Dump
 # post-pass; both-end pinning to the rest position.
 STOP_FRACTURE_COLLAPSE = _os2.environ.get(
-    "STOP_FRACTURE_COLLAPSE", "0") in ("1", "true", "on")
+    "STOP_FRACTURE_COLLAPSE", "1") in ("1", "true", "on")
 # C2 — coexisting-twin dedup: two simultaneous tracks on ONE vehicle
 # (operator scenes 1-2; measured anatomy: overlapping spans, boxes
 # riding together frame-by-frame), both minting events. Event-level
 # identity test in pass-2; write-then-reject.
 COEXISTING_TWIN_DEDUP = _os2.environ.get(
-    "COEXISTING_TWIN_DEDUP", "0") in ("1", "true", "on")
+    "COEXISTING_TWIN_DEDUP", "1") in ("1", "true", "on")
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
 APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
 APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)
