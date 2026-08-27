@@ -97,3 +97,30 @@ gate measures cams 1/3/4/5 under the shipped counting layer.
 - Workdir fleetpass_20260828; stems fp_camN_study_W; armed-
   verification via the first window's stats sidecar showing
   twin_dedup/origin_flow_inferred counters.
+
+## G-FP-1 VERDICT (2026-08-28)
+
+  window        arm (mov/app)   shipped (mov/app)   per-camera verdict
+  cam3 0600     83.7 / 61.9     72.6 / 28.0         **PASS** (+11.1 / +33.9)
+  cam5 0700     72.9 / 46.9     66.4 / 50.0         movement pass (+1.9
+  cam5 1100     70.8 / 31.2     71.7 / 40.6           pooled, floors held)
+  cam5 1600     63.1 /  6.2     63.1 / 21.9           but approach COLLAPSE
+                                                      at 1600 -> VETO
+  cam1 0700     64.2 / 50.0     60.5 / 62.5         movement pass (+3.7,
+  cam1 1600     60.2 / 15.6     54.5 / 40.6           +5.7) but approach
+                                                      collapse -> VETO
+  cam4 0700     53.8 / 41.7     75.4 / 37.5         movement MISS (the
+  cam4 1100     57.7 / 66.7     73.5 / 41.7           gates-alone shape;
+  cam4 1600     72.9 / 66.7     75.8 / 66.7           mechanisms did not
+                                                      rescue activation)
+
+- cam3 is the best score ever recorded in this project on both bars
+  (movement 83.7; approach 61.9 nearly ties the fleet's best window).
+  Both bars UP together — no veto. SHIP awaiting operator go.
+- cam5/cam1: the mechanisms lift movement but the approach bar drops,
+  hardest at the 1600 windows — the same directional signature as
+  cam2's shipped arm (28.1 at 0700/1600). A cross-camera
+  approach-bar diagnosis is now the chartered follow-up; neither
+  camera ships on this arm.
+- cam4: MISS — the driveway-T activation problem is untouched by the
+  counting mechanisms; keeps its shipped basis.
