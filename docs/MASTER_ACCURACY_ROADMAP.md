@@ -655,6 +655,16 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-27: **SHIPPED G-CP-1 to production.** Applied true x3 with
+  the apply gate passing on its own (gate_pass — headroom existed; no
+  force_once). Production cam2 basis now 70.4/71.3/70.3 movement
+  (pooled 70.6, was 64.8); SB_right 0700 live = 378 vs Miovision 379.
+  Recipe: counted_path mode (yolo26l@1280 c0.10) + five mechanism
+  flags default-ON (b055d8d); dumps promoted with stop-fracture
+  collapse baked in; pre-ship snapshot
+  project_20260827T220538_pre_ship_cp.db. Ledger:
+  docs/plan_counted_path_2026-08-27.md SHIPPED section.
+
 - 2026-08-27: G-CP-1 **PASS** — the campaign's first gate pass
   (docs/plan_counted_path_2026-08-27.md). Counted-path arm (yolo26l
   @1280 dets + stock tracker + queue-aware merge + coexisting-twin

@@ -111,3 +111,33 @@ SHIP: awaiting operator go. Ship ladder = PROCESSING_MODES entry
 (yolo26l@1280 recipe), the four flags + MQE default-on for cam2,
 production dump rebuilds, pre-ship VACUUM backup, Confirm & process +
 force_once, post-apply re-score.
+
+## SHIPPED (2026-08-27)
+
+The full ladder, every step verified:
+1. Config commit b055d8d: PROCESSING_MODES "counted_path"
+   (yolo26l@1280 c0.10); five mechanism flags default-ON; the two
+   legacy pins re-pinned flag-off explicitly; project processing_mode
+   = counted_path; suite 1,126 green.
+2. Promotion: study_0700/1100/1600 caches + dumps renamed aside as
+   pre_cp_* and replaced by the cp_ artifacts with corrected truthful
+   sidecars (model/imgsz/conf/content_hash); armed-verification
+   passed (frames exact, complete true, stop_fracture_collapsed
+   29/43/76, backend botsort). The 1600 rename required the server
+   kill (the known Windows memmap handle).
+3. Server relaunched fresh; flags frozen ON (first replay's sidecar
+   confirms twin_dedup + origin_flow_inferred active).
+4. Pre-ship backup backups/project_20260827T220538_pre_ship_cp.db
+   (VACUUM INTO, integrity ok, 96,422 events).
+5. Confirm & process, empty body: applied TRUE x3, apply-gate
+   decision "apply" (gate_pass) in all three windows — NO force_once
+   needed (the incumbent under-claimed the new census; headroom
+   existed as predicted).
+6. Post-apply re-score: PRODUCTION = ARM exactly —
+   70.4 / 71.3 / 70.3 movement (approach 28.1 / 59.4 / 28.1).
+   Live spot-check: SB_right 0700 = 378 vs Miovision 379.
+
+Production basis is now 70.6 pooled movement. Standing caveats
+unchanged: no applies on cams 1/3/4/5 (dormant drawn gates + the new
+default-on flags would both land there); scratch variants
+(cp_/idc_/id_/s4_/pre_cp_) retained as experiment artifacts.
