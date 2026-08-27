@@ -65,3 +65,35 @@ byte-identical; 1600 channel ON -> movement -2.0, approach -18.7.)
   attribution onto nothing.
 - C0 stands on its own merits (label truth; the Mio-zero phantom
   cell dies) independent of the gates decision.
+
+## G-FP-1 — fleet pass under the shipped counted-path mechanisms
+## (declared 2026-08-28, before any scored run)
+
+Context: G-CP-1 shipped on cam2 (+5.8 pooled). The four mechanisms +
+MQE are now config defaults; the fleet's dumps/caches exist. This
+gate measures cams 1/3/4/5 under the shipped counting layer.
+
+- ARM per camera: pass-2 replays of the existing study dumps with the
+  shipped defaults (queue-aware merge, coexisting-twin dedup, flow
+  origin inference, MQE; stop-fracture collapse NOT included — it
+  lives at pass-1 and these dumps predate it; a dump-rebuild stage is
+  a separate decision on this gate's evidence). The drawn gates saved
+  2026-08-26 are in the DB and participate — the arm is
+  GATES + MECHANISMS combined (the gates-alone negative stands
+  separately; this measures the shipped composition).
+- Windows: cam1 study_0700/1600 (1100 = the orphan, still open);
+  cam3 study_0600 (14 h); cam4 + cam5 study_0700/1100/1600.
+- CONTROLS: each camera's shipped standings (movement/approach):
+  cam1 60.5/62.5, 54.5/40.6; cam3 72.6/28.0; cam4 75.4/37.5,
+  73.5/41.7, 75.8/66.7; cam5 66.4/50.0, 71.7/40.6, 63.1/21.9.
+- PASS, per camera: pooled movement above that camera's shipped
+  pooled AND no window more than 2.0 below its control. Approach
+  recorded (the earlier gates-alone negative collapsed approach —
+  a repeat collapse is a per-camera veto even on a movement pass).
+- Ship per camera, operator go, standard ladder. MISS per camera:
+  ledgered; that camera keeps its shipped basis (the mechanisms
+  remain dormant there until its own remedy — their next apply stays
+  blocked per the standing caveat).
+- Workdir fleetpass_20260828; stems fp_camN_study_W; armed-
+  verification via the first window's stats sidecar showing
+  twin_dedup/origin_flow_inferred counters.
