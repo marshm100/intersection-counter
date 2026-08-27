@@ -107,6 +107,105 @@ def borderline_merge_cells(turns, expected_by_cell, vol_factor=1.3,
     return out
 
 
+# Counted-path C2 (operator scenes 1-2, anatomy measured 2026-08-27):
+# COEXISTING TWINS — two simultaneous tracks on one vehicle (spawned
+# together at a queue; one dies early, the other carries on), BOTH
+# minting events. Not the sequential stop-fracture (that class collapses
+# at the dump) and invisible to the turn merge (births can sit > 30 px
+# apart and the spans overlap — which the queue-aware predicate now
+# rightly protects). The identity test is per-frame: the twin RIDES the
+# same vehicle, so its boxes overlap the survivor's frame by frame.
+TWIN_OVERLAP_FRAC = 0.6   # common span >= this fraction of the shorter life
+TWIN_IOU_MIN = 0.2        # median per-frame box IoU over common frames
+                          # (boxes on ONE vehicle overlap; queue neighbors
+                          # never do — their IoU is ~0 at any distance)
+
+
+def twin_track_dedup(db: str | Path, camera_id: int, rows, fps) -> dict:
+    """Reject the shorter event of every coexisting-twin pair. Pure
+    identity test on the dump rows (tid, frame, cx, cy, bw, bh, ...):
+    spans overlap >= TWIN_OVERLAP_FRAC of the shorter track's life,
+    median common-frame center distance <= STITCH_STAT_DIST, median
+    common-frame IoU >= TWIN_IOU_MIN. Write-then-reject (rejected=1,
+    reviewable), matching the merge semantics. Movement-agnostic:
+    one vehicle is one count regardless of how the twin classified."""
+    import numpy as np
+
+    from backend.services.track_chains import STITCH_STAT_DIST
+
+    db = str(db)
+    conn = sqlite3.connect(db)
+    try:
+        evs = conn.execute(
+            "SELECT event_id, vehicle_track_id, start_frame, frame_number "
+            "FROM vehicle_events WHERE camera_id = ? AND rejected = 0 "
+            "AND vehicle_track_id IS NOT NULL AND vehicle_track_id >= 0",
+            (camera_id,)).fetchall()
+        arr = np.asarray(rows)
+        by_tid = {}
+        for eid, tid, sf, ef in evs:
+            if tid not in by_tid:
+                sel = arr[arr[:, 0] == float(tid)]
+                if not len(sel):
+                    continue
+                sel = sel[np.argsort(sel[:, 1])]
+                by_tid[tid] = sel
+        ev_list = [(eid, tid, by_tid[tid]) for eid, tid, _sf, _ef in evs
+                   if tid in by_tid]
+        ev_list.sort(key=lambda e: e[2][0, 1])
+        drop = set()
+        n_pairs = 0
+        for i, (ei, ti, ai) in enumerate(ev_list):
+            if ei in drop:
+                continue
+            i0, i1 = ai[0, 1], ai[-1, 1]
+            for ej, tj, aj in ev_list[i + 1:]:
+                if ej in drop or tj == ti:
+                    continue
+                j0, j1 = aj[0, 1], aj[-1, 1]
+                if j0 > i1:
+                    break
+                ov = min(i1, j1) - max(i0, j0)
+                short_len = min(i1 - i0, j1 - j0)
+                if short_len <= 0 or ov < TWIN_OVERLAP_FRAC * short_len:
+                    continue
+                lo, hi = max(i0, j0), min(i1, j1)
+                si = ai[(ai[:, 1] >= lo) & (ai[:, 1] <= hi)]
+                sj = aj[(aj[:, 1] >= lo) & (aj[:, 1] <= hi)]
+                common, ii, jj = np.intersect1d(
+                    si[:, 1], sj[:, 1], return_indices=True)
+                if len(common) < 5:
+                    continue
+                pi, pj = si[ii], sj[jj]
+                d = np.hypot(pi[:, 2] - pj[:, 2], pi[:, 3] - pj[:, 3])
+                if np.median(d) > STITCH_STAT_DIST:
+                    continue
+                x1 = np.maximum(pi[:, 2] - pi[:, 4] / 2, pj[:, 2] - pj[:, 4] / 2)
+                x2 = np.minimum(pi[:, 2] + pi[:, 4] / 2, pj[:, 2] + pj[:, 4] / 2)
+                y1 = np.maximum(pi[:, 3] - pi[:, 5] / 2, pj[:, 3] - pj[:, 5] / 2)
+                y2 = np.minimum(pi[:, 3] + pi[:, 5] / 2, pj[:, 3] + pj[:, 5] / 2)
+                inter = np.clip(x2 - x1, 0, None) * np.clip(y2 - y1, 0, None)
+                a_i = pi[:, 4] * pi[:, 5]
+                a_j = pj[:, 4] * pj[:, 5]
+                iou = inter / np.maximum(a_i + a_j - inter, 1e-6)
+                if np.median(iou) < TWIN_IOU_MIN:
+                    continue
+                # one vehicle, two events: the shorter track is the twin
+                victim = ej if (j1 - j0) <= (i1 - i0) else ei
+                drop.add(victim)
+                n_pairs += 1
+                if victim == ei:
+                    break
+        with conn:
+            conn.executemany(
+                "UPDATE vehicle_events SET rejected = 1 WHERE event_id = ?",
+                [(int(e),) for e in drop])
+    finally:
+        conn.close()
+    return {"camera_id": camera_id, "twin_pairs": n_pairs,
+            "twin_rejected": len(drop)}
+
+
 def _load_turns(conn: sqlite3.Connection, camera_id: int) -> list[dict]:
     rows = conn.execute(
         "SELECT event_id, movement, origin_leg_id, destination_leg_id, "

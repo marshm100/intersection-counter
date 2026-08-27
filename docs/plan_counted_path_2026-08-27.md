@@ -14,17 +14,30 @@ mechanisms, operator-validated, built flag-gated (all default off):
   bearing (frozen constants: ORIGIN_VETO_D_MAIN_PX, CHAIN_DIR_TOL_DEG);
   pertinence guard (drawn-gate side test) refuses periphery births;
   distinct counter n_origin_flow_inferred.
-- C STOP_FRACTURE_COLLAPSE (pre-scoring commit): dump transform;
-  twin pinned to the rest position at BOTH ends, strictly inside the
-  dwell gap, collapses into the victim (frozen STITCH_STAT_*; one-end
-  proximity = the forbidden caterpillar predicate; gate-chord refusal).
+- C STOP_FRACTURE_COLLAPSE: dump transform; twin pinned to the rest
+  position at BOTH ends, strictly inside the dwell gap, collapses
+  into the victim (frozen STITCH_STAT_*; one-end proximity = the
+  forbidden caterpillar predicate; gate-chord refusal). Collapsed
+  29/43/76 pairs on the three cp_ dumps — the SEQUENTIAL class.
+- C2 COEXISTING_TWIN_DEDUP (amendment, measured before declaration):
+  the operator's scenes 1-3 measured as COEXISTING twins (overlapping
+  spans, births 12-123 px apart, boxes riding one vehicle), which the
+  dump transform's gap signature cannot see and the queue-aware merge
+  now rightly protects. Event-level identity test in pass-2, BEFORE
+  the volume-gated merge: spans overlap >= TWIN_OVERLAP_FRAC (0.6) of
+  the shorter life, median common-frame center distance <=
+  STITCH_STAT_DIST, median common-frame box IoU >= TWIN_IOU_MIN (0.2
+  — boxes on ONE vehicle overlap; queue neighbors' IoU is ~0 at any
+  distance). Shorter track's event rejected (write-then-reject).
+  Meter at 0700: 123 twin pairs; all three operator scenes resolve to
+  exactly one count.
 
 ## G-CP-1 (decisive)
 
 - ARM: cp_ dumps (idc detections = yolo26l@1280 floor 0.10, stock
   tracker, STOP_FRACTURE_COLLAPSE=1 at pass-1) -> pass-2 with
   QUEUE_AWARE_MERGE=1 + FLOW_ORIGIN_INFERENCE=1 +
-  MOTION_QUALIFIED_EVIDENCE=1. Fresh scratch workdir
+  COEXISTING_TWIN_DEDUP=1 + MOTION_QUALIFIED_EVIDENCE=1. Fresh scratch workdir
   gcp1_20260827; copy-to-stem gcp1_cam2_study_*; one v2_score_dev
   call.
 - CONTROLS: shipped 64.8 pooled (67.3/62.0/65.2) — the decisive bar;

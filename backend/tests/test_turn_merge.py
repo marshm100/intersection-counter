@@ -160,3 +160,67 @@ class TestS5Flags:
         assert f["kind"] == "suspected_gap" and f["subtype"] == "merge_borderline"
         assert f["approach"] == "N" and f["impact"] == pytest.approx(24.0)
         assert f["evidence"]["raw"] == 134 and f["batch_key"] is None
+
+class TestTwinTrackDedup:
+    """Counted-path C2: coexisting twins (two tracks on one vehicle)."""
+
+    def _db(self, tmp_path, events):
+        import sqlite3
+        db = tmp_path / "twin.db"
+        conn = sqlite3.connect(db)
+        conn.execute("CREATE TABLE vehicle_events (event_id INTEGER PRIMARY "
+                     "KEY, camera_id INT, vehicle_track_id INT, start_frame "
+                     "INT, frame_number INT, rejected INT DEFAULT 0)")
+        conn.executemany("INSERT INTO vehicle_events (event_id, camera_id, "
+                         "vehicle_track_id, start_frame, frame_number) "
+                         "VALUES (?,?,?,?,?)", events)
+        conn.commit(); conn.close()
+        return db
+
+    def _rows(self, tracks):
+        import numpy as np
+        out = []
+        for tid, pts in tracks.items():
+            for f, x, y in pts:
+                out.append([tid, f, x, y, 40.0, 30.0, 0.9, 2.0])
+        out.sort(key=lambda r: r[1])
+        return np.array(out, dtype=np.float32)
+
+    def test_twin_rejected(self, tmp_path):
+        import sqlite3
+        from backend.services.turn_merge import twin_track_dedup
+        # survivor 1 rides 0..300; twin 2 rides ON it (offset 5px) 50..200
+        tr = {1.0: [(f, 100.0 + f, 200.0) for f in range(0, 300)],
+              2.0: [(f, 105.0 + f, 200.0) for f in range(50, 200)]}
+        db = self._db(tmp_path, [(10, 2, 1, 0, 300), (11, 2, 2, 50, 200)])
+        res = twin_track_dedup(db, 2, self._rows(tr), 25.0)
+        assert res["twin_rejected"] == 1
+        conn = sqlite3.connect(db)
+        rej = dict(conn.execute(
+            "SELECT event_id, rejected FROM vehicle_events"))
+        conn.close()
+        assert rej == {10: 0, 11: 1}      # the shorter twin dies
+
+    def test_queue_neighbor_kept(self, tmp_path):
+        import sqlite3
+        from backend.services.turn_merge import twin_track_dedup
+        # neighbor 40px behind in the same lane: center distance passes
+        # nothing — boxes never overlap (IoU ~0) -> two vehicles
+        tr = {1.0: [(f, 100.0 + f, 200.0) for f in range(0, 300)],
+              2.0: [(f, 55.0 + f, 200.0) for f in range(50, 290)]}
+        db = self._db(tmp_path, [(10, 2, 1, 0, 300), (11, 2, 2, 50, 290)])
+        res = twin_track_dedup(db, 2, self._rows(tr), 25.0)
+        assert res["twin_rejected"] == 0
+        conn = sqlite3.connect(db)
+        assert conn.execute("SELECT SUM(rejected) FROM vehicle_events")             .fetchone()[0] == 0
+        conn.close()
+
+    def test_disjoint_spans_kept(self, tmp_path):
+        from backend.services.turn_merge import twin_track_dedup
+        # sequential fragments (no overlap) are NOT this class
+        tr = {1.0: [(f, 100.0 + f, 200.0) for f in range(0, 100)],
+              2.0: [(f, 100.0 + f, 200.0) for f in range(150, 300)]}
+        db = self._db(tmp_path, [(10, 2, 1, 0, 100), (11, 2, 2, 150, 300)])
+        res = twin_track_dedup(db, 2, self._rows(tr), 25.0)
+        assert res["twin_rejected"] == 0
+

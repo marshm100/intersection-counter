@@ -1453,6 +1453,14 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         stats["conservation"] = conserve
         logger.info("two-pass cam%s %s: conservation %s", camera_id, variant,
                     conserve)
+    # Counted-path C2 (flag-gated): coexisting-twin dedup BEFORE the
+    # volume-gated merge, so the merge polices de-duplicated counts.
+    from backend.config import COEXISTING_TWIN_DEDUP as _twin_on
+    if _twin_on:
+        from backend.services.turn_merge import twin_track_dedup
+        stats["twin_dedup"] = twin_track_dedup(out_db, camera_id, rows, fps)
+        logger.info("two-pass cam%s %s: twin dedup %s", camera_id, variant,
+                    stats["twin_dedup"])
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
                                expected_by_cell=expected)
     # V2 MERGE RESCUE (block-2 item 1, diagnosis 2026-08-06): a merged-away

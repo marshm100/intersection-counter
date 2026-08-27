@@ -240,6 +240,12 @@ FLOW_ORIGIN_INFERENCE = _os2.environ.get(
 # post-pass; both-end pinning to the rest position.
 STOP_FRACTURE_COLLAPSE = _os2.environ.get(
     "STOP_FRACTURE_COLLAPSE", "0") in ("1", "true", "on")
+# C2 — coexisting-twin dedup: two simultaneous tracks on ONE vehicle
+# (operator scenes 1-2; measured anatomy: overlapping spans, boxes
+# riding together frame-by-frame), both minting events. Event-level
+# identity test in pass-2; write-then-reject.
+COEXISTING_TWIN_DEDUP = _os2.environ.get(
+    "COEXISTING_TWIN_DEDUP", "0") in ("1", "true", "on")
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
 APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
 APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)
