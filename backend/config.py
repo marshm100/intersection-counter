@@ -217,6 +217,29 @@ CHAIN_GLUE = _os2.environ.get("CHAIN_GLUE", "0") in ("1", "true", "on")
 # Default OFF; arm-only until G-ID-1 ships.
 MOTION_QUALIFIED_EVIDENCE = _os2.environ.get(
     "MOTION_QUALIFIED_EVIDENCE", "0") in ("1", "true", "on")
+
+# Counted-path campaign (operator diagnosis 2026-08-27,
+# docs/diag_waste_reel_2026-08-27.md). Three mechanisms, all default
+# OFF; arm-only until G-CP-1 ships.
+# A — queue-aware merge: the turn-fragment merge's pair predicate
+# additionally requires near-disjoint time spans. Real fragments of
+# one vehicle occupy disjoint spans; queue successors COEXIST (born
+# at the same queue-tail pixel while the dweller still lives) — the
+# measured discard engine (177 SB_right merged-away vs that cell's
+# 141-vehicle deficit at 0700).
+QUEUE_AWARE_MERGE = _os2.environ.get(
+    "QUEUE_AWARE_MERGE", "0") in ("1", "true", "on")
+# B — flow-informed origin inference: entry-less tracks (born past
+# the gate: occlusion/faint far band; 41% of the deficit corridor)
+# get their origin inferred from birth position + the dominant-flow
+# structure, guarded by the operator's pertinence law.
+FLOW_ORIGIN_INFERENCE = _os2.environ.get(
+    "FLOW_ORIGIN_INFERENCE", "0") in ("1", "true", "on")
+# C — stop-fracture collapse: the red-light dup engine (track lost at
+# a stop; twin births at the rest position; both counted). Dump
+# post-pass; both-end pinning to the rest position.
+STOP_FRACTURE_COLLAPSE = _os2.environ.get(
+    "STOP_FRACTURE_COLLAPSE", "0") in ("1", "true", "on")
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
 APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
 APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)

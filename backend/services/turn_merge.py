@@ -37,13 +37,23 @@ MERGE_PX = 30.0
 MERGE_GAP = 40.0
 VOL_FACTOR = 1.3
 FALLBACK_SAMPLE_SECONDS = 1800.0   # corridor banks were 30-min samples
+# Queue-aware merge (counted-path A, 2026-08-27): real fragments of ONE
+# vehicle occupy near-disjoint time spans — a vehicle is one track at a
+# time, and fragments micro-overlap only at a handoff. Queue successors
+# COEXIST for seconds (the next car is born at the same queue-tail
+# pixel while the dweller still lives), which is how the merge ate
+# genuine vehicles in exactly the deficit cells (177 SB_right
+# merged-away vs a 141-vehicle deficit at 0700). Frames, matching
+# MERGE_GAP's unit convention (~0.5 s at 25 fps).
+MERGE_MAX_OVERLAP_FRAMES = 12.0
 
 
 def merge_turn_fragments(turns, merge_px, merge_gap, expected_by_cell=None,
-                         vol_factor=1.3):
+                         vol_factor=1.3, queue_aware=False):
     """Ported verbatim from scripts/hybrid_ocbot.py (see its docstring for the
     A2 volume-gate rationale). `turns` = dicts with id/ol/dl/mv/s/e/start.
-    Returns the kept event ids."""
+    queue_aware adds the span-overlap discriminator (see
+    MERGE_MAX_OVERLAP_FRAMES). Returns the kept event ids."""
     by = defaultdict(list)
     for ev in turns:
         by[(ev["ol"], ev["dl"], ev["mv"])].append(ev)
@@ -70,6 +80,11 @@ def merge_turn_fragments(turns, merge_px, merge_gap, expected_by_cell=None,
                 if (ej["s"] - ei["e"]) <= merge_gap and math.hypot(
                         ei["start"][0] - ej["start"][0],
                         ei["start"][1] - ej["start"][1]) <= merge_px:
+                    if queue_aware:
+                        overlap = (min(ei["e"], ej["e"])
+                                   - max(ei["s"], ej["s"]))
+                        if overlap > MERGE_MAX_OVERLAP_FRAMES:
+                            continue   # coexisting = two vehicles, keep
                     used[j] = True   # fragment of the same turning vehicle
     return set(keep)
 
@@ -147,9 +162,11 @@ def merge_replay_turns(db: str | Path, camera_id: int, *,
         turns = _load_turns(conn, camera_id)
         expected = (expected_by_cell if expected_by_cell is not None
                     else bank_expecteds(conn, camera_id, window_seconds))
+        from backend.config import QUEUE_AWARE_MERGE
         keep = merge_turn_fragments(turns, MERGE_PX, MERGE_GAP,
                                     expected_by_cell=expected,
-                                    vol_factor=VOL_FACTOR)
+                                    vol_factor=VOL_FACTOR,
+                                    queue_aware=QUEUE_AWARE_MERGE)
         drop = [ev["id"] for ev in turns if ev["id"] not in keep]
         with conn:
             conn.executemany(

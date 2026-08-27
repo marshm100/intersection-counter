@@ -36,6 +36,39 @@ class TestMergeTurnFragments:
                                     expected_by_cell={(1, 2): 3}, vol_factor=1.3)
         assert keep == {1, 2, 3}
 
+    def test_queue_aware_keeps_coexisting_vehicles(self):
+        # Counted-path A: a dweller (80 s at the red) and the next queue
+        # vehicle born at the same pixel COEXIST — two real vehicles.
+        # Default predicate eats the successor; queue_aware keeps it.
+        dwell = _ev(1, s=0, e=2000)
+        successor = _ev(2, s=300, e=2010)      # born while the dweller lives
+        keep = merge_turn_fragments([dwell, successor], 30.0, 40.0,
+                                    expected_by_cell={(1, 2): 1},
+                                    vol_factor=1.3, queue_aware=True)
+        assert keep == {1, 2}
+        keep_off = merge_turn_fragments([dwell, successor], 30.0, 40.0,
+                                        expected_by_cell={(1, 2): 1},
+                                        vol_factor=1.3)
+        assert keep_off == {1}                 # the measured discard engine
+
+    def test_queue_aware_still_merges_true_fragments(self):
+        # Disjoint spans, adjacent, same birth pixel = one vehicle's
+        # fragments — merges under both predicates.
+        turns = [_ev(1, s=0, e=10), _ev(2, s=20, e=30), _ev(3, s=45, e=55)]
+        keep = merge_turn_fragments(turns, 30.0, 40.0,
+                                    expected_by_cell={(1, 2): 1},
+                                    vol_factor=1.3, queue_aware=True)
+        assert keep == {1}
+
+    def test_queue_aware_default_off_identical(self):
+        # flag-off byte-identity: omitting queue_aware reproduces the
+        # frozen behavior exactly
+        dwell = _ev(1, s=0, e=2000)
+        successor = _ev(2, s=300, e=2010)
+        assert merge_turn_fragments([dwell, successor], 30.0, 40.0,
+                                    expected_by_cell={(1, 2): 1},
+                                    vol_factor=1.3) == {1}
+
     def test_distant_starts_do_not_merge(self):
         turns = [_ev(1, s=0, e=10, start=(100.0, 100.0)),
                  _ev(2, s=20, e=30, start=(400.0, 100.0))]
