@@ -591,6 +591,41 @@ class TestDeriveMovement:
         assert derive_movement(four_leg_intersection[0], None) == "insufficient_data"
 
 
+class TestDeriveMovementSkewedT:
+    """C0 (2026-08-26): the skewed-T stem defect. At real T geometry the
+    stem origin's destinations both landed within the 60° opposite-cone
+    and got 'through' labels into Miovision-zero cells (cam4 34->33: 21
+    events; cam3 32->30: 205). Cardinals are the discriminator — at cam3
+    the true through sits 44.4° from opposite and the defect cell 45.0°,
+    inseparable by any angle rule. (The orthogonal/no-cardinal path is
+    TestDeriveMovementTJunction below — the angle fallback.)"""
+
+    @pytest.fixture
+    def skewed_t(self):
+        # cam3's live geometry verbatim: Belt Line bar N-S, Bluffview stem W
+        return [
+            {"leg_id": 30, "cardinal_direction": "N", "reference_heading": 68.6},
+            {"leg_id": 31, "cardinal_direction": "S", "reference_heading": 204.2},
+            {"leg_id": 32, "cardinal_direction": "W", "reference_heading": 293.6},
+        ]
+
+    def test_stem_origin_has_no_through(self, skewed_t):
+        n, s, w = skewed_t
+        assert derive_movement(w, n, skewed_t) == "left"    # the defect cell
+        assert derive_movement(w, s, skewed_t) == "right"
+
+    def test_bar_origins_keep_their_through(self, skewed_t):
+        n, s, w = skewed_t
+        assert derive_movement(s, n, skewed_t) == "through"
+        assert derive_movement(n, s, skewed_t) == "through"
+
+    def test_bar_origin_turn_to_stem(self, skewed_t):
+        n, s, w = skewed_t
+        assert derive_movement(s, w, skewed_t) == "left"
+        assert derive_movement(n, w, skewed_t) == "right"
+
+
+
 class TestEndToEndDestinationClassification:
     """Glue test: score_destination + derive_movement together should
     produce the same movement labels a human watching the live preview

@@ -1161,6 +1161,30 @@ def derive_movement(
     if n == 2:
         d0 = _delta(others[0])
         d1 = _delta(others[1])
+        # STEM TEST first (C0, 2026-08-26), by CARDINALS: the operator-
+        # assigned cardinal_direction is the only reliable bar/stem
+        # discriminator at a skewed T. Measured live at cam3: the real
+        # through (31->30) sits 44.4° from opposite and the defect cell
+        # (32->30) 45.0° — no local angle rule can separate them, which
+        # is exactly how the stem origin's 'through' events landed in
+        # Miovision-zero cells (cam4 34->33: 21, cam3 32->30: 205). The
+        # bar is the pair with mutually opposite cardinals; a stem
+        # origin has NO through — both destinations are turns. Angle
+        # logic below stays as the fallback for missing/degenerate
+        # cardinals.
+        _OPP = {"N": "S", "S": "N", "E": "W", "W": "E"}
+        co = origin_leg.get("cardinal_direction")
+        c0 = others[0].get("cardinal_direction")
+        c1 = others[1].get("cardinal_direction")
+        if co in _OPP and c0 in _OPP and c1 in _OPP and len({co, c0, c1}) == 3:
+            if _OPP[c0] == c1:            # the others form the bar
+                d = d0 if rank == 0 else d1
+                return "left" if d < 180 else "right"
+            cd = c0 if rank == 0 else c1
+            if _OPP[co] == cd:            # origin on the bar, dest opposite
+                return "through"
+            d = d0 if rank == 0 else d1   # origin on the bar, dest = stem
+            return "left" if d < 180 else "right"
         # If one leg is roughly opposite (within 60° of 180°), it's the
         # through; the other is the turn side. Otherwise both are turns
         # (T-junction with origin = stem).
