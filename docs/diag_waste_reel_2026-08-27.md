@@ -132,3 +132,16 @@ tracks not being formed?" Measured answer (8:00-8:15 bin, SB-right):
   cached low-conf detections to reconstruct its pre-birth path -
   including the gate crossing. The detections are already in the
   cache; no re-detect needed.
+
+## Birth-wall follow-up: retro-birth KILLED by measurement (2026-08-27)
+
+Operator ruling on the far-band clip: the faint detections "might as
+well not exist" - sporadic, 1-2 frames per vehicle, most vehicles get
+none. Measured: 1,025 uncovered-det chains in the bin, MEDIAN 2
+FRAMES, 85% shorter than 0.2 s, exactly 2 chains reach 1 s. The faint
+band is flicker, not a followable trace - and this arm already uses
+the best zero-training detector (yolo26l@1280): the optics own that
+band. RETRO-BIRTH IS DEAD (no pre-birth trail to walk). The
+entry-crossing fix must be structural; the operator's flow-informed
+origin inference is the standing primary candidate, alongside the
+discard-engine fix and stop-fracture collapse.
