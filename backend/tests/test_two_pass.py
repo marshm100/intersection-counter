@@ -111,3 +111,71 @@ class TestStage33Endpoints:
                         json={"windows": {str(cid): "v"}})
         assert r.status_code == 409
         assert "not on intersection" in r.json()["detail"]
+
+class TestStopFractureCollapse:
+    """Counted-path C: the red-light stop-fracture twin collapse."""
+
+    def _arr(self, tracks):
+        import numpy as np
+        rows = []
+        for tid, pts in tracks.items():
+            for f, x, y in pts:
+                rows.append([tid, f, x, y, 30.0, 20.0, 0.9, 2.0])
+        rows.sort(key=lambda r: r[1])
+        return np.array(rows, dtype=np.float32)
+
+    def _fracture(self, twin_shift=(0.0, 0.0), twin_span=(120, 350)):
+        # A: approaches, stops at (300,200), gap [100..400], resumes
+        a = ([(f, 300.0 - 4 * (50 - f), 200.0) for f in range(0, 50)]
+             + [(f, 300.0, 200.0) for f in range(50, 101)]
+             + [(f, 300.0 + 3 * (f - 400), 200.0) for f in range(400, 460)])
+        dx, dy = twin_shift
+        b0, b1 = twin_span
+        b = [(f, 300.0 + dx, 200.0 + dy) for f in range(b0, b1)]
+        return {1.0: a, 2.0: b}
+
+    def test_twin_collapses(self):
+        from backend.services.two_pass import _collapse_stop_fractures
+        arr = self._arr(self._fracture())
+        n, pairs = _collapse_stop_fractures(arr, [], 25.0)
+        assert n == 1 and pairs[0][:2] == [1, 2]
+        assert not (arr[:, 0] == 2.0).any()      # B re-stamped into A
+
+    def test_queue_neighbor_one_end_refused(self):
+        # neighbor sits 34px away at birth (within STITCH_STAT_DIST) but
+        # DRIVES OFF (death far from A's resume point) -> one-end pin only
+        from backend.services.two_pass import _collapse_stop_fractures
+        tracks = self._fracture()
+        tracks[2.0] = [(f, 300.0 + 20.0, 200.0 + (f - 120) * 2.0)
+                       for f in range(120, 350)]
+        arr = self._arr(tracks)
+        n, _ = _collapse_stop_fractures(arr, [], 25.0)
+        assert n == 0
+
+    def test_moving_loss_refused(self):
+        # A was MOVING at the loss (no dwell) -> not the fracture class
+        from backend.services.two_pass import _collapse_stop_fractures
+        a = [(f, 4.0 * f, 200.0) for f in range(0, 101)]
+        a += [(f, 4.0 * f, 200.0) for f in range(400, 460)]
+        b = [(f, 400.0, 200.0) for f in range(120, 350)]
+        arr = self._arr({1.0: a, 2.0: b})
+        n, _ = _collapse_stop_fractures(arr, [], 25.0)
+        assert n == 0
+
+    def test_gate_chord_refused(self):
+        # a drawn gate between A's rest point and the twin -> refuse
+        from backend.services.two_pass import _collapse_stop_fractures
+        arr = self._arr(self._fracture(twin_shift=(30.0, 0.0)))
+        gate = [((315.0, 100.0), (315.0, 300.0))]
+        n, _ = _collapse_stop_fractures(arr, gate, 25.0)
+        assert n == 0
+
+    def test_determinism(self):
+        import numpy as np
+        from backend.services.two_pass import _collapse_stop_fractures
+        a1 = self._arr(self._fracture())
+        a2 = self._arr(self._fracture())
+        _collapse_stop_fractures(a1, [], 25.0)
+        _collapse_stop_fractures(a2, [], 25.0)
+        assert np.array_equal(a1, a2)
+

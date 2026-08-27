@@ -564,6 +564,107 @@ def strict_full_census(project_id: str, camera_id: int, rows: np.ndarray,
 
 
 
+def _collapse_stop_fractures(arr, drawn, fps):
+    """Counted-path C (operator mechanism 2026-08-27,
+    docs/diag_waste_reel_2026-08-27.md): the red-light stop-fracture
+    cycle — motion stops, track A goes lost, twin B births at the rest
+    position, on green A re-activates and B dies; BOTH counted. The
+    signature, every constant frozen (track_chains STITCH_STAT_*):
+
+    - A has an intra-track gap [f1, f2] and was STOPPED at the loss
+      (displacement over its last ~1 s < STITCH_STAT_SPEED_PXS px/s);
+    - B's ENTIRE life sits strictly inside (f1, f2) — zero frame
+      collision with A by construction;
+    - B is pinned to the rest position at BOTH ends: birth within
+      STITCH_STAT_DIST of A's last pre-gap point AND death within
+      STITCH_STAT_DIST of A's first post-gap point. (One-end proximity
+      is the ledgered CHAIN_GLUE caterpillar predicate — forbidden.
+      Queue neighbors fail an end; the twin fails neither.)
+    - Neither sub-chord (A_end -> B_birth, B_death -> A_resume) may
+      cross a drawn gate (the A2 physical-crossing law).
+
+    Collapse = B's rows re-stamped to A's tid: one track carries A's
+    entry AND the journey's exit — the dup dies and the attribution
+    heals in the same move. Operates IN PLACE; returns
+    (n_collapsed, pairs)."""
+    import math
+
+    import numpy as np
+
+    from backend.services.entry_gates import _seg_cross
+    from backend.services.track_chains import (
+        STITCH_STAT_DIST, STITCH_STAT_SPEED_PXS,
+    )
+
+    if not len(arr):
+        return 0, []
+    order = np.lexsort((arr[:, 1], arr[:, 0]))
+    tids = arr[order, 0]
+    frames = arr[order, 1]
+    xs = arr[order, 2]
+    ys = arr[order, 3]
+    bnd = np.flatnonzero(np.diff(tids)) + 1
+    starts = np.concatenate(([0], bnd))
+    ends = np.concatenate((bnd, [len(tids)]))
+    # per-track birth/death index for the candidate search
+    info = {}
+    for s0, s1 in zip(starts, ends):
+        t = float(tids[s0])
+        info[t] = (float(frames[s0]), float(frames[s1 - 1]),
+                   (float(xs[s0]), float(ys[s0])),
+                   (float(xs[s1 - 1]), float(ys[s1 - 1])), s1 - s0)
+    cand = sorted(info.items(), key=lambda kv: kv[1][0])
+    births = np.array([kv[1][0] for kv in cand])
+    grace = 0.5 * fps
+    consumed = set()
+    n_col = 0
+    pairs = []
+    for s0, s1 in zip(starts, ends):
+        a_tid = float(tids[s0])
+        fr = frames[s0:s1]
+        gaps = np.flatnonzero(np.diff(fr) > grace)
+        for gi in gaps:
+            f1, f2 = float(fr[gi]), float(fr[gi + 1])
+            ax1, ay1 = float(xs[s0 + gi]), float(ys[s0 + gi])
+            ax2, ay2 = float(xs[s0 + gi + 1]), float(ys[s0 + gi + 1])
+            # stopped at loss: displacement over A's trailing ~1 s
+            k = s0 + gi
+            back = k
+            while back > s0 and (frames[k] - frames[back - 1]) < fps:
+                back -= 1
+            if math.hypot(xs[k] - xs[back], ys[k] - ys[back])                     > STITCH_STAT_SPEED_PXS:
+                continue
+            lo = np.searchsorted(births, f1, side="right")
+            best = None
+            for bi in range(lo, len(cand)):
+                b_tid, (bf0, bf1, bp0, bp1, n_pts) = cand[bi]
+                if bf0 >= f2:
+                    break
+                if b_tid == a_tid or b_tid in consumed:
+                    continue
+                if not (bf0 > f1 and bf1 < f2):
+                    continue
+                if math.hypot(bp0[0] - ax1, bp0[1] - ay1) > STITCH_STAT_DIST:
+                    continue
+                if math.hypot(bp1[0] - ax2, bp1[1] - ay2) > STITCH_STAT_DIST:
+                    continue
+                if drawn and any(
+                        _seg_cross(c1, c2, (g[0][0], g[0][1]),
+                                   (g[1][0], g[1][1])) is not None
+                        for c1, c2 in (((ax1, ay1), bp0), (bp1, (ax2, ay2)))
+                        for g in drawn):
+                    continue
+                if best is None or n_pts > best[1]:
+                    best = (b_tid, n_pts)
+            if best is not None:
+                b_tid = best[0]
+                arr[:, 0][arr[:, 0] == b_tid] = a_tid
+                consumed.add(b_tid)
+                n_col += 1
+                pairs.append([int(a_tid), int(b_tid), int(f1), int(f2)])
+    return n_col, pairs
+
+
 def _split_gate_straddles(arr, drawn, fps):
     """Amendment A2 (operator ruling 2026-08-24,
     docs/diag_lock_demo_review_2026-08-24.md): a join may not span a gate.
@@ -803,6 +904,22 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         meta["gate_breaks"] = len(breaks)
         meta["gate_break_rows_moved"] = n_moved
         (out / "gate_breaks.json").write_text(json.dumps(breaks))
+    # Counted-path C (flag-gated, default off): collapse red-light
+    # stop-fracture twin pairs before anything reads the dump.
+    from backend.config import STOP_FRACTURE_COLLAPSE
+    if STOP_FRACTURE_COLLAPSE and state["mm"] is not None:
+        try:
+            from backend.database import leg_geometry_for_camera as _lgc
+            _drawn = [g["gate"] for g in
+                      _lgc(project_id, camera_id).values() if g.get("gate")]
+        except Exception:
+            _drawn = []
+        n_col, sf_pairs = _collapse_stop_fractures(
+            state["mm"][:state["w"]], _drawn, fps)
+        meta["stop_fracture_collapsed"] = n_col
+        if sf_pairs:
+            (out / "stop_fracture_pairs.json").write_text(
+                json.dumps(sf_pairs))
     # Amendment A2: locked-recipe dumps only (applying it to the stock
     # recipe would silently change the production basis).
     if tracker_backend == "botsort_locked" and state["mm"] is not None:
