@@ -18,6 +18,12 @@ runs/v2_week1/score_fg_*.json. Production untouched.
   cam4 1100         59.6 / 66.7      73.5 / 41.7     0.540 ON
   cam4 1600         72.9 / 66.7      75.8 / 66.7     0.433 OFF
   cam3 0600 (14h)   62.5 / 14.9      72.6 / 28.0     0.547 ON
+  cam1 0700         60.5 / 62.5      60.5 / 62.5     0.383 OFF (was 0.265)
+  cam1 1600         52.5 / 21.9      54.5 / 40.6     0.466 ON  (was 0.438)
+
+(cam1 measured 2026-08-27 after its late gate save — cardinals now
+set S/N/W/E during the draw. Same law as the rest: 0700 channel off ->
+byte-identical; 1600 channel ON -> movement -2.0, approach -18.7.)
 
 ## Reading
 
@@ -48,8 +54,14 @@ runs/v2_week1/score_fg_*.json. Production untouched.
   Confirm & process on cams 3/4/5 will inherit these gates and the
   activation flips — do not run a production apply on these cameras
   without deciding this ledger's question first.
-- cam1: no saved gates (legs still "Leg 1-4"); save outcome unknown —
-  operator question open. The cam1 orphan-1100-events ruling (add
-  trim vs retire the row) also remains open.
+- cam1: gates saved 2026-08-27 (cardinals set in the draw), measured,
+  same negative law. The cam1 orphan-1100-events ruling (add trim vs
+  retire the row) remains open.
+- FLEET VERDICT COMPLETE: four cameras, one law — channel stays off:
+  nothing changes; channel flips on: scores drop (cam4 -23.5/-13.9,
+  cam3 -10.1, cam1 approach -18.7). Sole positive: cam4 1100 approach
+  +25.0. Bare gates do not transfer the cam2 win; activation needs
+  the curated substrate cam2 has (paths/banks) or it redistributes
+  attribution onto nothing.
 - C0 stands on its own merits (label truth; the Mio-zero phantom
   cell dies) independent of the gates decision.
