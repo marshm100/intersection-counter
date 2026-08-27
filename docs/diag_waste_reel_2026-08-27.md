@@ -107,3 +107,28 @@ entry evidence.
 5. Design laws: pertinence (counts iff it enters the intersection);
    flow-informed origin inference for occlusion births; identity
    collapse for stop-fracture pairs.
+
+## THE BIRTH WALL, measured at the deficit corridor (operator follow-up)
+
+Operator: "yellow dot = detector fired, no track formed - WHY are the
+tracks not being formed?" Measured answer (8:00-8:15 bin, SB-right):
+- 2,821 uncovered zone detections in the one bin; 82% below the 0.30
+  track-birth bar (median conf 0.14; far-band vehicles are tiny -
+  bboxes down to 5 px). A track can only be BORN >= 0.30; weaker
+  detections may only extend an existing track. The far band fires
+  continuously and births nothing.
+- The SB entry gate (leg 27) tops out at y=174; the faint band lies
+  UPSTREAM of it. 233 of 564 SB-corridor tracks in the bin (41%)
+  were born already PAST the gate line - they crossed it while too
+  faint to track. No entry crossing by construction.
+- FULL DEFICIT CHAIN, every link measured: faint far-band detection
+  (unborn) -> crosses entry gate untracked (41%) -> births inside the
+  intersection entry-less -> confidence crushed -> rejected (177 vs
+  the 141 deficit) or never minted.
+- Occlusion births (operator's clips) and birth-wall births are ONE
+  CLASS: tracks materializing past the gate. The operator's
+  flow-informed origin inference covers both; a second candidate is
+  RETRO-BIRTH: once a track forms, walk it BACKWARD through the
+  cached low-conf detections to reconstruct its pre-birth path -
+  including the gate crossing. The detections are already in the
+  cache; no re-detect needed.
