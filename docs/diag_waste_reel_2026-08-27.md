@@ -65,3 +65,45 @@ Operator claim under test: 50-70% total detection in problem zones.
 Two 15 s clips of the 8:00-8:15 SB-right corridor (Mio 69 vs our 33)
 with every track + every raw detection overlaid — unmarked movers =
 invisible. Artifact: Detection Gap Reel. Rulings pending.
+
+## Detection-gap reel rulings (operator, 2026-08-27, card detgap_reel_0700)
+
+Both clips, worst deficit corridor (SB-right, 8:00 bin, Mio 69 vs 33):
+- NO untracked visible vehicles; ZERO yellow dots (no detected-but-
+  untracked class exists here). Detection is NOT the hole.
+- The gap is OCCLUSION: large trucks/vans physically hide vehicles;
+  turners wait hidden behind queues. Detection resumes the instant
+  the blocker clears.
+- The 50-70%-undetected hypothesis is REVISED by the operator's own
+  review: the vehicles are seen whenever they are visible; the
+  deficit lives in (a) occlusion windows at entry (birth past the
+  mouth -> no entry evidence -> discarded/insufficient) and (b) the
+  counting layer's rejection pile (177 SB_right rejected vs the 141
+  deficit).
+
+## OPERATOR MECHANISM PROPOSAL — flow-informed origin inference
+
+The system should learn the direction of traffic from the dominant
+trajectory flows it already observes. A vehicle that appears
+mid-scene without crossing the mouth (it was occluded at entry) had
+to come from somewhere: infer its origin from where it materialized
+plus the flow structure — likely right turns (right-on-red arrivals
+appear mid-turn behind queues), "yet to be proven." This is the
+counting-layer companion to the pertinence law: occlusion-birth
+tracks should be attributed by reasoning, not discarded for missing
+entry evidence.
+
+## The complete diagnosis (operator + measurement, one page)
+
+1. Detection layer: SOLID where visible (operator eyes, both reels).
+2. Dup engine: red-light stop-fracture-reactivate (both fragments
+   counted). Tight signature: track B births at stopped track A's
+   rest position, dies when A reactivates at green.
+3. Theft engine: anxious tracker at stop bars (loss of motion ->
+   neighbor's movement claims the lock).
+4. Discard engine: dwell-crushed trajectory confidence rejects
+   CORRECT events at the deficit-cell scale (177 vs 141); occlusion
+   births die entry-less.
+5. Design laws: pertinence (counts iff it enters the intersection);
+   flow-informed origin inference for occlusion births; identity
+   collapse for stop-fracture pairs.
