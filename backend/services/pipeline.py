@@ -24,6 +24,7 @@ from backend.config import (
     NATIVE_ARTICULATED_MIN_FRAMES,
     NATIVE_SINGLE_UNIT_CLASS_ID,
     NATIVE_SINGLE_UNIT_MIN_FRAMES,
+    FLOW_ORIGIN_INFERENCE,
     ORIGIN_CLAIM_VETO_ENABLED,
     ORIGIN_VETO_D_MAIN_PX,
     ORIGIN_VETO_D_MOUTH_PX,
@@ -280,6 +281,7 @@ class ProcessingPipeline:
         # sits ON (no-drop principle); and joint-scorer rewrites blocked from
         # re-stealing origin to a vetoed leg (the finalize-time leak).
         self.n_origin_rescued: int = 0
+        self.n_origin_flow_inferred: int = 0
         self.n_origin_rewrite_vetoed: int = 0
         # Origin-evidence gate (item-8 mechanism 1): entry-gate crossings bind
         # origin and filter the joint scorer's candidates. Counters instrument
@@ -896,6 +898,77 @@ class ProcessingPipeline:
         return frozenset(vetoed)
 
     def _origin_rescue(self, birth, prefix):
+        """Origin rescue dispatcher. Tier 1: the through-road claim
+        (ORIGIN_CLAIM_VETO_ENABLED, the veto's rescue half). Tier 2
+        (counted-path B, FLOW_ORIGIN_INFERENCE): flow-informed origin
+        inference for entry-less births — the operator's mechanism
+        (docs/diag_waste_reel_2026-08-27.md): a track materializing
+        past a mouth, moving with that leg's dominant flow, came from
+        that leg. Both default off -> returns None, byte-identical."""
+        rescued = self._rescue_through_road(birth, prefix)
+        if rescued is None and FLOW_ORIGIN_INFERENCE:
+            rescued = self._origin_flow_infer(birth, prefix)
+        return rescued
+
+    def _origin_flow_infer(self, birth, prefix):
+        """Counted-path B: infer the origin of an entry-less track from
+        birth position + the dominant-flow structure. A leg CLAIMS the
+        birth when one of its bank paths passes within
+        ORIGIN_VETO_D_MAIN_PX of the birth point AND the track's early
+        motion bearing agrees with the path's local flow direction
+        within CHAIN_DIR_TOL_DEG (both frozen constants). Exactly one
+        claiming leg -> inferred; two or more -> None (no counting by
+        popularity — the ledgered posterior risk). PERTINENCE GUARD
+        (the operator's law): the birth must lie on the INTERSECTION
+        side of the claiming leg's drawn gate — periphery and parking
+        births are never inferred."""
+        if len(prefix) < 2:
+            return None
+        mx = prefix[-1][0] - prefix[0][0]
+        my = prefix[-1][1] - prefix[0][1]
+        if math.hypot(mx, my) < 1.0:
+            return None
+        from backend.services.entry_gates import (
+            _closest_on_polyline, parse_gate_segment)
+        from backend.services.track_chains import CHAIN_DIR_TOL_DEG
+        mb = math.degrees(math.atan2(my, mx)) % 360.0
+        paths = getattr(self, "_gate_paths", None) or self._paths
+        claiming = set()
+        for pth in (paths or []):
+            o = pth.get("origin_leg_id")
+            poly = pth.get("polyline")
+            if o is None or not poly:
+                continue
+            cpt, tan, dist = _closest_on_polyline(poly, birth)
+            if cpt is None or dist >= ORIGIN_VETO_D_MAIN_PX:
+                continue
+            tb = math.degrees(math.atan2(tan[1], tan[0])) % 360.0
+            if abs((mb - tb + 180.0) % 360.0 - 180.0) > CHAIN_DIR_TOL_DEG:
+                continue
+            claiming.add(int(o))
+        if len(claiming) != 1:
+            return None
+        o = next(iter(claiming))
+        leg = next((lg for lg in self.legs if lg["leg_id"] == o), None)
+        if leg is None:
+            return None
+        g = parse_gate_segment(leg.get("gate_segment"))
+        if g:
+            (g1x, g1y), (g2x, g2y) = g
+            def _side(pt):
+                return ((g2x - g1x) * (pt[1] - g1y)
+                        - (g2y - g1y) * (pt[0] - g1x))
+            centers = [tuple(lg["origin_zone"][0]) for lg in self.legs
+                       if lg.get("origin_zone")]
+            if centers:
+                cx = sum(c[0] for c in centers) / len(centers)
+                cy = sum(c[1] for c in centers) / len(centers)
+                if _side(birth) * _side((cx, cy)) < 0:
+                    return None      # upstream/periphery side: not pertinent
+        self.n_origin_flow_inferred += 1
+        return o
+
+    def _rescue_through_road(self, birth, prefix):
         """The veto's rescue half (PHASE 3): an origin-less track that the
         claim-time veto stripped of every candidate claims the leg of the
         through-road its birth sits ON — the same d_main<25 identification

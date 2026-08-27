@@ -257,6 +257,8 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         # through-road their birth sits on; and joint-scorer origin rewrites
         # blocked from re-stealing to a vetoed leg. Bookkeeping for the re-gate.
         "origin_rescued": int(getattr(pipe, "n_origin_rescued", 0)),
+        "origin_flow_inferred": int(
+            getattr(pipe, "n_origin_flow_inferred", 0)),
         "origin_rewrite_vetoed": int(getattr(pipe, "n_origin_rewrite_vetoed", 0)),
         # Posterior-half counters (plan_posterior_half_2026-07-15 stage-4
         # instrumentation: branch applications + flag-bound origin near-ties).
