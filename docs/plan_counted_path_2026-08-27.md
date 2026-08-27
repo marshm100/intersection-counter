@@ -70,3 +70,44 @@ mechanisms, operator-validated, built flag-gated (all default off):
   oppose; the gate adjudicates the net.
 - The exit_only origin_frame quirk (entry_gates.py:361) is known and
   untouched this campaign.
+
+## VERDICT (2026-08-27): G-CP-1 **PASS** — the campaign's first
+
+Operator ack on all six demo scenes preceded the run (card
+ack_reel_gcp1; scene-6 clarification verified: the queued vehicle's
+discharge counts via its successor track).
+
+  window       ARM     shipped   solo-C
+  0700         70.4     67.3      62.4
+  1100         71.3     62.0      66.7
+  1600         70.3     65.2      64.0
+  pooled       70.6     64.8      64.3     (+5.8 over shipped;
+                                            every window over its
+                                            own control; floors moot)
+
+Best cam2 basis ever recorded (previous best window 67.3; now every
+window 70.3-71.3). Approach bar: 28.1/59.4/28.1 vs 43.8/50.0/40.6 —
+mixed (secondary, recorded; 1100 +9.4, 0700/1600 down; anatomy below).
+
+NAMED-CELL HEALING at 0700 [Mio / arm / production]:
+  SB_right 379 / 378 / 219  — the 160-vehicle deficit healed to ONE
+  EB_left  229 / 236 / 174  — healed to +7
+  NB_thru 2198 / 2225 / 2226 — held
+  SB_thru 1384 / 1216 / 1170 — +46 recovered, -168 residual (the
+    far-band/occlusion through class; next lever)
+  WB_right 293 / 355 / 323  — regressed +32 (residual overcount;
+    ledgered)
+  EB_right stuck ~39/bin vs 11 (known fisheye-corner class, pre-
+    existing; untouched by this campaign)
+U-turn canary: EB 11 vs Mio 2 (elevated, small numbers; prod was 8).
+
+Mechanism activity per window (armed-verification recorded): twin
+pairs 137/?/?; merged_away 48/47/84 (was 306 at 0700); flow-inferred
+origins 122/128/144; stop-fracture collapses 29/43/76; activation
+0.569/0.485/0.489 (witnessed-crossing coverage, inferred origins
+excluded).
+
+SHIP: awaiting operator go. Ship ladder = PROCESSING_MODES entry
+(yolo26l@1280 recipe), the four flags + MQE default-on for cam2,
+production dump rebuilds, pre-ship VACUUM backup, Confirm & process +
+force_once, post-apply re-score.

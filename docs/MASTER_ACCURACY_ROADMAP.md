@@ -655,6 +655,17 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-27: G-CP-1 **PASS** — the campaign's first gate pass
+  (docs/plan_counted_path_2026-08-27.md). Counted-path arm (yolo26l
+  @1280 dets + stock tracker + queue-aware merge + coexisting-twin
+  dedup + stop-fracture collapse + flow-informed origin inference +
+  MQE) scored 70.6 pooled vs shipped 64.8 — every window above its
+  own control (70.4/71.3/70.3 vs 67.3/62.0/65.2). SB_right healed
+  379/378 (was 219); EB_left 229/236 (was 174). Root: the operator's
+  scene-by-scene diagnosis (waste reels) — detection was fine, the
+  counting layer discarded/duplicated/dropped. Ship awaiting operator
+  go.
+
 - 2026-08-26: G-ID-1 MISS (~33 pooled vs 64.8; docs/plan_identity_stack_2026-08-25.md VERDICT): the stack equals solo-B within noise - fragmentation alone kills evidence activation (0.26-0.35 vs 0.45 bar) and attribution collapses to posterior guessing. MQE solo +0.4 (the one solo positive); C2 detections real (+727 events, dup doubles 95->0) but inexpressible through fragments. Next formal plan if continued: the identity-evidence fragment REJOINER (proximity glue stays dead). Production untouched at 64.8.
 
 - 2026-08-25: PILLAR B VALIDATED against the 36 labeled thefts
