@@ -1,0 +1,131 @@
+{
+  "window": "idc_study_0700 vs study_0700",
+  "scenes": [
+    {
+      "klass": "DOUBLE-COUNT",
+      "cell": "WB_right",
+      "claim": "two counted WB_right events (#471961 and #471963, 0.1s apart) whose tracks ride the same path",
+      "question": "Same physical vehicle counted twice?",
+      "arm_tids": [
+        2678,
+        2676
+      ],
+      "prod_tids": [],
+      "event_ids": [
+        471961,
+        471963
+      ],
+      "f_lo": 653924,
+      "f_hi": 654069
+    },
+    {
+      "klass": "DOUBLE-COUNT",
+      "cell": "WB_right",
+      "claim": "two counted WB_right events (#472644 and #472646, 0.4s apart) whose tracks ride the same path",
+      "question": "Same physical vehicle counted twice?",
+      "arm_tids": [
+        5330,
+        5333
+      ],
+      "prod_tids": [],
+      "event_ids": [
+        472644,
+        472646
+      ],
+      "f_lo": 675056,
+      "f_hi": 675140
+    },
+    {
+      "klass": "DOUBLE-COUNT",
+      "cell": "WB_right",
+      "claim": "two counted WB_right events (#473025 and #473024, 4.6s apart) whose tracks ride the same path",
+      "question": "Same physical vehicle counted twice?",
+      "arm_tids": [
+        6723,
+        6728
+      ],
+      "prod_tids": [],
+      "event_ids": [
+        473025,
+        473024
+      ],
+      "f_lo": 684557,
+      "f_hi": 684764
+    },
+    {
+      "klass": "WASTED-RECOVERY",
+      "cell": "-",
+      "claim": "track 71 exists only under the new detector (production never tracked this vehicle), travels 125px, and produced NO count",
+      "question": "Real vehicle the count missed? And where does its track go wrong?",
+      "arm_tids": [
+        71
+      ],
+      "prod_tids": [],
+      "event_ids": [],
+      "f_lo": 631204,
+      "f_hi": 633346
+    },
+    {
+      "klass": "WASTED-RECOVERY",
+      "cell": "-",
+      "claim": "track 2793 exists only under the new detector (production never tracked this vehicle), travels 133px, and produced NO count",
+      "question": "Real vehicle the count missed? And where does its track go wrong?",
+      "arm_tids": [
+        2793
+      ],
+      "prod_tids": [],
+      "event_ids": [],
+      "f_lo": 655539,
+      "f_hi": 656417
+    },
+    {
+      "klass": "LOST-ATTRIBUTION",
+      "cell": "EB_left",
+      "claim": "production counted event #456335 as EB_left; the new arm's track 10157 for the same vehicle became: EB_through",
+      "question": "Watch the vehicle \u2014 which reading is right?",
+      "arm_tids": [
+        10157
+      ],
+      "prod_tids": [
+        10088
+      ],
+      "event_ids": [
+        456335
+      ],
+      "f_lo": 709557,
+      "f_hi": 709577
+    },
+    {
+      "klass": "LOST-ATTRIBUTION",
+      "cell": "EB_left",
+      "claim": "production counted event #458579 as EB_left; the new arm's track 18506 for the same vehicle became: NOT COUNTED",
+      "question": "Watch the vehicle \u2014 which reading is right?",
+      "arm_tids": [
+        18506
+      ],
+      "prod_tids": [
+        18748
+      ],
+      "event_ids": [
+        458579
+      ],
+      "f_lo": 783639,
+      "f_hi": 783679
+    },
+    {
+      "klass": "CLEAN-RECOVERY",
+      "cell": "SB_through",
+      "claim": "track 46 exists only under the new detector and WAS counted (SB_through, event #471249) \u2014 the recovery working as intended",
+      "question": "Real vehicle, correctly counted?",
+      "arm_tids": [
+        46
+      ],
+      "prod_tids": [],
+      "event_ids": [
+        471249
+      ],
+      "f_lo": 630996,
+      "f_hi": 631520
+    }
+  ]
+}
