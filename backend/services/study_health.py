@@ -143,10 +143,11 @@ def collect_signals(project_id: str, camera_id: int, variant: str, *,
             "SELECT COUNT(*) " + q + " AND posterior_source IN (" +
             marks + ")", args + list(GUESSED_SOURCES)).fetchone()[0]
         cells: dict = {}
-        for o, d, mv, n in con.execute(
+        for o, d, mv, n, ngf in con.execute(
                 "SELECT origin_leg_id, destination_leg_id, movement, "
-                "COUNT(*) " + q + " GROUP BY 1,2,3", args):
-            cells[(o, d, mv)] = n
+                "COUNT(*), SUM(CASE WHEN posterior_source='gate_full' "
+                "THEN 1 ELSE 0 END) " + q + " GROUP BY 1,2,3", args):
+            cells[(o, d, mv)] = (n, ngf or 0)
     finally:
         con.close()
     con2 = sqlite3.connect(f"file:{dbp}?mode=ro", uri=True)
@@ -163,26 +164,33 @@ def collect_signals(project_id: str, camera_id: int, variant: str, *,
 
     # flow divergence per TURN cell (the lane-echo signature)
     diverging = []
-    for (o, d, mv), n in cells.items():
+    for (o, d, mv), (n, ngf) in cells.items():
         if mv not in ("left", "right", "u_turn") or n < DIVERGENCE_MIN_N:
             continue
         if (camera_id, o) in DIVERGENCE_EXCEPT:
             continue
+        gf_share = ngf / n if n else 0.0
         exp = expected.get((o, d))
         if not exp or exp <= 0:
-            # NO PRIOR AT ALL: a turn cell with real volume and zero
-            # history is the loudest alarm (the cam5 near-field ship
-            # 2026-08-28: NB_right minted 218 vs Miovision 26 in a cell
-            # the bank had never seen — the GREEN that slipped through).
-            if n >= DIVERGENCE_MIN_N:
-                diverging.append({
-                    "cell": str(bound_approach(legs.get(o, "")) or "?")
-                            + "_" + str(mv),
-                    "origin_leg_id": o, "destination_leg_id": d,
-                    "movement": mv, "counted": n, "expected": 0.0,
-                    "ratio": None,
-                    "excess_share": round(n / counted, 3) if counted else 0,
-                    "red": True, "no_prior": True})
+            # NO PRIOR AT ALL. Two very different diseases live here
+            # (S2 iteration 2, measured 2026-08-28): a cell DOMINATED
+            # BY GATE OVERRIDES (posterior_source gate_full = the gates
+            # overrode the path match) is a geometry phantom suspect —
+            # the cam5 near-field ship's fake NB_right ran 92%
+            # gate_full. A cell of path-AGREEING counts with no bank
+            # history is an unsampled-real-traffic bank gap — cam3's
+            # genuine S_right ran 2% gate_full. RED for the former,
+            # AMBER for the latter.
+            phantom = gf_share >= 0.5
+            diverging.append({
+                "cell": str(bound_approach(legs.get(o, "")) or "?")
+                        + "_" + str(mv),
+                "origin_leg_id": o, "destination_leg_id": d,
+                "movement": mv, "counted": n, "expected": 0.0,
+                "ratio": None, "gate_full_share": round(gf_share, 2),
+                "excess_share": round(n / counted, 3) if counted else 0,
+                "red": phantom, "no_prior": True,
+                "phantom_suspect": phantom})
             continue
         ratio = n / exp
         excess = (n - exp) / counted if counted else 0.0
@@ -263,8 +271,15 @@ def classify_signals(sig: dict) -> dict:
             worst(1, "{:.0%} of counts are guessed".format(gs))
     for c in sig.get("diverging_cells") or []:
         if c.get("no_prior"):
-            worst(2, "turn cell {} counts {} with NO historical flow "
-                     "at all".format(c["cell"], c["counted"]))
+            if c.get("phantom_suspect"):
+                worst(2, "turn cell {}: {} counts, NO history, {}"
+                         "% gate-override — geometry phantom suspect"
+                      .format(c["cell"], c["counted"],
+                              int(100 * c.get("gate_full_share", 0))))
+            else:
+                worst(1, "turn cell {}: {} path-agreeing counts the "
+                         "bank never sampled (bank gap)"
+                      .format(c["cell"], c["counted"]))
         else:
             worst(2 if c.get("red") else 1,
                   "turn cell {} counts {}x its historical flow "

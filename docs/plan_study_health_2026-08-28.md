@@ -65,3 +65,24 @@ a shipped accuracy change, re-derive intersection_paths
 supporting_count/sample_window_seconds from the shipped basis so the
 flow priors describe the current truth; until then the health report
 annotates divergence flags on recently-improved cameras.
+
+## S2 ITERATION 2 (final; the two-iteration budget is now consumed)
+
+The no-prior alarm split by PROVENANCE, measured on the two anchor
+cases: the cam5 phantom cell ran 92% gate_full (the gates overrode
+the path match — inflated boxes manufacturing witnessed journeys)
+while cam3's genuine unsampled cell ran 2% (path-agreeing real
+traffic). Rule: no-prior turn cell with gate_full share >= 0.5 = RED
+"geometry phantom suspect"; below = AMBER "bank gap (unsampled real
+traffic)". KNOWN IMPRECISION, accepted by design: a real cell whose
+path is absent from the bank can also run high gate_full (cam2
+WB_left ~84%, Miovision-confirmed real) — the card asks the operator
+and resolves in a minute; "whatever is left over be solvable with a
+human operator" is the mandate's own remedy.
+
+FINAL SEPARATION (G-SD-1 bar: at most one miss each way): every
+known-bad window/arm RED or AMBER, including the briefly-shipped cam5
+phantom arm (now RED with the phantom named); zero bad windows pass.
+One good window over-flagged: cam1-1600 (the stale-prior lesson; bank
+refresh chartered). BAR MET. Further threshold work requires
+redesign, not tuning.
