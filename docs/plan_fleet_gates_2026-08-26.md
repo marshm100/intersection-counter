@@ -191,3 +191,16 @@ PRODUCTION = ARM exactly: 86.2 / 78.1.
 Corridor live standings (movement bar): cam1 60.5 / [1100 orphan] /
 86.2; cam2 70.4/71.3/70.3; cam3 83.7; cam4 75.4/73.5/75.8 (old
 basis); cam5 66.4/71.7/63.1 (old basis).
+
+## cam5-1100 HELD (2026-08-28) — the gate did its job
+
+Per-window ship attempted on the operator's push; the apply gate stood
+down (no_headroom + event_flood) and the flood is REAL: NB_left arm
+365 vs Mio 185 (+180, nearly doubled; production +29). Mechanism: the
+known cam5 lane-echo class (mouths 160 px apart mint phantom NB
+lefts); the old merge's bluntness was accidentally suppressing them,
+and the queue-aware merge correctly protects coexisting events —
+un-suppressing the phantoms. NOT forced; promotion rolled back
+(originals restored, verified). Remedy = cam5 mouth/geometry work
+(the calibration-wave item), not a counting-layer force. cam5 keeps
+its shipped basis everywhere.
