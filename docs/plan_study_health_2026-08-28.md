@@ -86,3 +86,26 @@ phantom arm (now RED with the phantom named); zero bad windows pass.
 One good window over-flagged: cam1-1600 (the stale-prior lesson; bank
 refresh chartered). BAR MET. Further threshold work requires
 redesign, not tuning.
+
+## S4 OPERATOR REVIEW (2026-08-28, card health_reel_s4)
+
+Six scenes ruled:
+- Scenes 1-2 (Town East W_left "phantom suspect"): REAL left turns.
+  The phantom-vs-bank-gap classifier over-fired exactly as the
+  documented imprecision predicted (no bank path -> inflated
+  gate-override share on real traffic). The card cost the operator
+  ~a minute — the mandate's own remedy held.
+- Scene 3 (fisheye 6x cell): the sampled vehicle is a real right
+  turn (the cell's overcount is in its volume, not every member).
+- Scene 4: inconclusive — INSTRUMENT NOTE: clips must run the full
+  movement for slow vehicles.
+- Scene 5 (Bluffview bank gap): real right turn — the gentle flag
+  class is correct.
+- Scene 6 (Barnes Bridge "W_left bank gap"): **A MISCOUNT FOUND** —
+  a THROUGH counted as left. Operator spotted the mechanism on
+  video: a dark car passes into shadow, detection stops, the
+  truncated track completes wrongly. NEW NAMED DISEASE:
+  LIGHT/SHADOW-BASED DETECTION DROPOUTS (same family as cam1's
+  morning-light break) — chartered as a future lever, not built.
+  The health card's flag led the operator's eyes straight to it:
+  the instrument's end-to-end loop WORKED.
