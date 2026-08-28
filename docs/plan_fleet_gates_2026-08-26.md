@@ -163,3 +163,31 @@ defect); non-transfers are notes, the target is 5/95 everywhere.
   reference per the driveway ruling — its readout is annotated, not
   vetoed on that cell alone.
 - Ship per camera, operator go, standard ladder.
+
+## G-FP-2 VERDICT + SHIPPED cam1-1600 (2026-08-28)
+
+  window          arm             shipped         read
+  cam1 1600       86.2 / 78.1     54.5 / 40.6     BEST WINDOW EVER — SHIPPED
+  cam1 0700       63.0 / 31.2     60.5 / 62.5     morning approach broke
+                                                  (real NB/SB volume loss
+                                                  beyond the driveway cell;
+                                                  suspected morning light) — note
+  cam5 1100       78.3 / 34.4     71.7 / 40.6     movement +6.6, approach dip — note
+  cam5 0700/1600  ~flat           —               note
+  cam4 all        worse           —               MISS (not a detection
+                                                  problem either) — note
+
+PER-WINDOW SHIP AMENDMENT (operator go "go for it"): the declared
+per-camera shape was amended to per-window on the evidence split;
+applies are window-scoped by construction. cam1 study_1600 promoted
+(pre_fl_* renames aside; corrected sidecar; dump backend botsort —
+the declared reid deviation now the shipped basis for THIS window;
+future pass-1 rebuilds of this window need calib awareness, ledgered).
+Backup project_20260828T142159_pre_ship_cam1_1600.db. First apply
+stood down (saturated_geometry+no_headroom); force_once with the
+verdict citation; applied TRUE; disposition consumed. Post-apply:
+PRODUCTION = ARM exactly: 86.2 / 78.1.
+
+Corridor live standings (movement bar): cam1 60.5 / [1100 orphan] /
+86.2; cam2 70.4/71.3/70.3; cam3 83.7; cam4 75.4/73.5/75.8 (old
+basis); cam5 66.4/71.7/63.1 (old basis).

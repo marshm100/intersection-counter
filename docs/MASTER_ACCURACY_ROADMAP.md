@@ -655,6 +655,15 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-28: **SHIPPED cam1 study_1600** (G-FP-2 per-window
+  amendment, operator go): production 86.2 movement / 78.1 approach —
+  the best window ever measured in the project, on what was the
+  fleet's worst camera. Full counted_path recipe (l1280 detections +
+  collapse + mechanisms + the operator's deliberate T+driveway
+  gates). cam1-0700 morning approach break, cam5 windows, cam4 miss
+  all ledgered as notes per operator ruling. Backup
+  project_20260828T142159_pre_ship_cam1_1600.db.
+
 - 2026-08-28: **SHIPPED cam3** (G-FP-1 PASS, force_once after the
   attribution-blind stand-down, operator go): production cam3 now
   83.7 movement / 61.9 approach — project-best on both bars.
