@@ -655,6 +655,15 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-28: **SHIPPED cam3** (G-FP-1 PASS, force_once after the
+  attribution-blind stand-down, operator go): production cam3 now
+  83.7 movement / 61.9 approach — project-best on both bars.
+  cam5/cam1 movement-pass but approach-veto, cam4 MISS — ledgered as
+  NOTES per operator ruling; the standing target is the 5/95
+  standard on every camera. Corridor live standings: cam1 60.5/54.5,
+  cam2 70.4/71.3/70.3, cam3 83.7, cam4 75.4/73.5/75.8,
+  cam5 66.4/71.7/63.1 (movement bar).
+
 - 2026-08-27: **SHIPPED G-CP-1 to production.** Applied true x3 with
   the apply gate passing on its own (gate_pass — headroom existed; no
   force_once). Production cam2 basis now 70.4/71.3/70.3 movement

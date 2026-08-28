@@ -124,3 +124,15 @@ gate measures cams 1/3/4/5 under the shipped counting layer.
   camera ships on this arm.
 - cam4: MISS — the driveway-T activation problem is untouched by the
   counting mechanisms; keeps its shipped basis.
+
+## SHIPPED cam3 (2026-08-27/28)
+
+Operator go. Pre-ship backup project_20260827T234931_pre_ship_cam3.db
+(integrity ok, 96,919 events). First apply stood down
+(no_headroom+no_recovery — the attribution-blind volume gate);
+force_once set citing the G-FP-1 PASS + operator go; second run
+applied TRUE (operator_force), disposition consumed back to auto.
+Post-apply: PRODUCTION = ARM exactly (83.7 movement / 61.9 approach —
+project-best both bars). Operator ruling recorded: the other cameras'
+non-transfer is a LEDGER NOTE, not a deep-dive; the standing target
+is the 5/95 Miovision standard, every camera.
