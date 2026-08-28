@@ -204,3 +204,35 @@ un-suppressing the phantoms. NOT forced; promotion rolled back
 (originals restored, verified). Remedy = cam5 mouth/geometry work
 (the calibration-wave item), not a counting-layer force. cam5 keeps
 its shipped basis everywhere.
+
+## cam5 near-field ship REVERSED (2026-08-28) — the full honest record
+
+Operator go was given on my recommendation, which was WRONG. The b145
+arm's approach-bar gains (50->59, 41->81, 22->66) were partly
+CANCELLATION: the recipe mints phantom NB_right turns at scale
+(0700: 407 vs Mio 21; 1100: 218 vs 26; 1600: 449 vs 35) and the
+phantom rights offset real through deficits inside the same approach
+totals. The movement bar (flat ~66-71) was telling the truth. The
+apply gate caught 2 of 3 windows (event_flood at 0700, and 1600's
+no_headroom would have been forced on my read); 1100 passed the
+volume gate and SHIPPED for ~20 minutes before the cell check caught
+it.
+
+ROLLBACK executed and verified: production DB restored byte-identical
+from project_20260828T183239_pre_ship_cam5_full.db (integrity ok,
+95,070 events; forensic copy of the bad state retained); cam5 calib
+reverted (NULL/NULL); caches+dumps restored (yolo26s@960 basis);
+server relaunched. cam5 production = its pre-ship basis exactly.
+
+LESSONS, now standing law:
+1. THE APPROACH BAR ALONE NEVER JUSTIFIES A SHIP — approach totals
+   cancel cell-level catastrophe. Every ship readout includes the
+   worst-cells table vs reference where available.
+2. The health battery's divergence signal had a NO-PRIOR hole (cells
+   absent from the bank skipped the check entirely — exactly where
+   the phantoms lived). Fixed: volume in a never-seen turn cell fires
+   RED unconditionally. The bad arm now reads RED
+   ("N_right counts 218 with NO historical flow at all").
+3. The near-field association problem (tracks dying close to camera)
+   remains REAL and unsolved on cam5 — the b145 buffer traded it for
+   phantom turns. Ledgered open.

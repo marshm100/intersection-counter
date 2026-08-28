@@ -655,6 +655,14 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-28: **cam5 near-field ship REVERSED** (full record in
+  docs/plan_fleet_gates_2026-08-26.md): the b145 recipe's approach
+  gains were phantom-turn cancellation (NB_right 218-449 vs Mio
+  21-35); one window shipped ~20 min on my wrong recommendation and
+  was rolled back byte-identical. Standing law: the approach bar
+  alone never justifies a ship. The health battery gained the
+  no-prior alarm from this failure and now flags the bad arm RED.
+
 - 2026-08-28: **SHIPPED cam1 study_1600** (G-FP-2 per-window
   amendment, operator go): production 86.2 movement / 78.1 approach —
   the best window ever measured in the project, on what was the

@@ -170,6 +170,19 @@ def collect_signals(project_id: str, camera_id: int, variant: str, *,
             continue
         exp = expected.get((o, d))
         if not exp or exp <= 0:
+            # NO PRIOR AT ALL: a turn cell with real volume and zero
+            # history is the loudest alarm (the cam5 near-field ship
+            # 2026-08-28: NB_right minted 218 vs Miovision 26 in a cell
+            # the bank had never seen — the GREEN that slipped through).
+            if n >= DIVERGENCE_MIN_N:
+                diverging.append({
+                    "cell": str(bound_approach(legs.get(o, "")) or "?")
+                            + "_" + str(mv),
+                    "origin_leg_id": o, "destination_leg_id": d,
+                    "movement": mv, "counted": n, "expected": 0.0,
+                    "ratio": None,
+                    "excess_share": round(n / counted, 3) if counted else 0,
+                    "red": True, "no_prior": True})
             continue
         ratio = n / exp
         excess = (n - exp) / counted if counted else 0.0
@@ -249,10 +262,14 @@ def classify_signals(sig: dict) -> dict:
         elif gs >= GUESSED_AMBER:
             worst(1, "{:.0%} of counts are guessed".format(gs))
     for c in sig.get("diverging_cells") or []:
-        worst(2 if c.get("red") else 1,
-              "turn cell {} counts {}x its historical flow "
-              "({} vs ~{})".format(c["cell"], c["ratio"],
-                                   c["counted"], c["expected"]))
+        if c.get("no_prior"):
+            worst(2, "turn cell {} counts {} with NO historical flow "
+                     "at all".format(c["cell"], c["counted"]))
+        else:
+            worst(2 if c.get("red") else 1,
+                  "turn cell {} counts {}x its historical flow "
+                  "({} vs ~{})".format(c["cell"], c["ratio"],
+                                       c["counted"], c["expected"]))
     ec = sig.get("entry_coverage")
     if ec is not None:
         if ec < ENTRY_COV_RED:
