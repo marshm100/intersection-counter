@@ -136,3 +136,30 @@ Post-apply: PRODUCTION = ARM exactly (83.7 movement / 61.9 approach —
 project-best both bars). Operator ruling recorded: the other cameras'
 non-transfer is a LEDGER NOTE, not a deep-dive; the standing target
 is the 5/95 Miovision standard, every camera.
+
+## G-FP-2 — the full cam2 recipe on cams 1/4/5 (declared 2026-08-28)
+
+The G-FP-1 dive found the fleet's counting fixes exposed real deficits
+that duplicate inflation had hidden — the deficits the big detector
+recovers — and the fleet never got cam2's detector half. Operator
+rulings folded in: cam1's gates stay as drawn (T + commercial driveway
+4th leg, deliberate); the driveway counts as a REAL leg (accuracy to
+reality; a Miovision under-count there is a disclosure item, not our
+defect); non-transfers are notes, the target is 5/95 everywhere.
+
+- ARM per camera: fl_ detections (yolo26l@1280 conf 0.10, CUDA, the
+  shipped counted_path recipe) -> pass-1 under the camera's calib
+  tracker with the shipped defaults (stop-fracture collapse bakes in).
+  DECLARED DEVIATION: cam1's calib says botsort+reid; the reid
+  embedding sidecar doesn't exist for new detections, so the arm runs
+  plain botsort there (a ship would set calib accordingly).
+  -> pass-2 with the shipped defaults. Windows: cam1 0700/1600;
+  cam4 + cam5 0700/1100/1600.
+- CONTROLS: the shipped standings (cam1 60.5/54.5; cam4
+  75.4/73.5/75.8; cam5 66.4/71.7/63.1 movement).
+- PASS per camera: pooled movement above shipped pooled, no window
+  more than 2.0 under its control, approach not collapsing (the
+  standing veto). cam1's WB cell is EXPECTED to disagree with the
+  reference per the driveway ruling — its readout is annotated, not
+  vetoed on that cell alone.
+- Ship per camera, operator go, standard ladder.
