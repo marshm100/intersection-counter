@@ -26,6 +26,28 @@ MIN_TRACK_POINTS = 5
 CLASS_GROUPS = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 
 
+def dedup_crossings(events):
+    """Crossing-level twin dedup (pure): same gate, same direction,
+    within TWIN_CROSS_WINDOW_S and STITCH_STAT_DIST = one physical
+    vehicle. events = [(t_s, leg, inward, (x, y), class_group)].
+    Returns (kept [(t, leg, inward, group)], n_dropped)."""
+    events = sorted(events, key=lambda e: e[0])
+    kept = []
+    recent: dict[tuple, list] = defaultdict(list)
+    dropped = 0
+    for t, leg, inward, pos, group in events:
+        key = (leg, inward)
+        recent[key] = [(rt, rp) for rt, rp in recent[key]
+                       if t - rt <= TWIN_CROSS_WINDOW_S]
+        if any(math.hypot(pos[0] - rp[0], pos[1] - rp[1])
+               <= STITCH_STAT_DIST for _rt, rp in recent[key]):
+            dropped += 1
+            continue
+        recent[key].append((t, pos))
+        kept.append((t, leg, inward, group))
+    return kept, dropped
+
+
 def count_screenline_crossings(project_id: str, camera_id: int,
                                variant: str,
                                bin_minutes: int = 15) -> dict | None:
@@ -102,23 +124,7 @@ def count_screenline_crossings(project_id: str, camera_id: int,
                 continue                 # only operator screenlines count
             events.append((f / fps, int(leg), bool(inward), pos, group))
 
-    # crossing-level twin dedup (same gate, same direction, close in
-    # time AND space = one physical vehicle)
-    events.sort(key=lambda e: e[0])
-    kept = []
-    recent: dict[tuple, list] = defaultdict(list)
-    dropped = 0
-    for t, leg, inward, pos, group in events:
-        key = (leg, inward)
-        recent[key] = [(rt, rp) for rt, rp in recent[key]
-                       if t - rt <= TWIN_CROSS_WINDOW_S]
-        dup = any(math.hypot(pos[0] - rp[0], pos[1] - rp[1])
-                  <= STITCH_STAT_DIST for _rt, rp in recent[key])
-        if dup:
-            dropped += 1
-            continue
-        recent[key].append((t, pos))
-        kept.append((t, leg, inward, group))
+    kept, dropped = dedup_crossings(events)
 
     if not kept:
         return {"bins": [], "legs": legs, "totals": {},

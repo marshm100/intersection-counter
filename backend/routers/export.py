@@ -242,3 +242,20 @@ def export_report_pdf(project_id: str, override: bool = False):
         path=str(output_path), media_type="application/pdf", filename=filename,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}"
+            "/export/atr.xlsx")
+def export_atr_xlsx(project_id: str, intersection_id: int):
+    """ATR directional screenline volumes (docs/plan_atr_2026-08-28.md).
+    Works wherever drawn gates + dumps exist; read-only."""
+    import tempfile
+    from pathlib import Path as _P
+
+    from backend.services.atr_export import generate_atr_xlsx
+    name = _deliverable_name(project_id, intersection_id, "ATR", "xlsx")
+    out = _P(tempfile.gettempdir()) / name
+    generate_atr_xlsx(project_id, out, intersection_id)
+    return FileResponse(out, filename=name,
+                        media_type="application/vnd.openxmlformats-"
+                                   "officedocument.spreadsheetml.sheet")
+
