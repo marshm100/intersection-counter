@@ -25,15 +25,20 @@ class TestClassifySignals:
         assert classify_signals({"guessed_share": 0.4})["verdict"] == "amber"
         assert classify_signals({"guessed_share": 0.6})["verdict"] == "red"
 
-    def test_divergence_red(self):
+    def test_divergence_bands(self):
         v = classify_signals({"diverging_cells": [
             {"cell": "NB_left", "ratio": 2.5, "counted": 300,
-             "expected": 120.0}]})
+             "expected": 120.0, "excess_share": 0.05, "red": True}]})
         assert v["verdict"] == "red"
         assert "NB_left" in v["reasons"][0]
+        v = classify_signals({"diverging_cells": [
+            {"cell": "NB_left", "ratio": 1.7, "counted": 90,
+             "expected": 52.0, "excess_share": 0.028, "red": False}]})
+        assert v["verdict"] == "amber"
 
     def test_amber_signals(self):
-        assert classify_signals({"twin_rate": 0.05})["verdict"] == "amber"
+        # twin_rate is informational since S2 (handled pairs, no verdict)
+        assert classify_signals({"twin_rate": 0.05})["verdict"] == "green"
         assert classify_signals({"entry_coverage": 0.45})["verdict"] == "amber"
         assert classify_signals({"entry_coverage": 0.3})["verdict"] == "red"
         assert classify_signals({"echo_share": 0.05})["verdict"] == "amber"

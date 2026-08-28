@@ -36,3 +36,32 @@ separates known-bad from known-good windows with at most one miss
 each way; the operator's review of ONE rendered report + its cards
 finds no false-confidence window. Accept ships the feeder + endpoint
 into the standard flow; reject ledgers and iterates within budget.
+
+## S2 CALIBRATION RECORD (2026-08-28, one iteration per budget)
+
+Changes from v1, chosen from the observed truth table:
+- Divergence needs ratio AND materiality: RED ratio>=2.0 &
+  excess_share>=0.035; AMBER ratio>=1.5 & excess_share>=0.025
+  (ratio alone flagged the good b145 arm at 2.02x/1.3% while the real
+  NB_left flood ran 2.39x/3.9%).
+- twin_pairs demoted to informational (the dedup CAUGHT those pairs;
+  cam3 at 83.7 carried 10% handled twin pressure).
+- Operator-ruled divergence exceptions: cam1 leg 25 (the driveway
+  ruling).
+
+FINAL TABLE (battery blind to scores): every known-bad window/arm =
+RED or AMBER (zero false-confidence greens — including cam2-0700 at
+28.1 approach, caught AMBER via the near-band EB_right divergence);
+known-good: cam3 83.7 GREEN, cam5-b145 70.8/81.2 GREEN,
+cam1-1600 86.2/78.1 RED — the ONE miss, and its mechanism is
+instructive: EB_right counts 492 vs a bank prior of 52 recorded when
+that cell was UNDERCOUNTED by ~210. The flow prior indicts the
+present because it memorized the broken past.
+G-SD-1's separation bar (at most one miss each way): MET at
+calibration.
+
+CHARTERED FOLLOW-UP (not this campaign's build): BANK REFRESH — after
+a shipped accuracy change, re-derive intersection_paths
+supporting_count/sample_window_seconds from the shipped basis so the
+flow priors describe the current truth; until then the health report
+annotates divergence flags on recently-improved cameras.

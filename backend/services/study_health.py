@@ -30,12 +30,26 @@ from backend.config import EVIDENCE_ACTIVATION_COVERAGE, PROJECTS_DIR
 # ---- v1 thresholds (gate doc plan_study_health_2026-08-28.md) ----------
 GUESSED_AMBER = 0.35      # guessed share of counted events
 GUESSED_RED = 0.55
-DIVERGENCE_RED_RATIO = 2.0    # turn cell counted / bank-expected
+# Divergence needs RATIO and MATERIALITY (S2 calibration 2026-08-28:
+# ratio alone flagged the b145 winner at 2.02x/1.3% of events while a
+# real flood ran 2.39x/3.9%): excess share = (counted-expected)/window
+# events.
+DIVERGENCE_RED_RATIO = 2.0
+DIVERGENCE_RED_EXCESS = 0.035
+DIVERGENCE_AMBER_RATIO = 1.5
+DIVERGENCE_AMBER_EXCESS = 0.025
 DIVERGENCE_MIN_N = 30
-TWIN_RATE_AMBER = 0.03        # twin pairs / counted events
 ENTRY_COV_AMBER = 0.50        # census entry coverage
 ENTRY_COV_RED = 0.35
 ECHO_SHARE_AMBER = 0.04       # footage_rating's frozen fair line
+# twin_pairs is informational when the dedup ran (the pairs were
+# CAUGHT); it fires no verdict (S2: cam3 at 83.7 carried 10% twin
+# pressure, all handled).
+
+# Operator-ruled cells the divergence signal must not flag: cam1's
+# commercial-driveway leg (ruling 2026-08-28: a real 4th leg counted
+# to reality; the bank predates it and Miovision under-counts it).
+DIVERGENCE_EXCEPT = {(1, 25)}      # (camera_id, origin_leg_id)
 
 GUESSED_SOURCES = ("branch1", "rescue_full", "rescue_supports",
                    "demoted", "dest_tie")
@@ -152,17 +166,26 @@ def collect_signals(project_id: str, camera_id: int, variant: str, *,
     for (o, d, mv), n in cells.items():
         if mv not in ("left", "right", "u_turn") or n < DIVERGENCE_MIN_N:
             continue
+        if (camera_id, o) in DIVERGENCE_EXCEPT:
+            continue
         exp = expected.get((o, d))
-        if exp and exp > 0 and n / exp >= DIVERGENCE_RED_RATIO:
+        if not exp or exp <= 0:
+            continue
+        ratio = n / exp
+        excess = (n - exp) / counted if counted else 0.0
+        if ratio >= DIVERGENCE_AMBER_RATIO and                 excess >= DIVERGENCE_AMBER_EXCESS:
             diverging.append({
                 "cell": str(bound_approach(legs.get(o, "")) or "?")
                         + "_" + str(mv),
                 "origin_leg_id": o, "destination_leg_id": d,
                 "movement": mv, "counted": n,
                 "expected": round(exp, 1),
-                "ratio": round(n / exp, 2)})
+                "ratio": round(ratio, 2),
+                "excess_share": round(excess, 3),
+                "red": bool(ratio >= DIVERGENCE_RED_RATIO
+                            and excess >= DIVERGENCE_RED_EXCESS)})
     sig["diverging_cells"] = sorted(diverging,
-                                    key=lambda c: -c["ratio"])[:8]
+                                    key=lambda c: -c["excess_share"])[:8]
 
     # ---- per-window chain census (twin/echo/truncation anatomy) ------
     if gates is not None:
@@ -225,14 +248,11 @@ def classify_signals(sig: dict) -> dict:
                   .format(gs))
         elif gs >= GUESSED_AMBER:
             worst(1, "{:.0%} of counts are guessed".format(gs))
-    if sig.get("diverging_cells"):
-        c = sig["diverging_cells"][0]
-        worst(2, "turn cell {} counts {}x its historical flow "
-                 "({} vs ~{})".format(c["cell"], c["ratio"],
-                                      c["counted"], c["expected"]))
-    tr = sig.get("twin_rate")
-    if tr is not None and tr >= TWIN_RATE_AMBER:
-        worst(1, "duplicate-track pressure {:.1%} of events".format(tr))
+    for c in sig.get("diverging_cells") or []:
+        worst(2 if c.get("red") else 1,
+              "turn cell {} counts {}x its historical flow "
+              "({} vs ~{})".format(c["cell"], c["ratio"],
+                                   c["counted"], c["expected"]))
     ec = sig.get("entry_coverage")
     if ec is not None:
         if ec < ENTRY_COV_RED:
