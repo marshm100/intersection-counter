@@ -163,6 +163,64 @@ def _dump_variants(project_id: str, camera_id: int,
     return out
 
 
+def census_for_variant(va: dict, events, gates, fps):
+    """The per-dump-variant census body, extracted (2026-08-28, the
+    study-health campaign) so per-WINDOW health signals can reuse it.
+    va = {"rows", "tids", "span"} (a loaded dump); events =
+    (tid, o, d, ts, mv) tuples camera-wide (time-filtered here).
+    Returns (counters dict incl. tags Counter, echo_by_cell Counter).
+    Behavior identical to the pre-refactor inline loop."""
+    lo, hi = va["span"]
+    part = {"tracks_mapped": 0, "chains": 0, "multi_chains": 0,
+            "tags": Counter(), "events_joined": 0, "events_unmapped": 0,
+            "excess_events": 0, "excess_flip": 0, "excess_same_cell": 0,
+            "excess_cross": 0}
+    echo_by_cell: Counter = Counter()
+    tracks: dict[int, list] = defaultdict(list)
+    for r in va["rows"]:
+        tracks[int(r[0])].append((float(r[1]), float(r[2]), float(r[3])))
+    chain_map = build_chain_map(tracks, gates, fps)
+    chains: dict[int, list[int]] = defaultdict(list)
+    for tid, ci in chain_map.items():
+        chains[ci].append(tid)
+    for tid, pts in tracks.items():
+        if len(pts) < MIN_TRACK_POINTS:
+            continue
+        part["tracks_mapped"] += 1
+        *_x, tag = classify(sorted(pts), gates, fps)
+        part["tags"][tag] += 1
+    part["chains"] = len(chains)
+    part["multi_chains"] = sum(1 for m in chains.values() if len(m) > 1)
+    ev_chain: dict[int, list] = defaultdict(list)
+    for t, o, d, ts, mv in events:
+        if not (lo <= ts <= hi):
+            continue                  # other window / uncovered
+        if t not in va["tids"]:
+            part["events_unmapped"] += 1
+            continue
+        ci = chain_map.get(t)
+        if ci is None:
+            part["events_unmapped"] += 1
+            continue
+        part["events_joined"] += 1
+        ev_chain[ci].append((o, d, mv))
+    for evs in ev_chain.values():
+        if len(evs) < 2:
+            continue
+        part["excess_events"] += len(evs) - 1
+        cells = {(o, d) for o, d, _mv in evs}
+        flips = {(o, d) for o, d in cells if (d, o) in cells}
+        if len(cells) == 1:
+            part["excess_same_cell"] += len(evs) - 1
+            o, d, mv = evs[0]
+            echo_by_cell[(o, d, mv)] += len(evs) - 1
+        elif flips:
+            part["excess_flip"] += len(evs) - 1
+        else:
+            part["excess_cross"] += len(evs) - 1
+    return part, echo_by_cell
+
+
 def chain_census(project_id: str, camera_id: int) -> dict | None:
     """Tier B (+C where the event join validates). None when the dump or
     the calibration is missing. Aggregates over the best-joining dump
@@ -233,49 +291,13 @@ def chain_census(project_id: str, camera_id: int) -> dict | None:
         1 for _t, _o, _d, ts, _mv in events
         if not any(_covered(va, ts) for va in chosen))
     for va in chosen:
-        tracks: dict[int, list] = defaultdict(list)
-        for r in va["rows"]:
-            tracks[int(r[0])].append((float(r[1]), float(r[2]), float(r[3])))
-        chain_map = build_chain_map(tracks, gates, fps)
-        chains: dict[int, list[int]] = defaultdict(list)
-        for tid, ci in chain_map.items():
-            chains[ci].append(tid)
-        for tid, pts in tracks.items():
-            if len(pts) < MIN_TRACK_POINTS:
-                continue
-            agg["tracks_mapped"] += 1
-            *_x, tag = classify(sorted(pts), gates, fps)
-            agg["tags"][tag] += 1
-        agg["chains"] += len(chains)
-        agg["multi_chains"] += sum(1 for m in chains.values() if len(m) > 1)
-
-        ev_chain: dict[int, list] = defaultdict(list)
-        for t, o, d, ts, mv in events:
-            if not _covered(va, ts):
-                continue                  # other window / uncovered
-            if t not in va["tids"]:
-                agg["events_unmapped"] += 1
-                continue
-            ci = chain_map.get(t)
-            if ci is None:
-                agg["events_unmapped"] += 1
-                continue
-            agg["events_joined"] += 1
-            ev_chain[ci].append((o, d, mv))
-        for evs in ev_chain.values():
-            if len(evs) < 2:
-                continue
-            agg["excess_events"] += len(evs) - 1
-            cells = {(o, d) for o, d, _mv in evs}
-            flips = {(o, d) for o, d in cells if (d, o) in cells}
-            if len(cells) == 1:
-                agg["excess_same_cell"] += len(evs) - 1
-                o, d, mv = evs[0]
-                echo_by_cell[(o, d, mv)] += len(evs) - 1
-            elif flips:
-                agg["excess_flip"] += len(evs) - 1
-            else:
-                agg["excess_cross"] += len(evs) - 1
+        part, part_echo = census_for_variant(va, events, gates, fps)
+        for k in ("tracks_mapped", "chains", "multi_chains",
+                  "events_joined", "events_unmapped", "excess_events",
+                  "excess_flip", "excess_same_cell", "excess_cross"):
+            agg[k] += part[k]
+        agg["tags"].update(part["tags"])
+        echo_by_cell.update(part_echo)
 
     tags = agg.pop("tags")
     n = agg["tracks_mapped"]
