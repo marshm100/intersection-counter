@@ -4,9 +4,6 @@ smoke-tested where the corridor project exists (the entry_gates n500
 precedent)."""
 from backend.services.study_health import classify_signals
 
-CORRIDOR = Path("data/projects/97a7849a/project.db")
-
-
 class TestClassifySignals:
     def test_green_when_clean(self):
         v = classify_signals({
