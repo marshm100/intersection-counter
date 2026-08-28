@@ -172,3 +172,38 @@ def get_acceptance(project_id: str, intersection_id: int):
         raise HTTPException(status_code=404,
             detail=f"intersection {intersection_id} not found")
     return acceptance(project_id, intersection_id)
+
+@router.get("/projects/{project_id}/intersections/{intersection_id}/health")
+def get_intersection_health(project_id: str, intersection_id: int):
+    """The study-health table: per camera-window signals + verdicts
+    (docs/plan_study_health_2026-08-28.md S3). Read-only battery run."""
+    from backend.database import get_connection
+    from backend.services.detection_cache import parquet_path
+    from backend.services.study_health import window_health
+
+    conn = get_connection(project_id)
+    try:
+        cams = [(int(r[0]),) for r in conn.execute(
+            "SELECT camera_id FROM cameras WHERE intersection_id = ?",
+            (intersection_id,))]
+        hashes = {int(r[0]): r[1] for r in conn.execute(
+            "SELECT camera_id, content_hash FROM videos")}
+    finally:
+        conn.close()
+    from pathlib import Path as _P
+    out = []
+    for (cid,) in cams:
+        chash = hashes.get(cid)
+        if not chash:
+            continue
+        base = _P(parquet_path(project_id, cid, chash, "x")).parent
+        for tdir in sorted(base.glob("study_*.tracks")):
+            variant = tdir.name[:-len(".tracks")]
+            try:
+                h = window_health(project_id, cid, variant, write=False)
+            except Exception:
+                h = None
+            if h is not None:
+                out.append(h)
+    return {"intersection_id": intersection_id, "windows": out}
+

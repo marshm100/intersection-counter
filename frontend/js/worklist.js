@@ -211,6 +211,8 @@ function _wlBannerHtml() {
 // proven C-polish flow underneath.
 
 const _WL_QUESTIONS = {
+    health_flow_divergence: 'The machine distrusts this turn cell: its volume diverges from all history. Scrub the window - are these real turns?',
+    health_window: 'The machine distrusts this whole window (see the reason line). Spot-check a few minutes - does the counting look sane?',
     low_det_conf: 'Is this a real vehicle?',
     ambiguous_dest: 'Which way did it go?',
     ambiguous_origin: 'Where did it come from?',

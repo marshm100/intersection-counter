@@ -378,6 +378,126 @@ def _bank_coverage_holes(project_id: str, intersection_id: int) -> list[dict]:
         conn.close()
 
 
+def feed_health(project_id: str, intersection_id: int) -> list[dict]:
+    """Study-health review cards (docs/plan_study_health_2026-08-28.md
+    S3): each per-window signal that fires becomes ONE card (batch_key
+    per window+signal) carrying the window interval, the approach when
+    the signal names one, and the health evidence. The operator's
+    verdict lands in review_log through the standard card close.
+    Read-only over the health battery; never blocks the rebuild."""
+    from pathlib import Path
+
+    from backend.services.cardinals import bound_approach
+    from backend.services.study_health import window_health
+
+    out: list[dict] = []
+    conn = get_connection(project_id)
+    try:
+        cams = [int(r[0]) for r in conn.execute(
+            "SELECT camera_id FROM cameras WHERE intersection_id = ?",
+            (intersection_id,))]
+        legs_card = {}
+        for cid in cams:
+            for lid, card in conn.execute(
+                    "SELECT leg_id, cardinal_direction FROM legs "
+                    "WHERE camera_id = ?", (cid,)):
+                legs_card[int(lid)] = card
+    finally:
+        conn.close()
+
+    for cid in cams:
+        # variants = the study_ dumps present for this camera
+        from backend.services.detection_cache import parquet_path
+        from backend.services.pass2_replay import tracks_dir
+        conn = get_connection(project_id)
+        try:
+            vid = conn.execute(
+                "SELECT content_hash FROM videos WHERE camera_id = ? "
+                "ORDER BY sort_order LIMIT 1", (cid,)).fetchone()
+        finally:
+            conn.close()
+        if not vid or not vid[0]:
+            continue                  # no hashed video: nothing to health-check
+        base = Path(parquet_path(project_id, cid, vid[0],
+                                 "x")).parent
+        for tdir in sorted(base.glob("study_*.tracks")):
+            variant = tdir.name[:-len(".tracks")]
+            try:
+                h = window_health(project_id, cid, variant, write=True)
+            except Exception:
+                logger.exception("health battery failed cam%s %s",
+                                 cid, variant)
+                continue
+            if h is None or h["verdict"] == "green":
+                continue
+            frames = None
+            try:
+                import json as _json
+                frames = _json.loads(
+                    (tdir / "meta.json").read_text()).get("frames")
+            except Exception:
+                pass
+            conn = get_connection(project_id)
+            try:
+                fps_row = conn.execute(
+                    "SELECT fps FROM videos WHERE camera_id = ? "
+                    "ORDER BY sort_order LIMIT 1", (cid,)).fetchone()
+            finally:
+                conn.close()
+            fps = float(fps_row[0]) if fps_row and fps_row[0] else 10.0
+            t_lo = frames[0] / fps if frames else None
+            t_hi = frames[1] / fps if frames else None
+            sev = 2.0 if h["verdict"] == "red" else 1.0
+            # one card per firing DIVERGING cell (the concrete ones),
+            # plus one card for window-level reasons
+            div = h.get("diverging_cells") or []
+            for c in div:
+                ap = bound_approach(
+                    legs_card.get(c["origin_leg_id"], "")) or None
+                if ap and len(ap) == 1:
+                    ap += "B"
+                out.append({
+                    "kind": "suspected_gap",
+                    "subtype": "health_flow_divergence",
+                    "camera_id": cid, "approach": ap,
+                    "movement": c["movement"],
+                    "interval_start_seconds": t_lo,
+                    "interval_end_seconds": t_hi,
+                    "impact": float(c["counted"]
+                                    - (c["expected"] or 0)) * sev / 2.0,
+                    "reason": ("HEALTH {}: {} counted {} vs ~{} "
+                               "historical{} — verify this cell"
+                               .format(variant, c["cell"], c["counted"],
+                                       c["expected"],
+                                       " (NO history)" if
+                                       c.get("no_prior") else "")),
+                    "evidence": {"health": True, "variant": variant,
+                                 **c},
+                    "batch_key": "health|{}|{}|{}".format(
+                        cid, variant, c["cell"]),
+                })
+            window_reasons = [r for r in h["reasons"]
+                              if "turn cell" not in r]
+            if window_reasons:
+                out.append({
+                    "kind": "suspected_gap",
+                    "subtype": "health_window",
+                    "camera_id": cid, "approach": None,
+                    "interval_start_seconds": t_lo,
+                    "interval_end_seconds": t_hi,
+                    "impact": 10.0 * sev,
+                    "reason": ("HEALTH {} ({}): ".format(
+                        variant, h["verdict"])
+                        + "; ".join(window_reasons)),
+                    "evidence": {"health": True, "variant": variant,
+                                 "verdict": h["verdict"],
+                                 "reasons": h["reasons"]},
+                    "batch_key": "health|{}|{}|window".format(
+                        cid, variant),
+                })
+    return out
+
+
 def rebuild_flags(project_id: str, intersection_id: int,
                   extra_flags: list[dict] | None = None) -> dict:
     """Clear the intersection's open flags, run both feeders, insert the
@@ -399,6 +519,7 @@ def rebuild_flags(project_id: str, intersection_id: int,
     flags: list[dict] = []
     flags += feed_uncertain_events(project_id, intersection_id)
     flags += feed_suspected_gaps(project_id, intersection_id)
+    flags += feed_health(project_id, intersection_id)
     flags += list(extra_flags or [])
     conn = get_connection(project_id)
     try:
