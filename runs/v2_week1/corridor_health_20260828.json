@@ -1,0 +1,719 @@
+[
+ {
+  "camera_id": 1,
+  "variant": "study_0700",
+  "window_seconds": 7200.0,
+  "stop_fracture_collapsed": null,
+  "dump_backend": "botsort+reid",
+  "activation": {
+   "coverage": 0.265,
+   "threshold": 0.45,
+   "activated": false
+  },
+  "tracks": 6728,
+  "insufficient": 1902,
+  "origin_flow_inferred": null,
+  "twin_pairs": null,
+  "merged_away": 68,
+  "borderline_cells": 1,
+  "counted_events": 4600,
+  "guessed_events": 0,
+  "guessed_share": 0.0,
+  "twin_rate": null,
+  "diverging_cells": [
+   {
+    "cell": "N_right",
+    "origin_leg_id": 22,
+    "destination_leg_id": 25,
+    "movement": "right",
+    "counted": 77,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.0,
+    "excess_share": 0.017,
+    "red": false,
+    "no_prior": true,
+    "phantom_suspect": false
+   }
+  ],
+  "tag_mix": {
+   "entry_only": 0.124,
+   "exit_only": 0.421,
+   "full": 0.191,
+   "no_crossing": 0.265
+  },
+  "entry_coverage": 0.315,
+  "multi_chain_share": 0.137,
+  "echo_share": 0.0293,
+  "verdict": "red",
+  "reasons": [
+   "evidence channel OFF (coverage 0.265 < 0.45) - attribution runs on guesses",
+   "turn cell N_right: 77 path-agreeing counts the bank never sampled (bank gap)",
+   "only 32% of tracks have a witnessed entry"
+  ]
+ },
+ {
+  "camera_id": 1,
+  "variant": "study_1600",
+  "window_seconds": 7200.0,
+  "stop_fracture_collapsed": 11,
+  "dump_backend": "botsort",
+  "activation": {
+   "coverage": 0.588,
+   "threshold": 0.45,
+   "activated": true
+  },
+  "tracks": 7493,
+  "insufficient": 1576,
+  "origin_flow_inferred": 191,
+  "twin_pairs": 150,
+  "merged_away": 6,
+  "borderline_cells": 2,
+  "counted_events": 5671,
+  "guessed_events": 418,
+  "guessed_share": 0.074,
+  "twin_rate": 0.0265,
+  "diverging_cells": [
+   {
+    "cell": "E_right",
+    "origin_leg_id": 24,
+    "destination_leg_id": 22,
+    "movement": "right",
+    "counted": 492,
+    "expected": 52.0,
+    "ratio": 9.46,
+    "excess_share": 0.078,
+    "red": true
+   },
+   {
+    "cell": "N_right",
+    "origin_leg_id": 22,
+    "destination_leg_id": 25,
+    "movement": "right",
+    "counted": 102,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.43,
+    "excess_share": 0.018,
+    "red": false,
+    "no_prior": true,
+    "phantom_suspect": false
+   }
+  ],
+  "tag_mix": {
+   "entry_only": 0.136,
+   "exit_only": 0.255,
+   "full": 0.45,
+   "no_crossing": 0.16
+  },
+  "entry_coverage": 0.586,
+  "multi_chain_share": 0.099,
+  "echo_share": 0.0127,
+  "verdict": "red",
+  "reasons": [
+   "turn cell E_right counts 9.46x its historical flow (492 vs ~52.0)",
+   "turn cell N_right: 102 path-agreeing counts the bank never sampled (bank gap)"
+  ]
+ },
+ {
+  "camera_id": 2,
+  "variant": "study_0700",
+  "window_seconds": 7200.0,
+  "stop_fracture_collapsed": 29,
+  "dump_backend": "botsort",
+  "activation": {
+   "coverage": 0.569,
+   "threshold": 0.45,
+   "activated": true
+  },
+  "tracks": 8715,
+  "insufficient": 2667,
+  "origin_flow_inferred": 122,
+  "twin_pairs": 137,
+  "merged_away": 48,
+  "borderline_cells": 1,
+  "counted_events": 5740,
+  "guessed_events": 430,
+  "guessed_share": 0.075,
+  "twin_rate": 0.0239,
+  "diverging_cells": [
+   {
+    "cell": "E_right",
+    "origin_leg_id": 28,
+    "destination_leg_id": 29,
+    "movement": "right",
+    "counted": 310,
+    "expected": 160.0,
+    "ratio": 1.94,
+    "excess_share": 0.026,
+    "red": false
+   },
+   {
+    "cell": "W_left",
+    "origin_leg_id": 26,
+    "destination_leg_id": 29,
+    "movement": "left",
+    "counted": 58,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.84,
+    "excess_share": 0.01,
+    "red": true,
+    "no_prior": true,
+    "phantom_suspect": true
+   }
+  ],
+  "tag_mix": {
+   "entry_only": 0.216,
+   "exit_only": 0.063,
+   "full": 0.484,
+   "no_crossing": 0.237
+  },
+  "entry_coverage": 0.7,
+  "multi_chain_share": 0.114,
+  "echo_share": 0.0132,
+  "verdict": "red",
+  "reasons": [
+   "turn cell E_right counts 1.94x its historical flow (310 vs ~160.0)",
+   "turn cell W_left: 58 counts, NO history, 84% gate-override \u2014 geometry phantom suspect"
+  ]
+ },
+ {
+  "camera_id": 2,
+  "variant": "study_1100",
+  "window_seconds": 7200.0,
+  "stop_fracture_collapsed": 43,
+  "dump_backend": "botsort",
+  "activation": {
+   "coverage": 0.485,
+   "threshold": 0.45,
+   "activated": true
+  },
+  "tracks": 7774,
+  "insufficient": 3036,
+  "origin_flow_inferred": 128,
+  "twin_pairs": 89,
+  "merged_away": 47,
+  "borderline_cells": 1,
+  "counted_events": 4523,
+  "guessed_events": 421,
+  "guessed_share": 0.093,
+  "twin_rate": 0.0197,
+  "diverging_cells": [
+   {
+    "cell": "E_right",
+    "origin_leg_id": 28,
+    "destination_leg_id": 29,
+    "movement": "right",
+    "counted": 444,
+    "expected": 160.0,
+    "ratio": 2.77,
+    "excess_share": 0.063,
+    "red": true
+   },
+   {
+    "cell": "W_left",
+    "origin_leg_id": 26,
+    "destination_leg_id": 29,
+    "movement": "left",
+    "counted": 54,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.87,
+    "excess_share": 0.012,
+    "red": true,
+    "no_prior": true,
+    "phantom_suspect": true
+   }
+  ],
+  "tag_mix": {
+   "entry_only": 0.223,
+   "exit_only": 0.073,
+   "full": 0.392,
+   "no_crossing": 0.312
+  },
+  "entry_coverage": 0.615,
+  "multi_chain_share": 0.166,
+  "echo_share": 0.0097,
+  "verdict": "red",
+  "reasons": [
+   "turn cell E_right counts 2.77x its historical flow (444 vs ~160.0)",
+   "turn cell W_left: 54 counts, NO history, 87% gate-override \u2014 geometry phantom suspect"
+  ]
+ },
+ {
+  "camera_id": 2,
+  "variant": "study_1600",
+  "window_seconds": 7200.0,
+  "stop_fracture_collapsed": 76,
+  "dump_backend": "botsort",
+  "activation": {
+   "coverage": 0.489,
+   "threshold": 0.45,
+   "activated": true
+  },
+  "tracks": 11735,
+  "insufficient": 4123,
+  "origin_flow_inferred": 144,
+  "twin_pairs": 157,
+  "merged_away": 84,
+  "borderline_cells": 0,
+  "counted_events": 7254,
+  "guessed_events": 880,
+  "guessed_share": 0.121,
+  "twin_rate": 0.0216,
+  "diverging_cells": [
+   {
+    "cell": "E_right",
+    "origin_leg_id": 28,
+    "destination_leg_id": 29,
+    "movement": "right",
+    "counted": 968,
+    "expected": 160.0,
+    "ratio": 6.05,
+    "excess_share": 0.111,
+    "red": true
+   },
+   {
+    "cell": "W_left",
+    "origin_leg_id": 26,
+    "destination_leg_id": 29,
+    "movement": "left",
+    "counted": 53,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.79,
+    "excess_share": 0.007,
+    "red": true,
+    "no_prior": true,
+    "phantom_suspect": true
+   }
+  ],
+  "tag_mix": {
+   "entry_only": 0.261,
+   "exit_only": 0.076,
+   "full": 0.352,
+   "no_crossing": 0.311
+  },
+  "entry_coverage": 0.613,
+  "multi_chain_share": 0.151,
+  "echo_share": 0.0139,
+  "verdict": "red",
+  "reasons": [
+   "turn cell E_right counts 6.05x its historical flow (968 vs ~160.0)",
+   "turn cell W_left: 53 counts, NO history, 79% gate-override \u2014 geometry phantom suspect"
+  ]
+ },
+ {
+  "camera_id": 3,
+  "variant": "study_0000",
+  "window_seconds": 86400.0,
+  "stop_fracture_collapsed": null,
+  "dump_backend": "botsort",
+  "activation": null,
+  "tracks": 39549,
+  "insufficient": 8585,
+  "origin_flow_inferred": null,
+  "twin_pairs": null,
+  "merged_away": 61,
+  "borderline_cells": 1,
+  "counted_events": 30561,
+  "guessed_events": 4538,
+  "guessed_share": 0.148,
+  "twin_rate": null,
+  "diverging_cells": [
+   {
+    "cell": "S_right",
+    "origin_leg_id": 30,
+    "destination_leg_id": 32,
+    "movement": "right",
+    "counted": 337,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.02,
+    "excess_share": 0.011,
+    "red": false,
+    "no_prior": true,
+    "phantom_suspect": false
+   },
+   {
+    "cell": "N_left",
+    "origin_leg_id": 31,
+    "destination_leg_id": 32,
+    "movement": "left",
+    "counted": 102,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.07,
+    "excess_share": 0.003,
+    "red": false,
+    "no_prior": true,
+    "phantom_suspect": false
+   },
+   {
+    "cell": "S_u_turn",
+    "origin_leg_id": 30,
+    "destination_leg_id": 30,
+    "movement": "u_turn",
+    "counted": 39,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.15,
+    "excess_share": 0.001,
+    "red": false,
+    "no_prior": true,
+    "phantom_suspect": false
+   }
+  ],
+  "tag_mix": {
+   "entry_only": 0.036,
+   "exit_only": 0.558,
+   "full": 0.232,
+   "no_crossing": 0.174
+  },
+  "entry_coverage": 0.268,
+  "multi_chain_share": 0.061,
+  "echo_share": 0.0115,
+  "verdict": "red",
+  "reasons": [
+   "turn cell S_right: 337 path-agreeing counts the bank never sampled (bank gap)",
+   "turn cell N_left: 102 path-agreeing counts the bank never sampled (bank gap)",
+   "turn cell S_u_turn: 39 path-agreeing counts the bank never sampled (bank gap)",
+   "only 27% of tracks have a witnessed entry"
+  ]
+ },
+ {
+  "camera_id": 3,
+  "variant": "study_0600",
+  "window_seconds": 50400.0,
+  "stop_fracture_collapsed": null,
+  "dump_backend": "botsort",
+  "activation": {
+   "coverage": 0.547,
+   "threshold": 0.45,
+   "activated": true
+  },
+  "tracks": 46388,
+  "insufficient": 11995,
+  "origin_flow_inferred": 1766,
+  "twin_pairs": 2951,
+  "merged_away": 14,
+  "borderline_cells": 0,
+  "counted_events": 29415,
+  "guessed_events": 4538,
+  "guessed_share": 0.154,
+  "twin_rate": 0.1003,
+  "diverging_cells": [
+   {
+    "cell": "S_right",
+    "origin_leg_id": 30,
+    "destination_leg_id": 32,
+    "movement": "right",
+    "counted": 294,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.02,
+    "excess_share": 0.01,
+    "red": false,
+    "no_prior": true,
+    "phantom_suspect": false
+   },
+   {
+    "cell": "N_left",
+    "origin_leg_id": 31,
+    "destination_leg_id": 32,
+    "movement": "left",
+    "counted": 99,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.07,
+    "excess_share": 0.003,
+    "red": false,
+    "no_prior": true,
+    "phantom_suspect": false
+   }
+  ],
+  "tag_mix": {
+   "entry_only": 0.096,
+   "exit_only": 0.258,
+   "full": 0.409,
+   "no_crossing": 0.238
+  },
+  "entry_coverage": 0.504,
+  "multi_chain_share": 0.101,
+  "echo_share": 0.0256,
+  "verdict": "amber",
+  "reasons": [
+   "turn cell S_right: 294 path-agreeing counts the bank never sampled (bank gap)",
+   "turn cell N_left: 99 path-agreeing counts the bank never sampled (bank gap)"
+  ]
+ },
+ {
+  "camera_id": 4,
+  "variant": "study_0700",
+  "window_seconds": 7200.0,
+  "stop_fracture_collapsed": null,
+  "dump_backend": "bytetrack",
+  "activation": {
+   "coverage": 0.304,
+   "threshold": 0.45,
+   "activated": false
+  },
+  "tracks": 7664,
+  "insufficient": 2389,
+  "origin_flow_inferred": null,
+  "twin_pairs": null,
+  "merged_away": 24,
+  "borderline_cells": 0,
+  "counted_events": 4956,
+  "guessed_events": 0,
+  "guessed_share": 0.0,
+  "twin_rate": null,
+  "diverging_cells": [],
+  "tag_mix": {
+   "entry_only": 0.132,
+   "exit_only": 0.368,
+   "full": 0.221,
+   "no_crossing": 0.279
+  },
+  "entry_coverage": 0.353,
+  "multi_chain_share": 0.208,
+  "echo_share": 0.1104,
+  "verdict": "red",
+  "reasons": [
+   "evidence channel OFF (coverage 0.304 < 0.45) - attribution runs on guesses",
+   "entry coverage 35%",
+   "same-cell echo share 11.0%"
+  ]
+ },
+ {
+  "camera_id": 4,
+  "variant": "study_1100",
+  "window_seconds": 7200.0,
+  "stop_fracture_collapsed": null,
+  "dump_backend": "bytetrack",
+  "activation": {
+   "coverage": 0.442,
+   "threshold": 0.45,
+   "activated": false
+  },
+  "tracks": 4970,
+  "insufficient": 1417,
+  "origin_flow_inferred": null,
+  "twin_pairs": null,
+  "merged_away": 44,
+  "borderline_cells": 0,
+  "counted_events": 3335,
+  "guessed_events": 0,
+  "guessed_share": 0.0,
+  "twin_rate": null,
+  "diverging_cells": [],
+  "tag_mix": {
+   "entry_only": 0.083,
+   "exit_only": 0.244,
+   "full": 0.432,
+   "no_crossing": 0.242
+  },
+  "entry_coverage": 0.514,
+  "multi_chain_share": 0.139,
+  "echo_share": 0.0648,
+  "verdict": "red",
+  "reasons": [
+   "evidence channel OFF (coverage 0.442 < 0.45) - attribution runs on guesses",
+   "same-cell echo share 6.5%"
+  ]
+ },
+ {
+  "camera_id": 4,
+  "variant": "study_1600",
+  "window_seconds": 7200.0,
+  "stop_fracture_collapsed": null,
+  "dump_backend": "bytetrack",
+  "activation": {
+   "coverage": 0.318,
+   "threshold": 0.45,
+   "activated": false
+  },
+  "tracks": 8986,
+  "insufficient": 2830,
+  "origin_flow_inferred": null,
+  "twin_pairs": null,
+  "merged_away": 139,
+  "borderline_cells": 0,
+  "counted_events": 5652,
+  "guessed_events": 0,
+  "guessed_share": 0.0,
+  "twin_rate": null,
+  "diverging_cells": [
+   {
+    "cell": "S_right",
+    "origin_leg_id": 33,
+    "destination_leg_id": 34,
+    "movement": "right",
+    "counted": 274,
+    "expected": 24.0,
+    "ratio": 11.42,
+    "excess_share": 0.044,
+    "red": true
+   }
+  ],
+  "tag_mix": {
+   "entry_only": 0.13,
+   "exit_only": 0.32,
+   "full": 0.257,
+   "no_crossing": 0.293
+  },
+  "entry_coverage": 0.387,
+  "multi_chain_share": 0.209,
+  "echo_share": 0.0885,
+  "verdict": "red",
+  "reasons": [
+   "evidence channel OFF (coverage 0.318 < 0.45) - attribution runs on guesses",
+   "turn cell S_right counts 11.42x its historical flow (274 vs ~24.0)",
+   "entry coverage 39%",
+   "same-cell echo share 8.8%"
+  ]
+ },
+ {
+  "camera_id": 5,
+  "variant": "study_0700",
+  "window_seconds": 7200.0,
+  "stop_fracture_collapsed": null,
+  "dump_backend": "bytetrack",
+  "activation": {
+   "coverage": 0.509,
+   "threshold": 0.45,
+   "activated": true
+  },
+  "tracks": 7421,
+  "insufficient": 1710,
+  "origin_flow_inferred": 80,
+  "twin_pairs": 609,
+  "merged_away": 106,
+  "borderline_cells": 1,
+  "counted_events": 5067,
+  "guessed_events": 0,
+  "guessed_share": 0.0,
+  "twin_rate": 0.1202,
+  "diverging_cells": [
+   {
+    "cell": "W_left",
+    "origin_leg_id": 36,
+    "destination_leg_id": 39,
+    "movement": "left",
+    "counted": 45,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.0,
+    "excess_share": 0.009,
+    "red": false,
+    "no_prior": true,
+    "phantom_suspect": false
+   }
+  ],
+  "tag_mix": {
+   "entry_only": 0.155,
+   "exit_only": 0.27,
+   "full": 0.274,
+   "no_crossing": 0.301
+  },
+  "entry_coverage": 0.429,
+  "multi_chain_share": 0.198,
+  "echo_share": 0.0626,
+  "verdict": "amber",
+  "reasons": [
+   "turn cell W_left: 45 path-agreeing counts the bank never sampled (bank gap)",
+   "entry coverage 43%",
+   "same-cell echo share 6.3%"
+  ]
+ },
+ {
+  "camera_id": 5,
+  "variant": "study_1100",
+  "window_seconds": 7200.0,
+  "stop_fracture_collapsed": null,
+  "dump_backend": "bytetrack",
+  "activation": {
+   "coverage": 0.56,
+   "threshold": 0.45,
+   "activated": true
+  },
+  "tracks": 5590,
+  "insufficient": 1458,
+  "origin_flow_inferred": 107,
+  "twin_pairs": 457,
+  "merged_away": 34,
+  "borderline_cells": 0,
+  "counted_events": 3669,
+  "guessed_events": 0,
+  "guessed_share": 0.0,
+  "twin_rate": 0.1246,
+  "diverging_cells": [],
+  "tag_mix": {
+   "entry_only": 0.124,
+   "exit_only": 0.187,
+   "full": 0.42,
+   "no_crossing": 0.268
+  },
+  "entry_coverage": 0.545,
+  "multi_chain_share": 0.167,
+  "echo_share": 0.0431,
+  "verdict": "amber",
+  "reasons": [
+   "same-cell echo share 4.3%"
+  ]
+ },
+ {
+  "camera_id": 5,
+  "variant": "study_1600",
+  "window_seconds": 7200.0,
+  "stop_fracture_collapsed": null,
+  "dump_backend": "bytetrack",
+  "activation": {
+   "coverage": 0.578,
+   "threshold": 0.45,
+   "activated": true
+  },
+  "tracks": 8649,
+  "insufficient": 2022,
+  "origin_flow_inferred": 121,
+  "twin_pairs": 665,
+  "merged_away": 134,
+  "borderline_cells": 0,
+  "counted_events": 6047,
+  "guessed_events": 0,
+  "guessed_share": 0.0,
+  "twin_rate": 0.11,
+  "diverging_cells": [
+   {
+    "cell": "W_left",
+    "origin_leg_id": 36,
+    "destination_leg_id": 39,
+    "movement": "left",
+    "counted": 43,
+    "expected": 0.0,
+    "ratio": null,
+    "gate_full_share": 0.0,
+    "excess_share": 0.007,
+    "red": false,
+    "no_prior": true,
+    "phantom_suspect": false
+   }
+  ],
+  "tag_mix": {
+   "entry_only": 0.108,
+   "exit_only": 0.264,
+   "full": 0.38,
+   "no_crossing": 0.248
+  },
+  "entry_coverage": 0.488,
+  "multi_chain_share": 0.16,
+  "echo_share": 0.0529,
+  "verdict": "amber",
+  "reasons": [
+   "turn cell W_left: 43 path-agreeing counts the bank never sampled (bank gap)",
+   "entry coverage 49%",
+   "same-cell echo share 5.3%"
+  ]
+ }
+]

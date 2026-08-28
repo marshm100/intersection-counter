@@ -655,6 +655,17 @@ redistributes echo mass instead of deleting it.
 
 ## CHANGELOG
 
+- 2026-08-28: **G-SD-1 ACCEPTED — the self-diagnosis instrument
+  ships** (docs/plan_study_health_2026-08-28.md). The machine now
+  health-checks every study reference-free (provenance anatomy,
+  phantom/bank-gap discrimination, activation, echo, divergence) and
+  feeds review cards; operator confirmed-real rulings become standing
+  cell exemptions (no-prior flags only; ratio flags and miscount
+  rulings never exempt). S4 review found a real miscount via a
+  gentle flag and named a new disease class: LIGHT/SHADOW DETECTION
+  DROPOUTS (chartered with cam1's morning-light break). Standing
+  chartered: bank refresh; clip-length note.
+
 - 2026-08-28: **cam5 near-field ship REVERSED** (full record in
   docs/plan_fleet_gates_2026-08-26.md): the b145 recipe's approach
   gains were phantom-turn cancellation (NB_right 218-449 vs Mio

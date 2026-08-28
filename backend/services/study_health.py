@@ -67,6 +67,40 @@ def _stats_sidecar(project_id: str, camera_id: int, variant: str,
         return None
 
 
+def _ruled_real_cells(project_id: str, camera_id: int) -> dict:
+    """Operator-confirmed-real health rulings (S4 law, 2026-08-28:
+    'we are being too conservative... but I do not want to blow up the
+    accuracy'): a cell the operator WATCHED and confirmed real stops
+    flagging — until its volume grows 1.5x past what was reviewed,
+    which re-opens it. A miscount ruling never exempts. Returns
+    {(origin_leg_id, movement): reviewed_count}."""
+    from backend.database import list_review_log
+    out: dict = {}
+    try:
+        for r in list_review_log(project_id):
+            if r.get("camera_id") != camera_id:
+                continue
+            if r.get("action") != "confirmed_real":
+                continue
+            det = r.get("detail_json") or ""
+            note = (r.get("note") or "")
+            # cell identity travels in the evidence of the health card
+            # the ruling closed; the reel rulings carry it in detail
+            import json as _json
+            try:
+                d = _json.loads(det) if det else {}
+            except Exception:
+                d = {}
+            o = d.get("origin_leg_id")
+            mv = d.get("movement")
+            n = d.get("counted") or 0
+            if o is not None and mv:
+                out[(int(o), mv)] = max(out.get((int(o), mv), 0), int(n))
+    except Exception:
+        pass
+    return out
+
+
 def collect_signals(project_id: str, camera_id: int, variant: str, *,
                     db_path: str | Path | None = None,
                     workdir: Path | None = None) -> dict | None:
@@ -164,6 +198,7 @@ def collect_signals(project_id: str, camera_id: int, variant: str, *,
 
     # flow divergence per TURN cell (the lane-echo signature)
     diverging = []
+    ruled = _ruled_real_cells(project_id, camera_id)
     for (o, d, mv), (n, ngf) in cells.items():
         if mv not in ("left", "right", "u_turn") or n < DIVERGENCE_MIN_N:
             continue
@@ -172,6 +207,15 @@ def collect_signals(project_id: str, camera_id: int, variant: str, *,
         gf_share = ngf / n if n else 0.0
         exp = expected.get((o, d))
         if not exp or exp <= 0:
+            # Ruled exemptions apply HERE ONLY (S4 law): a no-prior flag
+            # asks "is this cell's traffic real?" — a confirmed-real
+            # ruling answers it. A RATIO flag asks about VOLUME, which
+            # one real member never answers (the fisheye cell's samples
+            # are real; its volume is still 6x) — ratio flags are never
+            # exempted.
+            reviewed = ruled.get((o, mv))
+            if reviewed and n <= 1.5 * reviewed:
+                continue      # operator watched this cell, ruled it real
             # NO PRIOR AT ALL. Two very different diseases live here
             # (S2 iteration 2, measured 2026-08-28): a cell DOMINATED
             # BY GATE OVERRIDES (posterior_source gate_full = the gates

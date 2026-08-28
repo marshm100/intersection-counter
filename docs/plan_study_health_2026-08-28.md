@@ -109,3 +109,29 @@ Six scenes ruled:
   morning-light break) — chartered as a future lever, not built.
   The health card's flag led the operator's eyes straight to it:
   the instrument's end-to-end loop WORKED.
+
+## G-SD-1 VERDICT (2026-08-28): ACCEPTED, with the operator's
+## calibration ruling built in
+
+Operator's acceptance answer: no false-confidence windows; the
+critique runs the other way — "we are being too conservative, most of
+the errors have been correct movements, but I do not want to take
+that too far and we blow up the accuracy of our machine."
+
+The remedy, implemented WITHOUT loosening any threshold (the budget
+is consumed; loosening is how diseases slip through): RULED
+EXEMPTIONS — an operator confirmed-real ruling on a health card
+silences that cell's NO-PRIOR flag until its volume grows 1.5x past
+the reviewed count (re-opening it). Scoped strictly: ratio/volume
+flags are never exempted (one real member does not vouch for a 6x
+volume — the fisheye lesson, caught when the first implementation
+over-applied and was corrected in the same hour); a miscount ruling
+never exempts (scene 6's cell stays flagged). The operator's review
+minutes are the calibration — exactly the mandate's division of
+labor.
+
+The instrument SHIPS: health report + cards run in the standard flag
+rebuild on every study (feed_health is registered); the report page
+generator and the reel pattern are the review surface. Chartered
+follow-ups standing: bank refresh (the root of most conservatism);
+light/shadow-dropout disease class; clip-length instrument note.
