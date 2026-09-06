@@ -62,10 +62,22 @@ def generate_atr_xlsx(project_id: str, output_path: Path,
         # column set: (leg, dir) sorted by leg then in/out
         cols = sorted(res["totals"].keys())
         legs = res["legs"]
+        cardinals = res.get("cardinals", {})
+        # Travel-direction naming (operator spec 2026-09-06: one line on
+        # the Northern leg captures BOTH Southbound and Northbound —
+        # columns carry the direction of travel, not in/out):
+        # crossing INWARD through the N leg = traveling south, etc.
+        _IN_DIR = {"N": "Southbound", "S": "Northbound",
+                   "E": "Westbound", "W": "Eastbound"}
+        _OUT_DIR = {"N": "Northbound", "S": "Southbound",
+                    "E": "Eastbound", "W": "Westbound"}
 
         def colname(key):
             lid, d = key.split(":")
-            return f"{legs.get(int(lid), lid)} ({d.upper()})"
+            card = cardinals.get(int(lid))
+            trav = (_IN_DIR if d == "in" else _OUT_DIR).get(card)
+            base = legs.get(int(lid), lid)
+            return f"{base} — {trav}" if trav else f"{base} ({d.upper()})"
 
         ws = wb.create_sheet(f"Volumes {w['variant'][-4:]}")
         ws["A1"] = f"{name} — {w['variant']} directional volumes"
@@ -140,6 +152,56 @@ def generate_atr_xlsx(project_id: str, output_path: Path,
             ws.cell(row=r, column=4,
                     value=f"PHF {phf}" if phf else "")
             r += 1
+        # ---- rolling hourly totals (operator spec: 7:00-8:00,
+        # 7:15-8:15, ... every 15-minute step) --------------------------
+        r += 1
+        c = ws.cell(row=r, column=1, value="Rolling hourly totals")
+        _bold(c)
+        r += 1
+        ws.cell(row=r, column=1, value="Hour starting")
+        for j, key in enumerate(cols):
+            _bold(ws.cell(row=r, column=2 + j, value=colname(key)))
+        _bold(ws.cell(row=r, column=2 + len(cols), value="Total"))
+        r += 1
+        nb = res["bins"]
+        for i in range(len(nb) - 3):
+            ws.cell(row=r, column=1, value=nb[i]["label"])
+            tot = 0
+            for j, key in enumerate(cols):
+                v = sum(nb[i + k]["counts"].get(key, 0) for k in range(4))
+                ws.cell(row=r, column=2 + j, value=int(v))
+                tot += v
+            ws.cell(row=r, column=2 + len(cols), value=int(tot))
+            r += 1
+
+        # ---- class breakdown sheet (operator spec) --------------------
+        groups = ("car", "truck", "bus", "motorcycle")
+        cs = wb.create_sheet(f"Classes {w['variant'][-4:]}")
+        cs["A1"] = f"{name} — {w['variant']} vehicle classes"
+        _bold(cs["A1"])
+        hdr2 = 3
+        cs.cell(row=hdr2, column=1, value="Interval")
+        col_i = 2
+        cls_cols = []
+        for key in cols:
+            for g in groups:
+                _bold(cs.cell(row=hdr2, column=col_i,
+                              value=f"{colname(key)} {g}"))
+                cls_cols.append((key, g))
+                col_i += 1
+        rr = hdr2 + 1
+        for b in res["bins"]:
+            cs.cell(row=rr, column=1, value=b["label"])
+            for j, (key, g) in enumerate(cls_cols):
+                cs.cell(row=rr, column=2 + j,
+                        value=int(b["classes"].get(f"{key}:{g}", 0)))
+            rr += 1
+        _bold(cs.cell(row=rr, column=1, value="Total"))
+        for j, (key, g) in enumerate(cls_cols):
+            tot = sum(int(b["classes"].get(f"{key}:{g}", 0))
+                      for b in res["bins"])
+            _bold(cs.cell(row=rr, column=2 + j, value=tot))
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)
     return output_path

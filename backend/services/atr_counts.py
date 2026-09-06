@@ -80,6 +80,9 @@ def count_screenline_crossings(project_id: str, camera_id: int,
         legs = {int(r[0]): r[1] for r in conn.execute(
             "SELECT leg_id, label FROM legs WHERE camera_id = ?",
             (camera_id,))}
+        cardinals = {int(r[0]): r[1] for r in conn.execute(
+            "SELECT leg_id, cardinal_direction FROM legs "
+            "WHERE camera_id = ?", (camera_id,))}
     finally:
         conn.close()
     chash = vid[0] or resolve_content_hash(project_id, camera_id, vid[3])
@@ -150,7 +153,7 @@ def count_screenline_crossings(project_id: str, camera_id: int,
             if cur <= wc < nxt:
                 key = f"{leg}:{'in' if inward else 'out'}"
                 counts[key] += 1
-                cls_counts[group] += 1
+                cls_counts[f"{key}:{group}"] += 1
                 totals[key] += 1
         bins.append({"start": cur.isoformat(),
                      "label": cur.strftime("%H:%M"),
@@ -158,7 +161,8 @@ def count_screenline_crossings(project_id: str, camera_id: int,
                      "classes": dict(cls_counts),
                      "total": sum(counts.values())})
         cur = nxt
-    return {"bins": bins, "legs": legs, "totals": dict(totals),
+    return {"bins": bins, "legs": legs, "cardinals": cardinals,
+            "totals": dict(totals),
             "window": [(rec_start + timedelta(seconds=t_lo)).isoformat(),
                        (rec_start + timedelta(seconds=t_hi)).isoformat()],
             "crossings_deduped": dropped,
