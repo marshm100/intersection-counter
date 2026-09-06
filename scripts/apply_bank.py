@@ -166,9 +166,9 @@ def apply_bank_to_db(*, camera: int, project: str = "97a7849a", bank_path=None,
             c.execute("DELETE FROM intersection_paths WHERE camera_id=?", (cam,))
             now = datetime.now().isoformat()
             for p in sug.get("paths", []):
-                c.execute("INSERT OR REPLACE INTO intersection_paths (camera_id,origin_leg_id,destination_leg_id,polyline,movement_label,supporting_count,source,created_at) VALUES (?,?,?,?,?,?,?,?)",
+                c.execute("INSERT OR REPLACE INTO intersection_paths (camera_id,origin_leg_id,destination_leg_id,polyline,movement_label,supporting_count,sample_window_seconds,source,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
                           (cam, p["origin_leg_id"], p["destination_leg_id"], json.dumps(p["polyline"]),
-                           p["movement_label"], p.get("supporting_count", 0), p.get("source", "data-driven"), now))
+                           p["movement_label"], p.get("supporting_count", 0), sug.get("window_seconds"), p.get("source", "data-driven"), now))
         c.execute("DETACH DATABASE src"); c.close()
         print(f"[apply] cam{cam} events {before} -> {after}; bank paths applied. Backup {backup}")
     else:
