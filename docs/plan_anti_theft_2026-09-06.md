@@ -55,3 +55,25 @@ disputed detection has a strictly better-fitting alternative owner
 (another track's projection or a fresh-birth case), never on an
 uncontested claim; drop the graced-lost extension to first pass
 only. Unit scenarios all still hold.
+
+## G-LT-1 verdict — iteration 2: MISS (recorded 2026-09-07; budget exhausted)
+
+Corridor movement 77.1 -> 70.6 (guard) / 70.1 (+concealer). The
+discipline fixed the fragmentation catastrophe (iter-1 53.8), and
+the per-window split is the real finding:
+  WINS:  cam1-0700 64.2 -> 70.5 (+6.3!), cam2-1100 70.4 -> 72.1
+  NEAR:  cam3 83.7 -> 82.9
+  LOSSES: cam1-1600 86.2 -> 47.9 (the best window collapsed; the
+  botsort+reid recipe), cam2-0700 -11.9, cam2-1600 -9.2
+
+Gate letter: corridor must rise, no window may drop > 1.0 — MISS.
+Flags remain OFF; nothing shipped; eg_ dumps retained as scratch.
+
+BANKED LEARNINGS (third identity campaign, same lesson): (1) the
+theft diagnosis is real and PAYS where theft density is highest
+(cam1 mornings +6.3 proves the mechanism); (2) blanket tracker-level
+identity enforcement fights the downstream rescue equilibrium and
+loses its winnings in the best-tuned windows; (3) any future revival
+should be PER-WINDOW (calibration knob, ship only where it wins) or
+appearance-informed (the light-accomplice finding: position alone
+cannot separate a thief from noise at sub-box distances).
