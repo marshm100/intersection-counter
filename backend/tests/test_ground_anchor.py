@@ -1,0 +1,66 @@
+"""The threshold law (operator ruling 2026-09-07) — ground-anchored
+gate crossings. A gate is a threshold on the ground: only the bbox
+BOTTOM crossing the line counts; a tall vehicle passing in front of
+a background line never does."""
+import pytest
+
+import backend.config as cfg
+import backend.services.pipeline as pl
+from backend.services.pipeline import ProcessingPipeline
+
+
+def _pipe():
+    p = ProcessingPipeline.__new__(ProcessingPipeline)
+    # one horizontal gate line at y=200, inward normal pointing down
+    # (into the intersection below the line)
+    p._entry_gates = {7: ((100.0, 200.0), (300.0, 200.0), (0.0, 1.0))}
+    p.fps = 25.0
+    return p
+
+
+def _vehicle(traj, heights):
+    return {"start_frame": 100, "trajectory": traj,
+            "bbox_heights": heights}
+
+
+def _walk(y0, y1, n=12):
+    return [(200.0, y0 + (y1 - y0) * i / (n - 1)) for i in range(n)]
+
+
+class TestThresholdLaw:
+    def test_tall_vehicle_in_front_not_crossing(self, monkeypatch):
+        # center drifts from y=215 to y=185 (crosses the line at 200)
+        # but the box is 60 tall: bottom goes 245 -> 215, never
+        # crossing. Flag off books the crossing; flag on refuses it.
+        traj = _walk(215.0, 185.0)
+        v = _vehicle(traj, [60.0] * len(traj))
+        monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", False)
+        o_off, d_off, tag_off = _pipe()._gate_evidence(v)
+        monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", True)
+        o_on, d_on, tag_on = _pipe()._gate_evidence(v)
+        assert tag_off != "no_crossing"       # the phantom mechanism
+        assert (o_on, d_on, tag_on)[2] in (None, "no_crossing")
+
+    def test_real_crossing_counted_under_both(self, monkeypatch):
+        # bottom passes over the line: center 250 -> 130 with a 40
+        # box => bottom 270 -> 150, genuinely crossing 200
+        traj = _walk(250.0, 130.0)
+        v = _vehicle(traj, [40.0] * len(traj))
+        for flag in (False, True):
+            monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", flag)
+            _o, _d, tag = _pipe()._gate_evidence(v)
+            assert tag != "no_crossing", f"flag={flag}"
+
+    def test_missing_heights_falls_back_to_centers(self, monkeypatch):
+        monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", True)
+        traj = _walk(215.0, 185.0)
+        v = {"start_frame": 100, "trajectory": traj}   # no ledger
+        _o, _d, tag = _pipe()._gate_evidence(v)
+        assert tag != "no_crossing"           # center behavior preserved
+
+    def test_short_ledger_falls_back(self, monkeypatch):
+        monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", True)
+        traj = _walk(215.0, 185.0)
+        v = _vehicle(traj, [60.0] * 3)        # misaligned ledger
+        _o, _d, tag = _pipe()._gate_evidence(v)
+        assert tag != "no_crossing"

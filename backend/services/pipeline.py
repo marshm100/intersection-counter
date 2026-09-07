@@ -782,6 +782,10 @@ class ProcessingPipeline:
                 "start_frame": frame_number,
                 "last_seen_frame": frame_number,
                 "trajectory": [],
+                # Threshold-law ledger (2026-09-07): per-frame bbox
+                # heights, index-aligned with trajectory, so the gate
+                # evidence can anchor at the ground-contact point.
+                "bbox_heights": [],
                 "confidences": [],
                 "class_id": detection["class_id"],
                 "class_name": detection["class_name"],
@@ -806,6 +810,8 @@ class ProcessingPipeline:
 
         vehicle = self.active_vehicles[track_id]
         vehicle["trajectory"].append(center)
+        vehicle.setdefault("bbox_heights", []).append(
+            detection["bbox_height"])
         vehicle["confidences"].append(detection["confidence"])
         vehicle["bbox_width"] = detection["bbox_width"]
         vehicle["bbox_height"] = detection["bbox_height"]
@@ -1293,8 +1299,20 @@ class ProcessingPipeline:
         if not gates:
             return None, None, None
         f0 = vehicle.get("start_frame") or 0
-        pts = [(float(f0 + i), float(p[0]), float(p[1]))
-               for i, p in enumerate(vehicle["trajectory"])]
+        traj = vehicle["trajectory"]
+        heights = vehicle.get("bbox_heights") or []
+        from backend.config import GATE_GROUND_ANCHOR
+        if GATE_GROUND_ANCHOR and len(heights) == len(traj):
+            # The threshold law (operator ruling 2026-09-07): the
+            # crossing test point is the GROUND CONTACT (box bottom),
+            # so a tall vehicle passing in front of a background gate
+            # line never reads as crossing it.
+            pts = [(float(f0 + i), float(p[0]),
+                    float(p[1]) + float(heights[i]) / 2.0)
+                   for i, p in enumerate(traj)]
+        else:
+            pts = [(float(f0 + i), float(p[0]), float(p[1]))
+                   for i, p in enumerate(traj)]
         if len(pts) < 2:
             return None, None, None
         origin, dest, _fo, _fd, _op, _dp, tag = gate_classify(pts, gates, self.fps)

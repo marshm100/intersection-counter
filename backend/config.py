@@ -231,6 +231,15 @@ CHAIN_GLUE = _os2.environ.get("CHAIN_GLUE", "0") in ("1", "true", "on")
 # hand-over; a mid-scene newborn inherits its origin from the
 # concealer it was hidden behind (gate-evidenced origins only).
 # Default OFF until G-LT-1 passes and the operator ships them.
+# THE THRESHOLD LAW (operator ruling 2026-09-07, confirmed 4/4 on the
+# phantom-driveway reel): a gate is a threshold ON THE GROUND. A tall
+# vehicle passing IN FRONT of a background gate line must not count as
+# crossing it — only the bounding box BOTTOM (the ground-contact point)
+# crossing the line counts. Anchors the gate-evidence crossing test at
+# (cx, cy + bh/2) instead of the box center. Default OFF until G-C1-1
+# iteration 2 passes and the operator ships it.
+GATE_GROUND_ANCHOR = _os2.environ.get("GATE_GROUND_ANCHOR", "0") in ("1", "true", "on")
+
 EMERGENCE_GUARD = _os2.environ.get("EMERGENCE_GUARD", "0") in ("1", "true", "on")
 CONCEALER_ORIGIN_INHERITANCE = _os2.environ.get(
     "CONCEALER_ORIGIN_INHERITANCE", "0") in ("1", "true", "on")
