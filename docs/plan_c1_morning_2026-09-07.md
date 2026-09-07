@@ -84,3 +84,20 @@ never decisive. Ship = the whole cam1-0700 package on operator go.
 ## G-SF-1 verdict
 
 (to be recorded)
+
+## G-SF-1 verdict: PASS (recorded 2026-09-07)
+
+94 reroutes, 0 drops. Movement 61.8 -> 75.0 (baseline 64.2, old
+production 60.5). NB_right 111 -> 18 (Mio 3); NB_thru 1920 -> 2013
+(deficit 449 -> 128 across the campaign, 72% recovered). Zero
+collateral: every genuine turn cell byte-identical; scored cells 76
+vs 81 baseline (no phantom-slack minting). One predicate fix during
+the arm: the polyline scorer returns a no-destination dict, which is
+still a guess (widened to destination-mismatch test).
+
+Remaining known, not this gate: SB_thru 1552 vs 1756 (the
+activation knife-edge, coverage 0.439 vs 0.45, evidence channel
+off) and NB_thru's last 128.
+
+Ship candidate: the cam1-0700 package = l1 basis + GATE_GROUND_ANCHOR
++ STRAIGHT_FRAGMENT_RULE, per-window promotion on operator go.

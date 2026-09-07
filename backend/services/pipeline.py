@@ -897,7 +897,10 @@ class ProcessingPipeline:
                                     STRAIGHT_FRAGMENT_RULE)
         if not (STRAIGHT_FRAGMENT_RULE
                 and movement in ("left", "right", "u_turn")
-                and polyline_dest is None
+                and (polyline_dest is None
+                     or polyline_dest.get("destination_leg_id") is None
+                     or polyline_dest.get("destination_leg_id")
+                     != destination_leg_id)
                 and posterior_source is None
                 and (gate_dest is None or destination_leg_id != gate_dest)
                 and classification.get("num_points", 0)
