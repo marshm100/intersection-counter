@@ -55,7 +55,7 @@ def main() -> int:
     t = time.time()
     r = subprocess.run([sys.executable, "-X", "utf8",
                         "scripts/build_reid_cache.py", "--camera", "1",
-                        "--variant", "l1_study_0700", "--device", "cuda",
+                        "--variant", "l1_study_0700", "--device", "0",
                         "--start-hms", "07:00:00", "--minutes", "120"],
                        capture_output=True, text=True)
     print(f"stage 2 (reid sidecar): rc={r.returncode} "
