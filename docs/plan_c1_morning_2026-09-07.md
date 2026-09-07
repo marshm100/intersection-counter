@@ -39,3 +39,24 @@ scores 86.2 on the big-detector evening basis. GPU spend justified.
 ## Verdict
 
 (to be recorded)
+
+## Iteration 2 (threshold law) result — recorded 2026-09-07
+
+Operator ruling implemented (ground-contact crossing anchor,
+GATE_GROUND_ANCHOR): WB_right phantoms 68 -> 1 (Mio 1, PERFECT);
+NB_right 147 -> 111; NB_thru recovered further 1846 -> 1920 (deficit
+449 -> 221); movement 61.0 -> 61.8, approach 59.4 -> 64.5.
+
+Two remaining mechanisms, both measured:
+1. RESIDUAL NB_right (111 vs Mio 3): the drawn driveway line lies ON
+   the far road surface, so far-lane vehicles' ground contacts
+   genuinely cross it at ground level. The anchor cannot fix a line
+   that overhangs the roadway — the line must move to the driveway's
+   actual mouth (operator calibration surface).
+2. ACTIVATION KNIFE-EDGE (the mapped hazard, live): probe coverage
+   fell 0.439 vs the 0.45 bar -> evidence channel flipped OFF for
+   the window, costing SB_thru 1741 -> 1551. A 1.1% miss on a fixed
+   bar, not a defect of the anchor.
+
+G-C1-1's two iterations are spent. Both remaining moves are operator
+calls: the gate redraw (his surface) + one post-redraw re-run.
