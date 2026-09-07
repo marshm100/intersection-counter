@@ -50,3 +50,13 @@ cam4 mornings. Quantifies the chartered cam4-fragility item.
 
 Ship decision: with the operator's go, apply the 33-row refresh to
 production (pre-ship backup; rollback sidecars already written).
+
+## SHIPPED (operator go, 2026-09-06)
+
+Backup: backups/project_20260906T191344_pre_ship_bankref.db.
+Applied to production; byte-verified: priors == the validated
+snapshot (33 rows), geometry byte-identical, vehicle_events
+untouched (95,070). Rollback sidecars
+bank_refresh_rollback_cam{1..5}.json next to project.db. Health
+sidecars rewritten (cam1-1600 amber, cam2 green/green/amber) and
+worklist flags rebuilt for all five intersections.
