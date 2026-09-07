@@ -284,6 +284,8 @@ class ProcessingPipeline:
         self.n_origin_rescued: int = 0
         self.n_origin_flow_inferred: int = 0
         self.n_origin_concealer_inherited: int = 0
+        self.n_straight_rerouted: int = 0
+        self.n_straight_dropped: int = 0
         self.n_origin_rewrite_vetoed: int = 0
         # Origin-evidence gate (item-8 mechanism 1): entry-gate crossings bind
         # origin and filter the joint scorer's candidates. Counters instrument
@@ -872,6 +874,82 @@ class ProcessingPipeline:
                 and p.get("origin_leg_id") is not None
                 and p.get("destination_leg_id") is not None
                 and p.get("polyline")]
+
+    def _straight_fragment_reroute(self, vehicle, trajectory,
+                                   classification, origin_leg_id,
+                                   origin_leg, destination_leg_id,
+                                   movement, polyline_dest,
+                                   posterior_source, gate_dest,
+                                   dest_result):
+        """THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): a
+        vehicle that never curved cannot be booked as a TURN on a
+        guess. Fires only on the softmax fallback's guesses
+        (polyline_dest None, no posterior source, no gate-dest
+        agreement — evidence always wins) when the trajectory is
+        measurably straight. Returns None (untouched), "drop", or the
+        rerouted (dest_id, dest_leg, movement, dest_result, source).
+        The 5-deg constant is the measured operating point
+        (collateral 2 genuine rights; the classifier's 25-deg band
+        would take 65 — never reuse it here)."""
+        from backend.config import (STRAIGHT_FRAGMENT_MAX_NHC_DEG,
+                                    STRAIGHT_FRAGMENT_MIN_POINTS,
+                                    STRAIGHT_FRAGMENT_MIN_STRAIGHTNESS,
+                                    STRAIGHT_FRAGMENT_RULE)
+        if not (STRAIGHT_FRAGMENT_RULE
+                and movement in ("left", "right", "u_turn")
+                and polyline_dest is None
+                and posterior_source is None
+                and (gate_dest is None or destination_leg_id != gate_dest)
+                and classification.get("num_points", 0)
+                >= STRAIGHT_FRAGMENT_MIN_POINTS
+                and (classification.get("path_straightness") or 0.0)
+                >= STRAIGHT_FRAGMENT_MIN_STRAIGHTNESS):
+            return None
+        nhc = classification.get("net_heading_change")
+        ref = (origin_leg or {}).get("reference_heading")
+        if ref is not None and vehicle.get("reference_heading") != ref:
+            from backend.services.trajectory_classifier import (
+                compute_net_heading_change)
+            nhc = compute_net_heading_change(trajectory, ref)
+        if nhc is None or abs(nhc) > STRAIGHT_FRAGMENT_MAX_NHC_DEG:
+            return None
+        from backend.services.through_gate import bank_turn_pairs
+        from backend.services.trajectory_classifier import derive_movement
+        target = None
+        for o, d, _poly in self._through_paths():
+            if o == origin_leg_id:
+                target = d
+                break
+        if target is None:
+            from backend.services.cardinals import OPPOSITE
+            want = OPPOSITE.get(
+                (origin_leg or {}).get("cardinal_direction"))
+            if want:
+                target = next(
+                    (lg["leg_id"] for lg in self.legs
+                     if lg.get("cardinal_direction") == want), None)
+        tgt_leg = next((lg for lg in self.legs
+                        if lg["leg_id"] == target), None)
+        if (tgt_leg is not None and target != destination_leg_id
+                and derive_movement(origin_leg, tgt_leg,
+                                    self.legs) == "through"
+                and (origin_leg_id, target) not in bank_turn_pairs(
+                    getattr(self, "_gate_paths", None)
+                    or self._paths or [])):
+            self.n_straight_rerouted = getattr(
+                self, "n_straight_rerouted", 0) + 1
+            return (target, tgt_leg, "through",
+                    {"destination_leg_id": target,
+                     "confidence": (dest_result or {}).get(
+                         "confidence", 0.5),
+                     "posterior": {target: 1.0},
+                     "via": "straight_reroute"},
+                    "straight_reroute")
+        if target != destination_leg_id:
+            self.n_straight_dropped = getattr(
+                self, "n_straight_dropped", 0) + 1
+            return "drop"
+        return None
 
     def _compute_origin_veto(self, birth) -> frozenset:
         """Legs whose origin CLAIM this track may not take (the claim-time
@@ -1924,6 +2002,19 @@ class ProcessingPipeline:
             else:
                 self.n_insufficient_data += 1
                 return
+
+        # THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): runs
+        # AFTER gate_full supremacy + rescues, BEFORE turn_counts and
+        # the insert.
+        sfr = self._straight_fragment_reroute(
+            vehicle, trajectory, classification, origin_leg_id,
+            origin_leg, destination_leg_id, movement, polyline_dest,
+            posterior_source, gate_dest, dest_result)
+        if sfr == "drop":
+            return
+        if sfr is not None:
+            (destination_leg_id, destination_leg, movement,
+             dest_result, posterior_source) = sfr
 
         avg_conf = (
             sum(vehicle["confidences"]) / len(vehicle["confidences"])

@@ -240,6 +240,19 @@ CHAIN_GLUE = _os2.environ.get("CHAIN_GLUE", "0") in ("1", "true", "on")
 # iteration 2 passes and the operator ships it.
 GATE_GROUND_ANCHOR = _os2.environ.get("GATE_GROUND_ANCHOR", "0") in ("1", "true", "on")
 
+# THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): a vehicle
+# that never curved cannot be booked as a TURN on a guess. Measured:
+# cam1-0700's 111 phantom driveway turns are dead straight (0.975 /
+# +1.5 deg, identical to real throughs) and all came from the softmax
+# destination fallback with no bank path and no gate crossing. The 5
+# deg constant is the measured operating point (collateral: 2 genuine
+# rights; at the classifier's 25 deg band it explodes to 65 — never
+# reuse that band here). Default OFF until G-SF-1 passes.
+STRAIGHT_FRAGMENT_RULE = _os2.environ.get("STRAIGHT_FRAGMENT_RULE", "0") in ("1", "true", "on")
+STRAIGHT_FRAGMENT_MAX_NHC_DEG = 5.0
+STRAIGHT_FRAGMENT_MIN_STRAIGHTNESS = 0.95
+STRAIGHT_FRAGMENT_MIN_POINTS = 10
+
 EMERGENCE_GUARD = _os2.environ.get("EMERGENCE_GUARD", "0") in ("1", "true", "on")
 CONCEALER_ORIGIN_INHERITANCE = _os2.environ.get(
     "CONCEALER_ORIGIN_INHERITANCE", "0") in ("1", "true", "on")

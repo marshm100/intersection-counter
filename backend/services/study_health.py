@@ -52,7 +52,7 @@ ECHO_SHARE_AMBER = 0.04       # footage_rating's frozen fair line
 DIVERGENCE_EXCEPT = {(1, 25)}      # (camera_id, origin_leg_id)
 
 GUESSED_SOURCES = ("branch1", "rescue_full", "rescue_supports",
-                   "demoted", "dest_tie")
+                   "demoted", "dest_tie", "straight_reroute")
 
 
 def _stats_sidecar(project_id: str, camera_id: int, variant: str,
