@@ -18,9 +18,10 @@ def _pipe():
     return p
 
 
-def _vehicle(traj, heights):
+def _vehicle(traj, heights, widths=None):
     return {"start_frame": 100, "trajectory": traj,
-            "bbox_heights": heights}
+            "bbox_heights": heights,
+            "bbox_widths": widths or [30.0] * len(traj)}
 
 
 def _walk(y0, y1, n=12):
@@ -62,5 +63,25 @@ class TestThresholdLaw:
         monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", True)
         traj = _walk(215.0, 185.0)
         v = _vehicle(traj, [60.0] * 3)        # misaligned ledger
+        _o, _d, tag = _pipe()._gate_evidence(v)
+        assert tag != "no_crossing"
+
+    def test_one_corner_touch_not_a_crossing(self, monkeypatch):
+        # operator refinement: the ENTIRE bottom edge must cross.
+        # Gate spans x 100-300 at y=200; the vehicle drives with its
+        # bottom at y 230 -> 170 but positioned so only its LEFT
+        # corner sweeps the gate's span (cx=310, w=40: corners at 290
+        # and 330 — the right corner passes beyond the gate's end).
+        traj = [(310.0, 230.0 - 60.0 * i / 11 - 20.0) for i in range(12)]
+        v = _vehicle(traj, [40.0] * 12, [40.0] * 12)
+        monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", True)
+        _o, _d, tag = _pipe()._gate_evidence(v)
+        assert tag in (None, "no_crossing")
+
+    def test_full_bottom_edge_crossing_counts(self, monkeypatch):
+        # both corners within the gate span and both cross -> counts
+        traj = _walk(250.0, 130.0)            # cx=200, gate span 100-300
+        v = _vehicle(traj, [40.0] * len(traj), [60.0] * len(traj))
+        monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", True)
         _o, _d, tag = _pipe()._gate_evidence(v)
         assert tag != "no_crossing"

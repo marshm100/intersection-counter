@@ -783,9 +783,11 @@ class ProcessingPipeline:
                 "last_seen_frame": frame_number,
                 "trajectory": [],
                 # Threshold-law ledger (2026-09-07): per-frame bbox
-                # heights, index-aligned with trajectory, so the gate
-                # evidence can anchor at the ground-contact point.
+                # dims, index-aligned with trajectory, so the gate
+                # evidence can test the ENTIRE bottom edge (operator
+                # refinement: both bottom corners must cross).
                 "bbox_heights": [],
+                "bbox_widths": [],
                 "confidences": [],
                 "class_id": detection["class_id"],
                 "class_name": detection["class_name"],
@@ -812,6 +814,8 @@ class ProcessingPipeline:
         vehicle["trajectory"].append(center)
         vehicle.setdefault("bbox_heights", []).append(
             detection["bbox_height"])
+        vehicle.setdefault("bbox_widths", []).append(
+            detection["bbox_width"])
         vehicle["confidences"].append(detection["confidence"])
         vehicle["bbox_width"] = detection["bbox_width"]
         vehicle["bbox_height"] = detection["bbox_height"]
@@ -1301,21 +1305,53 @@ class ProcessingPipeline:
         f0 = vehicle.get("start_frame") or 0
         traj = vehicle["trajectory"]
         heights = vehicle.get("bbox_heights") or []
+        widths = vehicle.get("bbox_widths") or []
         from backend.config import GATE_GROUND_ANCHOR
-        if GATE_GROUND_ANCHOR and len(heights) == len(traj):
-            # The threshold law (operator ruling 2026-09-07): the
-            # crossing test point is the GROUND CONTACT (box bottom),
-            # so a tall vehicle passing in front of a background gate
-            # line never reads as crossing it.
+        if (GATE_GROUND_ANCHOR and len(heights) == len(traj)
+                and len(widths) == len(traj)):
+            # THE THRESHOLD LAW (operator ruling 2026-09-07, refined
+            # same day): a crossing counts only when the ENTIRE bottom
+            # edge of the box crosses the threshold — both bottom
+            # corners, never the center or a single touch, and the
+            # path is irrelevant. Both corner tracks are classified;
+            # evidence survives only where they AGREE.
+            def _corner(sign):
+                return [(float(f0 + i),
+                         float(p[0]) + sign * float(widths[i]) / 2.0,
+                         float(p[1]) + float(heights[i]) / 2.0)
+                        for i, p in enumerate(traj)]
+            ptsL, ptsR = _corner(-1.0), _corner(1.0)
+            # bottom-center pts still feed the motion-quality check
+            # below (speed is anchor-invariant)
             pts = [(float(f0 + i), float(p[0]),
                     float(p[1]) + float(heights[i]) / 2.0)
                    for i, p in enumerate(traj)]
+            if len(ptsL) < 2:
+                return None, None, None
+            oL, dL, _foL, _fdL, _opL, _dpL, _tL = gate_classify(
+                ptsL, gates, self.fps)
+            oR, dR, _foR, _fdR, _opR, _dpR, _tR = gate_classify(
+                ptsR, gates, self.fps)
+            origin = oL if oL == oR else None
+            dest = dL if dL == dR else None
+            _fo = max(_foL or 0, _foR or 0) or None
+            _fd = max(_fdL or 0, _fdR or 0) or None
+            _op = _opL if origin is not None else None
+            _dp = _dpL if dest is not None else None
+            if origin is not None and dest is not None:
+                tag = "full"
+            elif origin is not None:
+                tag = "entry_only"
+            elif dest is not None:
+                tag = "exit_only"
+            else:
+                tag = "no_crossing"
         else:
             pts = [(float(f0 + i), float(p[0]), float(p[1]))
                    for i, p in enumerate(traj)]
-        if len(pts) < 2:
-            return None, None, None
-        origin, dest, _fo, _fd, _op, _dp, tag = gate_classify(pts, gates, self.fps)
+            if len(pts) < 2:
+                return None, None, None
+            origin, dest, _fo, _fd, _op, _dp, tag = gate_classify(pts, gates, self.fps)
         # Identity stack Pillar A (flag-gated, default off): a crossing is
         # evidence only when crossed IN MOTION — queue creep across a gate
         # line is not a journey (operator ruling 2026-08-24; the exact
