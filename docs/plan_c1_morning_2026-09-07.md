@@ -101,3 +101,26 @@ off) and NB_thru's last 128.
 
 Ship candidate: the cam1-0700 package = l1 basis + GATE_GROUND_ANCHOR
 + STRAIGHT_FRAGMENT_RULE, per-window promotion on operator go.
+
+## SHIPPED (operator go, 2026-09-07)
+
+Backup: backups/project_20260907T163008_pre_ship_c1_0700.db. Old
+basis renamed aside (pre_l1_study_0700.*); l1 promoted to
+study_0700 (yolo26l@1280, botsort+reid). Gated apply stood down on
+reference-free heuristics (saturated_geometry); operator force_once
+disposition applied — the Miovision-scored evidence (75.0 vs 60.5)
+plus the operator go outrank the heuristic, per the disposition
+ladder's design. Applied and byte-verified: morning cells NB_thru
+2013 / NB_right 18 / 94 straight_reroute provenance stamps; evening
+window and all other cameras byte-identical to the backup. Health
+sidecar rewritten (red — the honest reference-free view: evidence
+channel off + entry coverage remain chartered); worklist rebuilt
+(105 -> 80 open).
+
+OPERATING NOTE: reprocessing cam1 study_0700 requires
+GATE_GROUND_ANCHOR=1 STRAIGHT_FRAGMENT_RULE=1 in the environment —
+the flags stay default-off until fleet validation (chartered)
+flips them corridor-wide.
+
+New standings: cam1 75.0 + 86.2 — both windows now on big-detector
+bases with the operator's two laws.
