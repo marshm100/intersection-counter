@@ -201,6 +201,15 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         _axes = gate_axes_for(_mouths, _tracks_from_rows(rows).values())
         if _axes:
             pipe._gate_axes = _axes
+    from backend.config import CONCEALER_ORIGIN_INHERITANCE as _coi
+    if _coi:
+        # Anti-theft campaign: the concealer index — every dump row as
+        # [frame, tid, x, y] sorted by frame, injected like _gate_axes
+        # (the pipeline never derives it; live pass-1 stays inert).
+        import numpy as _np
+        _cr = _np.asarray(rows)[:, (1, 0, 2, 3)].astype(float)
+        pipe._concealer_rows = _cr[_cr[:, 0].argsort(kind="stable")]
+        pipe._origin_by_track = {}
 
     # --- the post-tracker per-frame loop, replicated verbatim ---------------
     # (pipeline._process_frame after tracker.update: vehicle accumulation +

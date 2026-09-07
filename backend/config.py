@@ -222,6 +222,21 @@ A3_CUT_DUMPS = _os2.environ.get("A3_CUT_DUMPS", "0") in ("1", "true", "on")
 # resolves a derived dump.
 CHAIN_GLUE = _os2.environ.get("CHAIN_GLUE", "0") in ("1", "true", "on")
 
+# Anti-theft campaign (2026-09-06, docs/plan_anti_theft_2026-09-06.md).
+# The vanish-zone census + operator scene rulings: ~71% of moving
+# mid-scene track deaths are THEFTS — an occluded vehicle emerges next
+# to a tracked one and IoU-only assignment hands the moving track over
+# (the bus-law gate only judges LOST rows; Tracked rows were never
+# questioned). Operator rule: emergence spawns a NEW track, never a
+# hand-over; a mid-scene newborn inherits its origin from the
+# concealer it was hidden behind (gate-evidenced origins only).
+# Default OFF until G-LT-1 passes and the operator ships them.
+EMERGENCE_GUARD = _os2.environ.get("EMERGENCE_GUARD", "0") in ("1", "true", "on")
+CONCEALER_ORIGIN_INHERITANCE = _os2.environ.get(
+    "CONCEALER_ORIGIN_INHERITANCE", "0") in ("1", "true", "on")
+CONCEALER_REACH_PX = 90.0     # concealer proximity at the newborn's birth
+CONCEALER_ALIVE_SLACK_F = 15  # concealer may have died this recently
+
 # Identity stack Pillar A (operator ruling 2026-08-24: "the mouth and
 # gate infrastructure is not working properly" — queue creep across a
 # drawn gate line mints journeys). When on, _gate_evidence voids

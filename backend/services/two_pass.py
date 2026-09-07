@@ -436,6 +436,11 @@ def gate_axes_for(mouths: dict, tracks) -> dict | None:
     return derive_gate_axes(mouths, tracks)
 
 
+def _cfg_emergence_guard():
+    from backend.config import EMERGENCE_GUARD
+    return EMERGENCE_GUARD
+
+
 def _tracks_from_rows(rows: np.ndarray) -> dict:
     """{track_id: [(frame, x, y), ...]} — the shape the gate/census helpers
     consume."""
@@ -811,6 +816,7 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         "nms_iou": nms_iou, "new_track_thresh": ntt,
         "activation": activation, "match": match, "bbox_buffer": buf,
         "lost_buffer": (int(lb) if lb is not None else None),
+        "emergence_guard": bool(_cfg_emergence_guard()),
     }
     out.mkdir(parents=True, exist_ok=True)
     warm_frames = int(PASS1_SEAM_WARMUP_SECONDS * fps)
@@ -819,7 +825,7 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         old_meta = json.loads((out / "meta.json").read_text())
         mismatches = [k for k in ("format", "frames", "backend", "nms_iou",
                                   "activation", "match", "bbox_buffer",
-                                  "lost_buffer")
+                                  "lost_buffer", "emergence_guard")
                       if old_meta.get(k) != meta.get(k)]
         if mismatches:
             raise ValueError(
@@ -904,6 +910,9 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         meta["gate_breaks"] = len(breaks)
         meta["gate_break_rows_moved"] = n_moved
         (out / "gate_breaks.json").write_text(json.dumps(breaks))
+    ev = getattr(getattr(be, "bot", None), "emergence_vetoes", None)
+    if ev is not None:
+        meta["emergence_vetoes"] = int(ev)
     # Counted-path C (flag-gated, default off): collapse red-light
     # stop-fracture twin pairs before anything reads the dump.
     from backend.config import STOP_FRACTURE_COLLAPSE

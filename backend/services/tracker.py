@@ -369,6 +369,13 @@ def _gated_botsort_class():
             # whole post-gap track (zero contamination; without this every
             # break minted a flip-shaped tail on the old track).
             self.gate_breaks: list[tuple[int, int, int]] = []
+            # Anti-theft campaign (2026-09-06): emergence guard on
+            # TRACKED rows, read per-instance so test monkeypatching of
+            # backend.config lands regardless of class-build timing.
+            from backend import config as _cfg
+            self._emergence_on = bool(getattr(_cfg, "EMERGENCE_GUARD",
+                                              False))
+            self.emergence_vetoes = 0
             super().__init__(*args, **kwargs)
 
         def _loss_profile(self, track):
@@ -656,6 +663,48 @@ def _gated_botsort_class():
                                + span * (dev / STITCH_MOVE_DIST))
             return veto, cost
 
+        def _emergence_row(self, track, detections):
+            """Per-detection veto for one TRACKED, MOVING track — the
+            operator emergence law (2026-09-06): when a hidden vehicle
+            emerges beside a tracked one, the newcomer gets a NEW track;
+            the existing track may only claim a detection its own motion
+            reaches. IoU-only assignment hands moving tracks to emergent
+            neighbors (the measured 71% theft class); this masks those
+            hand-offs so the detection falls through to new-track birth.
+            None when the guard does not apply (not moving / no
+            history). STARVATION GUARD: never vetoes every column — the
+            best-fitting detection stays claimable, else a theft would
+            become a death (unmatched Tracked -> mark_lost)."""
+            prof = self._loss_profile(track)
+            if prof is None:
+                return None
+            lx, ly, moving, b_pre, vx, vy = prof
+            if not moving:
+                return None            # a dwell has no direction to defend
+            gap = max(1, self.frame_count - track.end_frame)
+            ex, ey = lx + vx * gap, ly + vy * gap
+            speed = math.hypot(vx, vy)
+            # rev-4 latch tolerance, applied prospectively (per-frame
+            # scaled -> frame-rate independent)
+            bound = max(STITCH_STAT_DIST, 0.6 * speed * gap)
+            veto = [False] * len(detections)
+            devs = [0.0] * len(detections)
+            for j, det in enumerate(detections):
+                cx, cy = _center(det.xyxy)
+                devs[j] = math.hypot(cx - ex, cy - ey)
+                d = math.hypot(cx - lx, cy - ly)
+                if (d > CHAIN_BEARING_D_MIN
+                        and _bdiff(_bearing((0.0, lx, ly), (0.0, cx, cy)),
+                                   b_pre) > CHAIN_DIR_TOL_DEG):
+                    veto[j] = True     # wrong direction = emergent thief
+                elif devs[j] > bound:
+                    veto[j] = True     # unreachable by its own motion
+            if veto and all(veto):
+                veto[devs.index(min(devs))] = False
+            if any(veto):
+                self.emergence_vetoes += 1
+            return veto, [1.0] * len(detections)
+
         def _first_association(self, dets, dets_first, active_tracks,
                                unconfirmed, img, detections,
                                activated_stracks, refind_stracks,
@@ -684,8 +733,11 @@ def _gated_botsort_class():
             if len(detections) and dists.size:
                 for i, track in enumerate(strack_pool):
                     if track.state == TrackState.Tracked:
-                        continue
-                    row = self._gate_row(track, detections)
+                        if not self._emergence_on:
+                            continue
+                        row = self._emergence_row(track, detections)
+                    else:
+                        row = self._gate_row(track, detections)
                     if row is None:
                         continue
                     veto, cost = row
@@ -714,6 +766,50 @@ def _gated_botsort_class():
                         }
                     track.re_activate(det, self.frame_count, new_id=False)
                     refind_stracks.append(track)
+            return matches, u_track, u_detection
+
+        def _second_association(self, dets_second, activated_stracks,
+                                lost_stracks, refind_stracks,
+                                u_track_first, strack_pool):
+            # Body mirrors boxmot 19.0.0 (pinned) with the emergence
+            # guard applied to the low-confidence band too — the ungated
+            # second theft surface (hardcoded thresh 0.5, Tracked only).
+            if len(dets_second) > 0:
+                detections_second = [
+                    STrack(det, max_obs=self.max_obs, is_obb=self.is_obb)
+                    for det in dets_second]
+            else:
+                detections_second = []
+            r_tracked_stracks = [
+                strack_pool[i] for i in u_track_first
+                if strack_pool[i].state == TrackState.Tracked]
+            dists = iou_distance(r_tracked_stracks, detections_second,
+                                 is_obb=self.is_obb)
+            if (self._emergence_on and len(detections_second)
+                    and dists.size):
+                for i, track in enumerate(r_tracked_stracks):
+                    row = self._emergence_row(track, detections_second)
+                    if row is None:
+                        continue
+                    for j, v in enumerate(row[0]):
+                        if v:
+                            dists[i, j] = 1.0
+            matches, u_track, u_detection = linear_assignment(
+                dists, thresh=0.5)
+            for itracked, idet in matches:
+                track = r_tracked_stracks[itracked]
+                det = detections_second[idet]
+                if track.state == TrackState.Tracked:
+                    track.update(det, self.frame_count)
+                    activated_stracks.append(track)
+                else:
+                    track.re_activate(det, self.frame_count, new_id=False)
+                    refind_stracks.append(track)
+            for it in u_track:
+                track = r_tracked_stracks[it]
+                if not track.state == TrackState.Lost:
+                    track.mark_lost()
+                    lost_stracks.append(track)
             return matches, u_track, u_detection
 
     return GatedBotSort
