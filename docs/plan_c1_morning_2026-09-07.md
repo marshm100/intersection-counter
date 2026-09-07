@@ -24,9 +24,17 @@ fail); approach reported, never decisive. Worst-cells table
 mandatory. Ship (B3) only on PASS + operator go, via the cam1-1600
 per-window promotion flow with backups + pre_l1_* rename-aside.
 
-## D0 result
+## D0 result (recorded 2026-09-07): GO
 
-(to be recorded)
+Screenline census, current yolo26s@960 basis, 07:00-09:00:
+S-leg in 1,354 vs Mio NB ~2,530 (54%); N-leg out 868 vs Mio
+NB_thru 2,141 (41%); N-leg in 727 vs Mio SB ~1,859 (39%, far
+field); S-leg out 1,472 vs 1,859 (79%, near field). Tracks are
+born late and die early — the far half of the frame is
+under-detected. Counted NB events (2,197) EXCEED entry crossings
+(1,354): the rescue machinery papers over entry loss, but through
+completion caps at what survives to the far gate. Same geometry
+scores 86.2 on the big-detector evening basis. GPU spend justified.
 
 ## Verdict
 
