@@ -236,6 +236,8 @@ CONCEALER_ORIGIN_INHERITANCE = _os2.environ.get(
     "CONCEALER_ORIGIN_INHERITANCE", "0") in ("1", "true", "on")
 CONCEALER_REACH_PX = 90.0     # concealer proximity at the newborn's birth
 CONCEALER_ALIVE_SLACK_F = 15  # concealer may have died this recently
+EMERGENCE_SIZE_FLOOR = 0.35   # veto bound floor as a share of own box
+                              # (extent jitter on near-field boxes)
 
 # Identity stack Pillar A (operator ruling 2026-08-24: "the mouth and
 # gate infrastructure is not working properly" — queue creep across a

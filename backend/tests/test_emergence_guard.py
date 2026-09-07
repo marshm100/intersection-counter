@@ -85,10 +85,11 @@ class TestEmergenceGuard:
         out = run(be, frames)
         assert out[60] == [out[10][0]]
 
-    def test_starvation_guard_keeps_best_candidate(self, guard_on):
-        # A moving track whose only detection jitters far off its
-        # projection for a few frames: all candidates would veto, so
-        # the argmin stays claimable and the track survives.
+    def test_all_veto_goes_lost_not_stolen(self, guard_on):
+        # an all-vetoed row goes LOST (recoverable), never claims the
+        # suspicious detection; the jitter line continues tracked
+        # under some identity (measured: the starvation unveto
+        # re-enabled the theft, so it was removed)
         frames = {}
         for f in range(1, 41):
             frames[f] = [det(100.0 + 6.0 * f, 300.0)]
@@ -96,7 +97,37 @@ class TestEmergenceGuard:
             frames[f] = [det(100.0 + 6.0 * f, 360.0)]
         be = backend()
         out = run(be, frames)
-        assert out[50], "track starved to death by its own guard"
+        assert out[50], "the jitter line lost all coverage"
+
+    def test_van_occlusion_original_keeps_identity(self, monkeypatch):
+        # THE FILMED THEFT (scene 1): A occluded by a van for 7
+        # frames while the dark follower B sits behind. Stock swaps
+        # identities (A's id rides B; A reborn new). Guard: B births
+        # its own id, A re-found under its ORIGINAL id.
+        import backend.config as cfg
+        monkeypatch.setattr(cfg, "EMERGENCE_GUARD", True)
+        frames = {}
+        for f in range(1, 81):
+            ds = []
+            if f < 40 or f > 46:
+                ds.append(det(100.0 + 6.0 * f, 300.0, w=60.0, h=40.0))
+            if f >= 40:
+                ds.append(det(100.0 + 6.0 * 38, 318.0, w=60.0, h=40.0))
+            frames[f] = ds
+        be = create_tracker_backend(
+            "botsort", track_activation_threshold=0.25,
+            minimum_matching_threshold=0.8, frame_rate=FPS)
+        out = {}
+        pos = {}
+        for f in range(1, 81):
+            res = be.update(frames.get(f, []), f)
+            out[f] = sorted(r["track_id"] for r in res)
+            pos[f] = {r["track_id"]: r["bbox"][0] for r in res}
+        tid = out[30][0]
+        assert tid in out[80]                    # A kept its identity
+        assert len(out[80]) == 2                 # B has its own
+        assert pos[80][tid] > 500                # ...and A is far east
+        assert be.bot.emergence_vetoes >= 1
 
     def test_theft_scene_guard_on(self, guard_on):
         # the flip-split theft shape: with the guard the southbound

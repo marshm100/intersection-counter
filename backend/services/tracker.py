@@ -247,6 +247,9 @@ class BotSortBackend:
             self._kwargs["proximity_thresh"] = proximity_thresh
         if appearance_thresh is not None:
             self._kwargs["appearance_thresh"] = appearance_thresh
+        from backend import config as _cfg
+        if getattr(_cfg, "EMERGENCE_GUARD", False):
+            BotSort = _emergence_botsort_class()   # production-recipe guard
         self._BotSort = BotSort
         self.bot = BotSort(**self._kwargs)
         self._img = np.zeros((frame_size[0], frame_size[1], 3), dtype=np.uint8)
@@ -307,6 +310,262 @@ class BotSortBackend:
         self.bot = pickle.loads(state)  # noqa: S301
 
 
+def _emergence_botsort_class():
+    """Anti-theft campaign (2026-09-06): the emergence guard mounted on
+    the PRODUCTION recipes (plain botsort / botsort+reid) — the shipped
+    dumps never ran botsort_locked, so the guard must ride the library
+    class the cameras actually use. Copies of _loss_profile /
+    _emergence_row live in GatedBotSort too (the campaign's copy-body
+    precedent); behavior is identical, only the bus-law/flip machinery
+    is absent here. bytetrack cameras (4, 5) have no mount point —
+    chartered follow-up."""
+    import math
+
+    import numpy as np
+    from boxmot.trackers.botsort.basetrack import TrackState
+    from boxmot.trackers.botsort.botsort import BotSort, STrack
+    from boxmot.utils.matching import (embedding_distance, fuse_score,
+                                       iou_distance, linear_assignment)
+
+    from backend.config import EMERGENCE_SIZE_FLOOR
+    from backend.services.track_chains import (
+        CHAIN_BEARING_D_MIN, CHAIN_DIR_TOL_DEG, STITCH_MOVE_DIST,
+        STITCH_MOVE_GAP_S, STITCH_STAT_DIST, STITCH_STAT_SPEED_PXS)
+    from backend.services.track_cut import _bdiff, _bearing
+
+    def _center(xyxy):
+        return ((float(xyxy[0]) + float(xyxy[2])) / 2.0,
+                (float(xyxy[1]) + float(xyxy[3])) / 2.0)
+
+    class EmergenceBotSort(BotSort):
+        GATE_GRACE_S = 0.5
+        RECOVERY_COST_LO = 0.55
+        RECOVERY_COST_HI = 0.90
+
+        def __init__(self, *args, **kwargs):
+            self._gate_fr = int(kwargs.get("frame_rate") or 30)
+            self._emergence_on = True
+            self.emergence_vetoes = 0
+            super().__init__(*args, **kwargs)
+
+        def _expire_movers(self):
+            window = STITCH_MOVE_GAP_S[1] * self._gate_fr
+            kept = []
+            for t in self.lost_stracks:
+                if self.frame_count - t.end_frame > window:
+                    prof = self._loss_profile(t)
+                    if prof is not None and prof[2]:
+                        t.mark_removed()
+                        continue
+                kept.append(t)
+            self.lost_stracks = kept
+
+        def _gate_row(self, track, detections):
+            gap = self.frame_count - track.end_frame
+            if gap <= self.GATE_GRACE_S * self._gate_fr:
+                return None
+            prof = self._loss_profile(track)
+            if prof is None:
+                return None
+            lx, ly, moving, b_pre, vx, vy = prof
+            if moving and gap > STITCH_MOVE_GAP_S[1] * self._gate_fr:
+                return ([True] * len(detections),
+                        [1.0] * len(detections))
+            veto = [False] * len(detections)
+            cost = [1.0] * len(detections)
+            span = self.RECOVERY_COST_HI - self.RECOVERY_COST_LO
+            for j, det in enumerate(detections):
+                cx, cy = _center(det.xyxy)
+                if not moving:
+                    d = math.hypot(cx - lx, cy - ly)
+                    if d > STITCH_STAT_DIST:
+                        veto[j] = True
+                    else:
+                        cost[j] = (self.RECOVERY_COST_LO
+                                   + span * (d / STITCH_STAT_DIST))
+                    continue
+                brg = _bearing((0.0, lx, ly), (0.0, cx, cy))
+                d = math.hypot(cx - lx, cy - ly)
+                if (d > STITCH_STAT_DIST
+                        and _bdiff(brg, b_pre) > CHAIN_DIR_TOL_DEG):
+                    veto[j] = True
+                    continue
+                ex, ey = lx + vx * gap, ly + vy * gap
+                dev = math.hypot(cx - ex, cy - ey)
+                if dev > STITCH_MOVE_DIST:
+                    veto[j] = True
+                else:
+                    cost[j] = (self.RECOVERY_COST_LO
+                               + span * (dev / STITCH_MOVE_DIST))
+            return veto, cost
+
+        def _loss_profile(self, track):
+            hist = list(track.history_observations)
+            if not hist:
+                return None
+            lx, ly = _center(hist[-1])
+            k = min(len(hist) - 1, 6)
+            moving, b_pre, vx, vy = False, None, 0.0, 0.0
+            if k >= 1:
+                px, py = _center(hist[-1 - k])
+                net = math.hypot(lx - px, ly - py)
+                if (net >= CHAIN_BEARING_D_MIN
+                        and (net / k) * self._gate_fr
+                        >= STITCH_STAT_SPEED_PXS):
+                    moving = True
+                    b_pre = _bearing((0.0, px, py), (0.0, lx, ly))
+                    vx, vy = (lx - px) / k, (ly - py) / k
+            return lx, ly, moving, b_pre, vx, vy
+
+        def _last_obs_frame(self, track):
+            """Frame of the last TRUE observation (history append) —
+            end_frame lies after re_activate, which advances it without
+            appending; projecting from end_frame then vetoes the
+            track's own next detection (measured: a re-found track
+            re-lost itself every frame until death). Tail-object
+            identity, the _ledger_obs trick."""
+            hist = track.history_observations
+            tail = hist[-1] if hist else None
+            if tail is not None and tail is not getattr(
+                    track, "_eg_tail", None):
+                track._eg_tail = tail
+                track._eg_tail_f = int(track.end_frame)
+            return getattr(track, "_eg_tail_f", int(track.end_frame))
+
+        def _emergence_row(self, track, detections):
+            prof = self._loss_profile(track)
+            if prof is None:
+                return None
+            lx, ly, moving, b_pre, vx, vy = prof
+            if not moving:
+                return None
+            gap = max(1, self.frame_count - self._last_obs_frame(track))
+            ex, ey = lx + vx * gap, ly + vy * gap
+            hb = track.history_observations[-1]
+            own = max(float(hb[2]) - float(hb[0]),
+                      float(hb[3]) - float(hb[1]))
+            bound = max(STITCH_STAT_DIST,
+                        0.6 * math.hypot(vx, vy) * gap,
+                        EMERGENCE_SIZE_FLOOR * own)
+            veto = [False] * len(detections)
+            devs = [0.0] * len(detections)
+            for j, det in enumerate(detections):
+                cx, cy = _center(det.xyxy)
+                devs[j] = math.hypot(cx - ex, cy - ey)
+                d = math.hypot(cx - lx, cy - ly)
+                if (d > CHAIN_BEARING_D_MIN
+                        and _bdiff(_bearing((0.0, lx, ly),
+                                            (0.0, cx, cy)),
+                                   b_pre) > CHAIN_DIR_TOL_DEG):
+                    veto[j] = True
+                elif devs[j] > bound:
+                    veto[j] = True
+            if any(veto):
+                self.emergence_vetoes += 1
+            return veto, [1.0] * len(detections)
+
+        def _first_association(self, dets, dets_first, active_tracks,
+                               unconfirmed, img, detections,
+                               activated_stracks, refind_stracks,
+                               strack_pool):
+            # Body mirrors boxmot 19.0.0 (pinned) with the emergence
+            # mask inserted before linear_assignment.
+            self._expire_movers()
+            STrack.multi_predict(strack_pool)
+            self._apply_camera_motion_compensation(
+                dets, img, strack_pool, unconfirmed)
+            ious_dists = iou_distance(strack_pool, detections,
+                                      is_obb=self.is_obb)
+            ious_dists_mask = ious_dists > self.proximity_thresh
+            if self.fuse_first_associate:
+                ious_dists = fuse_score(ious_dists, detections)
+            if self.with_reid:
+                emb_dists = embedding_distance(strack_pool, detections)
+                emb_dists[emb_dists > self.appearance_thresh] = 1.0
+                emb_dists[ious_dists_mask] = 1.0
+                dists = np.minimum(ious_dists, emb_dists)
+            else:
+                dists = ious_dists
+            if len(detections) and dists.size:
+                grace = self.GATE_GRACE_S * self._gate_fr
+                for i, track in enumerate(strack_pool):
+                    if track.state == TrackState.Tracked:
+                        row = self._emergence_row(track, detections)
+                    elif (self.frame_count - track.end_frame) <= grace:
+                        # a graced lost mover obeys the same physics —
+                        # its coast must not re-steal what the veto
+                        # just refused (the one-frame-later theft)
+                        row = self._emergence_row(track, detections)
+                    else:
+                        row = self._gate_row(track, detections)
+                    if row is None:
+                        continue
+                    veto, cost = row
+                    for j in range(len(detections)):
+                        if veto[j]:
+                            dists[i, j] = 1.0
+                        elif cost[j] < dists[i, j]:
+                            dists[i, j] = cost[j]
+            matches, u_track, u_detection = linear_assignment(
+                dists, thresh=self.match_thresh)
+            for itracked, idet in matches:
+                track = strack_pool[itracked]
+                det = detections[idet]
+                if track.state == TrackState.Tracked:
+                    track.update(detections[idet], self.frame_count)
+                    activated_stracks.append(track)
+                else:
+                    track.re_activate(det, self.frame_count,
+                                      new_id=False)
+                    refind_stracks.append(track)
+            return matches, u_track, u_detection
+
+        def _second_association(self, dets_second, activated_stracks,
+                                lost_stracks, refind_stracks,
+                                u_track_first, strack_pool):
+            # Body mirrors boxmot 19.0.0 (pinned) + the guard on the
+            # low-confidence band (the ungated second theft surface).
+            if len(dets_second) > 0:
+                detections_second = [
+                    STrack(det, max_obs=self.max_obs, is_obb=self.is_obb)
+                    for det in dets_second]
+            else:
+                detections_second = []
+            r_tracked_stracks = [
+                strack_pool[i] for i in u_track_first
+                if strack_pool[i].state == TrackState.Tracked]
+            dists = iou_distance(r_tracked_stracks, detections_second,
+                                 is_obb=self.is_obb)
+            if len(detections_second) and dists.size:
+                for i, track in enumerate(r_tracked_stracks):
+                    row = self._emergence_row(track, detections_second)
+                    if row is None:
+                        continue
+                    for j, v in enumerate(row[0]):
+                        if v:
+                            dists[i, j] = 1.0
+            matches, u_track, u_detection = linear_assignment(
+                dists, thresh=0.5)
+            for itracked, idet in matches:
+                track = r_tracked_stracks[itracked]
+                det = detections_second[idet]
+                if track.state == TrackState.Tracked:
+                    track.update(det, self.frame_count)
+                    activated_stracks.append(track)
+                else:
+                    track.re_activate(det, self.frame_count,
+                                      new_id=False)
+                    refind_stracks.append(track)
+            for it in u_track:
+                track = r_tracked_stracks[it]
+                if not track.state == TrackState.Lost:
+                    track.mark_lost()
+                    lost_stracks.append(track)
+            return matches, u_track, u_detection
+
+    return EmergenceBotSort
+
+
 def _gated_botsort_class():
     """Build the bus-law-gated BotSort subclass (lazy: boxmot + the gate
     constants import only when the locked recipe is actually used)."""
@@ -320,6 +579,7 @@ def _gated_botsort_class():
     from backend.services.track_chains import (
         CHAIN_BEARING_D_MIN, CHAIN_DIR_TOL_DEG, STITCH_MOVE_DIST,
         STITCH_MOVE_GAP_S, STITCH_STAT_DIST, STITCH_STAT_SPEED_PXS)
+    from backend.config import EMERGENCE_SIZE_FLOOR
     from backend.services.track_cut import (PINCH_ANGLE, _bdiff,
                                             _bearing,
                                             displacement_chords)
@@ -663,30 +923,51 @@ def _gated_botsort_class():
                                + span * (dev / STITCH_MOVE_DIST))
             return veto, cost
 
+        def _last_obs_frame(self, track):
+            """Frame of the last TRUE observation (history append) —
+            end_frame lies after re_activate, which advances it without
+            appending; projecting from end_frame then vetoes the
+            track's own next detection (measured: a re-found track
+            re-lost itself every frame until death). Tail-object
+            identity, the _ledger_obs trick."""
+            hist = track.history_observations
+            tail = hist[-1] if hist else None
+            if tail is not None and tail is not getattr(
+                    track, "_eg_tail", None):
+                track._eg_tail = tail
+                track._eg_tail_f = int(track.end_frame)
+            return getattr(track, "_eg_tail_f", int(track.end_frame))
+
         def _emergence_row(self, track, detections):
-            """Per-detection veto for one TRACKED, MOVING track — the
-            operator emergence law (2026-09-06): when a hidden vehicle
-            emerges beside a tracked one, the newcomer gets a NEW track;
-            the existing track may only claim a detection its own motion
-            reaches. IoU-only assignment hands moving tracks to emergent
+            """Per-detection veto for one MOVING track (Tracked, or
+            lost within grace) — the operator emergence law
+            (2026-09-06): when a hidden vehicle emerges beside a
+            tracked one, the newcomer gets a NEW track; a moving track
+            may only claim a detection its own motion reaches.
+            IoU-only assignment hands moving tracks to emergent
             neighbors (the measured 71% theft class); this masks those
-            hand-offs so the detection falls through to new-track birth.
-            None when the guard does not apply (not moving / no
-            history). STARVATION GUARD: never vetoes every column — the
-            best-fitting detection stays claimable, else a theft would
-            become a death (unmatched Tracked -> mark_lost)."""
+            hand-offs so the detection falls through to new-track
+            birth. None when the guard does not apply (not moving /
+            no history). An all-veto row goes unmatched -> LOST, which
+            is recoverable — being stolen is not (the starvation
+            unveto was measured to re-enable the theft)."""
             prof = self._loss_profile(track)
             if prof is None:
                 return None
             lx, ly, moving, b_pre, vx, vy = prof
             if not moving:
                 return None            # a dwell has no direction to defend
-            gap = max(1, self.frame_count - track.end_frame)
+            gap = max(1, self.frame_count - self._last_obs_frame(track))
             ex, ey = lx + vx * gap, ly + vy * gap
             speed = math.hypot(vx, vy)
             # rev-4 latch tolerance, applied prospectively (per-frame
-            # scaled -> frame-rate independent)
-            bound = max(STITCH_STAT_DIST, 0.6 * speed * gap)
+            # scaled -> frame-rate independent); size floor absorbs
+            # box-extent jitter on large near-field boxes
+            hb = track.history_observations[-1]
+            own = max(float(hb[2]) - float(hb[0]),
+                      float(hb[3]) - float(hb[1]))
+            bound = max(STITCH_STAT_DIST, 0.6 * speed * gap,
+                        EMERGENCE_SIZE_FLOOR * own)
             veto = [False] * len(detections)
             devs = [0.0] * len(detections)
             for j, det in enumerate(detections):
@@ -699,8 +980,6 @@ def _gated_botsort_class():
                     veto[j] = True     # wrong direction = emergent thief
                 elif devs[j] > bound:
                     veto[j] = True     # unreachable by its own motion
-            if veto and all(veto):
-                veto[devs.index(min(devs))] = False
             if any(veto):
                 self.emergence_vetoes += 1
             return veto, [1.0] * len(detections)
@@ -735,6 +1014,12 @@ def _gated_botsort_class():
                     if track.state == TrackState.Tracked:
                         if not self._emergence_on:
                             continue
+                        row = self._emergence_row(track, detections)
+                    elif (self._emergence_on
+                          and (self.frame_count - track.end_frame)
+                          <= self.GATE_GRACE_S * self._gate_fr):
+                        # graced lost mover: same physics; the coast
+                        # must not re-steal a vetoed emergent
                         row = self._emergence_row(track, detections)
                     else:
                         row = self._gate_row(track, detections)
