@@ -25,7 +25,7 @@ from backend.services.detection_cache import parquet_path  # noqa: E402
 from backend.services.pass2_replay import load_dump, tracks_dir  # noqa: E402
 
 PROJ = "97a7849a"
-STEM = "data/projects/97a7849a/_replay_scratch/c1_20260907/l1_cam1_study_0700.db"
+STEM = "data/projects/97a7849a/_replay_scratch/c1_20260907/ga_cam1_study_0700.db"
 BLUE, MAGENTA, BLACK = (255, 70, 20), (255, 0, 220), (0, 0, 0)
 W_OUT, STEP, TAIL_S, LEAD_S = 460, 3, 3.0, 2.0
 
@@ -51,7 +51,7 @@ def main() -> int:
             "classifier_path_distance FROM vehicle_events WHERE "
             "camera_id=1 AND rejected=0 AND origin_leg_id=? AND "
             "destination_leg_id=? ORDER BY classifier_path_distance "
-            "DESC LIMIT 2", od).fetchall()
+            "DESC LIMIT 8", od).fetchall()
         picks += [(r, lab) for r in rows]
     s.close()
 
@@ -62,11 +62,21 @@ def main() -> int:
     Path("screenshots").mkdir(exist_ok=True)
     g1 = tuple(map(int, eg[0]))
     g2 = tuple(map(int, eg[1]))
-    for i, ((tid, sf, ef, dist), lab) in enumerate(picks, 1):
+    kept = []
+    for (tid, sf, ef, dist), lab in picks:
         trk = np.asarray(rows[rows[:, 0] == float(tid)])
-        if not len(trk):
-            print(f"clip {i}: track {tid} not in dump")
+        if len(trk) < 10:
             continue
+        # continuity filter (operator: no spliced identities on film):
+        # reject tracks with a time gap > 1 s or a spatial jump > 100 px
+        fg = np.diff(trk[:, 1])
+        sj = np.hypot(np.diff(trk[:, 2]), np.diff(trk[:, 3]))
+        if fg.max() > 25 or sj.max() > 100:
+            continue
+        if len([k for k in kept if k[2] == lab]) >= 2:
+            continue
+        kept.append((tid, trk, lab, dist))
+    for i, (tid, trk, lab, dist) in enumerate(kept, 1):
         f_lo = max(0, int(trk[0, 1]) - int(LEAD_S * fps))
         f_hi = int(trk[-1, 1]) + int(TAIL_S * fps)
         cap = cv2.VideoCapture(vpath)
@@ -86,9 +96,11 @@ def main() -> int:
             cv2.line(img, gg1, gg2, MAGENTA, 2)
             pts = trk[trk[:, 1] <= fno]
             if len(pts) >= 2:
-                pl = (pts[:, 2:4] * scale).astype(int)
+                gl = np.stack([pts[:, 2],
+                               pts[:, 3] + pts[:, 5] / 2.0], axis=1)
+                pl = (gl * scale).astype(int)
                 cv2.polylines(img, [pl], False, BLACK, 4)
-                cv2.polylines(img, [pl], False, BLUE, 2)
+                cv2.polylines(img, [pl], False, (60, 255, 60), 2)
             if len(pts) and fno <= trk[-1, 1]:
                 p = pts[-1]
                 x, y = int(p[2] * scale), int(p[3] * scale)
@@ -101,7 +113,7 @@ def main() -> int:
             frames.append(Image.fromarray(
                 cv2.cvtColor(img, cv2.COLOR_BGR2RGB)))
         cap.release()
-        out = Path(f"screenshots/c1_phantom_{i}.gif")
+        out = Path(f"screenshots/c1_residual_{i}.gif")
         q = [f.quantize(96, dither=Image.Dither.NONE) for f in frames]
         q[0].save(out, save_all=True, append_images=q[1:], optimize=True,
                   duration=int(1000 * STEP / fps), loop=0)
