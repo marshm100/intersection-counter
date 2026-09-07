@@ -112,7 +112,10 @@ class TestEmergenceGuard:
             if f < 40 or f > 46:
                 ds.append(det(100.0 + 6.0 * f, 300.0, w=60.0, h=40.0))
             if f >= 40:
-                ds.append(det(100.0 + 6.0 * 38, 318.0, w=60.0, h=40.0))
+                # the follower sits a half car-length behind and one
+                # lane over — beyond the box-size direction floor
+                ds.append(det(100.0 + 6.0 * 38 - 30.0, 340.0,
+                              w=60.0, h=40.0))
             frames[f] = ds
         be = create_tracker_backend(
             "botsort", track_activation_threshold=0.25,

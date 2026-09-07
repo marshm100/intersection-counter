@@ -447,19 +447,36 @@ def _emergence_botsort_class():
             bound = max(STITCH_STAT_DIST,
                         0.6 * math.hypot(vx, vy) * gap,
                         EMERGENCE_SIZE_FLOOR * own)
+            # Iteration-2 redesign (G-LT-1 miss 1: 764k vetoes on one
+            # 2h window = ~500x the theft rate; honest box-extent
+            # wobble faked wrong-direction bearings over tiny
+            # displacements and fragmentation shattered the rescue
+            # equilibrium). Two disciplines:
+            #  - DIRECTION is judged only beyond the box-size floor —
+            #    sub-box displacement cannot carry a bearing.
+            #  - DEVIATION is COMPETITIVE — it only vetoes a box when
+            #    the track has a physics-consistent ALTERNATIVE to
+            #    claim; a track is never starved by deviation alone.
+            dir_floor = max(CHAIN_BEARING_D_MIN,
+                            EMERGENCE_SIZE_FLOOR * own)
             veto = [False] * len(detections)
             devs = [0.0] * len(detections)
             for j, det in enumerate(detections):
                 cx, cy = _center(det.xyxy)
                 devs[j] = math.hypot(cx - ex, cy - ey)
                 d = math.hypot(cx - lx, cy - ly)
-                if (d > CHAIN_BEARING_D_MIN
+                if (d > dir_floor
                         and _bdiff(_bearing((0.0, lx, ly),
                                             (0.0, cx, cy)),
                                    b_pre) > CHAIN_DIR_TOL_DEG):
                     veto[j] = True
-                elif devs[j] > bound:
-                    veto[j] = True
+            has_consistent = any(
+                (not veto[j]) and devs[j] <= bound
+                for j in range(len(detections)))
+            if has_consistent:
+                for j in range(len(detections)):
+                    if not veto[j] and devs[j] > bound:
+                        veto[j] = True
             if any(veto):
                 self.emergence_vetoes += 1
             return veto, [1.0] * len(detections)
@@ -968,18 +985,36 @@ def _gated_botsort_class():
                       float(hb[3]) - float(hb[1]))
             bound = max(STITCH_STAT_DIST, 0.6 * speed * gap,
                         EMERGENCE_SIZE_FLOOR * own)
+            # Iteration-2 redesign (G-LT-1 miss 1: 764k vetoes on one
+            # 2h window = ~500x the theft rate; honest box-extent
+            # wobble faked wrong-direction bearings over tiny
+            # displacements and fragmentation shattered the rescue
+            # equilibrium). Two disciplines:
+            #  - DIRECTION is judged only beyond the box-size floor —
+            #    sub-box displacement cannot carry a bearing.
+            #  - DEVIATION is COMPETITIVE — it only vetoes a box when
+            #    the track has a physics-consistent ALTERNATIVE to
+            #    claim; a track is never starved by deviation alone.
+            dir_floor = max(CHAIN_BEARING_D_MIN,
+                            EMERGENCE_SIZE_FLOOR * own)
             veto = [False] * len(detections)
             devs = [0.0] * len(detections)
             for j, det in enumerate(detections):
                 cx, cy = _center(det.xyxy)
                 devs[j] = math.hypot(cx - ex, cy - ey)
                 d = math.hypot(cx - lx, cy - ly)
-                if (d > CHAIN_BEARING_D_MIN
-                        and _bdiff(_bearing((0.0, lx, ly), (0.0, cx, cy)),
+                if (d > dir_floor
+                        and _bdiff(_bearing((0.0, lx, ly),
+                                            (0.0, cx, cy)),
                                    b_pre) > CHAIN_DIR_TOL_DEG):
-                    veto[j] = True     # wrong direction = emergent thief
-                elif devs[j] > bound:
-                    veto[j] = True     # unreachable by its own motion
+                    veto[j] = True
+            has_consistent = any(
+                (not veto[j]) and devs[j] <= bound
+                for j in range(len(detections)))
+            if has_consistent:
+                for j in range(len(detections)):
+                    if not veto[j] and devs[j] > bound:
+                        veto[j] = True
             if any(veto):
                 self.emergence_vetoes += 1
             return veto, [1.0] * len(detections)
