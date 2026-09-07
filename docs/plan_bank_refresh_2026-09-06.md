@@ -27,3 +27,26 @@ Ship (B4) only on PASS + operator go, with pre-ship backup.
 ## Verdict
 
 (to be recorded after the runs)
+
+## G-BR-1 verdict (recorded 2026-09-06, iteration 1 of 2)
+
+Arm C: PASS. 9/12 windows byte-identical; cam2 +0.9/-0.9/-0.9 (one
+cell each). No window drops >1.0. Corridor movement 73.4 -> 73.3
+(one cell of ~1,300 — disclosed as a letter-of-the-law dip, within
+noise). Every changed cell traces to the E-approach rescue
+reallocation driven by the intended 28->29/28->27 prior correction;
+cam2-0700 EB_left lands exactly on Miovision (229 = 229).
+
+Arm H: PASS. cam1-1600 stale-prior RED clears (remaining AMBER is
+the no-prior lane, operator-rulable). cam2 0700 AMBER->GREEN, 1100
+RED->GREEN, 1600 RED->AMBER. No live verdict degrades; cam4 REDs
+remain (real disease: echo/coverage, not priors). All 4 known-bad
+arms still fire under refreshed priors (separation retained).
+
+SIDE-FINDING (not this ship): the same-day control re-replay scores
+cam4 at 53.8/57.7/72.9 vs the live standings 75.4/73.5/75.8 — the
+live cam4 basis predates the counted-path flags, which do worse on
+cam4 mornings. Quantifies the chartered cam4-fragility item.
+
+Ship decision: with the operator's go, apply the 33-row refresh to
+production (pre-ship backup; rollback sidecars already written).
