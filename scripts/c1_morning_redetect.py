@@ -37,11 +37,41 @@ def main() -> int:
     f_lo = int((t0 - rec_dt).total_seconds() * float(fps))
     f_hi = f_lo + int(120 * 60 * float(fps))
 
+    # ReID chicken-and-egg (handoff_2026-07-27): the sidecar embeds
+    # CACHED detections, so stage 1 detects with a plain-botsort dump
+    # (throwaway), stage 2 builds the sidecar, stage 3 re-tracks with
+    # the camera's own botsort+reid recipe over the cached detections.
+    import shutil
+    import subprocess
+
+    from backend.services.pass2_replay import tracks_dir
+
+    t = time.time()
+    res = run_pass1(PROJ, 1, variant="l1_study_0700",
+                    start_frame=f_lo, end_frame=f_hi, backend="botsort")
+    print(f"stage 1 (detect, plain dump): rows={res['rows']} "
+          f"({(time.time()-t)/60:.0f} min)", flush=True)
+
+    t = time.time()
+    r = subprocess.run([sys.executable, "-X", "utf8",
+                        "scripts/build_reid_cache.py", "--camera", "1",
+                        "--variant", "l1_study_0700", "--device", "cuda",
+                        "--start-hms", "07:00:00", "--minutes", "120"],
+                       capture_output=True, text=True)
+    print(f"stage 2 (reid sidecar): rc={r.returncode} "
+          f"({(time.time()-t)/60:.0f} min)", flush=True)
+    if r.returncode != 0:
+        print(r.stdout[-800:], r.stderr[-800:], flush=True)
+        return 1
+
+    td = Path(tracks_dir(parquet_path(PROJ, 1, chash, "l1_study_0700")))
+    shutil.rmtree(td)                       # recipe changes; no resume mix
     t = time.time()
     res = run_pass1(PROJ, 1, variant="l1_study_0700",
                     start_frame=f_lo, end_frame=f_hi)
-    print(f"pass-1 done: rows={res['rows']} recipe={res['recipe']} "
-          f"({(time.time()-t)/60:.0f} min)", flush=True)
+    print(f"stage 3 (botsort+reid dump): rows={res['rows']} "
+          f"recipe={res['recipe']} ({(time.time()-t)/60:.0f} min)",
+          flush=True)
 
     meta_p = parquet_path(PROJ, 1, chash, "l1_study_0700").with_suffix(
         ".meta.json")
