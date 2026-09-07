@@ -60,3 +60,27 @@ Two remaining mechanisms, both measured:
 
 G-C1-1's two iterations are spent. Both remaining moves are operator
 calls: the gate redraw (his surface) + one post-redraw re-run.
+
+## THE STRAIGHT-FRAGMENT RULE — G-SF-1 declared (2026-09-07)
+
+Operator ruling: a vehicle that never curved cannot be booked as a
+turn on a guess. Measured: all 111 surviving phantom driveway turns
+are dead straight (0.975 / +1.5 deg) and every one came from the
+softmax destination fallback (no bank path into leg 25 exists, no
+gate crossed). Rule: guessed-dest turns (softmax writer, no
+posterior source, no gate-dest agreement) with straightness >= 0.95,
+|net heading change| <= 5 deg, >= 10 points reroute to the
+straight-continuation leg (bank through path, else opposite
+cardinal; validated through + not a bank turn pair) or drop.
+Evidence-when-available deviation recorded in the plan: the window
+runs evidence-off (coverage 0.439), so the rule fires on geometry
+alone there; real driveway entries are Mio-scale ~3/window.
+
+G-SF-1 PASS = movement pct rises materially vs 64.2; NB_right
+collapses toward Mio 3; NB_thru rises; genuine turn cells move only
+by the measured collateral (~2); no phantom-slack cells; approach
+never decisive. Ship = the whole cam1-0700 package on operator go.
+
+## G-SF-1 verdict
+
+(to be recorded)
