@@ -77,3 +77,20 @@ loses its winnings in the best-tuned windows; (3) any future revival
 should be PER-WINDOW (calibration knob, ship only where it wins) or
 appearance-informed (the light-accomplice finding: position alone
 cannot separate a thief from noise at sub-box distances).
+
+## Per-window ship candidate REFUSED (2026-09-07, worst-cells law)
+
+cam1-0700's +6.3 does not survive the cell table. The pct gain is
+substantially scoring slack: the guard MINTS small phantom movements
+(SB_uturn 20 vs Mio 0; SB_left 11 vs 1; NB_right grows 72->86 vs
+Mio 3) whose 2-3/bin volumes pass the +-5 rule slack as "compliant"
+cells (scored cells 81 -> 95). Meanwhile the REAL deficits worsened:
+NB_thru 1692 -> 1674 vs Mio 2141, SB_thru 1636 -> 1575 vs 1756.
+Only EB_left/NB_left truly improved. The movement bar was gamed the
+same way the approach bar was in the cam5 phantom lesson — one level
+down. NO SHIP. The campaign closes as a clean negative.
+
+The real cam1-0700 disease the table exposes: ~450 missing NB
+through vehicles (21% deficit) and ~180 SB — consistent across every
+bin, i.e., systematic coverage loss, not thefts. That is the
+detection/birth-wall class, not an identity class.
