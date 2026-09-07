@@ -28,3 +28,30 @@ theft scenes included in the review).
 ## Verdict
 
 (to be recorded after the runs)
+
+## G-LT-1 verdict — iteration 1: MISS (recorded 2026-09-06)
+
+Corridor movement 77.1% (baseline) -> 53.8% (guard) / 53.7%
+(guard+concealer). Every window but cam1-0700 (+0.7) fell; cam1-1600
+86.2 -> 42.0, cam3 83.7 -> 47.3. The concealer tier is ~neutral on
+top (its +events showed it firing, but it cannot rescue what the
+guard breaks).
+
+MECHANISM (measured): the veto over-fires by orders of magnitude at
+production noise — 764,573 veto events on cam2-1600 (2h) and 1.44M
+on cam3 vs ~1.5-5k plausible real thefts per window. Honest
+detections routinely violate the motion bound (occlusion-truncated
+boxes shift centers; queue compression; near-field extent jitter
+beyond the 0.35 floor). Fragmentation followed: cam3 46,388 ->
+56,070 tracks; cam1 20,238 vs 7,493 base with rows HALVED (cam1 also
+carries a possible config confound - its promoted basis is fl-era).
+The counting pipeline's rescue equilibrium is tuned to the current
+fragmentation regime; the guard shattered that regime. Echoes the
+G-ID-1 identity-stack MISS.
+
+Flags remain default OFF (nothing shipped). Iteration 2 (if taken,
+the declared budget's last): a COMPETITIVE veto — fire only when the
+disputed detection has a strictly better-fitting alternative owner
+(another track's projection or a fresh-birth case), never on an
+uncontested claim; drop the graced-lost extension to first pass
+only. Unit scenarios all still hold.
