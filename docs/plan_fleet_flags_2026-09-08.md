@@ -67,3 +67,32 @@ FAIL — cam4 0700 (-10.7), cam4 1600 (-2.9), cam5 1100 (-0.3):
   (0.366, 0.352), so the corner fix did not reach them.
 
 SHIP CANDIDATE: cam1 study_1600 only.
+
+## SHIPPED — cam1 study_1600 (operator go, 2026-09-08)
+
+Backup: backups/project_20260908T141254_pre_ship_c1eve.db.
+Applied via force_once (the reference-free gate stands down; the
+Miovision-scored evidence + operator go outrank it). events 5,855,
+coverage 0.584, channel ACTIVATED.
+
+Production cells (was -> now):
+  NB_thru   1993 -> 2128   (Mio 2078)
+  SB_thru   2542 -> 2541   (Mio 2498)
+  EB_right   492 ->  496   (Mio  497)
+  EB_left    100 ->  115   (Mio  105)
+  22->25 right (driveway) 102 -> 15   (Mio 2)
+  25->23 right             26 ->  1   (Mio 2)
+  total counted 5,671 -> 5,702
+Scored basis: movement 86.2 -> 95.3, approach 78.1 -> 86.7.
+
+Isolation byte-verified: cam1 morning 4,687 unchanged; cameras 2-5
+byte-identical to the backup. Health rewritten: cam1-1600 GREEN
+(first green window in the corridor), cam1-0700 amber. Worklist
+rebuilt 78 -> 71 open.
+
+OPERATING NOTE: both cam1 windows now require
+GATE_GROUND_ANCHOR=1 STRAIGHT_FRAGMENT_RULE=1
+GATE_EVIDENCE_EITHER_CORNER=1 to reprocess.
+
+CORRIDOR STANDINGS: cam1 83.5 / 95.3 | cam2 70.4 / 71.3 / 70.3 |
+cam3 83.7 | cam4 75.4 / 73.5 / 75.8 | cam5 66.4 / 71.7 / 63.1.
