@@ -119,14 +119,36 @@ def schema_fingerprint(project_id: str) -> str:
     return hashlib.sha256(",".join(cols).encode()).hexdigest()
 
 
+def flags_fingerprint() -> str:
+    """Digest of the COUNTING FLAGS pass 2 obeys. The reuse sidecar keys
+    on this alongside calib/schema: measured 2026-09-08, an apply with
+    GATE_EVIDENCE_EITHER_CORNER newly on silently REUSED the working DB
+    computed without it (same dump, same calibration) and re-applied the
+    stale counts. A flag change must force a recompute, exactly as the
+    pass-1 dump meta carries emergence_guard."""
+    from backend import config as _c
+    names = ("GATE_GROUND_ANCHOR", "GATE_EVIDENCE_EITHER_CORNER",
+             "STRAIGHT_FRAGMENT_RULE", "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS",
+             "CONCEALER_ORIGIN_INHERITANCE", "MOTION_QUALIFIED_EVIDENCE",
+             "QUEUE_AWARE_MERGE", "COEXISTING_TWIN_DEDUP",
+             "STOP_FRACTURE_COLLAPSE", "FLOW_ORIGIN_INFERENCE",
+             "EVIDENCE_ACTIVATION_ENABLED")
+    blob = json.dumps({n: bool(getattr(_c, n, False)) for n in names},
+                      sort_keys=True)
+    return hashlib.sha256(blob.encode()).hexdigest()
+
+
 def sidecar_reusable(prior: dict, meta: dict, calib_fp: str,
-                     schema_fp: str) -> bool:
+                     schema_fp: str, flags_fp: str | None = None) -> bool:
     """One source of truth for 'this pass-2 sidecar still describes reality':
-    same dump, same operator state, same vehicle_events schema. Legacy
-    sidecars missing a key fail closed (recompute once, then carry it)."""
+    same dump, same operator state, same vehicle_events schema, same
+    counting flags. Legacy sidecars missing a key fail closed (recompute
+    once, then carry it)."""
     return (prior.get("dump_meta") == meta
             and prior.get("calib_fingerprint") == calib_fp
-            and prior.get("schema_fingerprint") == schema_fp)
+            and prior.get("schema_fingerprint") == schema_fp
+            and prior.get("flags_fingerprint")
+            == (flags_fp if flags_fp is not None else flags_fingerprint()))
 
 
 def _trim_datetimes(trim: dict, rec_start: datetime) -> tuple[datetime, datetime]:
@@ -1256,11 +1278,12 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     workdir.mkdir(parents=True, exist_ok=True)
     fingerprint = calib_fingerprint(project_id, camera_id)
     schema_fp = schema_fingerprint(project_id)
+    flags_fp = flags_fingerprint()
     out_db = workdir / f"twopass_cam{camera_id}_{variant}.db"
     stats_p = workdir / f"twopass_cam{camera_id}_{variant}.stats.json"
     if out_db.exists() and stats_p.exists():
         prior = json.loads(stats_p.read_text())
-        if sidecar_reusable(prior, meta, fingerprint, schema_fp):
+        if sidecar_reusable(prior, meta, fingerprint, schema_fp, flags_fp):
             logger.info("two-pass cam%s %s: reusing computed working DB", camera_id, variant)
             result = prior["result"]
             result["reused"] = True
@@ -1539,6 +1562,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     stats_p.write_text(json.dumps({"dump_meta": meta,
                                    "calib_fingerprint": fingerprint,
                                    "schema_fingerprint": schema_fp,
+                                   "flags_fingerprint": flags_fp,
                                    "result": result},
                                   default=str, indent=1))
     if not apply:
