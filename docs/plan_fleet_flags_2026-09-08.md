@@ -96,3 +96,25 @@ GATE_EVIDENCE_EITHER_CORNER=1 to reprocess.
 
 CORRIDOR STANDINGS: cam1 83.5 / 95.3 | cam2 70.4 / 71.3 / 70.3 |
 cam3 83.7 | cam4 75.4 / 73.5 / 75.8 | cam5 66.4 / 71.7 / 63.1.
+
+## U-TURN PHANTOM CLASS — filmed for operator ruling (2026-09-08)
+
+The binding blocker across four windows (cam2 x3 + cam3). cam3
+study_0600 is the clearest specimen: N->N 88, S->S 33, W->W 6, against
+Miovision ZERO southbound u-turns.
+
+Forensics on the largest N->N events: net heading change -170 to
+-175 deg (a FULL REVERSAL), path distances 900-1,600 px, 340-1,616
+tracked points. One (tid 238765) carries posterior_source
+'gate_full' — the gate evidence itself confirmed it, so the machine
+is confident about a journey that may never have happened.
+
+A -174 deg reversal is the identity-swap signature (the flip
+monitor's PINCH_ANGLE is 120 deg) — but the flip monitor only runs
+under the botsort_locked recipe, and cam3 does not use it. So on
+cam3 a theft turns into an apparent u-turn with nothing to sever it.
+
+Filmed centred on the reversal frame (scripts/viz_c3_uturns.py):
+tids 238765, 11247, 242488. Awaiting the operator's ruling on whether
+these are one vehicle turning around or the box jumping to an
+oncoming vehicle.
