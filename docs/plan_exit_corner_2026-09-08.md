@@ -72,3 +72,36 @@ not the corner rule; cam5 stays on HOLD regardless, per the plan.
 
 RECOMMENDATION: ship the cam1-0700 re-run (75.0 -> 83.5) on operator
 go; leave the flag default OFF until the fleet question is settled.
+
+## SHIPPED — cam1 study_0700 (operator go, 2026-09-08)
+
+Backup: backups/project_20260908T120821_pre_ship_gex.db.
+
+INCIDENT DURING THE SHIP (caught, no damage): the first apply reused
+the cached pass-2 working DB and re-applied the OLD counts, because
+the reuse sidecar keyed on dump + calibration + schema but NOT on the
+counting flags. Production was byte-identical afterwards (4,473
+counted, same cells) so nothing was harmed. Fixed at the root:
+two_pass.flags_fingerprint() now joins the reuse key (the pass-2 twin
+of the pass-1 emergence_guard meta guard); legacy sidecars without
+the key fail closed and recompute once. Suite 1,172 green.
+
+Re-applied correctly: events 4,908, coverage 0.474, channel
+ACTIVATED. Production cells (was -> now):
+  NB_thru  2013 -> 2046   (Mio 2141)
+  SB_thru  1552 -> 1750   (Mio 1756)   <-- the knife-edge cured
+  NB_left   438 ->  439
+  EB_right  223 ->  199   (Mio 191)
+  driveway phantoms HELD: 22->25 right 18, WB-right family 1
+  total counted 4,473 -> 4,687
+Scored basis: movement 75.0 -> 83.5, approach 64.5 -> 90.3.
+
+Isolation byte-verified: cam1 evening 5,671 unchanged; cameras 2-5
+byte-identical to the backup. Health sidecar rewritten (amber);
+worklist rebuilt (80 -> 78 open).
+
+OPERATING NOTE (updated): reprocessing cam1 study_0700 now requires
+GATE_GROUND_ANCHOR=1 STRAIGHT_FRAGMENT_RULE=1
+GATE_EVIDENCE_EITHER_CORNER=1.
+
+New standings: cam1 83.5 (morning) + 86.2 (evening).
