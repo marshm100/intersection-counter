@@ -1415,12 +1415,32 @@ class ProcessingPipeline:
                 ptsL, gates, self.fps)
             oR, dR, _foR, _fdR, _opR, _dpR, _tR = gate_classify(
                 ptsR, gates, self.fps)
-            origin = oL if oL == oR else None
-            dest = dL if dL == dR else None
+            from backend.config import GATE_EVIDENCE_EITHER_CORNER
+
+            def _combine(a, b):
+                """G-EX-1: a witness from EITHER bottom corner counts;
+                only a CONFLICT (the corners naming different legs)
+                refuses. Ground anchoring already kills the
+                tall-vehicle illusion; requiring both corners here
+                discarded real vehicles instead of preventing false
+                counts."""
+                if a == b:
+                    return a
+                if not GATE_EVIDENCE_EITHER_CORNER:
+                    return None
+                if a is None:
+                    return b
+                if b is None:
+                    return a
+                return None                 # corners conflict: refuse
+            origin = _combine(oL, oR)
+            dest = _combine(dL, dR)
             _fo = max(_foL or 0, _foR or 0) or None
             _fd = max(_fdL or 0, _fdR or 0) or None
-            _op = _opL if origin is not None else None
-            _dp = _dpL if dest is not None else None
+            _op = (_opL if origin is not None and oL == origin else
+                   (_opR if origin is not None else None))
+            _dp = (_dpL if dest is not None and dL == dest else
+                   (_dpR if dest is not None else None))
             if origin is not None and dest is not None:
                 tag = "full"
             elif origin is not None:

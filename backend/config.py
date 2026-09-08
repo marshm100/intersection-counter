@@ -239,6 +239,17 @@ CHAIN_GLUE = _os2.environ.get("CHAIN_GLUE", "0") in ("1", "true", "on")
 # (cx, cy + bh/2) instead of the box center. Default OFF until G-C1-1
 # iteration 2 passes and the operator ships it.
 GATE_GROUND_ANCHOR = _os2.environ.get("GATE_GROUND_ANCHOR", "0") in ("1", "true", "on")
+# G-EX-1 (2026-09-08): the both-corners half of the threshold law is
+# strictness against a GRAZE; ground anchoring alone kills the
+# tall-vehicle illusion. Requiring both corners for gate EVIDENCE
+# discards real vehicles rather than preventing false counts —
+# measured on cam5 midday it cut witnessed entries 3,100 -> 2,661,
+# dropping coverage under the 0.45 activation bar and switching the
+# evidence channel off for the whole window (+932 vehicles dropped).
+# This accepts a witness from EITHER bottom corner, refusing only on
+# conflict (measured: conflicts never occur — 0 of 6,149 tracks).
+GATE_EVIDENCE_EITHER_CORNER = _os2.environ.get(
+    "GATE_EVIDENCE_EITHER_CORNER", "0") in ("1", "true", "on")
 
 # THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): a vehicle
 # that never curved cannot be booked as a TURN on a guess. Measured:

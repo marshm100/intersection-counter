@@ -85,3 +85,46 @@ class TestThresholdLaw:
         monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", True)
         _o, _d, tag = _pipe()._gate_evidence(v)
         assert tag != "no_crossing"
+
+
+class TestEitherCorner:
+    """G-EX-1: gate EVIDENCE accepts a witness from either bottom
+    corner; ground anchoring still kills the tall-vehicle illusion."""
+
+    def _wide(self, traj, heights, widths):
+        return {"start_frame": 100, "trajectory": traj,
+                "bbox_heights": heights, "bbox_widths": widths}
+
+    def test_illusion_still_refused_with_either_corner(self, monkeypatch):
+        # THE GUARANTEE: a tall vehicle passing in FRONT of a
+        # background line. Centre crosses y=200; the whole bottom
+        # edge stays below it, so NEITHER corner crosses — relaxing
+        # to either-corner must not resurrect the phantom.
+        monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", True)
+        monkeypatch.setattr(cfg, "GATE_EVIDENCE_EITHER_CORNER", True)
+        traj = _walk(215.0, 185.0)
+        v = self._wide(traj, [60.0] * len(traj), [30.0] * len(traj))
+        _o, _d, tag = _pipe()._gate_evidence(v)
+        assert tag in (None, "no_crossing")
+
+    def test_one_corner_witness_accepted(self, monkeypatch):
+        # the gate spans x 100-300 at y=200. A box at cx=290 w=40 has
+        # its left corner at 270 (over the gate) and its right at 310
+        # (past the gate's end). Bottom edge sweeps 230 -> 170.
+        monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", True)
+        traj = [(290.0, 210.0 - 60.0 * i / 11) for i in range(12)]
+        v = self._wide(traj, [40.0] * 12, [40.0] * 12)
+        monkeypatch.setattr(cfg, "GATE_EVIDENCE_EITHER_CORNER", False)
+        _o, _d, strict = _pipe()._gate_evidence(v)
+        monkeypatch.setattr(cfg, "GATE_EVIDENCE_EITHER_CORNER", True)
+        _o2, _d2, relaxed = _pipe()._gate_evidence(v)
+        assert strict in (None, "no_crossing")
+        assert relaxed not in (None, "no_crossing")
+
+    def test_flag_off_identical(self, monkeypatch):
+        monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", True)
+        monkeypatch.setattr(cfg, "GATE_EVIDENCE_EITHER_CORNER", False)
+        traj = _walk(250.0, 130.0)
+        v = self._wide(traj, [40.0] * len(traj), [60.0] * len(traj))
+        _o, _d, tag = _pipe()._gate_evidence(v)
+        assert tag != "no_crossing"        # a real full-edge crossing
