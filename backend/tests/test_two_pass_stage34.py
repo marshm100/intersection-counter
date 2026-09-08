@@ -188,7 +188,8 @@ class TestSchemaFingerprint:
 
     def test_reuse_fails_closed_across_schema_drift(self, proj):
         from backend.services.two_pass import (
-            calib_fingerprint, schema_fingerprint, sidecar_reusable)
+            calib_fingerprint, flags_fingerprint, schema_fingerprint,
+            sidecar_reusable)
         iid, cid = _mk_cam(proj, video={
             "path": "x.mp4", "fps": 10.0, "total_frames": 100,
             "recording_start_datetime": "2026-05-12T00:00:00"})
@@ -196,7 +197,8 @@ class TestSchemaFingerprint:
         calib = calib_fingerprint(proj, cid)
         schema = schema_fingerprint(proj)
         good = {"dump_meta": meta, "calib_fingerprint": calib,
-                "schema_fingerprint": schema}
+                "schema_fingerprint": schema,
+                "flags_fingerprint": flags_fingerprint()}
         assert sidecar_reusable(good, meta, calib, schema)
         # pre-migration sidecar: same dump + same operator state, old schema
         old = dict(good, schema_fingerprint="pre-migration-digest")
@@ -226,7 +228,8 @@ class TestSchemaFingerprint:
         from backend.services.detection_cache import parquet_path
         from backend.services.pass2_replay import tracks_dir
         from backend.services.two_pass import (
-            calib_fingerprint, plan_intersection, schema_fingerprint)
+            calib_fingerprint, flags_fingerprint, plan_intersection,
+            schema_fingerprint)
         chash = "ab" * 16
         iid, cid = _mk_cam(proj, video={
             "path": "x.mp4", "fps": 10.0, "total_frames": 864046,
@@ -244,6 +247,7 @@ class TestSchemaFingerprint:
         sidecar = {"dump_meta": meta,
                    "calib_fingerprint": calib_fingerprint(proj, cid),
                    "schema_fingerprint": schema_fingerprint(proj),
+                   "flags_fingerprint": flags_fingerprint(),
                    "result": {}}
         stats_p = tmp_path / f"twopass_cam{cid}_study_0700.stats.json"
         stats_p.write_text(json.dumps(sidecar))
