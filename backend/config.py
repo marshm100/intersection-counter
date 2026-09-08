@@ -251,6 +251,18 @@ GATE_GROUND_ANCHOR = _os2.environ.get("GATE_GROUND_ANCHOR", "0") in ("1", "true"
 GATE_EVIDENCE_EITHER_CORNER = _os2.environ.get(
     "GATE_EVIDENCE_EITHER_CORNER", "0") in ("1", "true", "on")
 
+# THE FIRST-EXIT RULE (operator ruling 2026-09-08): "it went from n to
+# s, period. End of story." classify() takes the FIRST entry but the
+# LAST exit, so a track stolen AFTER its journey finished rewrites the
+# destination — on cam3 that manufactures 88 southbound u-turns against
+# Miovision's zero (verified: the vehicle exited over S in 4.3 s, then
+# the id sat parked in the far-field queue 120 s before a different
+# vehicle, box 31x14 -> 75x48, carried it across N). A journey ends at
+# its first LEGITIMATE exit; a same-leg exit counts only if it passes
+# the u-turn tests, else it is the operator's "jitter over the s".
+JOURNEY_FIRST_EXIT = _os2.environ.get(
+    "JOURNEY_FIRST_EXIT", "0") in ("1", "true", "on")
+
 # THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): a vehicle
 # that never curved cannot be booked as a TURN on a guess. Measured:
 # cam1-0700's 111 phantom driveway turns are dead straight (0.975 /

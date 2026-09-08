@@ -329,31 +329,52 @@ def classify(track, gates, fps, lanes=None):
     entries = [c for c in kept if c[2]]
     exits = [c for c in kept if not c[2]]
     origin = entries[0] if entries else None
+
+    def _uturn_ok(o, d):
+        """A same-leg exit is a real u-turn only with real dwell +
+        excursion past the gate + AN OPPOSITE-LANE EXIT (lateral shift
+        along the gate axis) — queue creep over a red re-crosses at the
+        same lane position."""
+        g = gates[o[1]]
+        gl = math.hypot(g[1][0] - g[0][0], g[1][1] - g[0][1]) or 1.0
+        gdir = ((g[1][0] - g[0][0]) / gl, (g[1][1] - g[0][1]) / gl)
+        lane_shift = abs((d[3][0] - o[3][0]) * gdir[0]
+                         + (d[3][1] - o[3][1]) * gdir[1])
+        mouth_far = max(
+            abs((x - (g[0][0] + g[1][0]) / 2) * g[2][0]
+                + (y - (g[0][1] + g[1][1]) / 2) * g[2][1])
+            for f, x, y in track if o[0] <= f <= d[0]) if any(
+                o[0] <= f <= d[0] for f, _x, _y in track) else 0.0
+        lane_ok = True
+        if lanes and o[1] in lanes:
+            in_m, out_m, gdir2 = lanes[o[1]]
+            oproj = ((d[3][0] - g[0][0]) * gdir2[0]
+                     + (d[3][1] - g[0][1]) * gdir2[1])
+            lane_ok = abs(oproj - out_m) < abs(oproj - in_m)
+        return not ((d[0] - o[0]) < UTURN_MIN_S * fps
+                    or mouth_far < UTURN_MIN_PX
+                    or lane_shift < UTURN_MIN_LANE_SHIFT or not lane_ok)
+
+    from backend.config import JOURNEY_FIRST_EXIT
     dest = exits[-1] if exits else None
+    if JOURNEY_FIRST_EXIT and origin and exits:
+        # THE FIRST-EXIT RULE (operator 2026-09-08): a journey ends at
+        # its first LEGITIMATE exit — nothing that happens to a stolen
+        # box afterwards may rewrite it. A different-leg exit is
+        # legitimate at once; a SAME-leg exit only if it is a real
+        # u-turn, else it is the operator's "jitter over the s" and we
+        # keep looking.
+        after = [c for c in exits if c[0] > origin[0]]
+        dest = None
+        for cand in after:
+            if cand[1] != origin[1] or _uturn_ok(origin, cand):
+                dest = cand
+                break
+        if dest is None and after:
+            dest = after[-1]        # only jitter found: fall through
     if origin and dest and dest[0] > origin[0]:
-        if origin[1] == dest[1]:
-            # same-leg = u-turn ONLY with real dwell + excursion past the gate
-            # + AN OPPOSITE-LANE EXIT (lateral shift along the gate axis) —
-            # queue creep over a red re-crosses at the same lane position.
-            g = gates[origin[1]]
-            gl = math.hypot(g[1][0] - g[0][0], g[1][1] - g[0][1]) or 1.0
-            gdir = ((g[1][0] - g[0][0]) / gl, (g[1][1] - g[0][1]) / gl)
-            lane_shift = abs((dest[3][0] - origin[3][0]) * gdir[0]
-                             + (dest[3][1] - origin[3][1]) * gdir[1])
-            mouth_far = max(
-                abs((x - (g[0][0] + g[1][0]) / 2) * g[2][0]
-                    + (y - (g[0][1] + g[1][1]) / 2) * g[2][1])
-                for f, x, y in track if origin[0] <= f <= dest[0]) if any(
-                    origin[0] <= f <= dest[0] for f, _x, _y in track) else 0.0
-            lane_ok = True
-            if lanes and origin[1] in lanes:
-                in_m, out_m, gdir2 = lanes[origin[1]]
-                oproj = ((dest[3][0] - g[0][0]) * gdir2[0]
-                         + (dest[3][1] - g[0][1]) * gdir2[1])
-                lane_ok = abs(oproj - out_m) < abs(oproj - in_m)
-            if ((dest[0] - origin[0]) < UTURN_MIN_S * fps or mouth_far < UTURN_MIN_PX
-                    or lane_shift < UTURN_MIN_LANE_SHIFT or not lane_ok):
-                return origin[1], None, origin[0], None, origin[3], None, "entry_only"
+        if origin[1] == dest[1] and not _uturn_ok(origin, dest):
+            return origin[1], None, origin[0], None, origin[3], None, "entry_only"
         return origin[1], dest[1], origin[0], dest[0], origin[3], dest[3], "full"
     if origin:
         return origin[1], None, origin[0], None, origin[3], None, "entry_only"
