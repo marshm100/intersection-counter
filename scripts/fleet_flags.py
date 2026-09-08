@@ -29,14 +29,23 @@ from backend.services.two_pass import run_pass2  # noqa: E402
 
 PROJ = "97a7849a"
 BASE = Path("data/projects/97a7849a/_replay_scratch/fleet_20260908")
-LIVE = {(1, "study_1600"): 86.2,
+import os
+_ARMS = os.environ.get("FLEET_ARMS", "")
+_ALL = {(1, "study_1600"): 86.2,
         (2, "study_0700"): 70.4, (2, "study_1100"): 71.3,
         (2, "study_1600"): 70.3,
         (3, "study_0600"): 83.7,
         (4, "study_0700"): 75.4, (4, "study_1100"): 73.5,
         (4, "study_1600"): 75.8,
         (5, "study_0700"): 66.4, (5, "study_1100"): 71.7,
-        (5, "study_1600"): 63.1}
+        (5, "study_1600"): 63.1,
+        (1, "study_0700"): 83.5}
+if _ARMS:
+    want = {tuple(a.split(":")) for a in _ARMS.split(",")}
+    LIVE = {k: v for k, v in _ALL.items()
+            if (str(k[0]), k[1]) in want}
+else:
+    LIVE = {k: v for k, v in _ALL.items() if k != (1, "study_0700")}
 
 
 def main() -> int:

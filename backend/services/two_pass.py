@@ -127,13 +127,15 @@ def flags_fingerprint() -> str:
     stale counts. A flag change must force a recompute, exactly as the
     pass-1 dump meta carries emergence_guard."""
     from backend import config as _c
-    names = ("GATE_GROUND_ANCHOR", "GATE_EVIDENCE_EITHER_CORNER",
-             "STRAIGHT_FRAGMENT_RULE", "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS",
-             "CONCEALER_ORIGIN_INHERITANCE", "MOTION_QUALIFIED_EVIDENCE",
-             "QUEUE_AWARE_MERGE", "COEXISTING_TWIN_DEDUP",
-             "STOP_FRACTURE_COLLAPSE", "FLOW_ORIGIN_INFERENCE",
-             "EVIDENCE_ACTIVATION_ENABLED")
-    blob = json.dumps({n: bool(getattr(_c, n, False)) for n in names},
+    # SELF-MAINTAINING (2026-09-08): fingerprint EVERY module-level
+    # boolean switch in backend.config rather than a hand-kept list.
+    # The hand-kept version bit immediately — JOURNEY_FIRST_EXIT was
+    # added and not listed, so an arm silently reused cached working
+    # DBs and "measured" the old rule. Any future flag is covered
+    # automatically; a spurious recompute is the safe failure.
+    names = [n for n in dir(_c)
+             if n.isupper() and isinstance(getattr(_c, n, None), bool)]
+    blob = json.dumps({n: bool(getattr(_c, n)) for n in sorted(names)},
                       sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()
 
