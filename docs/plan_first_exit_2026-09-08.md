@@ -73,3 +73,41 @@ That is a separate diagnosis, not a tuning knob on this rule.
 
 Flag stays default OFF. Nothing shipped. One iteration of the
 declared budget remains, unspent pending operator direction.
+
+## OPERATOR RULINGS ON THE SURVIVORS (2026-09-08)
+
+Clip 1 (tid 123908): a PROPER u-turn. Real. He also noted a genuine
+  visual signature: on a u-turn the two bottom corners CRISSCROSS.
+Clip 2 (tid 308574): a THEFT. It is a LEFT TURN; the box loses the
+  dark vehicle mid-intersection, LINGERS there, and a much faster
+  through vehicle takes it. "One is moving slow, that's making the
+  turn... the second thief is moving way, way faster."
+Clip 3 (tid 296206): PROGRESSIVE THEFT — a NEW mechanism. A white
+  truck waits to turn; through traffic repeatedly crosses in front of
+  it, and with each crossing the bounding box CREEPS further into the
+  intersection until it is fully taken. Not a single hand-off:
+  incremental drift under repeated occlusion.
+
+## DISCRIMINATOR TEST (his two candidate signals, measured)
+
+                              speed ratio    corners cross
+  REAL u-turn   (123908)          1.2            yes
+  THEFT         (308574)          6.4            yes
+  THEFT         (296206)          2.6            no
+
+SPEED CONSISTENCY SEPARATES THE REAL ONE; the crisscross does not
+(it is a true property of u-turns, but a theft also reverses
+direction, so both show it). A real u-turn holds a steady slow speed
+throughout; a theft shows a large speed discontinuity where the box
+changes vehicles.
+
+CANDIDATE RULE (not built): add speed consistency to the u-turn
+admission tests, which already check dwell + excursion + lane shift.
+A "u-turn" whose median speed changes by >= 3x between its first and
+second half is a theft, not a turn. Caveat: only 7 gate_full u-turns
+on cam3 carry enough data to measure, 3 of them >= 3x — a small
+sample, and the threshold needs a real sweep before it is trusted.
+
+The wider principle worth banking: a large speed discontinuity WITHIN
+one journey means the box changed vehicles. That is not specific to
+u-turns.
