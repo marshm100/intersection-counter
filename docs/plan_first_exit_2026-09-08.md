@@ -36,3 +36,40 @@ are failures. Approach never decisive.
 ## Verdict
 
 (to be recorded)
+
+## G-FX-1 verdict (recorded 2026-09-08): PARTIAL — MISS on the gate
+
+Arms run with the shipped flag set + JOURNEY_FIRST_EXIT. Comparison
+is against the FLEET ARM (same flags, rule off), which is the honest
+measure of the rule's own effect.
+
+  cam3 0600   85.4 -> 86.2  (+0.8)   SB_uturn 88 -> 38, NB_uturn 33 -> 28
+  cam2 0700   70.5 -> 68.2  (-2.3)
+  cam2 1100   73.9 -> 75.2  (+1.3)
+  cam2 1600   72.3 -> 69.9  (-2.4)   EB_uturn 23 -> 17
+  cam1 0700   83.5 -> 83.3  (-0.2)   SHIPPED window, marginal slip
+  cam1 1600   95.3 -> 95.3  (0.0)    SHIPPED window, held
+
+THE RULE DOES WHAT IT WAS BUILT TO DO: the u-turn phantom class it
+targets is roughly HALVED on the specimen (cam3 SB 88 -> 38) and cam3
+gains +0.8. But it does not clear the declared gate: cam2 regresses
+on two of three windows, and cam1-0700 slips 0.2 below its shipped
+83.5. MISS.
+
+WHY THE SURVIVORS SURVIVE (provenance of cam3's remaining 44
+u-turn events):
+    N->N  src=None       23
+    S->S  src=gate_full  21
+    N->N  src=gate_full  15
+    S->S  src=None        7
+    W->W  src=None        6
+36 of 72 carry 'gate_full' — the gate evidence itself still calls
+them u-turns, meaning their FIRST legitimate exit really is the same
+leg and it PASSES the dwell/excursion/lane tests. So the remainder is
+not the theft-after-journey shape this rule addresses; it is either
+genuinely u-turn-shaped motion in the far-field queue, or the u-turn
+admission tests themselves being too permissive at that distance.
+That is a separate diagnosis, not a tuning knob on this rule.
+
+Flag stays default OFF. Nothing shipped. One iteration of the
+declared budget remains, unspent pending operator direction.
