@@ -118,3 +118,42 @@ Filmed centred on the reversal frame (scripts/viz_c3_uturns.py):
 tids 238765, 11247, 242488. Awaiting the operator's ruling on whether
 these are one vehicle turning around or the box jumping to an
 oncoming vehicle.
+
+## OPERATOR RULING ON THE U-TURNS (2026-09-08) — all three are THROUGHS
+
+His words: "it crossed the mouth, and it crossed the southern gate of
+the intersection. So it should be a through. It should not be a
+U-turn." And on the mechanism: traffic queues back from the NEXT
+intersection past the exit gate, so the far-field queue is a row of
+parked cars the detector confuses at distance — plenty of theft, but
+none of it pertinent to a journey that already finished.
+
+VERIFIED — the crossing sequences say exactly that:
+  tid 238765  N-in @590493 -> S-OUT @590536 -> S-in @592257 -> N-OUT @592279
+  tid 242488  N-in @593199 -> S-OUT @593253 -> S-in @593715 -> N-OUT @593736
+Each vehicle ENTERED over N and EXITED over S within 4-5 seconds — a
+complete through journey. Then 172 s (238765) and 46 s (242488)
+LATER the same track id re-enters over S and exits over N: the box
+being re-used by the far-field queue, long after its vehicle was
+gone.
+
+ROOT CAUSE, one line: entry_gates.classify():
+    origin = entries[0] if entries else None
+    dest   = exits[-1]  if exits   else None
+The origin takes the FIRST entry but the destination takes the LAST
+exit. So any post-journey theft rewrites the destination and, when it
+re-crosses the entry leg, manufactures a U-TURN out of a finished
+through.
+
+THE RULE THIS IMPLIES (the operator's pertinence law, stated for
+time): a journey ends at its FIRST exit after its entry. Crossings
+after that belong to another vehicle and must not rewrite it —
+dest = the first exit with dest[0] > origin[0].
+
+Third clip (tid 11247) is a different bug worth noting: its sequence
+is N-in -> S-OUT -> S-in, and classify ALREADY returns N->S 'full'
+(a through) — yet the event was booked u_turn. There the gate
+evidence was correct and something downstream overrode it, the same
+shape as the invented-origin class on cam5.
+
+Not implemented; this is the next candidate build.
