@@ -157,3 +157,30 @@ evidence was correct and something downstream overrode it, the same
 shape as the invented-origin class on cam5.
 
 Not implemented; this is the next candidate build.
+
+## CORRECTION (operator, 2026-09-08): the VEHICLE never returns
+
+I wrote that the track "re-enters over S and exits over N". Wrong
+wording — the operator: "it crosses the n and then crosses the s. And
+then it may kind of jitter over the s a bit, but it never goes all
+the way back to n. That never happens."
+
+He is right, and the dump proves it for tid 238765:
+  f590493  (120,309)  box 208x108   crosses N inward
+  f590536  (390,170)  box  35x24    crosses S outward  <- journey done
+  f590788..f591988    (~397,155)    PARKED for 120 s  <- his queue
+  f592257  (277,154)  box  31x14
+  f592279  ( 33,221)  box  75x48    crosses N outward
+The box goes 31x14 -> 75x48 at that last crossing: a DIFFERENT
+VEHICLE. The original went N to S in 4.3 s and never came back; the
+track id was picked up by something else in the far-field queue and
+carried across the N line 3 minutes later.
+
+(My clip also mis-served him: it centred on frame 591677 +-7 s, so
+the crossing at 592279 was ~60 s past the end of what he watched. He
+ruled on what the film showed, correctly.)
+
+THE RULE, in his words: "it went from n to s, period. End of story."
+= a journey ends at its FIRST exit after its entry; nothing after
+that can rewrite it. Same one-line site: entry_gates.classify(),
+dest = exits[-1] -> the first exit with dest[0] > origin[0].
