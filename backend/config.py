@@ -252,6 +252,14 @@ STRAIGHT_FRAGMENT_RULE = _os2.environ.get("STRAIGHT_FRAGMENT_RULE", "0") in ("1"
 STRAIGHT_FRAGMENT_MAX_NHC_DEG = 5.0
 STRAIGHT_FRAGMENT_MIN_STRAIGHTNESS = 0.95
 STRAIGHT_FRAGMENT_MIN_POINTS = 10
+# Extension (operator's own words: "it doesn't matter what the path
+# is"): apply the rule even when the destination came from a bank
+# path-fit — cam4/cam5's phantom turns are straight fragments with a
+# path alibi (cam4 33->34: 124 events, straightness 0.978, +0.4 deg).
+# The 5-deg heading bound remains the genuine-turn protection.
+# Default OFF (cam1's shipped basis used the narrow rule).
+STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS = _os2.environ.get(
+    "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS", "0") in ("1", "true", "on")
 
 EMERGENCE_GUARD = _os2.environ.get("EMERGENCE_GUARD", "0") in ("1", "true", "on")
 CONCEALER_ORIGIN_INHERITANCE = _os2.environ.get(

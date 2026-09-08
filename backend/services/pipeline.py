@@ -891,13 +891,15 @@ class ProcessingPipeline:
         The 5-deg constant is the measured operating point
         (collateral 2 genuine rights; the classifier's 25-deg band
         would take 65 — never reuse it here)."""
-        from backend.config import (STRAIGHT_FRAGMENT_MAX_NHC_DEG,
+        from backend.config import (STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS,
+                                    STRAIGHT_FRAGMENT_MAX_NHC_DEG,
                                     STRAIGHT_FRAGMENT_MIN_POINTS,
                                     STRAIGHT_FRAGMENT_MIN_STRAIGHTNESS,
                                     STRAIGHT_FRAGMENT_RULE)
         if not (STRAIGHT_FRAGMENT_RULE
                 and movement in ("left", "right", "u_turn")
-                and (polyline_dest is None
+                and (STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS
+                     or polyline_dest is None
                      or polyline_dest.get("destination_leg_id") is None
                      or polyline_dest.get("destination_leg_id")
                      != destination_leg_id)
