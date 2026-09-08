@@ -111,3 +111,27 @@ sample, and the threshold needs a real sweep before it is trusted.
 The wider principle worth banking: a large speed discontinuity WITHIN
 one journey means the box changed vehicles. That is not specific to
 u-turns.
+
+## CORRECTION (operator, 2026-09-08): clip 3 DOES crisscross
+
+He: "clip three does actually have a crisscross in box corners... It
+doesn't make it correct. The errors I described are still there, but
+that's what happened."
+
+He is right; my test was wrong. It sampled every SECOND segment for
+speed and missed the single intersection point. Exhaustive re-test of
+the corner-path intersections:
+  clip 1 REAL   journey 1  (full track 4)
+  clip 2 THEFT  journey 1  (full track 1)
+  clip 3 THEFT  journey 1  (full track 1)
+ALL THREE crisscross exactly once across the journey.
+
+CONSEQUENCE — this STRENGTHENS the earlier conclusion rather than
+changing it: the crisscross is a universal property of any
+reversal-shaped track (real turn or stolen box alike), so it can
+never discriminate. SPEED CONSISTENCY remains the only signal that
+separated the real u-turn (1.2x) from the thefts (6.4x, 2.6x).
+
+INSTRUMENT LESSON (second false reading caught by the operator
+today): a sampled geometric test reports a false NEGATIVE on a
+single-point property. Corner-path intersection must be exhaustive.
