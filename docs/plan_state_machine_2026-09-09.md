@@ -311,3 +311,28 @@ wobbled OUT over W twice, so the born-across clause (which requires
 no earlier crossing by the other corner) did not fire. His reading:
 the ENTERING -> OCCUPYING criterion must tolerate a spawn beyond the
 mouth even when the spawned corner later wobbles.
+
+## REEL 3 — cam3 study_0600 EB_right growth 176 -> 208 (2026-09-09)
+
+Track diff G-FX-1 arm vs SM iter 2: 576 tracks change cell. Into
+W_right->S: 23 new events + 19 that were N_through->S (out: 13). Also
+noted, not this reel's target: 290 N_through->S events present in the
+earlier arm are ABSENT in iter 2 (NB_thru 13960 -> 13854 net), and 52
+S_through->N became N_through->S.
+
+Filmed 5 of the 42 even-spread (tids 22390 129183 158835 227763
+313316; screenshots/c3_ebright_{n}_{tid}.webm). ONE SHAPE, 5 OF 5:
+box at birth 266x268 .. 378x313 px — a near-field giant — and its two
+bottom corners cross DIFFERENT gates in the same frame: R corner IN
+over W, L corner IN over N. The W crossing is accepted by the
+born-across clause because the L corner is on the "inside" half-plane
+of the W line — it is actually sitting on the N gate, outside the W
+segment's lateral extent. Then both corners OUT over S, paired, and
+the machine books W -> S. The earlier arm booked 3 of these N -> S.
+tid 313316 is a 6-row, 0.5 s flash of a 378x313 box.
+
+CANDIDATE FIX (not built, awaiting his ruling): born-across requires
+the other corner to lie within the gate SEGMENT's lateral extent
+(projection in [0, 1]), not merely on the inside half-plane. The
+cam1 reel-1 clips all satisfy that; these cam3 clips all fail it.
+Reel page: https://claude.ai/code/artifact/d195fda2-4bb6-45bf-8f91-6634f8e33771
