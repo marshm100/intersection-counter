@@ -509,6 +509,19 @@ phantom-slack + coverage per window. Expected on the rulings: cam3
 EB_right back toward 176 (A2), cam2 evening's 112-track class split
 — the 2-in-5 corner spawns recovered (A3), the 3-in-5 thefts not.
 
+## THEFT SPEED SIGNAL — NEGATIVE (scripts/theft_speed_signal.py)
+
+On the 17 ruled clips: jump = max per-frame speed over the running
+2 s median. Thefts 2.7-27.4; the CLEAN corner-spawn rights 7.9-26.0
+(4383 = 26.0, the largest of all) and the waiting right 17526 = 9.6.
+A vehicle pulling away from a stop is a launch against its own
+stationary median — the same shape as the thief's launch. Longest
+stationary hold: thefts 0-51%, clean 0-30%. NO SEPARATION. Same
+conclusion as the 2026-09-08 u-turn speed sweep: kinematics alone do
+not find the theft; the theft is a TRACKER event (the box changes
+vehicle under occlusion / cross traffic) and belongs to the
+anti-theft campaign, not to the crossing law.
+
 ## Iteration 3 verdict
 
 (to be recorded)
