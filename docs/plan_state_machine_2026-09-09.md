@@ -387,3 +387,58 @@ Provenance under the machine:
     OUT over S 5-10 s later, passing dwell / excursion / lane shift.
 All five are far-field boxes at the S mouth (8x7 .. 32x15 px).
 Reel page: https://claude.ai/code/artifact/93c8d39b-7d22-4195-8ef2-e93f6fd85027
+
+OPERATOR RULINGS, reel 4 (his words):
+  1  tid 14634   "a complete theft error opposite theft traffic (N to
+                  S) disrupts the lock and then doesn't steal it and
+                  run away but the disruption makes the lock get lost
+                  and then it lingers in the intersection till it dies."
+  2  tid 154504  "a last minute theft, right as the target vehicle is
+                  about to cross the N exit it gets stolen and pulled
+                  into the intersection before it sits and dies."
+  3  tid 281674  "Same story, tracking failure mid intersection and
+                  then lingers until a cross traffic vehicle steals it
+                  and runs away."
+  4  tid 302741  "unique detection misfires in the initiation
+                  detecting an exiting vehicle far off in the horizon
+                  N to S, it then lingers until it finds a far off
+                  vehicle moving S to N to track, it tracks it to the
+                  S mouth before there is a theft mid intersection and
+                  then it runs off with it N to S."
+  5  tid 332755  "a cross traffic thief error, the target car moves
+                  into the intersection and then is waiting to make a
+                  left turn while stopped the detector holds on
+                  correctly for a majority of the cross traffic (N to
+                  S) but then at the very end it is stolen and then
+                  launched in reverse by a fast moving cross traffic
+                  vehicle"
+
+REEL 4 TALLY: 5 of 5 are theft / lost-lock inside the intersection.
+Not one is a vehicle that turned around. The two "gate_full" u-turns
+(281674, 302741) are a stolen box carried back out over S by cross
+traffic — the gates witnessed a genuine both-corner S exit by the
+WRONG vehicle. R2 (terminal exit) cannot help: the theft happens
+BEFORE any exit.
+
+## FOUR REELS, ONE TABLE (2026-09-09)
+
+  reel  class                          real  spawn/  theft/  wide
+                                             born    lost    body
+  1     born-across entries (cam1)      5/5    5       0       0
+  2     W refusals -> N thru (cam2)     2/5    2       3       0
+  3     new EB rights (cam3)            0/5    0       0       5
+  4     surviving SB u-turns (cam3)     0/5    0       5       0
+
+Two problems, cleanly separated by his rulings:
+  GEOMETRY (7 of 20 + reel 1's 5): the box is born or sits with a
+    corner past a line's END or beyond the mouth; the drawn segment
+    cannot be hit. Born-across is right for reel 1's shape and wrong
+    for reel 3's. His idea: extend the drawn lines to the frame edge.
+  THEFT (8 of 20): cross traffic takes the box inside the
+    intersection. The machine's rules act on crossings; a theft
+    before the exit hands the machine a genuine crossing by the wrong
+    vehicle. Anti-theft territory (plan_anti_theft_2026-09-06.md,
+    EMERGENCE_GUARD default off) plus his 2026-09-08 lead: a large
+    speed discontinuity within one journey means the box changed
+    vehicles ("launched in reverse by a fast moving cross traffic
+    vehicle").
