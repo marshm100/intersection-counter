@@ -268,3 +268,46 @@ entries — the same signature, opposite truth.
 
 Filmed 5 of the 112 even-spread (screenshots/c2_origin_{n}_{tid}.gif,
 tids 112 4383 9031 18964 26259); reel page for his ruling.
+
+Full-frame WebM reel pages (his ruling: NEVER crop a review clip):
+  part 1 https://claude.ai/code/artifact/1dcdc600-0d35-4d01-a717-8c7e0c6fddc7
+  part 2 https://claude.ai/code/artifact/a84350be-e237-4e40-a385-ae9728e0a681
+
+OPERATOR RULINGS, reel 2 (his words):
+  1  tid 112    "a thief, the detector was doing a good job maintaining
+                 lock while through traffic was passing but then a
+                 through vehicle (N to S) stole the lock while the car
+                 was waiting for traffic to clear to make a move."
+  2  tid 4383   "clean right turn its likely just a spawn error where
+                 the detection spawns the corner beyond the mouth gate
+                 and then closes properly at the exit gate, so this
+                 affects the criteria for transitioning from entering
+                 to occupying."
+  3  tid 9031   "a vehicle occlusion theft. The target vehicle is
+                 occluded by a box truck and a normal truck moving N
+                 to S at the same time, the box truck blocks the
+                 vehicle and the normal truck is the thief."
+  4  tid 18964  "same type of corner spawn error"
+  5  tid 26259  "occlusion theft error"
+
+REEL 2 TALLY: 3 thefts (1, 3, 5) + 2 corner spawns (2, 4). The
+112-track class is TWO problems: (a) the waiting car's box is stolen
+by a N->S through — anti-theft territory (EMERGENCE_GUARD /
+CONCEALER_ORIGIN_INHERITANCE, docs/plan_anti_theft_2026-09-06.md),
+where the machine's refusal of the W entry is a symptom, not the
+cause; (b) a real right turn whose box spawned with a corner beyond
+the W mouth and wobbled — the born-across clause must survive the
+spawned corner's later wobble (his words: "affects the criteria for
+transitioning from entering to occupying").
+
+NOTE ON 1 AND 3: the thief IS a N->S through, so the machine's
+posterior guess "N_through->S" happens to describe the thief's
+movement — but the lifecycle is wrong (the waiting car's W entry was
+real; the S exit belongs to another vehicle) and the earlier arm's
+"W_right->S" was wrong too (a phantom right made of two vehicles).
+Neither booking is a count of what the waiting car did.
+NOTE ON 2: the spawn put a corner beyond the W gate, then that corner
+wobbled OUT over W twice, so the born-across clause (which requires
+no earlier crossing by the other corner) did not fire. His reading:
+the ENTERING -> OCCUPYING criterion must tolerate a spawn beyond the
+mouth even when the spawned corner later wobbles.
