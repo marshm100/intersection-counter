@@ -442,3 +442,33 @@ Two problems, cleanly separated by his rulings:
     speed discontinuity within one journey means the box changed
     vehicles ("launched in reverse by a fast moving cross traffic
     vehicle").
+
+## RED-TEAM OF THE LINE EXTENSION (scripts/redteam_line_extension.py)
+
+Both bottom corners, pass-1 rows, crossings under the DRAWN gates vs
+EXTENDED gates. An added crossing "completes" when the other corner
+crossed the drawn segment of the same gate within the pairing window
+(the wide-body pair); it is "lone" when neither corner touched the
+drawn gate (a corner hit an extension the vehicle never approached).
+
+  extension          cam1 0700        cam2 1600        cam3 0600
+                     compl  lone      compl  lone      compl  lone
+  to frame edge        0      6        17     48        673  1420
+  +10% per side        0      5        13     21        523    77
+  +25% per side        0      5        17     36        937   170
+  +50% per side        0      5        17     50       1013  1402
+  +100% per side       0      6        17     50       1013  1480
+
+AS STATED (to the frame edge) IT FAILS on cam3: the S gate's
+extension is 3.0x its drawn length and runs into traffic that never
+approaches S — 878 lone S-out and 439 lone S-in hits against 673
+completions. cam1 has no wide-body class at all (0 completions).
+cam2 is marginal either way (13-17 vs 21-50).
+
+BOUNDED, IT WORKS: at +25% per side cam3 completes 937 wide-body
+pairs (690 tracks gain a paired ENTRY, 249 a paired exit) for 170
+lone hits; the cliff is between 25% and 50% where the S extension
+reaches the cross road. Operating point: GATE_EXTENSION_MARGIN = 0.25
+(fraction of the drawn length, each end). Lone hits are per-corner
+crossings; under the machine's pairing most cannot become a valid
+crossing on their own.
