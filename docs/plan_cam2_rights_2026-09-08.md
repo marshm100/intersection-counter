@@ -79,3 +79,28 @@ nothing about whether they are one vehicle. Twice now (queue on cam5,
 lingering box here) a spatial-overlap test has produced a confident
 wrong answer. Any duplicate claim needs the operator's eye or a
 non-spatial signal.
+
+## WHERE THE EXCESS SITS IN TIME (2026-09-09)
+
+  study_0700  Mio 167 | prod 310.  Worst bins: 08:30 44/11, 08:45
+              44/11, 08:00 38/11, 08:15 27/8 — a 4x gap AFTER 8am,
+              while 07:30 and 07:45 run only ~1.5x (53/36, 63/40).
+              Miovision's EB rights COLLAPSE to ~11 per bin after
+              08:00; ours stay at 27-44.
+  study_1100  Mio 351 | prod 444.  ~1.3-1.6x, spread evenly.
+  study_1600  Mio 699 | prod 968.  A STEADY ~1.45x in every bin
+              (146/97, 139/94, 136/92, 134/89).
+
+Two different signatures: a uniform multiplicative excess in the
+evening, and a collapse-vs-plateau divergence late morning.
+
+## WHAT IS IN THE 08:30 BIN
+
+44 events. Its three LONGEST tracks carry heading changes of
++179.6 deg (src gate_full), -133.4 and -151.1 — full or near-full
+reversals, every one of them labelled a RIGHT TURN, on a camera
+whose real rights bend ~9-30 deg (operator-confirmed). Filmed as
+tids 17428 / 17526 / 18607 for his ruling.
+
+So the reversal-shaped-track problem is not confined to cam3's
+u-turn cell: on cam2 the same shape lands in the RIGHT-TURN cell.
