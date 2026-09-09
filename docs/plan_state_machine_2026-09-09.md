@@ -336,3 +336,54 @@ the other corner to lie within the gate SEGMENT's lateral extent
 (projection in [0, 1]), not merely on the inside half-plane. The
 cam1 reel-1 clips all satisfy that; these cam3 clips all fail it.
 Reel page: https://claude.ai/code/artifact/d195fda2-4bb6-45bf-8f91-6634f8e33771
+
+OPERATOR RULING, reel 3 (his words): "All five are what I am calling
+WIDE BODY CORNER ERRORS. basically all of these are the same error,
+the vehicle is so large in the frame the bounding box corners exist
+beyond the drawn lines of the intersection, thus both corners do not
+cross the mouth section and in some instances also do not cross the
+exit section. The only one unclean is detection drops in clip 5 mid
+intersection. But in all five the main error is the same the bounding
+box is so large one of the corners sits beyond the intersection
+line's length and cannot be hit with the intersection line as drawn."
+
+HIS IDEA (his emphasis: "could, key word is could ... only an idea and
+it needs to be redteamed and tested"): the program extends each drawn
+line along its own trajectory to the edge of the frame — the operator
+draws the lines as they exist, the code "mentally" extends them — so
+line LENGTH stops being a problem.
+
+TWO CANDIDATE DIRECTIONS, BOTH UNTESTED, for the build phase:
+  (a) agent's: born-across requires the other corner within the
+      segment's lateral extent — REFUSES the wide-body entry (the
+      entry then comes from elsewhere or not at all);
+  (b) operator's: extend the lines to the frame edge — makes the far
+      corner's crossing OBSERVABLE so the pair forms on the right gate.
+  Red-team questions for (b): an extended W line runs across the N
+  approach / the far field — what else does it intersect? Do
+  extensions of adjacent gates cross each other inside the frame, and
+  what does a corner crossing the extension of a gate it is not
+  approaching mean? Must be measured on all three cameras' geometry
+  before any arm.
+  INFERENCE, not stated by him: the true movement of these five is
+  N -> S through (the earlier arm booked 3 of 5 that way). To confirm
+  before building.
+
+## REEL 4 — cam3 study_0600 surviving SB u-turns (2026-09-09)
+
+16 unrejected S->S u_turn events in the iter-2 working DB (the cell
+table's 27 counts destination==origin over Mio minutes; the movement
+label differs on the rest). Filmed 5 even-spread (tids 14634 154504
+281674 302741 332755; screenshots/c3_sbuturn_{n}_{tid}.webm).
+
+Provenance under the machine:
+  3 of 5 ENTRY-ONLY (14634, 154504, 332755): both corners IN over S,
+    paired; then NO legitimate exit witnessed. The u-turn destination
+    is the POSTERIOR's guess (S 0.65 / 0.73 / 0.74 vs W 0.20-0.35,
+    N ~0). 154504 is the telling one: its L corner crossed OUT over N
+    solo (refused, track continues) — a probable S->N through whose N
+    exit only one far-field corner witnessed.
+  2 of 5 GATE_FULL (281674, 302741): both corners IN over S and both
+    OUT over S 5-10 s later, passing dwell / excursion / lane shift.
+All five are far-field boxes at the S mouth (8x7 .. 32x15 px).
+Reel page: https://claude.ai/code/artifact/93c8d39b-7d22-4195-8ef2-e93f6fd85027
