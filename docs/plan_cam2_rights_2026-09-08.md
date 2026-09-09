@@ -104,3 +104,47 @@ tids 17428 / 17526 / 18607 for his ruling.
 
 So the reversal-shaped-track problem is not confined to cam3's
 u-turn cell: on cam2 the same shape lands in the RIGHT-TURN cell.
+
+## OPERATOR RULINGS ON THE 08:30 REVERSALS (2026-09-09)
+
+Clip 1 (17428, nhc +179.6): "a right turn with no errors."
+Clip 3 (18607, nhc -151.1): "perfect tracking of a right hand turn."
+Clip 2 (17526, nhc -133.4): a vehicle PARKED waiting for traffic to
+  clear, presumably to turn right — "the bounding box has not crossed
+  the exiting threshold before the exiting label fires."
+
+CONSEQUENCE: my heading-change reasoning is REFUTED for this camera.
+Tracks at +179.6 and -151.1 deg are CORRECT right turns, so the
+metric (exit chord vs the leg's calibrated reference heading) does
+not describe vehicle motion on cam2's fisheye geometry. The
+"reversal-shaped tracks booked as rights" inference was wrong.
+
+CLIP 2'S BUG CONFIRMED IN THE DATA: tid 17526's crossings are
+  W-in -> W-OUT -> W-OUT -> W-OUT -> W-OUT -> S-OUT -> S-in -> N-OUT
+Four consecutive OUTWARD crossings of its OWN ENTRY GATE — a
+stationary vehicle's box wobbling across the line while it waits,
+exactly as he described. Neither the first-exit rule nor the
+threshold law addresses it: the exit fires while the vehicle has not
+moved.
+
+SCALE OF THAT DEFECT (measured):
+  study_0700: 25 of 169 excess  |  study_1600: 54 of 310 excess
+  ("exit fired while essentially stationary", and separately
+   "jitters over its own entry gate >= 2x": 25 and 49)
+Real, but only ~15-18% of the over-count.
+
+## STANDING: FIVE HYPOTHESES, FOUR DEAD, BULK UNEXPLAINED
+
+ 1 misattributed origin   REJECTED by gate evidence (880/1009 from W)
+ 2 duplicate tracks       REJECTED by operator ruling (lingering box)
+ 3 shape mismatch         REJECTED by operator ruling
+ 4 reversal-shaped tracks REJECTED by operator ruling
+ 5 stationary/jitter exit REAL, ~15-18% of the excess
+
+THE DECISIVE TEST NOW IS A LABELLED SAMPLE, not another hypothesis.
+Of three sampled events in the 08:30 bin (we count 44, Miovision 11),
+the operator ruled TWO CORRECT and one buggy-but-a-real-waiting-
+vehicle. If that rate holds across a larger sample, the excess is
+NOT ours — Miovision would be undercounting that bin, which is the
+possibility he raised at the cam1 driveway ("we might be entering a
+space where we are more accurate than them"). More rulings settle it.
