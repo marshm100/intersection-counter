@@ -148,3 +148,42 @@ vehicle. If that rate holds across a larger sample, the excess is
 NOT ours — Miovision would be undercounting that bin, which is the
 possibility he raised at the cam1 driveway ("we might be entering a
 space where we are more accurate than them"). More rulings settle it.
+
+## SAMPLE RESULT (2026-09-09): 5 of 5 ARE REAL VEHICLES
+
+Unbiased even-spread sample from the 08:30 bin (we count 44,
+Miovision 11). Operator rulings across both rounds:
+  17428  clean right turn, no errors
+  18607  perfect tracking of a right turn
+  16722  clean eastbound right, box on one vehicle
+  17744  clean eastbound right, box on one vehicle
+  17526  a real vehicle waiting to turn right (premature-exit bug)
+FIVE OF FIVE describe genuine vehicles; four are clean counted right
+turns. On this evidence THE EXCESS IN THIS BIN IS NOT OURS — the
+reference is undercounting it. That is the possibility he raised at
+the cam1 driveway ("we might be entering a space where we are more
+accurate than them"), now with a sample behind it.
+
+CAVEAT: five events out of a 44-vs-11 gap. It supports the reference
+hypothesis; it does not close it. Note also the evening window's
+steady 1.45x is a DIFFERENT signature and is not covered by this.
+
+## NEW INSTRUMENT: THE THREE-STATE LABEL (his design)
+
+He asked for three labels instead of two: ENTERING (detected, not yet
+over the mouth), OCCUPYING (in the space of the intersection), EXITED
+(over a threshold on the way out) — so that flicker becomes visible
+and countable. Built as scripts/viz_states.py; every crossing flips
+the state. First output:
+
+  clean right (16722):   2 crossings, 1 flip
+      OCCUPYING(W) -> EXITED(S)
+  waiting vehicle (17526): 8 crossings, 3 flips
+      OCCUPYING(W) -> EXITED(W) x4 -> EXITED(S) -> OCCUPYING(S)
+      -> EXITED(N)
+
+His predicted signature is exactly what appears: a clean pass is one
+long occupancy then out; a waiting vehicle emits repeated exits over
+its OWN entry gate. FLIP COUNT IS NOW A SCORABLE SIGNAL over the
+whole population — a journey with many flips is a waiting/jittering
+vehicle, not a clean movement.
