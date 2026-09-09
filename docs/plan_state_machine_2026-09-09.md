@@ -522,6 +522,45 @@ not find the theft; the theft is a TRACKER event (the box changes
 vehicle under occlusion / cross traffic) and belongs to the
 anti-theft campaign, not to the crossing law.
 
-## Iteration 3 verdict
+## Iteration 3 verdict (recorded 2026-09-09): 4 of 6 windows PASS
+## their declared gate; the same two marginal misses remain
 
-(to be recorded)
+Arms: shipped flags + JOURNEY_STATE_MACHINE, stem sm3, six windows in
+PARALLEL (FLEET_WORKERS=6): wall time 1002 s = cam3 alone, vs ~1700 s
+serial. Log _replay_scratch/gsm3.log.
+
+  window       live   fleet arm  iter2   iter3   cov    gate
+  cam1 0700    83.5     83.5      83.8    83.8   0.464  PASS floor
+  cam1 1600    95.3     95.3      95.1    95.1   0.570  FAIL floor by 0.2 (3rd iteration, no cell moves >10)
+  cam2 0700    70.4     70.5      76.2    75.2   0.579  PASS: EB_right 316->285, EB_uturn 4->1, NB_uturn 2, SB_uturn 7=7
+  cam2 1100    71.3     73.9      77.7    76.7   0.500  PASS: EB_right 477->438, EB_uturn 10->0, NB_uturn 1
+  cam2 1600    70.3     72.3      68.8    71.3   0.500  FAIL vs fleet arm by 1.0; EB_right 991->868; NB_uturn 3->4
+  cam3 0600    83.7     85.4      85.1    85.7   0.586  PASS: SB_uturn 38->25, EB_right 208->172, movement > 85.4
+Phantom-slack vs iteration 2: CLEAN on all six.
+
+WHAT EACH CHANGE DID (cells, iter2 -> iter3):
+  A2 (born-across within the gate's width): cam3 EB_right 208 -> 172
+     — the wide-body class gone (Mio 155; the earlier arm had 176).
+     cam3 SB_thru 14329 -> 14632 (Mio 14385): those boxes now pair
+     on the extended N gate and book N->S.
+  A1 (extension 0.25): cam3 coverage 0.575 -> 0.586, events 32217 ->
+     32513; movement +0.6.
+  A3 (spawn wobble tolerated): cam2 evening 68.8 -> 71.3, EB_right
+     849 -> 868 (the corner-spawn rights recovered; Mio 699), SB_thru
+     2069 -> 2054. cam2 morning/midday give back 1.0 each (EB_thru
+     +3/+1, SB_right +1/+6) — the same tolerance admits a few more
+     waiting-vehicle entries there.
+
+STILL OPEN: cam1-1600's 0.2 is not in the crossing law (identical
+across three iterations); cam2-1600's remaining gap to the fleet arm
+is the theft class (3 of 5 sampled) which no crossing rule reaches
+and the speed signal does not find.
+
+NOT SHIPPED. Per-window ship on his go; on the numbers the
+candidates are cam2 0700 (75.2 vs live 70.4), cam2 1100 (76.7 vs
+71.3), cam3 0600 (85.7 vs 83.7), cam1 0700 (83.8 vs 83.5) and, above
+live but below the never-shipped fleet arm, cam2 1600 (71.3 vs 70.3).
+Shipping replaces GATE_GROUND_ANCHOR + GATE_EVIDENCE_EITHER_CORNER
+in _gate_evidence on those windows (STRAIGHT_FRAGMENT_RULE stays).
+The born-across clause, A1-A3 and the 17526 check revision are agent
+inferences from his rulings, awaiting his word.
