@@ -7,6 +7,9 @@ apply=False throughout — nothing touches production.
 
 Usage:  GATE_GROUND_ANCHOR=1 STRAIGHT_FRAGMENT_RULE=1 \
         GATE_EVIDENCE_EITHER_CORNER=1 py -X utf8 scripts/fleet_flags.py
+Env:    FLEET_ARMS=1:study_0700,3:study_0600  (window selector)
+        FLEET_STEM=sm2                        (arm name for DBs / scores)
+        FLEET_WORKERS=6                       (parallel windows; 1 = serial)
 """
 from __future__ import annotations
 
@@ -53,39 +56,71 @@ else:
     LIVE = {k: v for k, v in _ALL.items() if k != (1, "study_0700")}
 
 
+# FLEET_WORKERS (2026-09-09, operator go): windows run in PARALLEL
+# processes, one per window, up to this many at once. Each window
+# writes its own working DB / bank / score JSON under distinct names
+# and only READS the pass-1 dumps and project DB, so they do not
+# collide. The arm's wall time becomes its longest window (cam3 ~15
+# min) instead of the sum (~28 min). FLEET_WORKERS=1 is the old
+# sequential run.
+_WORKERS = int(os.environ.get("FLEET_WORKERS", "6"))
+
+
+def _run_window(cam: int, variant: str, live: float, wd: Path):
+    """One window end to end: pass-2 over the existing dump, copy the
+    working DB to the arm stem, score it. Returns the summary tuple
+    (or None on failure). Safe to run in a child process."""
+    t = time.time()
+    try:
+        res = run_pass2(PROJ, cam, variant=variant, workdir=wd,
+                        apply=False)
+    except Exception as e:
+        print(f"cam{cam} {variant}: FAILED {e}", flush=True)
+        return None
+    rep = res.get("replay") or {}
+    act = res.get("evidence_activation") or {}
+    stem = BASE / f"{_STEM}_cam{cam}_{variant}.db"
+    src = wd / f"twopass_cam{cam}_{variant}.db"
+    if src.exists():
+        shutil.copy2(src, stem)
+        subprocess.run([sys.executable, "-X", "utf8",
+                        "scripts/v2_score_dev.py", str(stem)],
+                       capture_output=True)
+    sc = Path(f"runs/v2_week1/score_{_STEM}_cam{cam}_{variant}.json")
+    mv = ap = None
+    if sc.exists():
+        d = json.loads(sc.read_text())
+        mv, ap = d["v2"]["pct"], d["v2_approach"]["pct"]
+    print(f"cam{cam} {variant}: live {live} -> {mv}  "
+          f"(app {ap})  cov {act.get('coverage')} "
+          f"{'ON' if act.get('activated') else 'OFF'}  "
+          f"events={rep.get('events')} dropped="
+          f"{rep.get('insufficient_data')}  ({time.time()-t:.0f}s)",
+          flush=True)
+    return (cam, variant, live, mv, ap, act, rep)
+
+
 def main() -> int:
     wd = BASE / "arm"
     wd.mkdir(parents=True, exist_ok=True)
+    # longest window first so it never waits behind the short ones
+    order = sorted(LIVE.items(), key=lambda kv: (kv[0][0] != 3, kv[0]))
     out = []
-    for (cam, variant), live in LIVE.items():
-        t = time.time()
-        try:
-            res = run_pass2(PROJ, cam, variant=variant, workdir=wd,
-                            apply=False)
-        except Exception as e:
-            print(f"cam{cam} {variant}: FAILED {e}", flush=True)
-            continue
-        rep = res.get("replay") or {}
-        act = res.get("evidence_activation") or {}
-        stem = BASE / f"{_STEM}_cam{cam}_{variant}.db"
-        src = wd / f"twopass_cam{cam}_{variant}.db"
-        if src.exists():
-            shutil.copy2(src, stem)
-            subprocess.run([sys.executable, "-X", "utf8",
-                            "scripts/v2_score_dev.py", str(stem)],
-                           capture_output=True)
-        sc = Path(f"runs/v2_week1/score_{_STEM}_cam{cam}_{variant}.json")
-        mv = ap = None
-        if sc.exists():
-            d = json.loads(sc.read_text())
-            mv, ap = d["v2"]["pct"], d["v2_approach"]["pct"]
-        out.append((cam, variant, live, mv, ap, act, rep))
-        print(f"cam{cam} {variant}: live {live} -> {mv}  "
-              f"(app {ap})  cov {act.get('coverage')} "
-              f"{'ON' if act.get('activated') else 'OFF'}  "
-              f"events={rep.get('events')} dropped="
-              f"{rep.get('insufficient_data')}  ({time.time()-t:.0f}s)",
-              flush=True)
+    if _WORKERS <= 1 or len(order) == 1:
+        for (cam, variant), live in order:
+            r = _run_window(cam, variant, live, wd)
+            if r:
+                out.append(r)
+    else:
+        from concurrent.futures import ProcessPoolExecutor
+        with ProcessPoolExecutor(max_workers=min(_WORKERS, len(order))) as ex:
+            futs = [ex.submit(_run_window, cam, variant, live, wd)
+                    for (cam, variant), live in order]
+            for f in futs:
+                r = f.result()
+                if r:
+                    out.append(r)
+    out.sort(key=lambda r: (r[0], r[1]))
     print(f"\n{'window':16}{'live':>7}{'new':>7}{'delta':>8}"
           f"{'cov':>7}{'chan':>6}")
     for cam, variant, live, mv, ap, act, rep in out:

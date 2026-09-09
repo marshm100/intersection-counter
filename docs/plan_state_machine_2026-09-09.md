@@ -132,6 +132,65 @@ EB_right shrinks and u-turns do not grow; cam3 SB_uturn shrinks
 below 38 and movement beats 85.4; cell tables + phantom-slack on
 every arm; coverage per window.
 
-## Iteration 2 verdict
+## Iteration 2 verdict (recorded 2026-09-09): PARTIAL — MISS on the
+## letter of the gate, the channel restored everywhere, cam2 morning
+## and midday the best they have ever scored
 
-(to be recorded)
+TRAP FIRST: the first iteration-2 "run" finished every window in 1 s
+with iteration-1's numbers — the sidecar reuse keyed on the flag
+fingerprint, and the law changed without a flag moving (the same
+trap as 2026-09-08, one layer down). flags_fingerprint now digests
+entry_gates.py's source; the six scratch sidecars were deleted and
+the arm recomputed (stem sm2, log _replay_scratch/gsm2b.log).
+
+  window       fleet arm   SM iter1   SM iter2   cov     gate
+  cam1 0700       83.5        75.0       83.8    0.464   PASS floor (+0.3, channel back ON)
+  cam1 1600       95.3        95.1       95.1    0.569   FAIL floor by 0.2
+  cam2 0700       70.5        71.4       76.2    0.576   +5.7  EB_right 316 -> 286 (Mio 167)
+  cam2 1100       73.9        34.6       77.7    0.495   +3.8  EB_right 477 -> 438 (Mio 351)
+  cam2 1600       72.3        32.1       68.8    0.495   -3.5  EB_right 991 -> 849 (Mio 699)
+  cam3 0600       85.4        86.6       85.1    0.575   FAIL movement by 0.3; SB_uturn 38 -> 27 (Mio 0)
+
+Against the declared gate:
+1. cam1 floors: 0700 clears (83.8 vs 83.5; coverage 0.391 -> 0.464,
+   events 4,676 -> 4,904, SB_thru 1552 -> 1753 restored). 1600 does
+   NOT (95.1 vs 95.3) on either iteration: EB_right 501 (Mio 497),
+   NB_thru 2118 vs shipped 2128, SB_thru 2544 vs 2541 — a 0.2 slip
+   with no cell moving more than 10. FAIL on the letter.
+2. cam2: EB_right SHRINKS on all three windows (316/477/991 ->
+   286/438/849 against Mio 167/351/699) and EB_uturn collapses to
+   1/0/0 (Mio 2/0/1). But NB_uturn on 1600 grows 3 -> 5 (Mio 0) and
+   SB_uturn there 8 -> 9 (Mio 12) — "u-turn cells must not grow" is
+   broken by +2 on one sub-10 cell. Movement: two windows up by the
+   largest margins recorded (+5.7, +3.8), 1600 down 3.5 (SB_thru
+   2069 vs Mio 2247, SB_right 389 vs 341: the evening excess is a
+   different signature, as flagged in plan_cam2_rights).
+3. cam3: SB_uturn 38 -> 27 (the plan's target, met; note 27 equals
+   production, i.e. the class the fleet flags inflated 27 -> 88 is
+   fully undone), NB_uturn 28 -> 16, but movement 85.1 is 0.3 under
+   the fleet arm's 85.4 and EB_right grew 176 -> 208 (Mio 155).
+   EB_uturn 7 -> 8. FAIL on the letter.
+Phantom-slack: FAIL on every window except cam2-0700 — always by 1-2
+on a sub-10-Mio cell (cam1-0700 EB_thru 1 -> 2, cam1-1600 NB_uturn
+0 -> 1, cam2-1100 NB_uturn 0 -> 1, cam2-1600 NB_uturn 3 -> 5, cam3
+EB_uturn 7 -> 8). None is a class; all are within the noise the
+check exists to catch, reported as declared.
+
+WHAT THE RULE DID: coverage is back above the bar on all six windows
+(the born-across clause was the whole entry loss); the evidence
+channel activates everywhere. The waiting-vehicle class (cam2 EB_right
+wobble exits) shrinks 30-142 events per window. The cam3 SB u-turn
+phantom class is halved against the first-exit rule and returned to
+production's level. The costs are marginal (0.2 / 0.3) on two
+windows and real (-3.5) on cam2 evening.
+
+NOT SHIPPED. Per-window ship is the operator's call; candidates on
+the numbers are cam2 0700 (76.2 vs live 70.4), cam2 1100 (77.7 vs
+71.3) and cam1 0700 (83.8 vs 83.5). Both cam1 windows would run under
+this flag INSTEAD of GATE_GROUND_ANCHOR + GATE_EVIDENCE_EITHER_CORNER
+in _gate_evidence (STRAIGHT_FRAGMENT_RULE still applies). The
+born-across clause itself is agent inference awaiting his ruling.
+
+OPERATING NOTE: scripts/fleet_flags.py now runs windows in parallel
+(FLEET_WORKERS, default 6; operator go 2026-09-09). Expected arm wall
+time ~15 min (cam3) instead of ~28.
