@@ -242,3 +242,29 @@ occlusion (clips 2-4 — far-field S mouth, the entry is real, the EXIT
 is then lost to glare or a large occluder so the track is entry-only).
 The clause stays; his phrase "corner spawn error" names the mechanism.
 Clip 3 carries an open doubt about identity after the 18-wheeler.
+
+## REEL 2 — cam2 study_1600 regression (2026-09-09)
+
+Track-level diff of the G-FX-1 arm vs SM iteration 2 (working DBs):
+317 tracks change cell. The dominant transition, 112 tracks:
+      W_right -> S   became   N_through -> S
+plus 37 W_right->S -> N_right->W, 15 W_left->N -> N_right->W, 12
+W_through->E -> N_left->E. ONE MECHANISM: the W ENTRY IS REFUSED,
+the S exit is kept (exit_only), and with no witnessed origin the
+posterior fallback guesses N (0.60-0.76 vs W 0.24-0.40). That is
+the -3.5: real W-origin vehicles rebooked as N-origin. (Both EB_right
+and SB_thru totals moved TOWARD Mio, which hid it in the cell table;
+SB_right +62 and EB_thru/EB_left -27/-22 are where it shows.)
+
+Why the W entry is refused (scripts/viz_pair_reel.py ledgers): the
+two corners cross the W line 4-23 s apart — far outside the 2.5 s
+pairing window — and in between one corner wobbles OUT over W
+repeatedly (tid 9031: nine times in 20 s). Neither crossing pairs,
+neither is born-across (the other corner has an earlier W crossing),
+the track continues, so every W crossing is refused. These are the
+WAITING-TO-TURN vehicles at the W mouth: the 17526 shape. The rule
+that killed 17526's four false W exits also kills these real W
+entries — the same signature, opposite truth.
+
+Filmed 5 of the 112 even-spread (screenshots/c2_origin_{n}_{tid}.gif,
+tids 112 4383 9031 18964 26259); reel page for his ruling.
