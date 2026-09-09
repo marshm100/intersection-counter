@@ -564,3 +564,37 @@ Shipping replaces GATE_GROUND_ANCHOR + GATE_EVIDENCE_EITHER_CORNER
 in _gate_evidence on those windows (STRAIGHT_FRAGMENT_RULE stays).
 The born-across clause, A1-A3 and the 17526 check revision are agent
 inferences from his rulings, awaiting his word.
+
+## SHIPPED — cam1 0700, cam2 0700, cam2 1100, cam3 0600 (operator go, 2026-09-09: "Sure")
+
+Backup: backups/project_20260909T180313_pre_ship_gsm1.db (460 MB), plus
+the apply gate's own pre_twopass backups per window. scripts/ship_gsm1.py:
+disposition force_once per window (operator go outranks the reference-
+free gate, per the ladder), run_pass2(apply=True) under the shipped
+flag set + JOURNEY_STATE_MACHINE, worklist rebuilt each time.
+
+  window       before   now    events            worklist open   health
+  cam1 0700     83.5    83.8   4,908 -> 4,904        73           amber
+  cam2 0700     70.4    75.2     cam2 1100     71.3    76.7   / 10,584 -> 10,611   199           GREEN, GREEN
+  cam3 0600     83.7    85.7   32,380 -> 32,513     167           amber
+
+Isolation byte-verified: every camera's vehicle_events outside the
+shipped hours hash identical to the pre-ship backup (cam1 9,176 rows,
+cam2 7,495, cam3 1,146; cam4 14,150 and cam5 15,499 entire). Re-score
+confirms production == the sm3 arm on all four, and the unshipped
+windows unchanged (cam1 1600 95.3, cam2 1600 70.3). cam2 morning and
+midday are the corridor's first GREEN windows outside cam1.
+
+OPERATING NOTE: reprocessing any of these four windows now requires
+  GATE_GROUND_ANCHOR=1 STRAIGHT_FRAGMENT_RULE=1
+  GATE_EVIDENCE_EITHER_CORNER=1 JOURNEY_STATE_MACHINE=1
+in the environment (inside _gate_evidence the state machine supersedes
+the first two; STRAIGHT_FRAGMENT_RULE still applies). cam1 1600 keeps
+its 2026-09-08 basis (the first three flags only).
+
+CORRIDOR STANDINGS: cam1 83.8 / 95.3 | cam2 75.2 / 76.7 / 70.3 |
+cam3 85.7 | cam4 75.4 / 73.5 / 75.8 | cam5 66.4 / 71.7 / 63.1.
+
+OPEN AFTER THIS SHIP: the theft class (8 of 20 ruled clips; anti-theft
+campaign), cam1-1600's 0.2 (not in the crossing law), cam2 evening
+(theft-dominated), and the fleet offer of this flag to cam4/cam5.
