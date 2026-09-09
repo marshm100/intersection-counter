@@ -162,11 +162,23 @@ def main() -> int:
                     cv2.circle(im, (cx, y2), 5, BLACK, -1)
                     cv2.circle(im, (cx, y2), 3, WHITE, -1)
             frames.append(Image.fromarray(cv2.cvtColor(im, cv2.COLOR_BGR2RGB)))
-        out = Path(f"screenshots/{prefix}_{k}_{tid}.gif")
-        q = [f.quantize(int(__import__("os").environ.get("REEL_COLORS", "96")),
-                        dither=Image.Dither.NONE) for f in frames]
-        q[0].save(out, save_all=True, append_images=q[1:], optimize=True,
-                  duration=int(1000 * step / fps), loop=0)
+        if __import__("os").environ.get("REEL_FORMAT", "gif") == "webm":
+            # VP8 WebM: full frame at a fraction of a GIF's weight, so
+            # the operator sees the whole intersection (his ruling
+            # 2026-09-09: a cropped clip is unusable for decisions)
+            out = Path(f"screenshots/{prefix}_{k}_{tid}.webm")
+            h, w = np.asarray(frames[0]).shape[:2]
+            vw = cv2.VideoWriter(str(out), cv2.VideoWriter_fourcc(*"VP80"),
+                                 fps / step, (w, h))
+            for f in frames:
+                vw.write(cv2.cvtColor(np.asarray(f), cv2.COLOR_RGB2BGR))
+            vw.release()
+        else:
+            out = Path(f"screenshots/{prefix}_{k}_{tid}.gif")
+            q = [f.quantize(int(__import__("os").environ.get("REEL_COLORS", "96")),
+                            dither=Image.Dither.NONE) for f in frames]
+            q[0].save(out, save_all=True, append_images=q[1:], optimize=True,
+                      duration=int(1000 * step / fps), loop=0)
         print(f"     -> {out} ({out.stat().st_size // 1024} KB, {len(frames)} frames)")
     cap.release()
     return 0
