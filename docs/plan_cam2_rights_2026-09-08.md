@@ -187,3 +187,47 @@ long occupancy then out; a waiting vehicle emits repeated exits over
 its OWN entry gate. FLIP COUNT IS NOW A SCORABLE SIGNAL over the
 whole population — a journey with many flips is a waiting/jittering
 vehicle, not a clean movement.
+
+## OPERATOR RULES ON THE STATE MACHINE (2026-09-09)
+
+He ruled sample A (17526) end to end and stated two rules:
+  R1  A crossing counts only when BOTH bottom corners cross the line.
+      "The lower corners need to cross the exiting line before it can
+      be counted as exit." The four EXITED(W) flips were invalid.
+  R2  EXITED IS TERMINAL. "Once it crosses the exit, that detection
+      ID can no longer be used as a valid ID for crossing because
+      that vehicle is already left." The later flip back to OCCUPYING
+      (the theft by oncoming traffic) must not be allowed.
+His trace: entering -> occupying -> (wrongly) exited -> performs the
+right turn while already 'exited' -> theft by oncoming traffic flips
+it back to occupied -> the thief exits north. Correct movement,
+wrong lifecycle, wrong vehicle at the end.
+
+BOTH RULES APPLIED TO THE INSTRUMENT (scripts/viz_states.py):
+  17526  4 false exits GONE. One valid crossing survives, EXITED(S);
+         2 post-exit crossings retired.
+  16722  unchanged: OCCUPYING(W) -> EXITED(S), one flip.
+
+WHY THE WOBBLES DIE — a new positive signal. Over the W line the two
+corners register OPPOSITE DIRECTIONS:
+    bottom-LEFT   W-OUT @772784
+    bottom-RIGHT  W-IN  @772907, W-IN @773051
+The box straddles the line while the vehicle waits, one corner each
+side. A genuine crossing can never produce that, so CORNER-DIRECTION
+DISAGREEMENT positively identifies a stationary vehicle sitting on a
+threshold. Cleaner than any speed or proximity test tried so far.
+
+## TENSION TO RESOLVE BEFORE BUILDING (needs his ruling)
+
+R1 applied to the ENTRY is exactly what G-EX-1 measured as costly:
+both-corners entry dropped cam5 coverage 0.504 -> 0.433, switching
+the evidence channel off; relaxing it to either-corner is what earned
+cam1 +8.5 (morning) and +9.1 (evening), both SHIPPED. Under R1,
+17526 also loses its entry entirely (it crept over the line while
+stopped, so no clean inward crossing exists).
+
+Candidate reconciliation, NOT yet put to him: require both corners
+EXCEPT where the track ENDS at the crossing — a departing vehicle's
+trailing corner is truncated by tracking loss, whereas a wobbling
+vehicle's track continues for hundreds of frames afterwards. That
+distinguishes the two cases without weakening the law.

@@ -73,15 +73,41 @@ def main() -> int:
         if not len(trk):
             print(f"{tid}: no track")
             continue
-        pts = [(float(r[1]), float(r[2]), float(r[3]) + float(r[5]) / 2)
-               for r in trk]
-        xs = sorted(all_crossings(pts, gates, fps), key=lambda c: c[0])
-        # state timeline: every crossing flips inside/outside
-        events = [(int(f), "OCCUPYING" if inward else "EXITED", legs.get(lg))
-                  for f, lg, inward, _p in xs]
+        # OPERATOR RULES (2026-09-09):
+        #  1. a crossing counts only when BOTH bottom corners cross the
+        #     line — "the lower corners need to cross the exiting line
+        #     before it can be counted as exit".
+        #  2. EXITED IS TERMINAL — "once it crosses the exit, that
+        #     detection ID can no longer be used as a valid ID for
+        #     crossing because that vehicle is already left".
+        per = {}
+        for sign, side in ((-1.0, "L"), (1.0, "R")):
+            pts = [(float(r[1]), float(r[2]) + sign * float(r[4]) / 2,
+                    float(r[3]) + float(r[5]) / 2) for r in trk]
+            per[side] = sorted(all_crossings(pts, gates, fps),
+                               key=lambda c: c[0])
+        PAIR_WIN = 2.0 * fps          # both corners within 2 s
+        events, used = [], set()
+        for f, lg, inward, _p in per["L"]:
+            for k, (f2, lg2, inw2, _p2) in enumerate(per["R"]):
+                if k in used or lg2 != lg or inw2 != inward:
+                    continue
+                if abs(f2 - f) <= PAIR_WIN:
+                    used.add(k)
+                    events.append((int(max(f, f2)),
+                                   "OCCUPYING" if inward else "EXITED",
+                                   legs.get(lg)))
+                    break
+        events.sort()
+        # rule 2: nothing after the first EXITED
+        cut = next((i for i, e in enumerate(events) if e[1] == "EXITED"), None)
+        dropped = 0 if cut is None else len(events) - cut - 1
+        if cut is not None:
+            events = events[:cut + 1]
         flicks = sum(1 for i in range(1, len(events))
                      if events[i][1] != events[i - 1][1])
-        print(f"tid {tid}: {len(events)} crossings, {flicks} state flips")
+        print(f"tid {tid}: {len(events)} valid crossings (both corners), "
+              f"{flicks} flips, {dropped} post-exit crossings retired")
         for f, st, lg in events:
             print(f"     f{f}  -> {st:9} ({lg})")
 
