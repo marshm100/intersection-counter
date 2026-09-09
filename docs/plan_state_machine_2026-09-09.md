@@ -194,3 +194,51 @@ born-across clause itself is agent inference awaiting his ruling.
 OPERATING NOTE: scripts/fleet_flags.py now runs windows in parallel
 (FLEET_WORKERS, default 6; operator go 2026-09-09). Expected arm wall
 time ~15 min (cam3) instead of ~28.
+
+## OPERATOR: "nothing more than requiring more debugging and visual
+## analysis on our part ... part of the natural process of making headway"
+
+Nothing ships. Four reels in order, then build on all four rulings:
+  1. born-across entries (cam1 0700)         -- the unruled clause
+  2. cam2 evening regression                 -- what moved away from Mio
+  3. cam3 EB_right growth 176 -> 208         -- what the entry rule admitted
+  4. cam3's 27 surviving SB u-turns          -- the open class
+
+## REEL 1 — born-across entries, cam1 study_0700 (2026-09-09)
+
+scripts/viz_born_across.py: 531 in the window, 5 even-spread, filmed
+as screenshots/born_across_{n}_{tid}.gif; reel page
+https://claude.ai/code/artifact/b18558f0-955c-4a46-b380-2076b15241fc
+
+OPERATOR RULINGS (his words):
+  1  tid 2      "the bounding box spawned with one of the corners in
+                 the intersection already. it is a clean track for a
+                 through vehicle but that was the error."
+  2  tid 4829   "detection occurs late because of the sun glare and
+                 detection is lost mid intersection due to sun glare
+                 but it is a through vehicle."
+  3  tid 9205   "there is a massive occlusion caused by an 18 wheeler
+                 and I am not sure if the correct vehicle was picked
+                 up again after the 18 wheeler moved but a vehicle was
+                 picked up and then was prevented from being viewed as
+                 crossing the exit bar due to another large box
+                 vehicle occluding the view of the tracked vehicle but
+                 regardless the vehicles moving that were being
+                 tracked were through movements."
+  4  tid 14948  "the same story, a box truck occluded view near the
+                 exit and redetection did not fire in time to catch
+                 the through vehicle being tracked to complete the
+                 movement."
+  5  tid 22270  "a corner spawn error where the corner spawns in the
+                 intersection preventing the mouth from being
+                 triggered by our rule but it correctly tracks a right
+                 hand turn of a single vehicle."
+
+FIVE OF FIVE ARE REAL VEHICLES AND REAL ENTRIES. The born-across
+clause is doing what it was built for on this sample. Two mechanisms
+in his rulings: the CORNER SPAWN (clips 1, 5 — the box is born with a
+corner already inside; near-field) and LATE DETECTION under glare /
+occlusion (clips 2-4 — far-field S mouth, the entry is real, the EXIT
+is then lost to glare or a large occluder so the track is entry-only).
+The clause stays; his phrase "corner spawn error" names the mechanism.
+Clip 3 carries an open doubt about identity after the 18-wheeler.
