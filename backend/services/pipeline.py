@@ -1389,8 +1389,32 @@ class ProcessingPipeline:
         traj = vehicle["trajectory"]
         heights = vehicle.get("bbox_heights") or []
         widths = vehicle.get("bbox_widths") or []
-        from backend.config import GATE_GROUND_ANCHOR
-        if (GATE_GROUND_ANCHOR and len(heights) == len(traj)
+        from backend.config import GATE_GROUND_ANCHOR, JOURNEY_STATE_MACHINE
+        if (JOURNEY_STATE_MACHINE and len(heights) == len(traj)
+                and len(widths) == len(traj)):
+            # THE JOURNEY STATE MACHINE (operator rulings 2026-09-09):
+            # both bottom corners must cross (R1), the exit is terminal
+            # (R2), a solo corner counts only where the track ends
+            # (his truncation split). Supersedes the ground-anchor /
+            # either-corner combine below and the first-exit rule —
+            # when this is on, those three do not apply here.
+            from backend.services.entry_gates import classify_pair
+            pts_l = [(float(f0 + i),
+                      float(p[0]) - float(widths[i]) / 2.0,
+                      float(p[1]) + float(heights[i]) / 2.0)
+                     for i, p in enumerate(traj)]
+            pts_r = [(float(f0 + i),
+                      float(p[0]) + float(widths[i]) / 2.0,
+                      float(p[1]) + float(heights[i]) / 2.0)
+                     for i, p in enumerate(traj)]
+            pts = [(float(f0 + i), float(p[0]),
+                    float(p[1]) + float(heights[i]) / 2.0)
+                   for i, p in enumerate(traj)]
+            if len(pts_l) < 2:
+                return None, None, None
+            origin, dest, _fo, _fd, _op, _dp, tag = classify_pair(
+                pts_l, pts_r, gates, self.fps)
+        elif (GATE_GROUND_ANCHOR and len(heights) == len(traj)
                 and len(widths) == len(traj)):
             # THE THRESHOLD LAW (operator ruling 2026-09-07, refined
             # same day): a crossing counts only when the ENTIRE bottom

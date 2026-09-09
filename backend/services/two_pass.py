@@ -135,7 +135,15 @@ def flags_fingerprint() -> str:
     # automatically; a spurious recompute is the safe failure.
     names = [n for n in dir(_c)
              if n.isupper() and isinstance(getattr(_c, n, None), bool)]
-    blob = json.dumps({n: bool(getattr(_c, n)) for n in sorted(names)},
+    flags = {n: bool(getattr(_c, n)) for n in sorted(names)}
+    # BIT AGAIN 2026-09-09: G-SM-1 iteration 2 changed the crossing law
+    # in entry_gates.py without moving any flag, and every arm "ran" in
+    # 1 s on the iteration-1 working DBs. The law's SOURCE is part of
+    # what pass 2 obeys, so its digest is part of the fingerprint. A
+    # spurious recompute after an unrelated edit is the safe failure.
+    law = Path(__file__).with_name("entry_gates.py").read_bytes()
+    blob = json.dumps({"flags": flags,
+                       "entry_gates_sha": hashlib.sha256(law).hexdigest()},
                       sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()
 

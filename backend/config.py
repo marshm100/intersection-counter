@@ -263,6 +263,35 @@ GATE_EVIDENCE_EITHER_CORNER = _os2.environ.get(
 JOURNEY_FIRST_EXIT = _os2.environ.get(
     "JOURNEY_FIRST_EXIT", "0") in ("1", "true", "on")
 
+# THE JOURNEY STATE MACHINE (operator rulings 2026-09-09, ruling cam2
+# track 17526 end to end; docs/plan_state_machine_2026-09-09.md):
+#   R1  a crossing counts only when BOTH bottom corners cross the line
+#       ("the lower corners need to cross the exiting line before it
+#       can be counted as exit");
+#   R2  EXITED IS TERMINAL ("once it crosses the exit, that detection
+#       ID can no longer be used as a valid ID for crossing because
+#       that vehicle is already left");
+#   plus his approved split for the one case R1 breaks: a single-corner
+#   crossing counts when the TRACK ENDS there — the trailing corner's
+#   evidence was truncated by tracking loss, not by the vehicle staying
+#   put. Measured: cam1's solo crossings are departures (50% end within
+#   1 s, 9% continue >100 f), cam2's are wobble (6% / 79%) — mirror
+#   images, and the truncation split is the one rule correct on both.
+# SUPERSEDES GATE_GROUND_ANCHOR + GATE_EVIDENCE_EITHER_CORNER +
+# JOURNEY_FIRST_EXIT inside _gate_evidence (when on, it takes the
+# corner tracks and those three no longer apply there). Validated
+# against the SHIPPED combination, never bare defaults. Default OFF
+# until G-SM-1 passes and the operator ships it.
+JOURNEY_STATE_MACHINE = _os2.environ.get(
+    "JOURNEY_STATE_MACHINE", "0") in ("1", "true", "on")
+CORNER_PAIR_WINDOW_S = 2.5    # both corners' crossings of one gate pair
+                              # within this (p99 of the measured corner
+                              # gap: cam1 2.1 s, cam2 2.6 s)
+CROSSING_TRUNCATION_S = 1.0   # a solo-corner crossing counts only if the
+                              # track ENDS within this of it (departure
+                              # window: the two populations separate
+                              # 50% vs 6% here)
+
 # THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): a vehicle
 # that never curved cannot be booked as a TURN on a guess. Measured:
 # cam1-0700's 111 phantom driveway turns are dead straight (0.975 /

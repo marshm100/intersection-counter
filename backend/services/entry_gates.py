@@ -322,6 +322,34 @@ def all_crossings(track, gates, fps):
     return kept
 
 
+def _uturn_admissible(track, gates, fps, lanes, o, d):
+    """A same-leg exit is a real u-turn only with real dwell +
+    excursion past the gate + AN OPPOSITE-LANE EXIT (lateral shift
+    along the gate axis) — queue creep over a red re-crosses at the
+    same lane position. Lifted verbatim from classify() (2026-09-09) so
+    classify_pair() applies the identical admission test — one source
+    of truth, never a second copy."""
+    g = gates[o[1]]
+    gl = math.hypot(g[1][0] - g[0][0], g[1][1] - g[0][1]) or 1.0
+    gdir = ((g[1][0] - g[0][0]) / gl, (g[1][1] - g[0][1]) / gl)
+    lane_shift = abs((d[3][0] - o[3][0]) * gdir[0]
+                     + (d[3][1] - o[3][1]) * gdir[1])
+    mouth_far = max(
+        abs((x - (g[0][0] + g[1][0]) / 2) * g[2][0]
+            + (y - (g[0][1] + g[1][1]) / 2) * g[2][1])
+        for f, x, y in track if o[0] <= f <= d[0]) if any(
+            o[0] <= f <= d[0] for f, _x, _y in track) else 0.0
+    lane_ok = True
+    if lanes and o[1] in lanes:
+        in_m, out_m, gdir2 = lanes[o[1]]
+        oproj = ((d[3][0] - g[0][0]) * gdir2[0]
+                 + (d[3][1] - g[0][1]) * gdir2[1])
+        lane_ok = abs(oproj - out_m) < abs(oproj - in_m)
+    return not ((d[0] - o[0]) < UTURN_MIN_S * fps
+                or mouth_far < UTURN_MIN_PX
+                or lane_shift < UTURN_MIN_LANE_SHIFT or not lane_ok)
+
+
 def classify(track, gates, fps, lanes=None):
     """track: [(frame,x,y)...] ->
     (origin_leg, dest_leg, origin_frame, dest_frame, origin_pos, dest_pos, tag)."""
@@ -331,29 +359,7 @@ def classify(track, gates, fps, lanes=None):
     origin = entries[0] if entries else None
 
     def _uturn_ok(o, d):
-        """A same-leg exit is a real u-turn only with real dwell +
-        excursion past the gate + AN OPPOSITE-LANE EXIT (lateral shift
-        along the gate axis) — queue creep over a red re-crosses at the
-        same lane position."""
-        g = gates[o[1]]
-        gl = math.hypot(g[1][0] - g[0][0], g[1][1] - g[0][1]) or 1.0
-        gdir = ((g[1][0] - g[0][0]) / gl, (g[1][1] - g[0][1]) / gl)
-        lane_shift = abs((d[3][0] - o[3][0]) * gdir[0]
-                         + (d[3][1] - o[3][1]) * gdir[1])
-        mouth_far = max(
-            abs((x - (g[0][0] + g[1][0]) / 2) * g[2][0]
-                + (y - (g[0][1] + g[1][1]) / 2) * g[2][1])
-            for f, x, y in track if o[0] <= f <= d[0]) if any(
-                o[0] <= f <= d[0] for f, _x, _y in track) else 0.0
-        lane_ok = True
-        if lanes and o[1] in lanes:
-            in_m, out_m, gdir2 = lanes[o[1]]
-            oproj = ((d[3][0] - g[0][0]) * gdir2[0]
-                     + (d[3][1] - g[0][1]) * gdir2[1])
-            lane_ok = abs(oproj - out_m) < abs(oproj - in_m)
-        return not ((d[0] - o[0]) < UTURN_MIN_S * fps
-                    or mouth_far < UTURN_MIN_PX
-                    or lane_shift < UTURN_MIN_LANE_SHIFT or not lane_ok)
+        return _uturn_admissible(track, gates, fps, lanes, o, d)
 
     from backend.config import JOURNEY_FIRST_EXIT
     dest = exits[-1] if exits else None
@@ -380,6 +386,147 @@ def classify(track, gates, fps, lanes=None):
         return origin[1], None, origin[0], None, origin[3], None, "entry_only"
     if dest:
         return None, dest[1], dest[0], None, None, dest[3], "exit_only"
+    return None, None, None, None, None, None, "no_crossing"
+
+
+def pair_crossings(track_l, track_r, gates, fps):
+    """THE JOURNEY STATE MACHINE's crossing law (operator rulings
+    2026-09-09; docs/plan_state_machine_2026-09-09.md). Both bottom-
+    corner tracks -> the VALID crossings, time-ordered, in
+    all_crossings()' shape [(frame, leg, inward, pos), ...].
+
+    R1  PAIR: a crossing is valid when BOTH corners cross the same gate
+        in the same direction within CORNER_PAIR_WINDOW_S. It is stamped
+        at the LATER corner (the whole bottom edge is across only when
+        the second corner is) at the midpoint of the two positions.
+    STRADDLE VETO: a solo corner crossing is refused when the OTHER
+        corner crossed the same gate in the OPPOSITE direction inside
+        the window — one corner each side of the line is a box sitting
+        on the threshold, which a genuine crossing can never produce.
+    TRUNCATION EXEMPTION (his approved split): a solo crossing counts
+        only when the track ENDS within CROSSING_TRUNCATION_S of it —
+        the trailing corner's evidence was cut off by tracking loss.
+        A track that continues is a wobble and the solo is refused.
+    BORN-ACROSS EXEMPTION (G-SM-1 iteration 2, 2026-09-09 — agent
+        inference from the iteration-1 census, NOT yet an operator
+        ruling): a solo INWARD crossing also counts when the other
+        corner was already inside that gate on the track's FIRST frame
+        and has no earlier crossing of it — the vehicle was detected
+        with its box already straddling the threshold, so the leading
+        corner's crossing was truncated by detection latency, the
+        mirror of the end-truncation case. Measured: 531 of 632 refused
+        entries on cam1-0700, 385/537 cam1-1600, 461/824 cam2-1100,
+        684/951 cam2-0700 were this shape. Entries only: an outward
+        solo never earns it (the waiting vehicle 17526 would otherwise
+        book a false W exit).
+    R2 (terminal exit) lives in classify_pair(), which consumes this.
+    """
+    from backend.config import CORNER_PAIR_WINDOW_S, CROSSING_TRUNCATION_S
+    win = CORNER_PAIR_WINDOW_S * fps
+    trunc = CROSSING_TRUNCATION_S * fps
+    c_l = all_crossings(track_l, gates, fps)
+    c_r = all_crossings(track_r, gates, fps)
+    end_f = max(track_l[-1][0] if track_l else 0.0,
+                track_r[-1][0] if track_r else 0.0)
+    valid = []
+    used_r: set = set()
+    solo_l = []
+    for a in c_l:
+        best = None
+        for k, b in enumerate(c_r):
+            if k in used_r or b[1] != a[1] or b[2] != a[2]:
+                continue
+            gap = abs(b[0] - a[0])
+            if gap <= win and (best is None
+                               or gap < abs(c_r[best][0] - a[0])):
+                best = k
+        if best is None:
+            solo_l.append(a)
+            continue
+        b = c_r[best]
+        used_r.add(best)
+        valid.append((max(a[0], b[0]), a[1], a[2],
+                      ((a[3][0] + b[3][0]) / 2.0, (a[3][1] + b[3][1]) / 2.0)))
+    solo_r = [b for k, b in enumerate(c_r) if k not in used_r]
+
+    def _straddled(a, others):
+        return any(o[1] == a[1] and o[2] != a[2] and abs(o[0] - a[0]) <= win
+                   for o in others)
+
+    def _born_across(a, other_track, others):
+        """the other corner sat inside gate a[1] from its first frame
+        and never crossed that gate before a: its own crossing was
+        truncated by detection latency, not by the vehicle waiting."""
+        if not a[2] or not other_track:
+            return False
+        p1, p2, inw = gates[a[1]]
+        f0, x0, y0 = other_track[0]
+        mid = ((p1[0] + p2[0]) / 2.0, (p1[1] + p2[1]) / 2.0)
+        inside0 = ((x0 - mid[0]) * inw[0] + (y0 - mid[1]) * inw[1]) > 0
+        return inside0 and not any(o[1] == a[1] and o[0] < a[0]
+                                   for o in others)
+
+    for solo, others, other_track in ((solo_l, c_r, track_r),
+                                      (solo_r, c_l, track_l)):
+        for a in solo:
+            if _straddled(a, others):
+                continue                      # box sitting on the line
+            if (end_f - a[0]) <= trunc:
+                valid.append(a)               # departure: track truncated
+            elif _born_across(a, other_track, others):
+                valid.append(a)               # arrival: detected straddling
+    valid.sort(key=lambda c: c[0])
+    return valid
+
+
+def classify_pair(track_l, track_r, gates, fps, lanes=None):
+    """THE JOURNEY STATE MACHINE (operator rulings 2026-09-09). Both
+    bottom-corner tracks [(frame,x,y)...] -> classify()'s exact 7-tuple
+    (origin_leg, dest_leg, origin_frame, dest_frame, origin_pos,
+    dest_pos, tag), so every caller shape is unchanged.
+
+    States: ENTERING (no valid inward crossing yet) -> OCCUPYING (first
+    valid inward crossing = origin) -> EXITED (first LEGITIMATE valid
+    outward crossing = dest). R2: EXITED IS TERMINAL — everything after
+    the exit is discarded; a stolen box can never rewrite the journey.
+    A different-leg exit is legitimate at once; a same-leg exit only if
+    it passes the u-turn admission tests classify() applies (dwell +
+    excursion + lane shift), else it is the operator's "jitter over the
+    s" and the machine keeps looking (the first-exit ruling, 2026-09-08,
+    which this subsumes). A track whose first valid crossing is outward
+    is EXITED at once (exit_only)."""
+    valid = pair_crossings(track_l, track_r, gates, fps)
+    # u-turn geometry (excursion past the gate) is measured on the
+    # bottom-CENTER path, the midpoint of the two corners
+    mid = {}
+    for f, x, y in track_l:
+        mid[f] = [x, y, 1]
+    for f, x, y in track_r:
+        if f in mid:
+            mid[f] = [mid[f][0] + x, mid[f][1] + y, 2]
+        else:
+            mid[f] = [x, y, 1]
+    track = sorted((f, v[0] / v[2], v[1] / v[2]) for f, v in mid.items())
+
+    origin = None
+    dest = None
+    for c in valid:
+        if origin is None:
+            if c[2]:
+                origin = c                          # -> OCCUPYING
+                continue
+            return None, c[1], c[0], None, None, c[3], "exit_only"
+        if c[2]:
+            continue                                # inward while OCCUPYING: noise
+        if c[1] != origin[1] or _uturn_admissible(track, gates, fps, lanes,
+                                                  origin, c):
+            dest = c                                # -> EXITED, terminal
+            break
+        # same-leg, fails the u-turn tests: jitter, keep looking
+    if origin and dest:
+        return origin[1], dest[1], origin[0], dest[0], origin[3], dest[3], "full"
+    if origin:
+        return origin[1], None, origin[0], None, origin[3], None, "entry_only"
     return None, None, None, None, None, None, "no_crossing"
 
 

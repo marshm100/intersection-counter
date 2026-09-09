@@ -31,7 +31,12 @@ PROJ = "97a7849a"
 BASE = Path("data/projects/97a7849a/_replay_scratch/fleet_20260908")
 import os
 _ARMS = os.environ.get("FLEET_ARMS", "")
-_ALL = {(1, "study_1600"): 86.2,
+# FLEET_STEM names the arm's scratch DBs and score JSONs (default "ff",
+# the G-FLEET-1 arm). G-SM-1 (2026-09-09) runs as "sm" so the fleet arm
+# stays on disk as the comparison basis.
+_STEM = os.environ.get("FLEET_STEM", "ff")
+# live standings: cam1 1600 shipped at 95.3 on 2026-09-08 (was 86.2)
+_ALL = {(1, "study_1600"): 95.3,
         (2, "study_0700"): 70.4, (2, "study_1100"): 71.3,
         (2, "study_1600"): 70.3,
         (3, "study_0600"): 83.7,
@@ -62,14 +67,14 @@ def main() -> int:
             continue
         rep = res.get("replay") or {}
         act = res.get("evidence_activation") or {}
-        stem = BASE / f"ff_cam{cam}_{variant}.db"
+        stem = BASE / f"{_STEM}_cam{cam}_{variant}.db"
         src = wd / f"twopass_cam{cam}_{variant}.db"
         if src.exists():
             shutil.copy2(src, stem)
             subprocess.run([sys.executable, "-X", "utf8",
                             "scripts/v2_score_dev.py", str(stem)],
                            capture_output=True)
-        sc = Path(f"runs/v2_week1/score_ff_cam{cam}_{variant}.json")
+        sc = Path(f"runs/v2_week1/score_{_STEM}_cam{cam}_{variant}.json")
         mv = ap = None
         if sc.exists():
             d = json.loads(sc.read_text())
