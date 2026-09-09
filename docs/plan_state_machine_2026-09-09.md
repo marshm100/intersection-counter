@@ -472,3 +472,43 @@ reaches the cross road. Operating point: GATE_EXTENSION_MARGIN = 0.25
 (fraction of the drawn length, each end). Lone hits are per-corner
 crossings; under the machine's pairing most cannot become a valid
 crossing on their own.
+
+## G-SM-1 iteration 3 (declared 2026-09-09, before scoring)
+
+Built from the four rulings, all inside JOURNEY_STATE_MACHINE:
+  A1  GATE_EXTENSION_MARGIN = 0.25 — pair_crossings sees each drawn
+      gate extended 25% of its length at both ends (his idea, bounded
+      by the red-team; classify()/census keep the drawn gates).
+  A2  born-across tightened: the other corner must sit inside WITHIN
+      the (extended) gate's own width — reel 3's wide-body shape no
+      longer qualifies.
+  A3  born-across relaxed: an earlier OUTWARD wobble by the other
+      corner no longer disqualifies (reel 2's corner spawns); only an
+      earlier INWARD crossing does.
+  Fingerprint now also digests every numeric constant in config.
+  5 new tests; the iteration-2 "crept out earlier" test reversed by
+  design (A3).
+
+NAMED CHECK REVISION, flagged for his ruling: under A3, 17526 (the
+waiting vehicle, "a real vehicle waiting to turn right") regains its
+W entry: OCCUPYING(W) -> EXITED(S), W -> S right. Its four false
+EXITED(W) flips stay gone; the two post-exit crossings stay retired.
+The declared check "NO W crossings and a single S exit" becomes "W
+entry, NO W EXITS, a single S exit". 16722 unchanged.
+
+THEFT CLASS (8 of 20 ruled clips) is NOT addressed by this build: the
+machine acts on crossings and a theft before the exit hands it a
+genuine crossing by the wrong vehicle. Candidate machine-side veto to
+MEASURE, not built: speed discontinuity within a journey ("launched
+in reverse by a fast moving cross traffic vehicle").
+
+Same gate as iterations 1-2, stem sm3, parallel arms: cam1 floors
+83.5 / 95.3; cam2 EB_right shrinks, u-turns do not grow; cam3
+SB_uturn below 38 and movement above 85.4; cell tables +
+phantom-slack + coverage per window. Expected on the rulings: cam3
+EB_right back toward 176 (A2), cam2 evening's 112-track class split
+— the 2-in-5 corner spawns recovered (A3), the 3-in-5 thefts not.
+
+## Iteration 3 verdict
+
+(to be recorded)

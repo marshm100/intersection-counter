@@ -3,7 +3,7 @@
 Runs the journey state machine's crossing law (classify_pair) on the
 operator-ruled cam2 tracks, straight from the pass-1 rows, and prints
 the valid crossings as three-state transitions. Declared checks:
-  17526  must yield NO W crossings and a single S exit
+  17526  W entry, NO W exits, a single S exit (revised iter 3)
   16722  must stay OCCUPYING(W) -> EXITED(S)
 Read-only. Exit code 1 if a declared check fails.
 
@@ -32,12 +32,13 @@ CAM = 2
 CHECKS = {
     # tid: (expected origin cardinal, expected dest cardinal,
     #       cardinals that must carry NO valid crossing)
-    # the waiting vehicle. The plan predicted it LOSES its W entry under
-    # R1 (it crept over the line while stopped, so no clean inward
-    # crossing exists) and keeps a single S exit: exit_only, as the
-    # instrument (viz_states) also found. The declared check is "NO W
-    # crossings and a single S exit".
-    17526: (None, "S", ()),
+    # the waiting vehicle ("a real vehicle waiting to turn right"). Under
+    # iterations 1-2 it LOST its W entry (exit_only S). Iteration 3's
+    # spawn-wobble tolerance gives the entry back: OCCUPYING(W) ->
+    # EXITED(S), its true movement. The four false EXITED(W) flips he
+    # ruled invalid stay gone. REVISED CHECK (2026-09-09, flagged for
+    # his ruling): W entry, NO W EXITS, a single S exit.
+    17526: ("W", "S", ()),
     16722: ("W", "S", ()),          # clean right
 }
 NO_W_CROSSINGS = {17526}
@@ -94,9 +95,8 @@ def main() -> int:
         exits = [c for c in valid if not c[2]]
         checks = [(f"origin/dest {want}", got == want)]
         if tid in NO_W_CROSSINGS:
-            w_valid = [c for c in valid if card(c[1]) == "W"
-                       and c[0] > (fo or -1)]
-            checks.append(("no W crossings after entry", not w_valid))
+            w_exits = [c for c in exits if card(c[1]) == "W"]
+            checks.append(("no W exits", not w_exits))
             checks.append(("single S exit",
                            len([c for c in exits if card(c[1]) == "S"]) == 1))
         for name, passed in checks:

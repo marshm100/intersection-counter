@@ -114,16 +114,20 @@ class TestCrossingLaw:
         assert [(c[1], c[2]) for c in valid] == [(1, True)]
         assert classify_pair(left, right, GATES, FPS)[-1] == "entry_only"
 
-    def test_born_across_does_not_cover_a_corner_that_crossed_out(self):
-        # the waiting-vehicle shape (17526): the other corner WAS born
-        # inside but crept back out over the same gate earlier, so it
-        # is not a detection-latency truncation — refused.
+    def test_waiting_vehicle_gets_its_entry_but_no_false_exit(self):
+        # the waiting-vehicle shape (17526): the right corner was born
+        # inside and crept back OUT over the same gate; later the left
+        # corner enters. Iteration 2 refused this; iteration 3 (reel 2,
+        # operator ruling: a spawned corner "closes properly at the
+        # exit") accepts the ENTRY. The earlier OUT wobble is NOT an
+        # exit (solo, track continues, no born-across for exits).
         right = ([(float(i), 215.0, 300.0) for i in range(10)]
                  + [(float(i), 190.0, 300.0) for i in range(10, 60)]
                  + [(float(i), 190.0, 300.0) for i in range(60, 300)])
         left = ([(float(i), 185.0, 300.0) for i in range(60)]
                 + [(float(i), 210.0, 300.0) for i in range(60, 300)])
-        assert pair_crossings(left, right, GATES, FPS) == []
+        valid = pair_crossings(left, right, GATES, FPS)
+        assert [(c[1], c[2]) for c in valid] == [(1, True)]
 
     def test_born_across_never_applies_to_an_exit(self):
         # born with the right corner already OUTSIDE the S line and the
@@ -132,6 +136,63 @@ class TestCrossingLaw:
         left = ([(float(i), 790.0, 300.0) for i in range(10)]
                 + [(float(i), 810.0, 300.0) for i in range(10, 300)])
         right = [(f, x + 30.0, y) for f, x, y in left]    # born at 820
+        assert pair_crossings(left, right, GATES, FPS) == []
+
+    def test_wide_body_pair_completes_on_the_extension(self, monkeypatch):
+        # reel 3: a box so wide its left corner rides past the N gate's
+        # drawn END (y < 100). The right corner crosses the drawn
+        # segment, the left corner crosses only the extension. With the
+        # 25% margin (100 px on a 400 px gate) the pair forms.
+        centre = _line(150.0, 850.0, 300.0, 0)
+        left = [(f, x - 15.0, 60.0) for f, x, y in centre]      # y=60: off the end
+        right = [(f, x + 15.0, y) for f, x, y in centre]
+        monkeypatch.setattr(cfg, "GATE_EXTENSION_MARGIN", 0.0)
+        assert [(c[1], c[2]) for c in pair_crossings(left, right, GATES, FPS)
+                if c[2]] == []                       # drawn: no pair, no entry
+        monkeypatch.setattr(cfg, "GATE_EXTENSION_MARGIN", 0.25)
+        valid = pair_crossings(left, right, GATES, FPS)
+        assert (1, True) in [(c[1], c[2]) for c in valid]
+
+    def test_extension_is_bounded(self, monkeypatch):
+        # a corner far beyond the margin (y = -200 on a gate spanning
+        # 100..500, margin 100) still misses
+        monkeypatch.setattr(cfg, "GATE_EXTENSION_MARGIN", 0.25)
+        centre = _line(150.0, 850.0, 300.0, 0)
+        left = [(f, x - 15.0, -200.0) for f, x, y in centre]
+        right = [(f, x + 15.0, y) for f, x, y in centre]
+        valid = pair_crossings(left, right, GATES, FPS)
+        assert (1, True) not in [(c[1], c[2]) for c in valid]
+
+    def test_born_across_needs_the_other_corner_within_the_gate_width(self):
+        # reel 3: right corner crosses N inward while the left corner
+        # sits "inside" N's half-plane but far off the segment's width
+        # (y = 900, gate spans 100..500 +25%): not born across.
+        left = [(float(i), 260.0, 900.0) for i in range(300)]
+        right = ([(float(i), 190.0, 300.0) for i in range(10)]
+                 + [(float(i), 210.0, 300.0) for i in range(10, 300)])
+        assert pair_crossings(left, right, GATES, FPS) == []
+
+    def test_spawned_corner_may_wobble_out_before_the_entry(self):
+        # reel 2 clips 2 and 4: the right corner spawns beyond the N
+        # mouth (inside), wobbles OUT over N once, then the left corner
+        # enters. The earlier OUT is the spawn settling, not an entry.
+        right = ([(float(i), 215.0, 300.0) for i in range(10)]
+                 + [(float(i), 190.0, 300.0) for i in range(10, 300)])
+        left = ([(float(i), 185.0, 300.0) for i in range(80)]
+                + [(float(i), 205.0, 300.0) for i in range(80, 300)])
+        valid = pair_crossings(left, right, GATES, FPS)
+        assert [(c[1], c[2]) for c in valid] == [(1, True)]
+
+    def test_earlier_inward_crossing_still_disqualifies(self):
+        # the other corner was born inside, went OUT, then came back
+        # IN over N well before the trailing corner: that earlier
+        # INWARD crossing is a real entry attempt, not a spawn settling
+        # -> the later solo is not born across
+        right = ([(float(i), 215.0, 300.0) for i in range(10)]
+                 + [(float(i), 185.0, 300.0) for i in range(10, 40)]
+                 + [(float(i), 215.0, 300.0) for i in range(40, 300)])
+        left = ([(float(i), 185.0, 300.0) for i in range(80)]
+                + [(float(i), 205.0, 300.0) for i in range(80, 300)])
         assert pair_crossings(left, right, GATES, FPS) == []
 
 

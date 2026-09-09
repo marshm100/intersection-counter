@@ -389,6 +389,20 @@ def classify(track, gates, fps, lanes=None):
     return None, None, None, None, None, None, "no_crossing"
 
 
+def extend_gates(gates, margin):
+    """Each gate segment pushed out by `margin` x its own length at both
+    ends, inward normal unchanged. The operator's line-extension idea
+    (2026-09-09), BOUNDED: red-teamed at 0.25 (see config)."""
+    if not margin:
+        return gates
+    out = {}
+    for lg, (p1, p2, inw) in gates.items():
+        dx, dy = p2[0] - p1[0], p2[1] - p1[1]
+        out[lg] = ((p1[0] - margin * dx, p1[1] - margin * dy),
+                   (p2[0] + margin * dx, p2[1] + margin * dy), inw)
+    return out
+
+
 def pair_crossings(track_l, track_r, gates, fps):
     """THE JOURNEY STATE MACHINE's crossing law (operator rulings
     2026-09-09; docs/plan_state_machine_2026-09-09.md). Both bottom-
@@ -421,9 +435,11 @@ def pair_crossings(track_l, track_r, gates, fps):
         book a false W exit).
     R2 (terminal exit) lives in classify_pair(), which consumes this.
     """
-    from backend.config import CORNER_PAIR_WINDOW_S, CROSSING_TRUNCATION_S
+    from backend.config import (CORNER_PAIR_WINDOW_S, CROSSING_TRUNCATION_S,
+                                GATE_EXTENSION_MARGIN)
     win = CORNER_PAIR_WINDOW_S * fps
     trunc = CROSSING_TRUNCATION_S * fps
+    gates = extend_gates(gates, GATE_EXTENSION_MARGIN)
     c_l = all_crossings(track_l, gates, fps)
     c_r = all_crossings(track_r, gates, fps)
     end_f = max(track_l[-1][0] if track_l else 0.0,
@@ -455,16 +471,32 @@ def pair_crossings(track_l, track_r, gates, fps):
 
     def _born_across(a, other_track, others):
         """the other corner sat inside gate a[1] from its first frame
-        and never crossed that gate before a: its own crossing was
-        truncated by detection latency, not by the vehicle waiting."""
+        and never ENTERED over that gate before a: its own crossing was
+        truncated by detection latency, not by the vehicle waiting.
+        Iteration 3 (reels 1-3, operator rulings 2026-09-09):
+          - the corner must be inside WITHIN THE GATE'S OWN WIDTH
+            (projection on the extended segment in [0, 1]) — reel 3's
+            wide-body boxes had the other corner sitting on a
+            DIFFERENT gate, on the inside half-plane of this one;
+          - an earlier OUTWARD wobble by that corner does not
+            disqualify it — reel 2's corner spawns ("spawns the corner
+            beyond the mouth gate and then closes properly at the
+            exit") wobble back out before the trailing corner enters;
+            only an earlier INWARD crossing means it was not born
+            across but entered."""
         if not a[2] or not other_track:
             return False
         p1, p2, inw = gates[a[1]]
         f0, x0, y0 = other_track[0]
         mid = ((p1[0] + p2[0]) / 2.0, (p1[1] + p2[1]) / 2.0)
         inside0 = ((x0 - mid[0]) * inw[0] + (y0 - mid[1]) * inw[1]) > 0
-        return inside0 and not any(o[1] == a[1] and o[0] < a[0]
-                                   for o in others)
+        gl2 = (p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2 or 1.0
+        proj = ((x0 - p1[0]) * (p2[0] - p1[0])
+                + (y0 - p1[1]) * (p2[1] - p1[1])) / gl2
+        within = 0.0 <= proj <= 1.0
+        return (inside0 and within
+                and not any(o[1] == a[1] and o[2] and o[0] < a[0]
+                            for o in others))
 
     for solo, others, other_track in ((solo_l, c_r, track_r),
                                       (solo_r, c_l, track_l)):

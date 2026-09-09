@@ -291,6 +291,18 @@ CROSSING_TRUNCATION_S = 1.0   # a solo-corner crossing counts only if the
                               # track ENDS within this of it (departure
                               # window: the two populations separate
                               # 50% vs 6% here)
+# G-SM-1 iteration 3 (operator's idea 2026-09-09, red-teamed in
+# scripts/redteam_line_extension.py): the machine's crossing law sees
+# each drawn gate EXTENDED by this fraction of its length at each end,
+# so a wide-body box whose corner sits past the drawn line's end can
+# still be hit ("the bounding box is so large one of the corners sits
+# beyond the intersection line's length and cannot be hit with the
+# intersection line as drawn"). To the frame edge it FAILS (cam3's S
+# extension runs into cross traffic: 1420 lone hits); at 0.25 cam3
+# completes 937 wide-body pairs for 170 lone hits; the cliff is
+# between 0.25 and 0.5. Used ONLY by pair_crossings — classify() and
+# the census keep the drawn gates.
+GATE_EXTENSION_MARGIN = 0.25
 
 # THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): a vehicle
 # that never curved cannot be booked as a TURN on a guess. Measured:

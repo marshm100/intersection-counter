@@ -136,6 +136,12 @@ def flags_fingerprint() -> str:
     names = [n for n in dir(_c)
              if n.isupper() and isinstance(getattr(_c, n, None), bool)]
     flags = {n: bool(getattr(_c, n)) for n in sorted(names)}
+    # 2026-09-09 (iteration 3): the law's frozen NUMBERS are part of
+    # what pass 2 obeys too (GATE_EXTENSION_MARGIN, CORNER_PAIR_WINDOW_S
+    # ...) — every module-level int/float constant is fingerprinted.
+    nums = {n: getattr(_c, n) for n in dir(_c)
+            if n.isupper() and type(getattr(_c, n, None)) in (int, float)}
+    flags["__numeric__"] = {k: nums[k] for k in sorted(nums)}
     # BIT AGAIN 2026-09-09: G-SM-1 iteration 2 changed the crossing law
     # in entry_gates.py without moving any flag, and every arm "ran" in
     # 1 s on the iteration-1 working DBs. The law's SOURCE is part of
