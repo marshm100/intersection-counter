@@ -22,11 +22,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from backend.config import (GATE_EVIDENCE_EITHER_CORNER,  # noqa: E402
-                            GATE_GROUND_ANCHOR, STRAIGHT_FRAGMENT_RULE)
+import backend.config as _cfg  # noqa: E402
 
-assert (GATE_GROUND_ANCHOR and STRAIGHT_FRAGMENT_RULE
-        and GATE_EVIDENCE_EITHER_CORNER), "flags not armed"
+# G-DEF-1 (2026-09-10): the arm runs under WHATEVER flags the environment
+# sets - including none, the blank-site baseline - and prints them, so
+# a run's basis is never a guess. (The old assert required the fleet
+# set; the reuse fingerprint already forces a recompute on any change.)
+_ARMED = sorted(n for n in dir(_cfg)
+                if n.isupper() and isinstance(getattr(_cfg, n), bool)
+                and getattr(_cfg, n))
+print(f"flags ON: {', '.join(_ARMED) or 'none (baseline)'}", flush=True)
 
 from backend.services.two_pass import run_pass2  # noqa: E402
 
@@ -122,6 +127,16 @@ def main() -> int:
                 if r:
                     out.append(r)
     out.sort(key=lambda r: (r[0], r[1]))
+    scored = [r for r in out if r[3] is not None]
+    if scored:
+        fleet = sum(r[3] for r in scored) / len(scored)
+        live_m = sum(r[2] for r in scored) / len(scored)
+        print(f"\nFLEET mean over {len(scored)} windows: live {live_m:.2f} "
+              f"-> arm {fleet:.2f} ({fleet - live_m:+.2f})", flush=True)
+        for cam in sorted({r[0] for r in scored}):
+            rs = [r for r in scored if r[0] == cam]
+            print(f"  cam{cam} mean: live {sum(r[2] for r in rs) / len(rs):.2f} "
+                  f"-> {sum(r[3] for r in rs) / len(rs):.2f}", flush=True)
     print(f"\n{'window':16}{'live':>7}{'new':>7}{'delta':>8}"
           f"{'cov':>7}{'chan':>6}")
     for cam, variant, live, mv, ap, act, rep in out:
