@@ -276,3 +276,16 @@ entry direction. Next, in order:
       window's own dump) — a heading that is true by construction on
       every camera, derived from raw video + the operator's lines
       alone, which is the prime directive's allowed basis.
+
+## d3 verdict (2026-09-10): the mouth POINT from the line, heading kept — near-neutral, MISS on the letter
+
+  cam1 83.5 / 95.1 | cam2 76.6 / 74.8 / 66.7 | cam3 85.6 | cam4 64.4 / 72.3 / 73.3 | cam5 72.6 / 71.4 / 68.9
+  FLEET 75.70 -> 75.43 (-0.27); cam4 +0.9, cam2 -1.7 (evening -4.6:
+  NB_left 404 -> 388 against Mio 420, the waiting-vehicle origins move),
+  everything else within 0.3.
+
+His ruling's own effect on the counts is small either way: the point
+is used for the origin claim by proximity and the box centroid, and
+the line's midpoint sits close to the May dot on most legs. cam2
+evening is the one window where it costs. Not a default on its own;
+it rides with d4.

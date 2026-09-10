@@ -1,0 +1,214 @@
+{
+ "v2": {
+  "cells_scored": 81,
+  "compliant": 77,
+  "pct": 95.1,
+  "worst": [
+   {
+    "bin": "17:45",
+    "cell": "NB thru",
+    "ours": 220,
+    "ref": 205
+   },
+   {
+    "bin": "17:15",
+    "cell": "EB right",
+    "ours": 79,
+    "ref": 69
+   },
+   {
+    "bin": "16:15",
+    "cell": "EB right",
+    "ours": 55,
+    "ref": 64
+   },
+   {
+    "bin": "16:30",
+    "cell": "NB left",
+    "ours": 19,
+    "ref": 25
+   }
+  ]
+ },
+ "production": {
+  "cells_scored": 81,
+  "compliant": 77,
+  "pct": 95.1,
+  "worst": [
+   {
+    "bin": "17:45",
+    "cell": "NB thru",
+    "ours": 222,
+    "ref": 205
+   },
+   {
+    "bin": "16:15",
+    "cell": "EB right",
+    "ours": 54,
+    "ref": 64
+   },
+   {
+    "bin": "17:15",
+    "cell": "EB right",
+    "ours": 79,
+    "ref": 69
+   },
+   {
+    "bin": "16:30",
+    "cell": "NB left",
+    "ours": 19,
+    "ref": 25
+   }
+  ]
+ },
+ "v2_approach": {
+  "cells_scored": 30,
+  "compliant": 25,
+  "pct": 83.3,
+  "worst": [
+   {
+    "bin": "17:15",
+    "cell": "SB",
+    "ours": 362,
+    "ref": 344
+   },
+   {
+    "bin": "17:45",
+    "cell": "NB",
+    "ours": 250,
+    "ref": 236
+   },
+   {
+    "bin": "16:15",
+    "cell": "NB",
+    "ours": 247,
+    "ref": 235
+   },
+   {
+    "bin": "17:15",
+    "cell": "EB",
+    "ours": 104,
+    "ref": 93
+   },
+   {
+    "bin": "16:15",
+    "cell": "EB",
+    "ours": 69,
+    "ref": 79
+   }
+  ]
+ },
+ "production_approach": {
+  "cells_scored": 30,
+  "compliant": 26,
+  "pct": 86.7,
+  "worst": [
+   {
+    "bin": "17:45",
+    "cell": "NB",
+    "ours": 254,
+    "ref": 236
+   },
+   {
+    "bin": "16:15",
+    "cell": "NB",
+    "ours": 248,
+    "ref": 235
+   },
+   {
+    "bin": "16:15",
+    "cell": "EB",
+    "ours": 68,
+    "ref": 79
+   },
+   {
+    "bin": "17:15",
+    "cell": "EB",
+    "ours": 104,
+    "ref": 93
+   }
+  ]
+ },
+ "totals": {
+  "EB_left": [
+   105,
+   114,
+   114
+  ],
+  "EB_right": [
+   497,
+   504,
+   501
+  ],
+  "EB_thru": [
+   1,
+   0,
+   0
+  ],
+  "EB_uturn": [
+   13,
+   3,
+   3
+  ],
+  "NB_left": [
+   229,
+   223,
+   230
+  ],
+  "NB_right": [
+   2,
+   17,
+   17
+  ],
+  "NB_thru": [
+   2078,
+   2109,
+   2119
+  ],
+  "NB_uturn": [
+   1,
+   2,
+   1
+  ],
+  "SB_left": [
+   1,
+   1,
+   1
+  ],
+  "SB_right": [
+   131,
+   143,
+   139
+  ],
+  "SB_thru": [
+   2498,
+   2549,
+   2547
+  ],
+  "SB_uturn": [
+   0,
+   2,
+   2
+  ],
+  "WB_left": [
+   13,
+   11,
+   11
+  ],
+  "WB_right": [
+   2,
+   4,
+   0
+  ],
+  "WB_thru": [
+   3,
+   10,
+   9
+  ],
+  "WB_uturn": [
+   0,
+   0,
+   0
+  ]
+ }
+}
