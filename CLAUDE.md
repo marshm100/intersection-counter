@@ -11,6 +11,18 @@ work from the RAW VIDEO + operator calibration ALONE: no ground truth, no benchm
 a brand-new site is deployed. Miovision/manual counts are DEV-validation yardsticks only, never a
 runtime dependency. Do not overfit to the Sunnyvale corridor's known answers.
 
+## The default (2026-09-10)
+Cams 1-5 are TEST FOOTAGE. The deliverable is what the software does UNAIDED on a blank
+intersection. The unit of shipping is a DEFAULT: one configuration, all 12 corridor windows,
+scored as a fleet against the all-off baseline (69.43) — never a per-window winner.
+G-DEF-1 PASS: GATE_GROUND_ANCHOR, STRAIGHT_FRAGMENT_RULE, GATE_EVIDENCE_EITHER_CORNER and
+JOURNEY_STATE_MACHINE default ON (fleet 75.70). Env vars are overrides for experiments
+(X=0 turns a rule off); nothing in production needs them set. Older plan docs' "operating
+notes" that require env flags are superseded. To improve the default: change it, run all
+12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 75.70, ship on a
+fleet PASS (docs/plan_default_2026-09-10.md). The four windows shipped by hand on 09-09
+and the fleet reprocess on 09-10 are the last per-window applies.
+
 ## Data model (v3)
 Project → Intersection-Day (one card per intersection × date) → Camera (1+ per card) → Clip/Video (1+ per camera).
 Legs are per-camera (each camera sees the intersection from its own angle). Trims are wall-clock processing
@@ -64,7 +76,7 @@ a ctrl/arm comparison against it.
 
 ## Testing
 .venv\Scripts\python.exe -m pytest backend/tests/ -q
-# 1008 passing as of 2026-08-22
+# 1200 passing as of 2026-09-10
 
 ## Git
 git commit -m "Step X.X — [title]"
