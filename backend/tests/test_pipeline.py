@@ -25,8 +25,16 @@ from backend.services.pipeline import ProcessingPipeline
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def pipeline_env():
-    """Create a temp project dir with initialized DB, mock legs, and video."""
+def pipeline_env(monkeypatch):
+    """Create a temp project dir with initialized DB, mock legs, and video.
+
+    THE DEFAULT flipped ON 2026-09-10 (G-DEF-1). This suite's synthetic
+    vehicles are dead-straight tracks whose turn is a guess — exactly
+    what STRAIGHT_FRAGMENT_RULE refuses — and the suite tests event
+    MECHANICS (fields, classes, counts), not the accuracy rules, so
+    that rule is pinned off here. The rules have their own suites."""
+    import backend.config as _cfg
+    monkeypatch.setattr(_cfg, "STRAIGHT_FRAGMENT_RULE", False)
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = os.path.join(tmpdir, "project.db")
         conn = sqlite3.connect(db_path)

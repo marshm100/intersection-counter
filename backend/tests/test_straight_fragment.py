@@ -94,5 +94,7 @@ class TestStraightFragment:
         out = _call(p)
         assert out == "drop"          # reroute refused, event dropped
 
-    def test_flag_off_inert(self):
+    def test_flag_off_inert(self, monkeypatch):
+        import backend.config as _cfg
+        monkeypatch.setattr(_cfg, "STRAIGHT_FRAGMENT_RULE", False)   # default ON since 2026-09-10
         assert _call(_pipe()) is None

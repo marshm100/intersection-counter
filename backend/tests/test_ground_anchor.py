@@ -9,6 +9,14 @@ import backend.services.pipeline as pl
 from backend.services.pipeline import ProcessingPipeline
 
 
+@pytest.fixture(autouse=True)
+def _pre_machine_path(monkeypatch):
+    """These tests exercise the ground-anchor / either-corner combine
+    that JOURNEY_STATE_MACHINE supersedes; with the machine default ON
+    (2026-09-10) it is pinned off here so the older path is what runs."""
+    monkeypatch.setattr(cfg, "JOURNEY_STATE_MACHINE", False)
+
+
 def _pipe():
     p = ProcessingPipeline.__new__(ProcessingPipeline)
     # one horizontal gate line at y=200, inward normal pointing down
@@ -75,6 +83,7 @@ class TestThresholdLaw:
         traj = [(310.0, 230.0 - 60.0 * i / 11 - 20.0) for i in range(12)]
         v = _vehicle(traj, [40.0] * 12, [40.0] * 12)
         monkeypatch.setattr(cfg, "GATE_GROUND_ANCHOR", True)
+        monkeypatch.setattr(cfg, "GATE_EVIDENCE_EITHER_CORNER", False)  # the STRICT law; default ON since 2026-09-10
         _o, _d, tag = _pipe()._gate_evidence(v)
         assert tag in (None, "no_crossing")
 

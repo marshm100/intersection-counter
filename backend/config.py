@@ -231,6 +231,15 @@ CHAIN_GLUE = _os2.environ.get("CHAIN_GLUE", "0") in ("1", "true", "on")
 # hand-over; a mid-scene newborn inherits its origin from the
 # concealer it was hidden behind (gate-evidenced origins only).
 # Default OFF until G-LT-1 passes and the operator ships them.
+# ======================================================================
+# THE DEFAULT (G-DEF-1 PASS, operator go 2026-09-10 — docs/plan_default_
+# 2026-09-10.md). Cams 1-5 are test footage; the deliverable is what the
+# software does UNAIDED on a blank intersection. The four rules below
+# default ON because, applied blind as one configuration to all 12
+# corridor windows, they score 75.70 against the all-off 69.43 and no
+# camera or window loses. The env var is an OVERRIDE for experiments
+# (X=0 turns a rule off); nothing in production needs it set.
+# ======================================================================
 # THE THRESHOLD LAW (operator ruling 2026-09-07, confirmed 4/4 on the
 # phantom-driveway reel): a gate is a threshold ON THE GROUND. A tall
 # vehicle passing IN FRONT of a background gate line must not count as
@@ -238,7 +247,7 @@ CHAIN_GLUE = _os2.environ.get("CHAIN_GLUE", "0") in ("1", "true", "on")
 # crossing the line counts. Anchors the gate-evidence crossing test at
 # (cx, cy + bh/2) instead of the box center. Default OFF until G-C1-1
 # iteration 2 passes and the operator ships it.
-GATE_GROUND_ANCHOR = _os2.environ.get("GATE_GROUND_ANCHOR", "0") in ("1", "true", "on")
+GATE_GROUND_ANCHOR = _os2.environ.get("GATE_GROUND_ANCHOR", "1") in ("1", "true", "on")
 # G-EX-1 (2026-09-08): the both-corners half of the threshold law is
 # strictness against a GRAZE; ground anchoring alone kills the
 # tall-vehicle illusion. Requiring both corners for gate EVIDENCE
@@ -249,7 +258,7 @@ GATE_GROUND_ANCHOR = _os2.environ.get("GATE_GROUND_ANCHOR", "0") in ("1", "true"
 # This accepts a witness from EITHER bottom corner, refusing only on
 # conflict (measured: conflicts never occur — 0 of 6,149 tracks).
 GATE_EVIDENCE_EITHER_CORNER = _os2.environ.get(
-    "GATE_EVIDENCE_EITHER_CORNER", "0") in ("1", "true", "on")
+    "GATE_EVIDENCE_EITHER_CORNER", "1") in ("1", "true", "on")
 
 # THE FIRST-EXIT RULE (operator ruling 2026-09-08): "it went from n to
 # s, period. End of story." classify() takes the FIRST entry but the
@@ -283,7 +292,7 @@ JOURNEY_FIRST_EXIT = _os2.environ.get(
 # against the SHIPPED combination, never bare defaults. Default OFF
 # until G-SM-1 passes and the operator ships it.
 JOURNEY_STATE_MACHINE = _os2.environ.get(
-    "JOURNEY_STATE_MACHINE", "0") in ("1", "true", "on")
+    "JOURNEY_STATE_MACHINE", "1") in ("1", "true", "on")
 CORNER_PAIR_WINDOW_S = 2.5    # both corners' crossings of one gate pair
                               # within this (p99 of the measured corner
                               # gap: cam1 2.1 s, cam2 2.6 s)
@@ -312,7 +321,7 @@ GATE_EXTENSION_MARGIN = 0.25
 # deg constant is the measured operating point (collateral: 2 genuine
 # rights; at the classifier's 25 deg band it explodes to 65 — never
 # reuse that band here). Default OFF until G-SF-1 passes.
-STRAIGHT_FRAGMENT_RULE = _os2.environ.get("STRAIGHT_FRAGMENT_RULE", "0") in ("1", "true", "on")
+STRAIGHT_FRAGMENT_RULE = _os2.environ.get("STRAIGHT_FRAGMENT_RULE", "1") in ("1", "true", "on")
 STRAIGHT_FRAGMENT_MAX_NHC_DEG = 5.0
 STRAIGHT_FRAGMENT_MIN_STRAIGHTNESS = 0.95
 STRAIGHT_FRAGMENT_MIN_POINTS = 10
