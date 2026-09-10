@@ -55,57 +55,57 @@
   ]
  },
  "production": {
-  "cells_scored": 66,
-  "compliant": 50,
-  "pct": 75.8,
+  "cells_scored": 59,
+  "compliant": 43,
+  "pct": 72.9,
   "worst": [
-   {
-    "bin": "17:15",
-    "cell": "SB thru",
-    "ours": 360,
-    "ref": 396
-   },
    {
     "bin": "17:45",
     "cell": "SB right",
-    "ours": 41,
+    "ours": 52,
     "ref": 6
+   },
+   {
+    "bin": "17:00",
+    "cell": "SB right",
+    "ours": 44,
+    "ref": 4
+   },
+   {
+    "bin": "16:15",
+    "cell": "SB right",
+    "ours": 46,
+    "ref": 7
+   },
+   {
+    "bin": "16:30",
+    "cell": "SB right",
+    "ours": 49,
+    "ref": 10
+   },
+   {
+    "bin": "17:15",
+    "cell": "SB thru",
+    "ours": 358,
+    "ref": 396
    },
    {
     "bin": "17:30",
     "cell": "SB right",
-    "ours": 37,
+    "ours": 42,
     "ref": 4
    },
    {
-    "bin": "16:30",
+    "bin": "17:30",
     "cell": "SB thru",
-    "ours": 401,
-    "ref": 369
+    "ours": 402,
+    "ref": 436
    },
    {
     "bin": "17:00",
     "cell": "NB thru",
     "ours": 309,
     "ref": 341
-   },
-   {
-    "bin": "17:00",
-    "cell": "SB right",
-    "ours": 36,
-    "ref": 4
-   },
-   {
-    "bin": "16:15",
-    "cell": "SB right",
-    "ours": 38,
-    "ref": 7
-   },
-   {
-    "bin": "16:30",
-    "cell": "SB right",
-    "ours": 41,
-    "ref": 10
    }
   ]
  },
@@ -172,19 +172,19 @@
    {
     "bin": "16:30",
     "cell": "SB",
-    "ours": 444,
+    "ours": 429,
     "ref": 379
    },
    {
     "bin": "16:15",
     "cell": "SB",
-    "ours": 385,
+    "ours": 376,
     "ref": 328
    },
    {
     "bin": "17:45",
     "cell": "SB",
-    "ours": 446,
+    "ours": 447,
     "ref": 404
    },
    {
@@ -223,17 +223,12 @@
   "EB_left": [
    29,
    38,
-   27
+   38
   ],
   "EB_right": [
    15,
    0,
    0
-  ],
-  "EB_thru": [
-   0,
-   0,
-   10
   ],
   "EB_uturn": [
    0,
@@ -248,7 +243,7 @@
   "NB_thru": [
    2439,
    2391,
-   2392
+   2391
   ],
   "NB_uturn": [
    14,
@@ -258,12 +253,12 @@
   "SB_right": [
    39,
    329,
-   274
+   329
   ],
   "SB_thru": [
    2981,
    2853,
-   2924
+   2853
   ],
   "SB_uturn": [
    0,

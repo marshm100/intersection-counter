@@ -121,3 +121,42 @@ to be applied, and are those gates right?
 Consequence for the gate: d1 is judged against BASE (the blank site),
 never against live. cam4's pass-1 basis question (the re-detect that
 was never promoted) is real and separate.
+
+## SHIPPED — THE DEFAULT (operator go 2026-09-10: "ok yes flip them and reprocess")
+
+backend/config.py: the four rules default ON (commit cc05e86); env vars
+are overrides. Three test suites that assumed the old defaults pin
+them explicitly; 1200 green. CLAUDE.md carries the default section.
+
+scripts/reprocess_default.py, no env flags set: pre-reprocess backup
+backups/project_20260910T115152_pre_default_reprocess.db (461 MB);
+force_once per window; all 12 applied through the apply gate. Every
+window's event count equals the d1 arm's; re-score: PRODUCTION ==
+DEFAULT on 12 of 12 windows, fleet mean 75.70.
+
+  window       was     now    health
+  cam1 0700    83.8    83.8   amber
+  cam1 1600    95.3    95.1   green
+  cam2 0700    75.2    75.2   green
+  cam2 1100    76.7    76.7   green
+  cam2 1600    70.3    71.3   amber
+  cam3 0600    85.7    85.7   amber
+  cam4 0700    75.4*   62.2   amber      * old gates, July apply
+  cam4 1100    73.5*   72.3   amber
+  cam4 1600    75.8*   72.9   red
+  cam5 0700    66.4*   72.9   red        * replaced dump
+  cam5 1100    71.7*   71.4   amber
+  cam5 1600    63.1*   68.9   red
+  FLEET        76.08   75.70  (the patchwork -> the default)
+
+For the first time every live number is what the software produces
+unaided on its own dumps and current calibration. The corridor
+standings are now the default's: cam1 83.8 / 95.1 | cam2 75.2 / 76.7
+/ 71.3 | cam3 85.7 | cam4 62.2 / 72.3 / 72.9 | cam5 72.9 / 71.4 / 68.9.
+
+WHERE THE DEFAULT IS WEAKEST (the standing work): cam4 (62-73; its
+gate evidence is harmful when trusted and the redraw question is
+open), cam5 (69-73; red on two windows), the theft class everywhere
+(no path signal separates it; appearance identity is the next
+instrument). Every improvement from here: change the default, 12
+windows, compare to 75.70, ship on fleet PASS.
