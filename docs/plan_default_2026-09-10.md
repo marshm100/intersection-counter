@@ -160,3 +160,38 @@ open), cam5 (69-73; red on two windows), the theft class everywhere
 (no path signal separates it; appearance identity is the next
 instrument). Every improvement from here: change the default, 12
 windows, compare to 75.70, ship on fleet PASS.
+
+## THE CHANNEL'S VALUE, WINDOW BY WINDOW (arm choff, 2026-09-10)
+
+The default with EVIDENCE_ACTIVATION_ENABLED=0 (plain legacy replay:
+the gate-evidence channel never activates), all 12 windows. "Value" =
+default minus channel-off.
+
+  window       default   channel off   value
+  cam1 0700     83.8        75.0        +8.8
+  cam1 1600     95.1        80.7       +14.4
+  cam2 0700     75.2        40.6       +34.6
+  cam2 1100     76.7        34.6       +42.1
+  cam2 1600     71.3        32.1       +39.2
+  cam3 0600     85.7        59.4       +26.3
+  cam4 0700     62.2        64.7        -2.5
+  cam4 1100     72.3        68.1        +4.2
+  cam4 1600     72.9        72.9         0.0   (already off)
+  cam5 0700     72.9        72.9         0.0   (already off)
+  cam5 1100     71.4        70.8        +0.6
+  cam5 1600     68.9        63.1        +5.8
+
+THE CHANNEL IS THE DEFAULT. Without it the fleet is 61.2, not 75.7:
+cam2 loses 35-42 points per window and cam3 26. It hurts on exactly
+ONE window (cam4 0700, -2.5) and is a wash elsewhere on cam4/cam5.
+The ceiling for any "trust the channel or not" rule is +2.5 on one
+window — NOT worth building. The trust question is closed; the
+question that remains on cam4 is the GATE DRAWING (the W gate lies
+along the main road, see the gates review page), which is the
+operator's, and on cam5 it is not the channel at all.
+
+What this reframes: the default's weakness on cam4/cam5 is not that
+the channel is trusted wrongly; it is that even WITH the channel
+those cameras sit at 62-73 for reasons the channel does not reach —
+gate placement on cam4, and on cam5 (red on two windows) something
+not yet diagnosed on film.
