@@ -94,16 +94,29 @@ pre-flag standings to within a point (cam1 1600 86.2 exactly, cam3
 cam4 AND cam5 DO NOT REPRODUCE THEIR LIVE NUMBERS: cam4 0700/1100
 base at 53.8/57.7 against live 75.4/73.5, with the evidence channel
 ON (0.458/0.540) where production recorded it OFF (0.304/0.442);
-cam5 0700 base 72.9 against live 66.4. Cause: cam4/cam5 were
-RE-DETECTED on 2026-09-07 (plan_c45: yolo26l@1280, own bytetrack) and
-only winning windows were to ship — production still holds events
-from the older dumps, and the dumps on disk are the new ones. So the
-live cam4/cam5 standings describe a basis that no longer exists on
-disk, and every arm since 09-07 (fleet, sm4, base) has been scored
-on the new dumps against them. On the NEW dumps with nothing on,
-cam4's channel activates and hurts (53.8 / 57.7) and cam5 morning
-scores 72.9 with the channel off — yesterday's "+6.5" was the dump,
-not the machine. The honest cam4/cam5 basis is the base arm.
+cam5 0700 base 72.9 against live 66.4.
+
+CAUSE, MEASURED (production pass-2 sidecars vs the present):
+  cam4  sidecars dated 07-31; dump_meta IDENTICAL to the dump on disk
+        (so NOT a re-detect — an earlier inference here was wrong);
+        calib_fingerprint DIFFERENT. cam4's gates/legs/mouths were
+        redrawn after 07-31 and production was never re-applied. The
+        live 75.4/73.5/75.8 describe the OLD calibration with the
+        channel off; under the CURRENT calibration the channel
+        activates and the counts fall to 53.8/57.7 (72.9 with it
+        still off on 1600).
+  cam5  sidecars dated 08-28; dump_meta DIFFERENT (the 09-07 re-detect
+        is on disk, production is not) AND calib different. cam5
+        morning at 72.9 with the channel off is the new dump's own
+        number; yesterday's "+6.5" was the dump, not the machine.
+  cam2 1600  sidecar 08-27, calib different too (base 69.4 vs live
+        70.3 — within a point, so the redraw there was small).
+So every arm since the redraws (fleet, sm4, base) has been scored on
+the current calibration against live numbers from an older one. The
+honest cam4/cam5 basis is the base arm. A question for the operator,
+recorded and not answered here: cam4's current gates make its gate
+evidence HARMFUL when trusted (channel on: -20); was the redraw meant
+to be applied, and are those gates right?
 
 Consequence for the gate: d1 is judged against BASE (the blank site),
 never against live. cam4's pass-1 basis question (the re-detect that
