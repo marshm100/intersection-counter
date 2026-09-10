@@ -332,6 +332,18 @@ MOUTH_FROM_GATE = _os2.environ.get("MOUTH_FROM_GATE", "0") in ("1", "true", "on"
 # script's tail headings) while the point still comes from the line.
 MOUTH_FROM_GATE_HEADING = _os2.environ.get(
     "MOUTH_FROM_GATE_HEADING", "1") in ("1", "true", "on")
+# G-DEF-2 d4 (2026-09-10): each leg's entry heading measured from the
+# window's OWN tracks at the moment they cross the leg's line inward —
+# the circular mean of their direction of travel there. True by
+# construction on every camera (the perpendicular was wrong on cam1,
+# the stored May heading wrong on cam5), derived from raw video plus
+# the operator's lines alone. Applied in the pass-2 replay, where the
+# dump is in hand; legs with fewer than HEADING_MIN_CROSSINGS inward
+# crossings keep their stored heading.
+HEADING_FROM_CROSSINGS = _os2.environ.get(
+    "HEADING_FROM_CROSSINGS", "0") in ("1", "true", "on")
+HEADING_MIN_CROSSINGS = 20
+HEADING_VELOCITY_S = 0.5      # direction measured over +-0.5 s around the crossing
 
 # THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): a vehicle
 # that never curved cannot be booked as a TURN on a guess. Measured:

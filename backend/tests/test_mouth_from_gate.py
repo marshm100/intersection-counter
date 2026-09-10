@@ -5,7 +5,10 @@ import math
 
 import backend.config as cfg
 
-from backend.services.entry_gates import build_gates, mouth_from_gate
+import numpy as np
+
+from backend.services.entry_gates import (build_gates, headings_from_crossings,
+                                          mouth_from_gate)
 
 
 def _legs():
@@ -71,3 +74,45 @@ class TestMouthFromGate:
         assert out[1]["origin_zone"] == [[200.0, 300.0]]
         assert out[1]["reference_heading"] == 123.0
         assert out[2]["reference_heading"] == 7.0
+
+
+def _rows_crossing(leg_x, n_tracks, dx_per_frame, y=300.0, fps=10.0):
+    """n_tracks tracks driving +dx across a vertical line at leg_x."""
+    rows = []
+    for t in range(n_tracks):
+        x0 = leg_x - 60.0
+        for i in range(40):
+            rows.append([float(t + 1), float(1000 * t + i), x0 + dx_per_frame * i,
+                         y - 15.0, 30.0, 30.0])
+    return np.asarray(rows)
+
+
+class TestHeadingFromCrossings:
+    def test_heading_is_the_measured_direction_of_travel(self, monkeypatch):
+        import backend.config as _cfg
+        monkeypatch.setattr(_cfg, "HEADING_MIN_CROSSINGS", 5)
+        legs = mouth_from_gate(_legs(), heading=False)
+        rows = _rows_crossing(200.0, 8, 4.0)            # +x over the N line
+        out = {d["leg_id"]: d for d in headings_from_crossings(legs, rows, 10.0)}
+        assert out[1]["_heading_n"] == 8
+        assert abs(out[1]["reference_heading"] - 90.0) < 1e-6   # travelling +x
+        assert out[2]["reference_heading"] == 7.0                # no crossings: kept
+
+    def test_angled_travel_over_the_line(self, monkeypatch):
+        # travel at 45 deg down-right (+x, +y) over the N line: heading 135
+        import backend.config as _cfg
+        monkeypatch.setattr(_cfg, "HEADING_MIN_CROSSINGS", 5)
+        legs = mouth_from_gate(_legs(), heading=False)
+        rows = []
+        for t in range(6):
+            for i in range(40):
+                rows.append([float(t + 1), float(1000 * t + i), 140.0 + 4.0 * i,
+                             150.0 + 4.0 * i - 15.0, 30.0, 30.0])
+        out = {d["leg_id"]: d for d in headings_from_crossings(legs, np.asarray(rows), 10.0)}
+        assert abs(out[1]["reference_heading"] - 135.0) < 1e-3
+
+    def test_too_few_crossings_keep_stored(self):
+        legs = mouth_from_gate(_legs(), heading=False)
+        rows = _rows_crossing(200.0, 3, 4.0)
+        out = {d["leg_id"]: d for d in headings_from_crossings(legs, rows, 10.0)}
+        assert out[1]["reference_heading"] == 123.0

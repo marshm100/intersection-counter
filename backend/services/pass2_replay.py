@@ -142,6 +142,12 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         hi = end_frame if end_frame is not None else np.inf
         rows = rows[(rows[:, 1] >= lo) & (rows[:, 1] < hi)]
 
+    from backend.config import HEADING_FROM_CROSSINGS
+    if HEADING_FROM_CROSSINGS:
+        # the entry heading from this window's own tracks at the line
+        from backend.services.entry_gates import headings_from_crossings
+        legs = headings_from_crossings(legs, rows, float(video["fps"]))
+
     out_db = Path(out_db)
     out_db.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(proj_db, out_db)

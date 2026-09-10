@@ -162,6 +162,75 @@ def mouth_from_gate(legs, heading=None):
     return out
 
 
+def headings_from_crossings(legs, rows, fps):
+    """Each leg's entry heading from the tracks that cross its line
+    INWARD (G-DEF-2 d4, 2026-09-10). rows: the pass-1 dump array with
+    columns [tid, frame, cx, cy, w, h, ...]; the path is the bottom
+    centre. For every inward crossing of a leg's gate the direction of
+    travel over +-HEADING_VELOCITY_S is taken; the leg's heading is the
+    circular mean (0 = up the screen, clockwise). Legs with fewer than
+    HEADING_MIN_CROSSINGS crossings, or without a drawn line, keep their
+    stored heading. Pure: returns new leg dicts."""
+    import json as _json
+    from backend.config import (GATE_EXTENSION_MARGIN, HEADING_MIN_CROSSINGS,
+                                HEADING_VELOCITY_S)
+    import numpy as _np
+    out = [dict(lg) for lg in legs]
+    mouths, heads, drawn = {}, {}, {}
+    for d in out:
+        oz = d.get("origin_zone")
+        if isinstance(oz, str):
+            try:
+                oz = _json.loads(oz)
+            except (TypeError, ValueError):
+                oz = None
+        g = parse_gate_segment(d.get("gate_segment"))
+        if oz and g:
+            mouths[d["leg_id"]] = tuple(oz[0])
+            heads[d["leg_id"]] = d.get("reference_heading")
+            drawn[d["leg_id"]] = g
+    if not drawn or rows is None or len(rows) == 0:
+        return out
+    gates = extend_gates(build_gates(mouths, [], heads, leg_gates=drawn),
+                         GATE_EXTENSION_MARGIN)
+    rows = _np.asarray(rows)
+    order = _np.lexsort((rows[:, 1], rows[:, 0]))
+    rows = rows[order]
+    half = max(1, int(round(HEADING_VELOCITY_S * fps)))
+    sums = {lg: [0.0, 0.0, 0] for lg in gates}
+    _t, starts = _np.unique(rows[:, 0], return_index=True)
+    bounds = list(zip(starts, list(starts[1:]) + [len(rows)]))
+    for a, b in bounds:
+        trk = rows[a:b]
+        if len(trk) < 2 * half + 1:
+            continue
+        pts = [(float(r[1]), float(r[2]), float(r[3]) + float(r[5]) / 2.0)
+               for r in trk]
+        frames = trk[:, 1]
+        for f, lg, inward, _p in all_crossings(pts, gates, fps):
+            if not inward:
+                continue
+            i = int(_np.searchsorted(frames, f))
+            i0, i1 = max(0, i - half), min(len(pts) - 1, i + half)
+            if i1 <= i0:
+                continue
+            vx = pts[i1][1] - pts[i0][1]
+            vy = pts[i1][2] - pts[i0][2]
+            n = math.hypot(vx, vy)
+            if n < 1e-6:
+                continue
+            sums[lg][0] += vx / n
+            sums[lg][1] += vy / n
+            sums[lg][2] += 1
+    for d in out:
+        acc = sums.get(d["leg_id"])
+        if not acc or acc[2] < HEADING_MIN_CROSSINGS:
+            continue
+        d["reference_heading"] = math.degrees(math.atan2(acc[0], -acc[1])) % 360.0
+        d["_heading_n"] = acc[2]
+    return out
+
+
 def _closest_on_polyline(poly, pt):
     """(closest point, unit tangent, distance) of poly to pt."""
     best = (None, None, float("inf"))
