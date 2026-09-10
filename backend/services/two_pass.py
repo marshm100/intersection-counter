@@ -1527,6 +1527,9 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         conn_r.row_factory = sqlite3.Row
         legs_r = {r["leg_id"]: dict(r) for r in conn_r.execute(
             "SELECT * FROM legs WHERE camera_id=?", (camera_id,))}
+        if getattr(_cfg, "MOUTH_FROM_GATE", False):
+            from backend.services.entry_gates import mouth_from_gate
+            legs_r = {d["leg_id"]: d for d in mouth_from_gate(list(legs_r.values()))}
         all_legs_r = list(legs_r.values())
         from backend.services.trajectory_classifier import derive_movement
         rescued = 0

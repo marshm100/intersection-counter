@@ -97,6 +97,65 @@ def parse_gate_segment(val):
         return None
 
 
+def mouth_from_gate(legs):
+    """THE LINES ARE THE MOUTHS (operator ruling 2026-09-10). For every leg
+    dict carrying a drawn gate_segment, replace origin_zone with the
+    gate's midpoint and reference_heading with the heading of travel
+    ENTERING over the line (0 = up the screen, clockwise — the
+    convention build_gates and the classifier already use). The inward
+    sign is the same centroid test build_gates applies, taken over the
+    legs' (derived) mouths, so the result is self-consistent with no
+    stored point at all. Legs without a drawn gate are returned as
+    they are. Pure: returns new dicts, never writes the DB.
+    origin_zone may be a JSON string or a parsed list; the output is
+    always a parsed [[x, y]]."""
+    import json as _json
+    out = []
+    parsed = []
+    for lg in legs:
+        d = dict(lg)
+        oz = d.get("origin_zone")
+        if isinstance(oz, str):
+            try:
+                oz = _json.loads(oz)
+            except (TypeError, ValueError):
+                oz = None
+        d["origin_zone"] = oz
+        d["_gate"] = parse_gate_segment(d.get("gate_segment"))
+        parsed.append(d)
+    # centroid over the mouths as they WILL be (midpoints where drawn)
+    pts = []
+    for d in parsed:
+        if d["_gate"]:
+            (x1, y1), (x2, y2) = d["_gate"]
+            pts.append(((x1 + x2) / 2.0, (y1 + y2) / 2.0))
+        elif d["origin_zone"]:
+            pts.append(tuple(d["origin_zone"][0]))
+    if not pts:
+        for d in parsed:
+            d.pop("_gate", None)
+        return parsed
+    cx = sum(q[0] for q in pts) / len(pts)
+    cy = sum(q[1] for q in pts) / len(pts)
+    for d in parsed:
+        g = d.pop("_gate", None)
+        if not g:
+            out.append(d)
+            continue
+        (x1, y1), (x2, y2) = g
+        mx, my = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+        gx, gy = x2 - x1, y2 - y1
+        n = math.hypot(gx, gy) or 1.0
+        gx, gy = gx / n, gy / n
+        tx, ty = -gy, gx                                  # perpendicular
+        s_ = 1.0 if ((cx - mx) * tx + (cy - my) * ty) > 0 else -1.0
+        ix, iy = s_ * tx, s_ * ty                         # inward = entering
+        d["origin_zone"] = [[mx, my]]
+        d["reference_heading"] = math.degrees(math.atan2(ix, -iy)) % 360.0
+        out.append(d)
+    return out
+
+
 def _closest_on_polyline(poly, pt):
     """(closest point, unit tangent, distance) of poly to pt."""
     best = (None, None, float("inf"))

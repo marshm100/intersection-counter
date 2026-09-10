@@ -230,6 +230,10 @@ def _load_prerequisites(project_id: str) -> dict:
             if isinstance(oz, str):
                 leg["origin_zone"] = json.loads(oz)
             legs.append(leg)
+        from backend.config import MOUTH_FROM_GATE
+        if MOUTH_FROM_GATE:
+            from backend.services.entry_gates import mouth_from_gate
+            legs = mouth_from_gate(legs)      # the lines are the mouths
     finally:
         conn.close()
 
@@ -766,6 +770,10 @@ def review_frame(project_id: str, frame: int = 0, show_trajectories: bool = True
             if isinstance(oz, str):
                 leg["origin_zone"] = json.loads(oz)
             legs.append(leg)
+        from backend.config import MOUTH_FROM_GATE
+        if MOUTH_FROM_GATE:
+            from backend.services.entry_gates import mouth_from_gate
+            legs = mouth_from_gate(legs)      # the lines are the mouths
             origin_zones.append(leg.get("origin_zone", []))
 
         finalized_trajectories = []

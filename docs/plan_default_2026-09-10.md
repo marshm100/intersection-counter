@@ -195,3 +195,47 @@ the channel is trusted wrongly; it is that even WITH the channel
 those cameras sit at 62-73 for reasons the channel does not reach —
 gate placement on cam4, and on cam5 (red on two windows) something
 not yet diagnosed on film.
+
+## OPERATOR RULING ON THE GATES (2026-09-10, gates review page)
+
+His words: "yes all the lines are where they are intended to be but
+the mouth should be the lines and the exit should be the lines the
+blue dots should not exist."
+
+So: every drawn gate is correct as drawn (cam4's driveway gate along
+the main road included). THE LINES ARE THE MOUTHS AND THE EXITS. The
+per-leg mouth POINT (legs.origin_zone, the cyan dot, set by the May
+recalibration script) is not his and should not exist as a concept:
+everything the software derives from "the mouth" must derive from the
+line. Scope of that change to be measured before it is declared.
+
+## G-DEF-2 (declared 2026-09-10, before any scoring): THE LINES ARE THE MOUTHS
+
+Build: MOUTH_FROM_GATE (default OFF) — backend/services/entry_gates.py
+mouth_from_gate(): for every leg with a drawn gate, origin_zone :=
+the line's midpoint and reference_heading := the heading of travel
+entering over the line (its inward perpendicular, same centroid sign
+test as build_gates). Applied at load in leg_geometry_for_camera,
+pass2_replay, both processing-router loaders and the merge-rescue
+loader. Pure; the DB is untouched; legs without a line keep their
+dot. 6 tests; 1206 green.
+
+What it changes, measured on cam4 before scoring: the derived entry
+headings differ from the stored ones by 60-80 deg (N 265 -> 188, W
+119 -> 177) because cam4's lines run ALONG the road (his ruling: as
+intended), so "perpendicular to the line" is not the direction of
+travel there. The classifier's net-heading-change and the origin
+claim by nearest mouth both move. This is exactly what the fleet must
+judge — no window is chosen.
+
+Arm d2 = the default + MOUTH_FROM_GATE, all 12 windows, parallel.
+PASS = the G-DEF-1 letter against the default (75.70): fleet mean
+rises; no camera falls > 1.0; no window falls > 3.0. Cell tables +
+phantom-slack reported. If it passes, MOUTH_FROM_GATE flips ON and
+the dot is retired from the editor (stage B). If it fails, the ruling
+still stands and the next candidate derives the heading from the
+TRACKS crossing the line rather than from its perpendicular.
+
+## G-DEF-2 verdict
+
+(to be recorded)

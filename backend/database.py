@@ -1557,24 +1557,32 @@ def leg_geometry_for_camera(project_id: str, camera_id: int) -> dict:
     2026-08-21). Replaces the mouth/head extraction that was duplicated
     across two_pass, apply_gate, and the offline scripts, so the
     operator-drawn gate_segment reaches every build_gates caller."""
-    from backend.services.entry_gates import parse_gate_segment
+    from backend.services.entry_gates import mouth_from_gate, parse_gate_segment
+    from backend.config import MOUTH_FROM_GATE
     conn = get_connection(project_id)
     try:
-        out: dict[int, dict] = {}
-        for lid, oz, rh, gs in conn.execute(
-                "SELECT leg_id, origin_zone, reference_heading, "
-                "gate_segment FROM legs WHERE camera_id = ?", (camera_id,)):
-            if not oz:
-                continue
-            try:
-                z = json.loads(oz)
-            except (TypeError, ValueError):
-                continue
-            out[lid] = {"mouth": tuple(z[0]), "heading": rh,
-                        "gate": parse_gate_segment(gs)}
-        return out
+        rows = [{"leg_id": lid, "origin_zone": oz, "reference_heading": rh,
+                 "gate_segment": gs}
+                for lid, oz, rh, gs in conn.execute(
+                    "SELECT leg_id, origin_zone, reference_heading, "
+                    "gate_segment FROM legs WHERE camera_id = ?", (camera_id,))]
     finally:
         conn.close()
+    if MOUTH_FROM_GATE:
+        rows = mouth_from_gate(rows)          # the lines are the mouths
+    out: dict[int, dict] = {}
+    for r in rows:
+        oz = r.get("origin_zone")
+        if isinstance(oz, str):
+            try:
+                oz = json.loads(oz)
+            except (TypeError, ValueError):
+                oz = None
+        if not oz:
+            continue
+        out[r["leg_id"]] = {"mouth": tuple(oz[0]), "heading": r.get("reference_heading"),
+                            "gate": parse_gate_segment(r.get("gate_segment"))}
+    return out
 
 
 def upsert_path(

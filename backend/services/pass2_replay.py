@@ -117,6 +117,10 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
     for leg in legs:
         if leg.get("origin_zone"):
             leg["origin_zone"] = json.loads(leg["origin_zone"])
+    from backend.config import MOUTH_FROM_GATE
+    if MOUTH_FROM_GATE:
+        from backend.services.entry_gates import mouth_from_gate
+        legs = mouth_from_gate(legs)          # the lines are the mouths
 
     # resolve_content_hash: replay reads the pass-1 dump and never opens the
     # video, so a source file that is no longer on disk must not stop it

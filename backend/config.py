@@ -313,6 +313,18 @@ CROSSING_TRUNCATION_S = 1.0   # a solo-corner crossing counts only if the
 # the census keep the drawn gates.
 GATE_EXTENSION_MARGIN = 0.25
 
+# THE LINES ARE THE MOUTHS (operator ruling 2026-09-10 on the gates
+# review: "all the lines are where they are intended to be but the
+# mouth should be the lines and the exit should be the lines the blue
+# dots should not exist"). When ON, every leg with a drawn gate has its
+# mouth POINT (legs.origin_zone) and reference_heading DERIVED from the
+# line at load time — midpoint, and the direction of travel entering
+# over the line — so nothing the software does depends on the dot the
+# May recalibration script placed. Legs without a drawn gate keep
+# their stored point. G-DEF-2 candidate; default OFF until it passes
+# the fleet against 75.70.
+MOUTH_FROM_GATE = _os2.environ.get("MOUTH_FROM_GATE", "0") in ("1", "true", "on")
+
 # THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): a vehicle
 # that never curved cannot be booked as a TURN on a guess. Measured:
 # cam1-0700's 111 phantom driveway turns are dead straight (0.975 /
