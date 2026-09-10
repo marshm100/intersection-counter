@@ -60,6 +60,33 @@ gate (N) while the box's origin was W; a genuine right from W traces
 back to W. Build nothing until that separates on the ruled clips —
 the speed signal did not, and the tracker-level veto missed twice.
 
+## Theft back-projection — NEGATIVE (measured 2026-09-10, scripts/theft_backprojection.py)
+
+On the 17 ruled clips: post-launch heading traced backward from the
+launch point, first gate hit vs the machine's origin gate.
+  clean rights: 16722 same (W); 17526, 4383, 22270 DIFF (back ray hits
+    S — a right turn's post-launch heading already points at its exit,
+    so the backward ray does not return to W); 18964 no gate.
+  thefts: 14634, 281674 DIFF (N — the thief's gate, as predicted);
+    332755 DIFF (W); 154504, 302741 SAME (S); the three cam2 thefts
+    carry no machine origin at all (their W entry is refused under
+    iteration 3 while the two corner-spawn rights keep theirs).
+3 of 4 clean rights read as thefts and 2 of 5 thefts read as clean.
+NO SEPARATION. Two path-geometry signals (speed, back-projection)
+and one tracker-level veto (G-LT-1, twice) have now missed the theft
+class. The box's PATH does not carry the theft; what changes at a
+theft is WHAT IS IN THE BOX. The next instrument for this class is
+appearance identity across the launch (the ReID cache exists:
+scripts/build_reid_cache.py), declared as its own gate, not folded
+into the crossing law.
+
+One real observation from the table, for the anti-theft file: under
+iteration 3 the three cam2 thefts have NO gate origin (exit_only) —
+the waiting box's W entry is refused and the S exit belongs to the
+thief — so their N->S booking comes from the posterior. The two
+genuine corner-spawn rights keep a gate origin. On these five, "S exit
+with no gate origin" separates theft from real; not yet a rule.
+
 ## Verdict
 
 (to be recorded)
