@@ -65,6 +65,46 @@ own; a blank site gets calib_pass1_backend as auto-calibrated. The
 default's detector/tracker choice needs the same treatment after the
 pass-2 default exists.
 
-## Verdict
+## THE BLANK SITE, MEASURED (base arm, 2026-09-10, _replay_scratch/gdef_base.log)
 
-(to be recorded)
+Every accuracy flag off, all 12 windows, existing dumps, 6 parallel:
+
+  window       live    base   cov    chan
+  cam1 0700    83.8    61.0   0.469  ON
+  cam1 1600    95.3    86.2   0.588  ON
+  cam2 0700    75.2    71.3   0.569  ON
+  cam2 1100    76.7    70.4   0.485  ON
+  cam2 1600    70.3    69.4   0.489  ON
+  cam3 0600    85.7    83.7   0.547  ON
+  cam4 0700    75.4    53.8   0.458  ON
+  cam4 1100    73.5    57.7   0.540  ON
+  cam4 1600    75.8    72.9   0.429  OFF
+  cam5 0700    66.4    72.9   0.340  OFF
+  cam5 1100    71.7    70.8   0.415  OFF
+  cam5 1600    63.1    63.1   0.412  OFF
+  FLEET mean   76.08   69.43  (-6.64)
+  per camera   cam1 89.6 -> 73.6 | cam2 74.1 -> 70.4 | cam3 85.7 -> 83.7
+               cam4 74.9 -> 61.5 | cam5 67.1 -> 68.9
+
+A BLANK SITE SCORES 69.4. The 6.6-point gap to the patchwork is the
+size of what is not yet default. cam1, cam2 and cam3 reproduce their
+pre-flag standings to within a point (cam1 1600 86.2 exactly, cam3
+83.7 exactly) — the environment has not drifted.
+
+cam4 AND cam5 DO NOT REPRODUCE THEIR LIVE NUMBERS: cam4 0700/1100
+base at 53.8/57.7 against live 75.4/73.5, with the evidence channel
+ON (0.458/0.540) where production recorded it OFF (0.304/0.442);
+cam5 0700 base 72.9 against live 66.4. Cause: cam4/cam5 were
+RE-DETECTED on 2026-09-07 (plan_c45: yolo26l@1280, own bytetrack) and
+only winning windows were to ship — production still holds events
+from the older dumps, and the dumps on disk are the new ones. So the
+live cam4/cam5 standings describe a basis that no longer exists on
+disk, and every arm since 09-07 (fleet, sm4, base) has been scored
+on the new dumps against them. On the NEW dumps with nothing on,
+cam4's channel activates and hurts (53.8 / 57.7) and cam5 morning
+scores 72.9 with the channel off — yesterday's "+6.5" was the dump,
+not the machine. The honest cam4/cam5 basis is the base arm.
+
+Consequence for the gate: d1 is judged against BASE (the blank site),
+never against live. cam4's pass-1 basis question (the re-detect that
+was never promoted) is real and separate.
