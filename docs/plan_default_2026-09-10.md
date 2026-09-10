@@ -289,3 +289,19 @@ is used for the origin claim by proximity and the box centroid, and
 the line's midpoint sits close to the May dot on most legs. cam2
 evening is the one window where it costs. Not a default on its own;
 it rides with d4.
+
+## d4 verdict (2026-09-10): heading measured AT the line — MISS
+
+  cam1 74.7 / 84.1 | cam2 71.0 / 73.8 / 65.4 | cam3 87.9 | cam4 64.4 / 72.3 / 70.0 | cam5 71.6 / 69.2 / 68.9
+  FLEET 72.77 (-2.93). cam1 -10.0, cam2 -4.3, cam5 -1.2, cam4 -0.2;
+  cam3 +2.2 (87.9, its best ever). cam1 coverage 0.569 -> 0.528 on
+  the evening window: the heading feeds the origin claim, not only
+  the classifier.
+
+Why: the direction was taken over +-0.5 s AROUND the crossing, and a
+turning vehicle is already turning at the line (cam1's W leg read 34
+deg off its stored value on 247 crossings). The stored headings came
+from through-traffic tails UPSTREAM of the mouth, which is the
+approach direction the classifier's net-heading-change needs.
+d5: the direction over the 1.5 s of approach ENDING at the line
+(HEADING_APPROACH_S), upstream of any turn.

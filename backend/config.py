@@ -343,7 +343,14 @@ MOUTH_FROM_GATE_HEADING = _os2.environ.get(
 HEADING_FROM_CROSSINGS = _os2.environ.get(
     "HEADING_FROM_CROSSINGS", "0") in ("1", "true", "on")
 HEADING_MIN_CROSSINGS = 20
-HEADING_VELOCITY_S = 0.5      # direction measured over +-0.5 s around the crossing
+HEADING_VELOCITY_S = 0.5      # d4: direction over +-0.5 s AROUND the crossing
+# d5 (2026-09-10): d4 cost cam1 9-11 points — a turning vehicle is
+# already turning AT the line, so the direction there is not the
+# approach direction the classifier needs (the stored headings came
+# from through-traffic tails UPSTREAM of the mouth). HEADING_APPROACH_S
+# > 0 measures the direction over the approach segment ending at the
+# crossing instead: from HEADING_APPROACH_S before it up to the line.
+HEADING_APPROACH_S = 1.5
 
 # THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): a vehicle
 # that never curved cannot be booked as a TURN on a guess. Measured:

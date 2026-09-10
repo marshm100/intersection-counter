@@ -174,6 +174,8 @@ def headings_from_crossings(legs, rows, fps):
     import json as _json
     from backend.config import (GATE_EXTENSION_MARGIN, HEADING_MIN_CROSSINGS,
                                 HEADING_VELOCITY_S)
+    from backend import config as _c
+    approach_s = float(getattr(_c, "HEADING_APPROACH_S", 0.0) or 0.0)
     import numpy as _np
     out = [dict(lg) for lg in legs]
     mouths, heads, drawn = {}, {}, {}
@@ -197,6 +199,7 @@ def headings_from_crossings(legs, rows, fps):
     order = _np.lexsort((rows[:, 1], rows[:, 0]))
     rows = rows[order]
     half = max(1, int(round(HEADING_VELOCITY_S * fps)))
+    back = int(round(approach_s * fps))          # d5: approach window
     sums = {lg: [0.0, 0.0, 0] for lg in gates}
     _t, starts = _np.unique(rows[:, 0], return_index=True)
     bounds = list(zip(starts, list(starts[1:]) + [len(rows)]))
@@ -211,7 +214,14 @@ def headings_from_crossings(legs, rows, fps):
             if not inward:
                 continue
             i = int(_np.searchsorted(frames, f))
-            i0, i1 = max(0, i - half), min(len(pts) - 1, i + half)
+            if back > 0:
+                # d5: the approach segment ending at the line — upstream
+                # direction, before any turn begins
+                i1 = max(0, min(len(pts) - 1, i - 1))
+                i0 = int(_np.searchsorted(frames, f - back))
+                i0 = max(0, min(i0, i1 - 1))
+            else:
+                i0, i1 = max(0, i - half), min(len(pts) - 1, i + half)
             if i1 <= i0:
                 continue
             vx = pts[i1][1] - pts[i0][1]
