@@ -324,6 +324,14 @@ GATE_EXTENSION_MARGIN = 0.25
 # their stored point. G-DEF-2 candidate; default OFF until it passes
 # the fleet against 75.70.
 MOUTH_FROM_GATE = _os2.environ.get("MOUTH_FROM_GATE", "0") in ("1", "true", "on")
+# G-DEF-2 split (2026-09-10): the mouth POINT from the line is his
+# ruling; the entry HEADING from the line's perpendicular was the
+# agent's assumption and it cost cam1 18-22 points (a line drawn at an
+# angle to the lane is not perpendicular to travel). With this OFF the
+# heading stays the stored, track-derived value (the recalibration
+# script's tail headings) while the point still comes from the line.
+MOUTH_FROM_GATE_HEADING = _os2.environ.get(
+    "MOUTH_FROM_GATE_HEADING", "1") in ("1", "true", "on")
 
 # THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): a vehicle
 # that never curved cannot be booked as a TURN on a guess. Measured:

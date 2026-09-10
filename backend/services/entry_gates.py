@@ -97,7 +97,7 @@ def parse_gate_segment(val):
         return None
 
 
-def mouth_from_gate(legs):
+def mouth_from_gate(legs, heading=None):
     """THE LINES ARE THE MOUTHS (operator ruling 2026-09-10). For every leg
     dict carrying a drawn gate_segment, replace origin_zone with the
     gate's midpoint and reference_heading with the heading of travel
@@ -108,8 +108,13 @@ def mouth_from_gate(legs):
     stored point at all. Legs without a drawn gate are returned as
     they are. Pure: returns new dicts, never writes the DB.
     origin_zone may be a JSON string or a parsed list; the output is
-    always a parsed [[x, y]]."""
+    always a parsed [[x, y]]. heading=False keeps the stored
+    reference_heading (G-DEF-2 split: the perpendicular assumption
+    cost cam1 18-22 points); None reads MOUTH_FROM_GATE_HEADING."""
     import json as _json
+    if heading is None:
+        from backend.config import MOUTH_FROM_GATE_HEADING
+        heading = MOUTH_FROM_GATE_HEADING
     out = []
     parsed = []
     for lg in legs:
@@ -151,7 +156,8 @@ def mouth_from_gate(legs):
         s_ = 1.0 if ((cx - mx) * tx + (cy - my) * ty) > 0 else -1.0
         ix, iy = s_ * tx, s_ * ty                         # inward = entering
         d["origin_zone"] = [[mx, my]]
-        d["reference_heading"] = math.degrees(math.atan2(ix, -iy)) % 360.0
+        if heading:
+            d["reference_heading"] = math.degrees(math.atan2(ix, -iy)) % 360.0
         out.append(d)
     return out
 

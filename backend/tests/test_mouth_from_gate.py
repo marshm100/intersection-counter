@@ -64,3 +64,10 @@ class TestMouthFromGate:
 
     def test_flag_default_off(self):
         assert cfg.MOUTH_FROM_GATE is False
+
+    def test_heading_can_be_kept(self):
+        # G-DEF-2 split: point from the line, heading as stored
+        out = {d["leg_id"]: d for d in mouth_from_gate(_legs(), heading=False)}
+        assert out[1]["origin_zone"] == [[200.0, 300.0]]
+        assert out[1]["reference_heading"] == 123.0
+        assert out[2]["reference_heading"] == 7.0

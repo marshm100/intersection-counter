@@ -236,6 +236,43 @@ the dot is retired from the editor (stage B). If it fails, the ruling
 still stands and the next candidate derives the heading from the
 TRACKS crossing the line rather than from its perpendicular.
 
-## G-DEF-2 verdict
+## G-DEF-2 verdict (recorded 2026-09-10): MISS — and it locates the heading problem
 
-(to be recorded)
+  window       default   d2      delta          biggest cells (Mio | d1 | d2)
+  cam1 0700     83.8    65.9   -17.9   NB_right 3|18|122, EB_left 86|96|143, NB_thru 2141|2045|1907
+  cam1 1600     95.1    73.0   -22.1   EB_left 105|114|221, EB_right 497|501|415, NB_right 2|17|61
+  cam2 0700     75.2    75.0    -0.2
+  cam2 1100     76.7    77.9    +1.2
+  cam2 1600     71.3    59.1   -12.2   NB_thru 1726|1731|1678
+  cam3 0600     85.7    85.5    -0.2
+  cam4 0700     62.2    64.4    +2.2
+  cam4 1100     72.3    72.3     0.0
+  cam4 1600     72.9    72.1    -0.8
+  cam5 0700     72.9    76.9    +4.0   EB_right 188|122|210, SB_thru 1868|1744|1803
+  cam5 1100     71.4    76.0    +4.6   EB_right 162|92|187
+  cam5 1600     68.9    74.5    +5.6   EB_right 244|102|251
+  FLEET        75.70   72.72   -2.98   cam1 -20.0 | cam2 -3.7 | cam3 -0.2 | cam4 +0.5 | cam5 +4.7
+
+TWO CHANGES WERE BUNDLED and they pull opposite ways:
+  the mouth POINT from the line (his ruling) — not separable here;
+  the entry HEADING from the line's perpendicular (agent assumption).
+On cam1 the perpendicular heading is WRONG: throughs are reclassified
+as rights and lefts (NB_right 18 -> 122 against Mio 3; EB_left 96 ->
+143 against 86) — the classifier's net-heading-change is measured
+from an entry direction that is not the direction of travel where a
+line is drawn at an angle to the lane. On cam5 the perpendicular
+heading is RIGHT and the STORED one was wrong: EB_right recovers to
+210/187/251 against Mio 188/162/244 (the default had 122/92/102) —
+a big real cell that the May recalibration's heading had been
+starving on every cam5 window. Neither source is right everywhere.
+
+His ruling stands (the lines are the mouths; the dots should not
+exist). What the arm rejects is my choice of the perpendicular as the
+entry direction. Next, in order:
+  d3  the mouth POINT from the line, heading as stored — isolates his
+      ruling's own effect (MOUTH_FROM_GATE_HEADING=0).
+  d4  the heading from the TRACKS that cross each line inward (the
+      circular mean of their direction at the crossing, from the
+      window's own dump) — a heading that is true by construction on
+      every camera, derived from raw video + the operator's lines
+      alone, which is the prime directive's allowed basis.
