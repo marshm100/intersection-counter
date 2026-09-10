@@ -87,6 +87,41 @@ thief — so their N->S booking comes from the posterior. The two
 genuine corner-spawn rights keep a gate origin. On these five, "S exit
 with no gate origin" separates theft from real; not yet a rule.
 
-## Verdict
+## G-SM-2 verdict (recorded 2026-09-10): MISS on the letter, all six
 
-(to be recorded)
+Arm sm4, parallel, 131 s wall. Log _replay_scratch/gsm4.log.
+
+  window       live    sm4    cov -> chan     letter
+  cam4 0700    75.4   62.2   0.468 ON        FAIL -13.2
+  cam4 1100    73.5   72.3   0.577 ON        FAIL -1.2
+  cam4 1600    75.8   72.9   0.424 OFF       FAIL -2.9 (channel still off)
+  cam5 0700    66.4   72.9   0.387 OFF       movement +6.5; big cell NB_left 270 -> 424 (Mio 335) FAIL crit. 2
+  cam5 1100    71.7   71.4   0.452 ON        FAIL -0.3
+  cam5 1600    63.1   68.9   0.480 ON        movement +5.8; NB_left 224 -> 379 (Mio 240), SB_thru 2635 -> 3109 (Mio 2819) FAIL crit. 2
+
+cam4 — THE CHANNEL ACTIVATING HURTS. The born-across clause did what
+it did on cam1/cam2: coverage 0.304/0.442 -> 0.468/0.577 and the
+evidence channel turned ON for the first time on cam4 morning and
+midday. The counts then got worse: NB_thru 2779 -> 3026 against Mio
+2713 (morning), 1524 -> 1654 against 1546 (midday), and the
+pre-existing SB_right phantom class (prod 89/64/274 vs Mio 22/16/39)
+GREW to 115/125/329. cam4's gate evidence, once trusted, assigns
+more N origins and more S-right destinations than the road carries.
+That is a cam4 geometry / gate problem to look at on film, not a
+crossing-law problem; the machine only made the channel's opinion
+count. Phantom-slack FAIL on 0700/1100 (EB_right 0 -> 1/2, SB_uturn
+0 -> 1).
+
+cam5 — TWO REAL HEADLINE GAINS WITH A CAVEAT. cam5 0700 +6.5 came
+with the channel switching OFF (0.509 -> 0.387): the machine's
+stricter entry starves the channel and the non-evidence path scores
+better on this camera, consistent with cam5 failing the fleet flags
+on 09-08. cam5 1600 +5.8 with the channel ON: NB_right 0 -> 36 (Mio
+35), WB_right 103 -> 14 (Mio 25), EB_thru 13 -> 28 (Mio 29) are
+genuine fixes, but NB_left 224 -> 379 (Mio 240) and SB_thru 2635 ->
+3109 (Mio 2819) move a big real cell AWAY by 139 and 290. Both cam5
+windows fail criterion 2 as declared. Phantom-slack CLEAN on cam5.
+
+NOTHING SHIPPED. Recommendation: cam4 stays on its basis; cam5's two
+gains are the operator's call and want a reel (cam5 1600 NB_left,
+the 155 added left turns from N) before any go.
