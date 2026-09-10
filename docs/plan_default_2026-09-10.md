@@ -305,3 +305,41 @@ from through-traffic tails UPSTREAM of the mouth, which is the
 approach direction the classifier's net-heading-change needs.
 d5: the direction over the 1.5 s of approach ENDING at the line
 (HEADING_APPROACH_S), upstream of any turn.
+
+## d5 verdict (2026-09-10): heading on the APPROACH — MISS. The heading ladder closes.
+
+  cam1 75.9 / 86.6 | cam2 68.6 / 73.8 / 65.4 | cam3 (see log) | cam4 64.4 / 72.3 / 71.7 | cam5 71.6 / 69.2 / 68.9
+  FLEET mean over 12 windows: live 75.70 -> arm 73.02 (-2.68)
+
+THE CAUSE, SPECIFIC: on cam1 the W approach is almost all right-
+turners (EB_right 497 vs EB_thru 1). Vehicles are already steering
+toward S in the 1.5 s before the line, so a heading measured from
+them reads 37 deg off the road axis (313 -> 276); the classifier then
+stops calling W -> S a right and EB_right collapses 501 -> 146
+against Mio 497. A heading derived from the tracks near the line is
+biased by the leg's TURNING MIX — and a blank site's driveways and
+T-legs are exactly such legs. The stored headings come from the May
+recalibration's road-axis method (two opposite dominant tail modes
+define the axis), which does not carry that bias.
+
+CONCLUSION FOR HIS RULING ("the lines are the mouths; the dots
+should not exist"):
+  - the mouth POINT from the line is implemented (MOUTH_FROM_GATE,
+    heading kept = d3) and costs 0.27 fleet points, cam2 evening -4.6,
+    cam4 +0.9. Whether that price is worth removing the dot as a
+    concept is his call — it is a product simplification, not an
+    accuracy gain.
+  - the entry HEADING is NOT derivable from the line (perpendicular:
+    -3.0 fleet, cam1 -20) nor from the tracks at or before the line
+    (-2.9 both ways, cam1 -8 to -10). It stays what the calibration's
+    road-axis method produces. If the dot goes, the heading must be
+    stored on the leg in its own right.
+  - one real lead surfaced and is NOT lost: cam5's EB_right is starved
+    by its stored E heading (122/92/102 vs Mio 188/162/244) and the
+    perpendicular fixed it (210/187/251). cam5's E leg heading is
+    wrong in the calibration and should be re-derived by the road-
+    axis method on the current dump — a calibration fix, not a rule.
+
+Flags left as built, all default OFF: MOUTH_FROM_GATE,
+MOUTH_FROM_GATE_HEADING, HEADING_FROM_CROSSINGS. The default stands
+at 75.70.
