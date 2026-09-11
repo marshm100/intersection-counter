@@ -36,6 +36,25 @@ Cost recorded for the operator: ~50 min GPU per 2-hour window at
 1280 on this machine (c45_redetect.log), i.e. a camera-day ~10 h —
 inside "overnight".
 
-## Verdict
+## d8 (cam4 + cam5 on the l1 dumps, 2026-09-11): MISS on the letter before cam3
 
-(to be recorded)
+  window       current   l1     delta   cells (Mio | current | l1)
+  cam4 0700     71.1    75.0   +3.9    NB_thru 2713|3026|2887 (toward), SB_thru 1957|2051|2108 (away)
+  cam4 1100     74.5    82.0   +7.5    NB_thru 1546|1654|1544 (to Mio)
+  cam4 1600     78.0    70.7   -7.3    SB_thru 2981|3120|3235, NB_thru 2439|2391|2280, EB_left 29|38|69
+  cam5 0700     72.0    67.0   -5.0    NB_left 335|417|521, SB_thru 1868|1746|1694
+  cam5 1100     71.4    73.1   +1.7    EB_right 162|89|112 (toward), SB_thru 1496|1708|1651
+  cam5 1600     68.9    69.2   +0.3    NB_left 240|378|480
+  cam4+cam5 mean 72.65 -> 72.83 (+0.18); cam4 +1.4, cam5 -1.0;
+  two windows fall > 3.0 (cam4 1600 -7.3, cam5 0700 -5.0) -> the
+  letter fails regardless of cam3.
+
+Reading: more pixels find more far-field vehicles, and the counting
+default then completes them the same way it completes the small
+basis's fragments — cam5's NB_left phantom class GROWS (417 -> 521,
+378 -> 480) as the detector reaches further into the S mouth. Where
+the extra detections are real throughs (cam4 1100 NB_thru 1654 ->
+1544 = Mio 1546) the basis is a clean win. The basis and the
+counting rules are not independent; the rules were tuned on the
+small basis for cam4/cam5. cam3 (d9) is still worth its answer: a
+fine-tuned small model at 640 on the corridor's second-best window.
