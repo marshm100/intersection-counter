@@ -313,6 +313,23 @@ CROSSING_TRUNCATION_S = 1.0   # a solo-corner crossing counts only if the
 # the census keep the drawn gates.
 GATE_EXTENSION_MARGIN = 0.25
 
+# BORN INSIDE EVERY LINE (operator ruling 2026-09-11, FM 51: "software").
+# On a blank site the operator draws the lines at the physical mouths and
+# detection begins inside them: 72% of FM51's tracks are born inside all
+# four lines (6-38% on the corridor), so no line is ever crossed and the
+# evidence channel never activates. When ON: a track with no valid
+# inward crossing whose first bottom-centre point lies inside every
+# gate's half-plane ENTERED over the gate nearest its birth among those
+# whose inward direction agrees with its first BORN_INSIDE_VEL_S of
+# travel; a track with no legitimate exit whose last point lies inside
+# every gate EXITED over the nearest gate its last BORN_INSIDE_VEL_S of
+# travel points at (same leg only if the u-turn tests pass). His
+# born-across ruling, extended from one corner to the whole box.
+# G-DEF-7 candidate; default OFF until the fleet + FM51 judge it.
+BORN_INSIDE_NEAREST_LINE = _os2.environ.get(
+    "BORN_INSIDE_NEAREST_LINE", "0") in ("1", "true", "on")
+BORN_INSIDE_VEL_S = 1.0
+
 # THE LINES ARE THE MOUTHS (operator ruling 2026-09-10 on the gates
 # review: "all the lines are where they are intended to be but the
 # mouth should be the lines and the exit should be the lines the blue

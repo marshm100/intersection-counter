@@ -150,3 +150,22 @@ unless its lines sit where its tracks are. Two responses, his call:
 Nothing on FM51 is shipped. The as-found snapshot project fm51asfd
 (display name "FM51 AS-FOUND SNAPSHOT (agent) - do not edit") is
 scratch and can be deleted after this.
+
+## OPERATOR RULING (2026-09-11): "software"
+
+## G-DEF-7 (declared before any scoring): BORN INSIDE EVERY LINE
+
+Built: BORN_INSIDE_NEAREST_LINE (default OFF) inside classify_pair.
+A track with no valid inward crossing whose first bottom-centre point
+is inside every gate ENTERED over the nearest gate whose inward
+direction agrees with its first 1 s of travel; a track with an origin
+and no legitimate exit whose last point is inside every gate EXITED
+over the nearest gate its last 1 s of travel points at (same leg only
+past the u-turn tests). Six tests.
+
+Arms: d11 = the default + the rule on the corridor's 12 windows
+(letter against 77.08); b3 = the rule on FM51 with his lines, both
+bases (fine-tune ftv2n_am/pm and large l1_study_0700/1600), against
+the G-BLANK-1 table. PASS = the corridor letter holds AND FM51 does
+not fall on either basis; the evidence channel's coverage on FM51 is
+reported (the rule's purpose is to make his lines count there).

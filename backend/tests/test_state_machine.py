@@ -318,3 +318,55 @@ class TestPipelineDispatch:
                 else:
                     c = classify(pts, _pipe()._entry_gates, 10.0)
                     assert got == (c[0], c[1], c[6])
+
+
+class TestBornInsideEveryLine:
+    """Operator ruling 2026-09-11 (FM 51): the software, not the operator,
+    closes the gap between lines drawn at the physical mouths and tracks
+    that begin inside them."""
+
+    def _on(self, monkeypatch):
+        monkeypatch.setattr(cfg, "BORN_INSIDE_NEAREST_LINE", True)
+
+    def test_born_inside_enters_over_the_line_it_came_from(self, monkeypatch):
+        # born at (300, 300), inside all three gates, travelling +x: the
+        # nearest gate whose inward normal agrees with +x is N (x=200)
+        self._on(monkeypatch)
+        centre = _line(300.0, 600.0, 300.0, 0)
+        o, d, fo, *_rest, tag = _pair(centre)
+        assert (o, tag) == (1, "entry_only") and fo == 0.0
+
+    def test_direction_picks_the_gate_not_distance(self, monkeypatch):
+        # born at (700, 300), nearer S (x=800) but travelling +x, so S's
+        # inward (-x) disagrees: the entry is over N, the gate it came from
+        self._on(monkeypatch)
+        centre = _line(700.0, 780.0, 300.0, 0, n=20)
+        o, *_rest = _pair(centre)
+        assert o == 1
+
+    def test_born_inside_then_real_exit_is_full(self, monkeypatch):
+        # born inside, travels +x, both corners out over S: N -> S through
+        self._on(monkeypatch)
+        centre = _line(300.0, 850.0, 300.0, 0)
+        o, d, *_rest, tag = _pair(centre)
+        assert (o, d, tag) == (1, 2, "full")
+
+    def test_died_inside_exits_over_the_line_it_points_at(self, monkeypatch):
+        # both corners in over N, then the track dies at (600, 300) inside
+        # all gates, still travelling +x: exit over S at the last frame
+        self._on(monkeypatch)
+        centre = _line(150.0, 600.0, 300.0, 0)
+        o, d, fo, fd, *_rest, tag = _pair(centre)
+        assert (o, d, tag) == (1, 2, "full") and fd == centre[-1][0]
+
+    def test_not_inside_all_lines_untouched(self, monkeypatch):
+        # born OUTSIDE N (x=150) and never crossing: still no_crossing
+        self._on(monkeypatch)
+        centre = [(float(i), 150.0 + i * 0.5, 300.0) for i in range(40)]
+        *_rest, tag = _pair(centre)
+        assert tag == "no_crossing"
+
+    def test_flag_off_identical(self, monkeypatch):
+        monkeypatch.setattr(cfg, "BORN_INSIDE_NEAREST_LINE", False)
+        *_rest, tag = _pair(_line(300.0, 600.0, 300.0, 0))
+        assert tag == "no_crossing"

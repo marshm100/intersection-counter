@@ -655,6 +655,43 @@ def pair_crossings(track_l, track_r, gates, fps):
     return valid
 
 
+def _inside_all(pt, gates):
+    """True when pt lies on the inward side of every gate line."""
+    for p1, p2, inw in gates.values():
+        mx, my = (p1[0] + p2[0]) / 2.0, (p1[1] + p2[1]) / 2.0
+        if (pt[0] - mx) * inw[0] + (pt[1] - my) * inw[1] <= 0:
+            return False
+    return True
+
+
+def _dist_to_segment(pt, p1, p2):
+    vx, vy = p2[0] - p1[0], p2[1] - p1[1]
+    L2 = vx * vx + vy * vy or 1.0
+    t = max(0.0, min(1.0, ((pt[0] - p1[0]) * vx + (pt[1] - p1[1]) * vy) / L2))
+    cx, cy = p1[0] + t * vx, p1[1] + t * vy
+    return math.hypot(pt[0] - cx, pt[1] - cy), (cx, cy)
+
+
+def nearest_line_in_direction(pt, vel, gates, entering):
+    """The gate nearest pt whose inward normal agrees (entering) or
+    disagrees (exiting) with the direction of travel vel. Returns
+    (leg, point_on_gate) or (None, None)."""
+    best = None
+    for lg, (p1, p2, inw) in gates.items():
+        agree = vel[0] * inw[0] + vel[1] * inw[1]
+        if (entering and agree <= 0) or (not entering and agree >= 0):
+            continue
+        d, c = _dist_to_segment(pt, p1, p2)
+        if best is None or d < best[0]:
+            best = (d, lg, c)
+    return (best[1], best[2]) if best else (None, None)
+
+
+def _velocity(track, i0, i1):
+    (f0, x0, y0), (f1, x1, y1) = track[i0], track[i1]
+    return (x1 - x0, y1 - y0)
+
+
 def classify_pair(track_l, track_r, gates, fps, lanes=None):
     """THE JOURNEY STATE MACHINE (operator rulings 2026-09-09). Both
     bottom-corner tracks [(frame,x,y)...] -> classify()'s exact 7-tuple
@@ -684,14 +721,17 @@ def classify_pair(track_l, track_r, gates, fps, lanes=None):
             mid[f] = [x, y, 1]
     track = sorted((f, v[0] / v[2], v[1] / v[2]) for f, v in mid.items())
 
+    from backend.config import BORN_INSIDE_NEAREST_LINE, BORN_INSIDE_VEL_S
     origin = None
     dest = None
+    exit_first = None
     for c in valid:
         if origin is None:
             if c[2]:
                 origin = c                          # -> OCCUPYING
                 continue
-            return None, c[1], c[0], None, None, c[3], "exit_only"
+            exit_first = c
+            break
         if c[2]:
             continue                                # inward while OCCUPYING: noise
         if c[1] != origin[1] or _uturn_admissible(track, gates, fps, lanes,
@@ -699,6 +739,36 @@ def classify_pair(track_l, track_r, gates, fps, lanes=None):
             dest = c                                # -> EXITED, terminal
             break
         # same-leg, fails the u-turn tests: jitter, keep looking
+
+    if BORN_INSIDE_NEAREST_LINE and track and gates:
+        k = max(1, min(len(track) - 1, int(round(BORN_INSIDE_VEL_S * fps))))
+        # BORN INSIDE EVERY LINE: the track entered over the nearest line
+        # its first second of travel came from
+        if origin is None and _inside_all(track[0][1:], gates):
+            vel = _velocity(track, 0, k)
+            lg, pt = nearest_line_in_direction(track[0][1:], vel, gates, True)
+            if lg is not None:
+                origin = (track[0][0], lg, True, pt)
+                if exit_first is not None and exit_first[0] > origin[0]:
+                    c = exit_first
+                    if c[1] != origin[1] or _uturn_admissible(
+                            track, gates, fps, lanes, origin, c):
+                        dest = c
+                exit_first = None
+        # DIED INSIDE EVERY LINE: the track exited over the nearest line
+        # its last second of travel points at
+        if origin is not None and dest is None and _inside_all(track[-1][1:], gates):
+            vel = _velocity(track, len(track) - 1 - k, len(track) - 1)
+            lg, pt = nearest_line_in_direction(track[-1][1:], vel, gates, False)
+            if lg is not None:
+                c = (track[-1][0], lg, False, pt)
+                if c[0] > origin[0] and (c[1] != origin[1] or _uturn_admissible(
+                        track, gates, fps, lanes, origin, c)):
+                    dest = c
+
+    if origin is None and exit_first is not None:
+        c = exit_first
+        return None, c[1], c[0], None, None, c[3], "exit_only"
     if origin and dest:
         return origin[1], dest[1], origin[0], dest[0], origin[3], dest[3], "full"
     if origin:
