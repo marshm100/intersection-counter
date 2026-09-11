@@ -16,10 +16,11 @@ Cams 1-5 are TEST FOOTAGE. The deliverable is what the software does UNAIDED on 
 intersection. The unit of shipping is a DEFAULT: one configuration, all 12 corridor windows,
 scored as a fleet against the all-off baseline (69.43) — never a per-window winner.
 G-DEF-1 PASS: GATE_GROUND_ANCHOR, STRAIGHT_FRAGMENT_RULE, GATE_EVIDENCE_EITHER_CORNER and
-JOURNEY_STATE_MACHINE default ON (fleet 75.86 after the 2026-09-11 heading rulings; 75.70 before). Env vars are overrides for experiments
+JOURNEY_STATE_MACHINE default ON; G-DEF-4 PASS: STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS default ON
+(fleet 77.08 on 2026-09-11; 75.86 after the heading rulings; 75.70 on 09-10). Env vars are overrides for experiments
 (X=0 turns a rule off); nothing in production needs them set. Older plan docs' "operating
 notes" that require env flags are superseded. To improve the default: change it, run all
-12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 75.86, ship on a
+12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 77.08, ship on a
 fleet PASS (docs/plan_default_2026-09-10.md). The four windows shipped by hand on 09-09
 and the fleet reprocess on 09-10 are the last per-window applies.
 

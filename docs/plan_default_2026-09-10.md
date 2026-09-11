@@ -510,6 +510,36 @@ phantom-slack. Expected: cam4 SB_right toward 22; watch cam1's
 driveway cells and cam5's rights, where a genuine turn that curves
 under 5 deg in the frame would be refused.
 
-## G-DEF-4 verdict
+## G-DEF-4 verdict (recorded 2026-09-11): PASS — the switch was already built
 
-(to be recorded)
+  window       before   d7     delta
+  cam1 0700     83.8    84.0   +0.2
+  cam1 1600     95.1    95.3   +0.2
+  cam2 0700     75.2    75.2    0.0
+  cam2 1100     76.7    75.7   -1.0
+  cam2 1600     71.3    71.3    0.0
+  cam3 0600     87.6    87.6    0.0
+  cam4 0700     62.2    71.1   +8.9   SB_right 115 -> 48 (Mio 22), SB_thru 1978 -> 2051 (Mio 1957)
+  cam4 1100     72.3    74.5   +2.2   SB_right 125 -> 24 (Mio 16), SB_thru 1646 -> 1766 (Mio 1640)
+  cam4 1600     72.9    78.0   +5.1   SB_right 329 -> 117 (Mio 39), SB_thru 2853 -> 3120 (Mio 2981)
+  cam5 0700     72.9    72.0   -0.9   EB_thru 17 -> 26 (Mio 4): refused rights become throughs
+  cam5 1100     71.4    71.4    0.0
+  cam5 1600     68.9    68.9    0.0
+  FLEET        75.86   77.08  (+1.22); cam1 +0.2, cam2 -0.3, cam3 0, cam4 +5.4, cam5 -0.3
+  Phantom-slack, reported: EB_thru grows on cam1 0700 (2 -> 4, Mio 2),
+  cam1 1600 (0 -> 4, Mio 1), cam5 0700 (17 -> 26, Mio 4) — the refused
+  straight "turns" rebook as throughs; small cells, inside the slack.
+
+Against the letter: fleet rises; no camera falls > 1.0; no window
+falls > 3.0. PASS. The rule reaches the posterior path directly
+(cam4 1600 moves +5.1 with its channel OFF).
+
+SHIPPED: STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS default ON (commit
+e282620); the narrow-rule test pins it off; 1210 green. Fleet
+reprocessed under the five-rule default (scripts/reprocess_default.py,
+backup pre_default_reprocess_gdef4). The fleet bar is 77.08.
+
+What the day taught about method: the switch existed since 09-07 with
+cam4 N->W as its named specimen and stayed off because a hand-shipped
+window's basis did not include it. Under the default loop it took one
+reel, one measurement of the mechanism, and one fleet arm.
