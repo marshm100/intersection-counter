@@ -60,3 +60,35 @@ the mode its operator chose. B1 runs the new-project default
 ("accurate") on the as-found snapshot project fm51asfd, so the live
 project stays free for his lines. The first re-detect attempt ran
 under "balanced" and was discarded (misnamed dump removed).
+
+HIS LINES (saved 2026-09-11, live project 0acb12c0, camera 405051):
+  W   gate (354,190)-(317,196)   38 px   heading 144.5 (unchanged)
+  E   gate (399,426)-(625,276)  271 px   heading 299.1 (unchanged)
+  S   gate (295,199)-(235,209)   61 px   heading 120.5 (unchanged)
+  SE  gate ( 35,324)-(297,422)  279 px   heading  40.8 (unchanged)
+The far legs W and S are short lines at the far mouths (38 / 61 px).
+Interim B2 on the fine-tune basis (b2ft): the same dumps as B0, with
+his lines — the effect of the lines alone under the site's mode.
+
+b2ft (his lines, fine-tune basis): am 87.5 / 66.7, cov 0.111 OFF;
+pm 67.8 / 33.3, cov 0.13 OFF — IDENTICAL to B0. The lines change
+nothing because the channel never activates.
+
+CENSUS (ftv2n_am, 2,024 tracks, median box 17 px, both corners vs
+the drawn lines +25%): machine tags no_crossing 1,156 / entry_only
+404 / exit_only 330 / full 134. 1,463 tracks (72%) are BORN inside
+all four lines and 1,553 (77%) DIE inside them. Raw corner crossings:
+W in 476, E in 396, S in 97, E out 753, SE out 12, W out 77.
+THE BLANK-SITE LESSON: the operator draws the lines at the physical
+mouths (W 38 px and S 61 px in the far field, E/SE 271/279 px near
+the camera), and on this basis detection begins after the far lines
+and ends before the near ones. The evidence the counting default
+acts through — a track witnessed at a line — does not exist for most
+tracks here. The corridor never showed this because its lines were
+drawn where its tracks already ran. Two candidate responses, for his
+ruling after B1: (a) an operating rule — draw the lines where vehicles
+are reliably TRACKED, inside the physical mouth; or (b) the software
+treats a track born inside every line as having entered over the line
+nearest its birth, in the direction of travel (the born-across idea
+extended from one corner to the whole box). B1 (large detector) may
+move the detection boundary outward first.
