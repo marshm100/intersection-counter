@@ -58,3 +58,31 @@ the extra detections are real throughs (cam4 1100 NB_thru 1654 ->
 counting rules are not independent; the rules were tuned on the
 small basis for cam4/cam5. cam3 (d9) is still worth its answer: a
 fine-tuned small model at 640 on the corridor's second-best window.
+
+## G-DEF-5 verdict (recorded 2026-09-11): MISS — the large basis is not a fleet default
+
+d9, cam3 study_0600 at yolo26l@1280 (430 min GPU, 1.63 M rows):
+  87.6 -> 82.4 (-5.2); approach 73.2 -> 63.5; coverage 0.547 -> 0.674
+  SB_thru 14651 -> 15418 (Mio 14385: further over), NB_thru 13980 ->
+  13492 (Mio 13756: now under), EB_left 242 -> 221 (toward 196),
+  SB_uturn 25 -> 2 (Mio 0: the phantom class gone).
+
+All 12 on the large basis: FLEET 77.08 -> 76.74 (-0.34); cam3 -5.2,
+cam4 +1.4, cam5 -1.0; three windows fall > 3.0. MISS on every clause.
+
+What it says: the detector is not separable from the counting rules.
+The corridor's counting default was tuned window by window on each
+camera's basis (cam3 on its July fine-tune at 640, cam4/cam5 on the
+small model at 960), and the large detector's extra far-field boxes
+feed the same completion path that already over-counts (cam5 NB_left
+417 -> 521, cam3 SB_thru +767). Where the extra boxes are real
+throughs it wins outright (cam4 1100 +7.5, NB_thru to Miovision's
+number exactly). A basis default for a blank site has to be chosen
+TOGETHER with the counting default, on a fleet arm of both — and the
+fine-tuned small model cam3 runs (yolo26s_ft2@640) is itself a
+candidate the other cameras have never had under the default. That
+is a day of GPU per candidate and is the next basis question, not
+taken today. The l1 dumps stay on disk (cam3 l1_study_0600 included)
+as scratch for it.
+
+Nothing shipped. The default stands at 77.08.
