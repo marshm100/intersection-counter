@@ -48,3 +48,15 @@ the derived gates witness under 12% of tracks, so the evidence
 channel — the whole of what this week's rules act through — is OFF
 on both windows: B0 is the non-evidence path alone. Scratch
 _replay_scratch/blank_20260911, stems b0_*.
+
+FINDING while setting up B1: the detector is a PER-PROJECT processing
+mode. FM51 is set to "balanced" = yolo26s_ft2 @ 640, the product's own
+recommended mode for full-day footage ("FM51-validated", 07-21); the
+corridor project is set to "counted_path" = yolo26l @ 1280 (the G-CP-1
+recipe every counting default was tuned on); a brand-new project gets
+DEFAULT_PROCESSING_MODE = "accurate" = yolo26l @ 1280 at conf 0.08.
+So B0 is not merely a reference: it is what THIS site produces under
+the mode its operator chose. B1 runs the new-project default
+("accurate") on the as-found snapshot project fm51asfd, so the live
+project stays free for his lines. The first re-detect attempt ran
+under "balanced" and was discarded (misnamed dump removed).

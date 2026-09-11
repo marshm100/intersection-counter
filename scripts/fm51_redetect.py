@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-PROJ = "0acb12c0"
+PROJ = __import__("os").environ.get("FM51_PROJ", "0acb12c0")
 CAM = 2
 WINDOWS = [("07:00:00", 120), ("16:00:00", 120)]
 
