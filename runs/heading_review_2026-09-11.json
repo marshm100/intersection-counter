@@ -1,0 +1,200 @@
+[
+ {
+  "cam": 1,
+  "leg_id": 22,
+  "card": "S",
+  "label": "Leg 1",
+  "stored": 262.5,
+  "perpendicular": 188.76549717054334,
+  "through": 262.12831950077657,
+  "n_through": 920,
+  "opposite": "N"
+ },
+ {
+  "cam": 1,
+  "leg_id": 23,
+  "card": "N",
+  "label": "Leg 2",
+  "stored": 82.7,
+  "perpendicular": 53.25362881640757,
+  "through": 79.26127065545153,
+  "n_through": 830,
+  "opposite": "S"
+ },
+ {
+  "cam": 1,
+  "leg_id": 24,
+  "card": "W",
+  "label": "Leg 3",
+  "stored": 312.9,
+  "perpendicular": 325.6441878285044,
+  "through": 273.7190818731276,
+  "n_through": 77,
+  "opposite": "N"
+ },
+ {
+  "cam": 1,
+  "leg_id": 25,
+  "card": "E",
+  "label": "Leg 4",
+  "stored": 172.79999999999995,
+  "perpendicular": 172.97895644365528,
+  "through": null,
+  "n_through": 0,
+  "opposite": "S"
+ },
+ {
+  "cam": 2,
+  "leg_id": 26,
+  "card": "E",
+  "label": "WB E Town East Blvd",
+  "stored": 53.8,
+  "perpendicular": 27.99947788804501,
+  "through": 72.05174383093804,
+  "n_through": 307,
+  "opposite": "N"
+ },
+ {
+  "cam": 2,
+  "leg_id": 27,
+  "card": "N",
+  "label": "SB N Belt Line Rd",
+  "stored": 288.2,
+  "perpendicular": 280.55361160736726,
+  "through": 284.77161670721233,
+  "n_through": 1215,
+  "opposite": "S"
+ },
+ {
+  "cam": 2,
+  "leg_id": 28,
+  "card": "W",
+  "label": "EB E Town East Blvd",
+  "stored": 240.6,
+  "perpendicular": 192.43159431210984,
+  "through": 270.8666017396437,
+  "n_through": 130,
+  "opposite": "S"
+ },
+ {
+  "cam": 2,
+  "leg_id": 29,
+  "card": "S",
+  "label": "NB N Belt Line Rd",
+  "stored": 114.4,
+  "perpendicular": 172.15149604228696,
+  "through": 98.55616561204496,
+  "n_through": 2006,
+  "opposite": "N"
+ },
+ {
+  "cam": 3,
+  "leg_id": 30,
+  "card": "N",
+  "label": "SB N Belt Line Rd",
+  "stored": 68.6,
+  "perpendicular": 37.702528267793355,
+  "through": 46.688627638017245,
+  "n_through": 12034,
+  "opposite": "S"
+ },
+ {
+  "cam": 3,
+  "leg_id": 31,
+  "card": "S",
+  "label": "NB N Belt Line Rd",
+  "stored": 204.2,
+  "perpendicular": 187.0177398406843,
+  "through": 259.72012977509394,
+  "n_through": 11145,
+  "opposite": "N"
+ },
+ {
+  "cam": 3,
+  "leg_id": 32,
+  "card": "W",
+  "label": "EB Bluffview Rd",
+  "stored": 293.6,
+  "perpendicular": 291.99958779503766,
+  "through": null,
+  "n_through": 0,
+  "opposite": null
+ },
+ {
+  "cam": 4,
+  "leg_id": 33,
+  "card": "N",
+  "label": "SB N Belt Line Rd",
+  "stored": 265.1,
+  "perpendicular": 187.81746244480547,
+  "through": 261.41604790998093,
+  "n_through": 1340,
+  "opposite": "S"
+ },
+ {
+  "cam": 4,
+  "leg_id": 34,
+  "card": "W",
+  "label": "EB Sunnyvale Donut Driveway",
+  "stored": 119.4,
+  "perpendicular": 176.84928358673227,
+  "through": null,
+  "n_through": 0,
+  "opposite": null
+ },
+ {
+  "cam": 4,
+  "leg_id": 35,
+  "card": "S",
+  "label": "NB N Belt Line Rd",
+  "stored": 66.9,
+  "perpendicular": 83.98359793714583,
+  "through": 88.2890750095103,
+  "n_through": 983,
+  "opposite": "N"
+ },
+ {
+  "cam": 5,
+  "leg_id": 36,
+  "card": "E",
+  "label": "WB Barnes Bridge Rd",
+  "stored": 118.9,
+  "perpendicular": 169.16067777597348,
+  "through": null,
+  "n_through": 7,
+  "opposite": "W"
+ },
+ {
+  "cam": 5,
+  "leg_id": 37,
+  "card": "N",
+  "label": "SB N Belt Line Rd",
+  "stored": 66.2,
+  "perpendicular": 59.24474247303555,
+  "through": 80.04064318423869,
+  "n_through": 902,
+  "opposite": "S"
+ },
+ {
+  "cam": 5,
+  "leg_id": 38,
+  "card": "W",
+  "label": "EB Barnes Bridge Rd",
+  "stored": 296.1,
+  "perpendicular": 320.2322728781318,
+  "through": 282.9103836537677,
+  "n_through": 86,
+  "opposite": "N"
+ },
+ {
+  "cam": 5,
+  "leg_id": 39,
+  "card": "S",
+  "label": "NB N Belt Line Rd",
+  "stored": 243.2,
+  "perpendicular": 188.0107554455826,
+  "through": 264.8842782921489,
+  "n_through": 799,
+  "opposite": "N"
+ }
+]
