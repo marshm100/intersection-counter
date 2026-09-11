@@ -555,3 +555,27 @@ S-mouth tracks (13-21 px) that enter over S and die, or never cross;
 one (34765) is a near-field W exit with no entry. Same shape as
 cam4's driveway class — a dying fragment completed into a turn by the
 posterior — but here the path-fit extension did not catch it.
+
+OPERATOR RULINGS, cam5 NB_left reel (2026-09-11): 56 left, 8816 left,
+15955 THROUGH (the no-crossing fragment), 25806 left, 34765 left.
+Four of five real lefts.
+
+CORRECTION of my own reading: "all 378 posterior-destined" was wrong —
+destination_posterior_json is populated on every event. By the gates
+(classify_pair on the dump): 154 of 378 are FULL S->W journeys (both
+corners in over S, out over W; straightness median 0.54, |net heading
+change| median 119 deg — genuine curving lefts), 49 entry-only, 59
+exit-only, 116 no-crossing (both ends guessed). None of the 116 is a
+straight fragment by the rule's thresholds (0 of 116 at >=0.95 and
+<=5 deg), so the path-fit extension rightly leaves them: they curve.
+His sample puts the phantom rate near 1 in 5, concentrated in the
+no-crossing group (1 of 2 sampled). Ours 378 vs Mio 240: roughly
+75 phantoms by that rate, the remainder real lefts the reference did
+not count, or counted under a different approach.
+
+NOT ACTED ON. No class here can be removed without refusing real
+lefts; the suspect population (116 no-crossing, both ends guessed,
+13-21 px far-field boxes at the S mouth) is a far-field DETECTION
+floor, the same floor the theft class sits on. cam5's remaining
+error is diffuse: EB_right under by 75-143 (vehicles we never saw)
+and NB_left over — both at the far S/W corner, both at 13-20 px.
