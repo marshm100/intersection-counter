@@ -169,3 +169,16 @@ bases (fine-tune ftv2n_am/pm and large l1_study_0700/1600), against
 the G-BLANK-1 table. PASS = the corridor letter holds AND FM51 does
 not fall on either basis; the evidence channel's coverage on FM51 is
 reported (the rule's purpose is to make his lines count there).
+
+b3 (the born-inside rule, FM51 with his lines):
+  fine-tune  am  87.5 / 66.7   cov 0.111 -> 0.355  OFF   (identical score)
+  fine-tune  pm  67.8 / 33.3   cov 0.130 -> 0.423  OFF   (identical)
+  large      am  79.6 / 58.3   cov 0.122 -> 0.428  OFF   (identical)
+  large      pm  72.7 -> 74.5 / 45.8   cov 0.146 -> 0.453  ON   (+1.8)
+The rule does what it was built for — the lines now witness 36-45%
+of tracks instead of 11-15% — but three of four windows land just
+UNDER the 0.45 activation bar, a corridor-tuned constant, so the
+channel stays off and the counts do not move; the one window that
+clears it gains 1.8. The bar itself is the next question on a blank
+site (it was set on the corridor's coverage distribution, 0.45 = the
+census-definition gap midpoint).
