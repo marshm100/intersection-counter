@@ -440,3 +440,19 @@ enters over S and dies 0.9 s later, 18294 exits over N with no entry.
 Hypothesis for his ruling: one vehicle -> several short tracks, each
 booked S->N (fragmentation double-count), which the posterior
 completes from the fragment.
+
+OPERATOR RULING (2026-09-11): "these are all one vehicle one through"
+— 5 of 5 real events, fragments included.
+
+Twin check (same vehicle counted under two S->N tracks: overlapping
+frames, centres within 40 px): 1 of the 5 sampled has a twin
+(15197/15209, 8 frames, 44 px); bin-wide 35 of 664 S->N events
+(5%) have one. The 08:00 bin's excess is 22% (356 vs 291). So
+fragmentation double-count explains at most a quarter of it; the
+events are real by his ruling; the remainder is UNEXPLAINED and the
+likeliest reading is the reference undercounting cam4's northbound
+through — steady +2 to +22% on every one of the 8 bins, the shape a
+counting-basis difference makes, not a defect. NOT ACTED ON: nothing
+that suppresses real vehicles to match a reference gets built.
+cam4's other big cell, SB_right 115 vs Mio 22 (the 4x class), is the
+next reel — that one is far more likely a phantom.
