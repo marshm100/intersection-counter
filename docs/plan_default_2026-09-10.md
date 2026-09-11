@@ -403,3 +403,26 @@ Calibration write: backup project_20260911T011942_pre_heading_ruling.db; legs.re
 for cam4 S (67 -> 88), cam3 N (69 -> 47), cam3 S (204 -> 260). The
 calib fingerprint changes for cam3 and cam4, forcing their recompute.
 Arm d6 = the default on the ruled calibration, all 12 windows.
+
+## G-DEF-3 verdict (recorded 2026-09-11): PASS
+
+Arm d6 = the default on the ruled calibration (cam3 + cam4 windows
+recomputed; the other eight are unchanged by construction):
+  cam3 0600   85.7 -> 87.6 (+1.9)   EB_left 390 -> 242 (Mio 196),
+                                    NB_uturn 16 -> 7 (Mio 8), EB_uturn 7 -> 4,
+                                    NB_thru 13854 -> 13980 (Mio 13756)
+  cam4 x3     unchanged (62.2 / 72.3 / 72.9): under the default cam4's
+              movements come from full gate journeys, which label by
+              the two legs crossed, so the heading is not in its path.
+  FLEET 75.70 -> 75.86 (+0.16); no window falls; phantom-slack CLEAN.
+
+SHIP: the calibration stands as written (backup
+project_20260911T011942_pre_heading_ruling.db); cam3 study_0600
+reprocessed under the default (force_once, apply). New standing:
+cam3 87.6; fleet 75.86.
+
+The operating rule for a blank site that falls out of G-DEF-3: draw
+the line, then aim the arrow along the THROUGH direction of travel
+entering that approach — on a moving clip, never a still. Neither
+the line's perpendicular nor the measured traffic direction can be
+trusted to do it for the operator.
