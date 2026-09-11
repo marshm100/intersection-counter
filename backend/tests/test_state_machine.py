@@ -334,7 +334,9 @@ class TestBornInsideEveryLine:
         self._on(monkeypatch)
         centre = _line(300.0, 600.0, 300.0, 0)
         o, d, fo, *_rest, tag = _pair(centre)
-        assert (o, tag) == (1, "entry_only") and fo == 0.0
+        assert o == 1 and fo == 0.0          # entered over N at its first frame
+        # (it also dies inside every line, so the exit rule books S: full)
+        assert (d, tag) == (2, "full")
 
     def test_direction_picks_the_gate_not_distance(self, monkeypatch):
         # born at (700, 300), nearer S (x=800) but travelling +x, so S's
