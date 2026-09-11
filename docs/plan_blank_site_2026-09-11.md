@@ -197,3 +197,29 @@ d12/b4: the same rule with a ray intersection (first extended gate
 segment hit by the ray from the birth point backward along the first
 second of travel for entries, and from the death point forward along
 the last second for exits).
+
+## G-DEF-7 verdict (recorded 2026-09-11): MISS on both halves
+
+d12 (corridor, ray geometry):
+  cam1 75.3 / 86.0 (-8.7 / -9.3) | cam2 75.7 / 76.9 / 67.6 (+0.5 / +1.2 / -3.7)
+  cam3 83.8 (-3.8) | cam4 71.1 / 71.7 / 81.0 (0 / -2.8 / +3.0, its best ever)
+  cam5 65.4 / 70.8 / 62.3 (-6.6 / -0.6 / -6.6)
+  FLEET 77.08 -> (see log) — three windows fall > 3; cam1 -9; MISS.
+b4 (FM51, ray geometry, his lines, both bases): coverage 0.35-0.45,
+all four windows UNDER the 0.45 bar -> scores identical to no rule.
+
+WHAT IT MEANS: a track born inside every line does not reliably tell
+the software where it came from; the ray back along its first second
+of travel picks the wrong line often enough to cost cam1 9 points and
+cam5 7, while it finds cam4 evening 3 (81.0) and cam2 midday 1.2. The
+witnessed share rises everywhere (0.53-0.76), but witnessed-and-wrong
+is worse than unwitnessed, because a witnessed origin outranks the
+posterior. On FM51 the rule cannot even show its effect: the bar
+holds the channel off at 0.35-0.45.
+The flag stays built and OFF. The blank-site gap stands as measured:
+on a site whose lines sit at the physical mouths, the counting
+defaults are inert, and neither reading of "the line it came from"
+(nearest with direction; the ray) is a safe substitute for a witnessed
+crossing. What remains for a blank site is the OPERATING rule (draw
+the lines where vehicles are tracked), or an activation bar derived
+per site rather than fixed at the corridor's 0.45 — both his call.
