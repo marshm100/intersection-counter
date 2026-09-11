@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 import sys
 from collections import defaultdict
@@ -171,6 +172,8 @@ def main() -> int:
             variant = stem.split("_", 2)[2]
             for pref in ("v2a_", "v2b_", "v2c_", "v2d_", "v2e_", "v2f_"):
                 variant = variant.replace(pref, "")
+            # any other basis tag (l1_, eg_, ft2_ ...) names the same window
+            variant = re.sub(r"^[a-z0-9]+_(?=study_)", "", variant)
             blob = {"camera": cam,
                     "events": events_from_db(path, cam, site)}
         else:

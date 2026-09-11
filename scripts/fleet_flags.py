@@ -47,9 +47,11 @@ _STEM = os.environ.get("FLEET_STEM", "ff")
 # cam2 0700 / cam2 1100 / cam3 0600 shipped 2026-09-09 (G-SM-1 iter 3)
 _ALL = {(1, "study_0700"): 84.0, (1, "study_1600"): 95.3, (2, "study_0700"): 75.2, (2, "study_1100"): 75.7, (2, "study_1600"): 71.3, (3, "study_0600"): 87.6, (4, "study_0700"): 71.1, (4, "study_1100"): 74.5, (4, "study_1600"): 78.0, (5, "study_0700"): 72.0, (5, "study_1100"): 71.4, (5, "study_1600"): 68.9}   # THE DEFAULT's standings, 2026-09-11 (fleet 77.08)   # THE DEFAULT's standings, 2026-09-10 (fleet 75.86; cam3 87.6 on the 09-11 ruled headings)
 if _ARMS:
-    want = {tuple(a.split(":")) for a in _ARMS.split(",")}
-    LIVE = {k: v for k, v in _ALL.items()
-            if (str(k[0]), k[1]) in want}
+    want = [tuple(a.split(":")) for a in _ARMS.split(",")]
+    # a basis-tagged variant (l1_study_0700) scores against the plain
+    # window's live standing; an unknown window scores against 0
+    LIVE = {(int(c), v): _ALL.get((int(c), v), _ALL.get((int(c), v.split("study_")[-1] and "study_" + v.split("study_")[-1]), 0.0))
+            for c, v in want}
 else:
     LIVE = {k: v for k, v in _ALL.items() if k != (1, "study_0700")}
 
@@ -132,7 +134,7 @@ def main() -> int:
     print(f"\n{'window':16}{'live':>7}{'new':>7}{'delta':>8}"
           f"{'cov':>7}{'chan':>6}")
     for cam, variant, live, mv, ap, act, rep in out:
-        d = f"{mv - live:+.1f}" if mv is not None else "?"
+        d = f"{mv - live:+.1f}" if (mv is not None and live) else "?"
         print(f"cam{cam} {variant:11}{live:>7}{mv if mv else 0:>7}{d:>8}"
               f"{act.get('coverage', 0):>7}"
               f"{'ON' if act.get('activated') else 'OFF':>6}")
