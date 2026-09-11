@@ -109,3 +109,44 @@ cam3 14%, cam4 35% / 20% / 38%, cam5 32% / 19% / 23% — against FM51's
 72%. A rule for born-inside tracks is a FLEET candidate with real
 stake on cam1/cam4/cam5, not an FM51 special case; FM51 is the
 extreme of a common condition (detection begins inside the lines).
+
+B1 / B2, afternoon, large detector (l1_study_1600, 58,462 rows):
+  B1 as found       movement 72.7   approach 45.8   cov 0.147 OFF   events 1,767 (942 dropped)
+  B2 with his lines movement 72.7   approach 45.8   cov 0.146 OFF   identical
+
+## G-BLANK-1 RESULT (recorded 2026-09-11)
+
+                          morning 07-09        afternoon 16-18
+  fine-tune (site mode)   87.5 / 66.7          67.8 / 33.3      B0 and b2ft, identical
+  large (new-project)     79.6 / 58.3          72.7 / 45.8      B1 and B2, identical
+  corridor default, for scale: fleet 77.08 (12 windows); site best-ever 87.5.
+
+1. HIS LINES CHANGE NOTHING ON THIS SITE, on either basis: the
+   evidence channel never activates (coverage 0.11-0.15 against the
+   0.45 bar) because 72% of tracks are born inside every line and 77%
+   die inside them. Every counting default shipped this week acts
+   THROUGH that channel, so on a site drawn at its physical mouths the
+   week's work is inert. The corridor could not show this: its lines
+   were drawn where its tracks already ran (born-inside 6-38% there).
+2. THE TWO BASES SPLIT BY WINDOW: the site's chosen fine-tune wins the
+   morning by 7.9; the new-project large detector wins the afternoon
+   by 4.9. Neither is a default the other window agrees with — the
+   same non-separability G-DEF-5/6 found on the corridor.
+3. The site scores 68-88 on the posterior path alone, which is the
+   pre-2026-09 machinery.
+
+WHAT GENERALISES: the counting defaults do not reach a blank site
+unless its lines sit where its tracks are. Two responses, his call:
+  (a) OPERATING RULE — draw each line where vehicles are reliably
+      tracked (inside the physical mouth), judged on moving video;
+      cheap; puts a judgment on the operator the corridor never asked.
+  (b) SOFTWARE RULE — a track born inside every line has ENTERED over
+      the line nearest its birth, in its direction of travel (the
+      born-across ruling extended from a corner to the whole box); and
+      symmetrically a track dying inside every line has EXITED over
+      the line nearest its death. A fleet candidate: 6-38% of corridor
+      tracks and 72% of FM51's; measured on the corridor's 12 windows
+      against 77.08 AND on FM51's two windows against this table.
+Nothing on FM51 is shipped. The as-found snapshot project fm51asfd
+(display name "FM51 AS-FOUND SNAPSHOT (agent) - do not edit") is
+scratch and can be deleted after this.
