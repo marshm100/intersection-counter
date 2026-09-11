@@ -543,3 +543,15 @@ What the day taught about method: the switch existed since 09-07 with
 cam4 N->W as its named specimen and stayed off because a hand-shipped
 window's basis did not include it. Under the default loop it took one
 reel, one measurement of the mechanism, and one fleet arm.
+
+## cam5 REEL — northbound left (2026-09-11)
+
+cam5's error has one shape on all three windows: NB_left +82/+172/
++138 over Mio and EB_right -75/-73/-143 under; the cells share the W
+and S legs. Evening: 378 S->W lefts, ALL 378 with a posterior
+destination (none witnessed at W); origins 312 gate / 66 posterior.
+Five even-spread (tids 56 8816 15955 25806 34765): four are far-field
+S-mouth tracks (13-21 px) that enter over S and die, or never cross;
+one (34765) is a near-field W exit with no entry. Same shape as
+cam4's driveway class — a dying fragment completed into a turn by the
+posterior — but here the path-fit extension did not catch it.
