@@ -102,3 +102,10 @@ Against B0 / b2ft on the fine-tune: 87.5 / 87.5. On FM 51 the site's
 chosen mode ("balanced") beats the new-project default ("accurate")
 by 7.9 on the morning, and the lines are inert on both bases for the
 same reason (tracks born inside the lines). Afternoon pending.
+
+CORRIDOR CENSUS of the same class (tracks born inside every drawn
+line, bottom centre, per window): cam1 35% / 26%, cam2 8% / 6% / 14%,
+cam3 14%, cam4 35% / 20% / 38%, cam5 32% / 19% / 23% — against FM51's
+72%. A rule for born-inside tracks is a FLEET candidate with real
+stake on cam1/cam4/cam5, not an FM51 special case; FM51 is the
+extreme of a common condition (detection begins inside the lines).
