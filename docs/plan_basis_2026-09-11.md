@@ -86,3 +86,26 @@ taken today. The l1 dumps stay on disk (cam3 l1_study_0600 included)
 as scratch for it.
 
 Nothing shipped. The default stands at 77.08.
+
+## G-DEF-6 (declared 2026-09-11, before any scoring): THE FINE-TUNED SMALL MODEL AS THE BASIS
+
+Operator: "sure plan it out". The mirror of G-DEF-5: cam3 runs
+yolo26s_ft2 @ 640 (the July corridor fine-tune) and is the second-
+best window; the same fine-tune's dumps (OpenVINO ft2 @640, each
+camera's own tracker) exist on disk from 2026-07-24 for cam1 0700,
+cam2 x3, cam4 x3, cam5 x3 — never scored under the default. cam1 1600
+has no ft2 dump and cam3 already is ft2: both keep their current
+scores.
+
+Arm d10: pass-2 under the default over ft2_study_* for those ten
+windows, no GPU. PASS = the G-DEF-1 letter against 77.08 over all 12:
+fleet rises; no camera falls > 1.0; no window falls > 3.0; cells +
+phantom-slack. Caveat stated up front: the fine-tune was trained on
+corridor footage, so a win says less about a blank site than the
+counting defaults did; it would still be the software's unaided
+behaviour. Ship = promote ft2 dumps to study_* and make the fine-tune
+the detection default.
+
+## G-DEF-6 verdict
+
+(to be recorded)
