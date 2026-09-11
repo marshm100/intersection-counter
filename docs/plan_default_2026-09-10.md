@@ -456,3 +456,13 @@ counting-basis difference makes, not a defect. NOT ACTED ON: nothing
 that suppresses real vehicles to match a reference gets built.
 cam4's other big cell, SB_right 115 vs Mio 22 (the 4x class), is the
 next reel — that one is far more likely a phantom.
+
+## cam4 REEL — southbound right into the driveway (2026-09-11)
+
+N->W over the morning: 115 booked vs Mio 22; 109 of 115 carry a gate
+origin (N), all destinations posterior-stamped. Five even-spread
+(tids 64 8717 15024 22258 27418): FOUR OF FIVE are entry-only or
+no-crossing far-field fragments of 0.7-2.8 s (boxes 19-44 px) that
+enter over N and die, with W supplied by the posterior; one (8717)
+is a complete N -> W gate journey. Hypothesis for his ruling: the
+posterior sends dying far-field N-entries into the driveway.
