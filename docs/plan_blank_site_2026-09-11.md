@@ -182,3 +182,18 @@ channel stays off and the counts do not move; the one window that
 clears it gains 1.8. The bar itself is the next question on a blank
 site (it was set on the corridor's coverage distribution, 0.45 = the
 census-definition gap midpoint).
+
+d11 (corridor, born-inside rule, nearest-line-with-direction-sign):
+MISS — fleet 77.08 -> 67.42; cam1 -20/-23, cam4 1600 -17, cam5 -6 to
+-17; cam2 1100 +1.2 the only gain. Coverage 0.53-0.76 everywhere (the
+rule witnesses most tracks) but the witnessed ENTRIES/EXITS are wrong:
+cam5 0700 NB_right 5 -> 904 (Mio 21), NB_thru 2376 -> 1521 (Mio 2379);
+cam1 1600 WB_right 0 -> 208 (Mio 2), NB_thru 2119 -> 1897 (Mio 2078).
+CAUSE: my shortcut picked the NEAREST gate whose inward normal merely
+agreed in sign with the travel direction; near a corner that is the
+side street, so throughs dying inside were handed a right-turn exit.
+His rule says "the line it points at" — the gate the travel RAY hits.
+d12/b4: the same rule with a ray intersection (first extended gate
+segment hit by the ray from the birth point backward along the first
+second of travel for entries, and from the death point forward along
+the last second for exits).

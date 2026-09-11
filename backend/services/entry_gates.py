@@ -672,18 +672,32 @@ def _dist_to_segment(pt, p1, p2):
     return math.hypot(pt[0] - cx, pt[1] - cy), (cx, cy)
 
 
-def nearest_line_in_direction(pt, vel, gates, entering):
-    """The gate nearest pt whose inward normal agrees (entering) or
-    disagrees (exiting) with the direction of travel vel. Returns
-    (leg, point_on_gate) or (None, None)."""
+def nearest_line_in_direction(pt, vel, gates, entering, reach=3000.0):
+    """The gate the travel RAY hits: for an entry, the ray from pt BACK
+    along vel (where the vehicle came from); for an exit, the ray from
+    pt FORWARD along vel (where it is going). The first extended gate
+    segment the ray intersects, provided its inward normal agrees
+    (entering) / disagrees (exiting) with vel. Returns (leg, hit point)
+    or (None, None). (d11 used nearest-by-distance with a sign test and
+    handed corner throughs a side-street exit — MISS, 2026-09-11.)"""
+    from backend.config import GATE_EXTENSION_MARGIN
+    n = math.hypot(vel[0], vel[1])
+    if n < 1e-9:
+        return None, None
+    ux, uy = vel[0] / n, vel[1] / n
+    if entering:
+        ux, uy = -ux, -uy
+    q = (pt[0] + ux * reach, pt[1] + uy * reach)
     best = None
-    for lg, (p1, p2, inw) in gates.items():
+    for lg, (p1, p2, inw) in extend_gates(gates, GATE_EXTENSION_MARGIN).items():
         agree = vel[0] * inw[0] + vel[1] * inw[1]
         if (entering and agree <= 0) or (not entering and agree >= 0):
             continue
-        d, c = _dist_to_segment(pt, p1, p2)
-        if best is None or d < best[0]:
-            best = (d, lg, c)
+        t = _seg_cross(pt, q, p1, p2)
+        if t is None:
+            continue
+        if best is None or t < best[0]:
+            best = (t, lg, (pt[0] + t * (q[0] - pt[0]), pt[1] + t * (q[1] - pt[1])))
     return (best[1], best[2]) if best else (None, None)
 
 
