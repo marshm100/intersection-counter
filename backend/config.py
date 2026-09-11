@@ -370,8 +370,12 @@ STRAIGHT_FRAGMENT_MIN_POINTS = 10
 # path alibi (cam4 33->34: 124 events, straightness 0.978, +0.4 deg).
 # The 5-deg heading bound remains the genuine-turn protection.
 # Default OFF (cam1's shipped basis used the narrow rule).
+# DEFAULT ON since 2026-09-11 (G-DEF-4 PASS: fleet 75.86 -> 77.08, cam4
+# SB_right 115/125/329 -> 48/24/117 against Mio 22/16/39; the ruled
+# specimens were dropped N->S throughs sent into the driveway by a
+# path fit whose bank path is a prefix of the through path).
 STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS = _os2.environ.get(
-    "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS", "0") in ("1", "true", "on")
+    "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS", "1") in ("1", "true", "on")
 
 EMERGENCE_GUARD = _os2.environ.get("EMERGENCE_GUARD", "0") in ("1", "true", "on")
 CONCEALER_ORIGIN_INHERITANCE = _os2.environ.get(

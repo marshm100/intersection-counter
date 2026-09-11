@@ -27,7 +27,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import backend.config as cfg  # noqa: E402
 
 RULES = ("GATE_GROUND_ANCHOR", "STRAIGHT_FRAGMENT_RULE",
-         "GATE_EVIDENCE_EITHER_CORNER", "JOURNEY_STATE_MACHINE")
+         "GATE_EVIDENCE_EITHER_CORNER", "JOURNEY_STATE_MACHINE",
+         "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS")
 assert all(getattr(cfg, r) for r in RULES), "the default is not ON in config"
 import os  # noqa: E402
 assert not any(os.environ.get(r) for r in RULES), \
@@ -54,7 +55,7 @@ def main() -> int:
     con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     con.close()
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
-    backup = proj_db.parent / "backups" / f"project_{ts}_pre_default_reprocess.db"
+    backup = proj_db.parent / "backups" / f"project_{ts}_pre_default_reprocess_gdef4.db"
     shutil.copy2(proj_db, backup)
     print(f"pre-reprocess backup: {backup} ({backup.stat().st_size // 2**20} MB)",
           flush=True)
@@ -72,7 +73,7 @@ def main() -> int:
         arm_events = None
         st = ARM / "arm" / f"twopass_cam{cam}_{variant}.stats.json"
         # the d1 arm's working DB is the last one written for this window
-        d1 = ARM / f"d1_cam{cam}_{variant}.db"
+        d1 = ARM / f"d7_cam{cam}_{variant}.db"
         if d1.exists():
             c = sqlite3.connect(f"file:{d1}?mode=ro", uri=True)
             arm_events = c.execute(
