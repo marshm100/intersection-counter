@@ -67,7 +67,8 @@ SITES = {
         "rec_start": None,      # events carry timestamp_real
     },
     FM51: {
-        "windows": {"ftv2n_am": (7, 9), "ftv2n_pm": (16, 18)},
+        "windows": {"ftv2n_am": (7, 9), "ftv2n_pm": (16, 18),
+                    "study_0700": (7, 9), "study_1600": (16, 18)},
         "xml": FM51_XML,
         "leg_dir": FM51_LEG_DIR,
         # this site's events predate timestamp_real being written, so

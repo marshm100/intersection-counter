@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.services.two_pass import run_pass2  # noqa: E402
 
-PROJ, CAM = "0acb12c0", 2
+PROJ, CAM = __import__("os").environ.get("FM51_PROJ", "0acb12c0"), 2
 BASE = Path("data/projects/0acb12c0/_replay_scratch/blank_20260911")
 
 
@@ -37,7 +37,7 @@ def main() -> int:
         dst = BASE / f"{stem}_cam{CAM}_{variant}.db"
         shutil.copy2(src, dst)
         out = subprocess.run([sys.executable, "-X", "utf8", "scripts/v2_score_dev.py",
-                              "--project", PROJ, str(dst)], capture_output=True, text=True)
+                              "--project", "0acb12c0", str(dst)], capture_output=True, text=True)
         sc = Path(f"runs/v2_week1/score_{dst.stem}.json")
         mv = ap = None
         if sc.exists():

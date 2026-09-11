@@ -92,3 +92,13 @@ treats a track born inside every line as having entered over the line
 nearest its birth, in the direction of travel (the born-across idea
 extended from one corner to the whole box). B1 (large detector) may
 move the detection boundary outward first.
+
+B1 / B2, morning, large detector (l1_study_0700: 52,227 rows vs the
+fine-tune's 67,884 — the large model finds FEWER far-field boxes on
+this site):
+  B1 as found (snapshot, derived gates)   movement 79.6   approach 58.3   cov 0.119 OFF   events 1,450 (673 dropped)
+  B2 with his lines (live project)        movement 79.6   approach 58.3   cov 0.122 OFF   identical
+Against B0 / b2ft on the fine-tune: 87.5 / 87.5. On FM 51 the site's
+chosen mode ("balanced") beats the new-project default ("accurate")
+by 7.9 on the morning, and the lines are inert on both bases for the
+same reason (tracks born inside the lines). Afternoon pending.
