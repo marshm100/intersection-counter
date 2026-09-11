@@ -426,3 +426,17 @@ the line, then aim the arrow along the THROUGH direction of travel
 entering that approach — on a moving clip, never a still. Neither
 the line's perpendicular nor the measured traffic direction can be
 trusted to do it for the operator.
+
+## cam4 REEL — northbound through (2026-09-11)
+
+The corridor's largest cell error: cam4 0700 NB_thru 3,026 vs Mio
+2,713; worst bin 08:00 (356 vs 291). Of the 356 S->N events in that
+bin, 232 have a gate origin and 124 a posterior origin; every
+destination is posterior-stamped. Five even-spread (scripts/
+viz_pair_reel.py 4 study_0700 c4_nbthru): tids 15197 15961 16769
+17519 18294. THREE OF FIVE ARE FRAGMENTS of 0.9-2.1 s (10-22 rows,
+near-field boxes 84-228 px): 15961 has no crossing at all, 16769
+enters over S and dies 0.9 s later, 18294 exits over N with no entry.
+Hypothesis for his ruling: one vehicle -> several short tracks, each
+booked S->N (fragmentation double-count), which the posterior
+completes from the fragment.
