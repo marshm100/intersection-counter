@@ -74,7 +74,7 @@ class TestStraightFragment:
     def test_gate_evidenced_dest_untouched(self, rule_on):
         assert _call(_pipe(), gate_dest=25) is None
 
-    def test_bank_path_dest_untouched(self, rule_on):
+    def test_bank_path_dest_untouched(self, rule_on, monkeypatch):
         # the narrow rule leaves bank-path destinations alone; the path-fit
         # extension is default ON since 2026-09-11 (G-DEF-4), so pin it off here
         monkeypatch.setattr(cfg, "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS", False)
