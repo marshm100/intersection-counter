@@ -40,4 +40,11 @@ Nothing on FM51 is shipped by it.
 
 ## Results
 
-(to be recorded)
+B0 (the default over the July fine-tune dumps, derived gates, no lines):
+  ftv2n_am 07-09   movement 87.5   approach 66.7   coverage 0.089 OFF   events 1,595 (827 dropped)
+  ftv2n_pm 16-18   movement 67.8   approach 33.3   coverage 0.120 OFF   events 2,035 (959 dropped)
+The morning equals the site's best-ever (87.5). With no drawn lines
+the derived gates witness under 12% of tracks, so the evidence
+channel — the whole of what this week's rules act through — is OFF
+on both windows: B0 is the non-evidence path alone. Scratch
+_replay_scratch/blank_20260911, stems b0_*.
