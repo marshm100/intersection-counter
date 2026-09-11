@@ -45,14 +45,7 @@ _ARMS = os.environ.get("FLEET_ARMS", "")
 _STEM = os.environ.get("FLEET_STEM", "ff")
 # live standings: cam1 1600 shipped at 95.3 on 2026-09-08; cam1 0700 /
 # cam2 0700 / cam2 1100 / cam3 0600 shipped 2026-09-09 (G-SM-1 iter 3)
-_ALL = {(1, "study_0700"): 83.8, (1, "study_1600"): 95.1,
-        (2, "study_0700"): 75.2, (2, "study_1100"): 76.7,
-        (2, "study_1600"): 71.3,
-        (3, "study_0600"): 87.6,
-        (4, "study_0700"): 62.2, (4, "study_1100"): 72.3,
-        (4, "study_1600"): 72.9,
-        (5, "study_0700"): 72.9, (5, "study_1100"): 71.4,
-        (5, "study_1600"): 68.9}   # THE DEFAULT's standings, 2026-09-10 (fleet 75.86; cam3 87.6 on the 09-11 ruled headings)
+_ALL = {(1, "study_0700"): 84.0, (1, "study_1600"): 95.3, (2, "study_0700"): 75.2, (2, "study_1100"): 75.7, (2, "study_1600"): 71.3, (3, "study_0600"): 87.6, (4, "study_0700"): 71.1, (4, "study_1100"): 74.5, (4, "study_1600"): 78.0, (5, "study_0700"): 72.0, (5, "study_1100"): 71.4, (5, "study_1600"): 68.9}   # THE DEFAULT's standings, 2026-09-11 (fleet 77.08)   # THE DEFAULT's standings, 2026-09-10 (fleet 75.86; cam3 87.6 on the 09-11 ruled headings)
 if _ARMS:
     want = {tuple(a.split(":")) for a in _ARMS.split(",")}
     LIVE = {k: v for k, v in _ALL.items()
