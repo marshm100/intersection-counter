@@ -106,6 +106,33 @@ counting defaults did; it would still be the software's unaided
 behaviour. Ship = promote ft2 dumps to study_* and make the fine-tune
 the detection default.
 
-## G-DEF-6 verdict
+## G-DEF-6 verdict (recorded 2026-09-11): MISS, decisively
 
-(to be recorded)
+  window       current   ft2     delta   coverage / dropped
+  cam1 0700     84.0    48.6   -35.4   0.244 OFF, 6956 of 12882 dropped
+  cam2 0700     75.2    39.3   -35.9   0.377 OFF
+  cam2 1100     75.7    34.5   -41.2   0.321 OFF
+  cam2 1600     71.3    29.7   -41.6   0.328 OFF
+  cam4 0700     71.1    54.0   -17.1   0.370 OFF
+  cam4 1100     74.5    48.9   -25.6   0.413 OFF, approach 0.0
+  cam4 1600     78.0    60.7   -17.3   0.363 OFF
+  cam5 0700     72.0    57.8   -14.2   0.323 OFF
+  cam5 1100     71.4    72.9    +1.5   0.360 OFF, approach 34.4 -> 15.6
+  cam5 1600     68.9    63.0    -5.9   0.378 OFF
+  FLEET current 77.08 -> fine-tune everywhere 57.69
+
+The dump format is identical (format 2, same columns, same tracker
+recipe). The fine-tune finds FAR MORE and SMALLER vehicles (cam4 1100:
+6,809 tracks vs 4,970, median box 16 px vs 20), the evidence channel
+falls under the activation bar on every window, and the counting
+default drops more tracks than it keeps. cam3 is the exception that
+proves it: its ft2 basis is the one the counting rules were shaped on
+(the 14-hour window carried every cam3 gate this summer).
+
+CLOSING THE BASIS QUESTION FOR NOW: two bases tried, both miss for the
+same reason from opposite sides — the counting default is coupled to
+the detection population it was tuned on. A basis change for a blank
+site is a joint change (detector + rules re-derived on that detector),
+a day of GPU per candidate plus the rules loop; not a single arm. The
+corridor's mixed bases stay. Nothing shipped; the default stands at
+77.08.
