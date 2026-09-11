@@ -45,6 +45,39 @@ break (the state machine treats it as EXITED with no legitimate exit
 window: build the ReID sidecar for the six scoring windows (hours of
 GPU), then one fleet arm against 75.86, the G-DEF-1 letter.
 
-## Step 1 result
+## Step 1 result (recorded 2026-09-11): MISS — appearance does not see the theft at this resolution
 
-(to be recorded)
+scripts/theft_appearance.py, osnet_x0_25 on every frame's crop of the
+17 ruled tracks. Two statistics: the largest 1 s-window break, and
+the best any-point split (sees a break at the very end).
+
+  class   n   break: min / median / max     split: min / median / max
+  THEFT   8   0.070 / 0.265 / 0.398         0.174 / 0.253 / 0.368
+  clean   9   0.000 / 0.135 / 0.333         0.141 / 0.198 / 0.388
+  best threshold (break) 0.070: thefts 8/8 above, clean 6/9 above
+  best threshold (split) 0.174: thefts 8/8 above, clean 7/9 above
+
+No separation. The waiting right (17526) splits at 0.388, above every
+theft; the corner-spawn right (22270) breaks at 0.333, above 7 of 8
+thefts; the "launched in reverse" theft (332755) breaks at 0.070,
+below every clean track but two. WHY: the median box side on these
+tracks is 14-38 px (640x480 source). An embedding of a 20-px crop
+carries little identity; a clean vehicle changes appearance through
+perspective, lighting and partial occlusion as much as a theft
+changes it through the vehicle. On cam2 alone (near-field, 25 fps)
+the three thefts (0.262-0.398) sit above the four clean tracks
+(0.135-0.233) on the window statistic — a margin of 0.03 on seven
+tracks, not a rule.
+
+CONSEQUENCE (the declared MISS clause): the appearance instrument
+does not reach the theft class at this camera resolution; neither did
+three path signals nor the tracker veto. The class is, for now, the
+FLOOR of this corridor's footage: ~8 of 20 ruled defects. The one
+lever left is pass-1 (the tracker's association under occlusion),
+where the emergence guard has already missed twice; a ReID-assisted
+tracker would lean on the same 20-px embeddings measured here. Not
+pursued further without new footage or a higher-resolution source.
+
+The remaining fleet points are elsewhere: cam4 (62.2 morning:
+NB_thru +313 over Mio, SB_right 4x) and cam5 (red on two windows),
+where the defect class is not yet diagnosed on film.
