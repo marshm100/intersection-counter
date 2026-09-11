@@ -375,6 +375,31 @@ For a blank site this is the operating rule that comes out of it:
 draw the line, then aim the arrow along the lane's direction of
 travel; the software seeds the arrow with the line's perpendicular.
 
-## G-DEF-3 verdict
+## G-DEF-3 RULINGS (2026-09-11, on moving clips — his ruling: a still
+## cannot be judged, "How should I know there is no movement")
 
-(to be recorded)
+He read each arrow as the MOVEMENT it points along; the entry heading
+is the arrow he called "through" (w = white/stored, m = magenta/
+perpendicular, g = green/through-traffic):
+  cam5 E   "White is through, magenta is right, no left"     -> stored 119 stands
+  cam5 S   "green right, white through, magenta is left"     -> stored 243 stands
+  cam1 W   "Green is left, white is through, mag is right"   -> stored 313 stands
+  cam4 S   "3 leg: white is left, mag and green are through" -> 67 -> 88 (CORRECTED)
+  cam3 N   "mag maybe U turn, green is through, white right" -> 69 -> 47 (CORRECTED)
+  cam3 S   "green is through, white is left, mag maybe U"    -> 204 -> 260 (CORRECTED)
+  cam2 E   "m l, w t, g r"                                    -> stored 54 stands
+  cam2 W   "g r, w t, m l"                                    -> stored 241 stands
+  cam2 S   "g l, w t, m r"                                    -> stored 114 stands
+
+Two things his rulings settle beyond the numbers:
+  - the green "through-traffic" arrow read as a TURN on 5 of 9 legs
+    (cam5 E/S, cam1 W, cam2 E/W/S) — the measured direction is pulled
+    by the turning mix, exactly why d4/d5 missed; it is not a heading
+    source either. His eye is.
+  - cam5's E-leg right-turn shortfall is NOT a heading problem (the
+    stored heading is the through direction there).
+
+Calibration write: backup project_20260911T011942_pre_heading_ruling.db; legs.reference_heading updated
+for cam4 S (67 -> 88), cam3 N (69 -> 47), cam3 S (204 -> 260). The
+calib fingerprint changes for cam3 and cam4, forcing their recompute.
+Arm d6 = the default on the ruled calibration, all 12 windows.
