@@ -466,3 +466,50 @@ no-crossing far-field fragments of 0.7-2.8 s (boxes 19-44 px) that
 enter over N and die, with W supplied by the posterior; one (8717)
 is a complete N -> W gate journey. Hypothesis for his ruling: the
 posterior sends dying far-field N-entries into the driveway.
+
+OPERATOR RULINGS, cam4 SB_right reel (2026-09-11, his words):
+  1  tid 64     "a dropped tracking failure, one vehicle n to s through"
+  2  tid 8717   "a real right turn into the driveway"
+  3  tid 15024  "a dropped track, one vehicle n to s through"
+  4  tid 22258  "a dropped track, one vehicle n to s through"
+  5  tid 27418  "an occlusion thief stealing detection of a vehicle
+                 turning right ... the occluded vehicle was turning
+                 right, more of a lucky error than something done
+                 intentionally, the detection box moved in a through
+                 motion"
+THE CLASS: a far-field N entry whose track dies before the road and
+the driveway diverge, and the destination posterior sends it into the
+driveway. 3 of 5 sampled are this; the one witnessed gate journey is
+real. At 115 vs Mio 22 the class is ~90 events on this window.
+
+MECHANISM (measured): every one of the 115 N->W events carries a
+destination posterior of W = 1.0 (113) or 0.5 (2); median 18 points,
+median path distance 185 px (N->S: 24 points, 450 px); 88 of 115 are
+under 30 points. cam4's bank path N->W ("right", support 427) is 227
+px long and runs ALONG the main road from (529,292) to (304,312) —
+because the driveway gate sits on the road (his ruling: as intended),
+the learned driveway path is a PREFIX of the N->S through path
+(482 px, (499,294) -> (18,320)). A far-field N entry that dies before
+x = 304 fits the short path completely, so the joint partial-Frechet
+scorer hands it W with certainty. A straight fragment, booked as a
+turn on a path alibi.
+
+THE FIX EXISTS: STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS (config, 2026-
+09-07, default OFF) — the straight-fragment rule applied even when
+the destination came from a bank path-fit; its named specimen was
+cam4 33->34 (N->W), 124 events, straightness 0.978, +0.4 deg. Left
+off because cam1's hand-shipped basis used the narrow rule. Under the
+default framework it is a candidate like any other.
+
+## G-DEF-4 (declared 2026-09-11, before any scoring)
+
+d7 = the default (+ ruled headings) + STRAIGHT_FRAGMENT_INCLUDE_PATH_
+FITS, all 12 windows. PASS = the G-DEF-1 letter against 75.86: fleet
+rises; no camera falls > 1.0; no window falls > 3.0; cell tables +
+phantom-slack. Expected: cam4 SB_right toward 22; watch cam1's
+driveway cells and cam5's rights, where a genuine turn that curves
+under 5 deg in the frame would be refused.
+
+## G-DEF-4 verdict
+
+(to be recorded)
