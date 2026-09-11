@@ -343,3 +343,38 @@ should not exist"):
 Flags left as built, all default OFF: MOUTH_FROM_GATE,
 MOUTH_FROM_GATE_HEADING, HEADING_FROM_CROSSINGS. The default stands
 at 75.70.
+
+## G-DEF-3 (declared 2026-09-11, before any scoring): THE HEADING REVIEW
+
+Two facts fix the method:
+  1. scripts/recalibrate_camera.py (the May "road-axis" headings)
+     count-matches approaches against the MANUAL study — reference
+     data a blank site never has. Not a product path; not a refresh
+     method.
+  2. The product's heading IS the operator's: in the calibration
+     editor each leg carries an arrow, seeded from the node's position
+     and dragged to aim it (frontend/js/calibration.js). The stored
+     headings are his calibration.
+
+So the refresh is a CALIBRATION REVIEW. scripts/viz_heading_review.py
+draws, per leg on each camera's frame: the STORED arrow, the line's
+PERPENDICULAR, and the THROUGH-TRAFFIC direction measured without
+reference data (tracks whose gate journey enters over the leg and
+exits over the leg opposite, direction on the approach). The operator
+rules per leg where they disagree (cam5 E, cam1 W, cam3 are the
+known disagreements). His ruled headings are written to legs.
+reference_heading with a pre-write backup — a calibration edit, the
+same as dragging the arrow.
+
+PASS = one fleet arm on the ruled calibration against 75.70, the
+G-DEF-1 letter (fleet rises; no camera -1.0; no window -3.0). Ship =
+the calibration stays (already written) and the fleet is reprocessed;
+MISS = restore the backup.
+
+For a blank site this is the operating rule that comes out of it:
+draw the line, then aim the arrow along the lane's direction of
+travel; the software seeds the arrow with the line's perpendicular.
+
+## G-DEF-3 verdict
+
+(to be recorded)
