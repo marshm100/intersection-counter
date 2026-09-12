@@ -206,6 +206,98 @@ def twin_track_dedup(db: str | Path, camera_id: int, rows, fps) -> dict:
             "twin_rejected": len(drop)}
 
 
+def fracture_track_dedup(db: str | Path, camera_id: int, rows, fps,
+                         gates) -> dict:
+    """THE FRACTURE RULE (config.FRACTURE_DEDUP): reject the shorter
+    event of every drop-and-recapture pair. A pair is track A dying
+    and track B being born within FRACTURE_GAP_S at a point within
+    FRACTURE_DIST_BOXES box lengths of A's death, B outliving A, A
+    still lacking its exit crossing (entry_only / no_crossing under
+    the pinned gates), and the two endpoint bearings agreeing within
+    CHAIN_DIR_TOL_DEG when both exist. Only tracks that carry an
+    unrejected event take part (no event, nothing to double count).
+    Greedy nearest pair by (dist / box + 0.5 * gap_s), each track in
+    at most one pair. Write-then-reject (rejected=1), movement-
+    agnostic: one vehicle is one count."""
+    import numpy as np
+
+    from backend.config import FRACTURE_DIST_BOXES, FRACTURE_GAP_S
+    from backend.services.entry_gates import classify
+    from backend.services.track_chains import (CHAIN_DIR_TOL_DEG,
+                                               endpoint_bearings)
+    from backend.services.track_cut import _bdiff
+
+    db = str(db)
+    conn = sqlite3.connect(db)
+    try:
+        evs = conn.execute(
+            "SELECT event_id, vehicle_track_id FROM vehicle_events "
+            "WHERE camera_id = ? AND COALESCE(rejected, 0) = 0 "
+            "AND vehicle_track_id IS NOT NULL AND vehicle_track_id >= 0",
+            (camera_id,)).fetchall()
+        arr = np.asarray(rows, dtype=float)
+        recs = []
+        for eid, tid in evs:
+            sel = arr[arr[:, 0] == float(tid)]
+            if len(sel) < 5:
+                continue
+            sel = sel[np.argsort(sel[:, 1])]
+            pts = [(float(r[1]), float(r[2]), float(r[3])) for r in sel]
+            *_o, tag = classify(pts, gates, fps)
+            bs, be = endpoint_bearings(pts, fps)
+            recs.append({"eid": eid, "tid": int(tid), "pts": pts,
+                         "birth": pts[0], "death": pts[-1],
+                         "span": pts[-1][0] - pts[0][0], "tag": tag,
+                         "box": float(np.median(np.maximum(sel[:, 4],
+                                                           sel[:, 5]))),
+                         "b_start": bs, "b_end": be})
+        recs.sort(key=lambda r: r["birth"][0])
+        births = np.array([r["birth"][0] for r in recs], dtype=float)
+        cands = []
+        for ai, a in enumerate(recs):
+            if a["tag"] not in ("entry_only", "no_crossing"):
+                continue                       # A already owns its exit
+            fa, xa, ya = a["death"]
+            lo = int(np.searchsorted(births, fa, side="right"))
+            hi = int(np.searchsorted(births, fa + FRACTURE_GAP_S * fps,
+                                     side="right"))
+            for bi in range(lo, hi):
+                b = recs[bi]
+                if b["tid"] == a["tid"] or b["death"][0] <= fa:
+                    continue
+                gap_s = (b["birth"][0] - fa) / fps
+                dist = math.hypot(b["birth"][1] - xa, b["birth"][2] - ya)
+                box = max(1.0, (a["box"] + b["box"]) / 2.0)
+                if dist > FRACTURE_DIST_BOXES * box:
+                    continue
+                ba, bb = a.get("b_end"), b.get("b_start")
+                if (ba is not None and bb is not None
+                        and _bdiff(ba, bb) > CHAIN_DIR_TOL_DEG):
+                    continue
+                cands.append((dist / box + 0.5 * gap_s, ai, bi))
+        cands.sort(key=lambda c: c[0])
+        used = set()
+        drop = set()
+        n_pairs = 0
+        for _s, ai, bi in cands:
+            if ai in used or bi in used:
+                continue
+            used.add(ai); used.add(bi)
+            a, b = recs[ai], recs[bi]
+            # the shorter track is the fragment; on a tie the earlier one
+            victim = a if a["span"] <= b["span"] else b
+            drop.add(victim["eid"])
+            n_pairs += 1
+        with conn:
+            conn.executemany(
+                "UPDATE vehicle_events SET rejected = 1 WHERE event_id = ?",
+                [(int(e),) for e in drop])
+    finally:
+        conn.close()
+    return {"camera_id": camera_id, "fracture_pairs": n_pairs,
+            "fracture_rejected": len(drop)}
+
+
 def _load_turns(conn: sqlite3.Connection, camera_id: int) -> list[dict]:
     rows = conn.execute(
         "SELECT event_id, movement, origin_leg_id, destination_leg_id, "

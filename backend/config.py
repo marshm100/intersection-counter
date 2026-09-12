@@ -443,6 +443,27 @@ STOP_FRACTURE_COLLAPSE = _os2.environ.get(
 # identity test in pass-2; write-then-reject.
 COEXISTING_TWIN_DEDUP = _os2.environ.get(
     "COEXISTING_TWIN_DEDUP", "1") in ("1", "true", "on")
+
+# THE FRACTURE RULE (operator rulings 2026-09-11, cam5 fragment reel,
+# docs/plan_basis_2026-09-11.md): a detection drop and recapture of the
+# same vehicle - a track dies and a new one is born within a second at
+# the same spot, heading the same way - is ONE vehicle (clips 1-2: gaps
+# 0.1 / 0.7 s, re-birth 0.64 / 0.91 box lengths from the death point,
+# both halves counted through). A re-birth many seconds later at the
+# same queue position is the NEXT vehicle (clips 3-5: 9 / 23 / 46 s).
+# The chain rule refuses these pairs on purpose (the recapture already
+# owns a full journey; ungated chaining merged followers, the
+# dedup_ceiling lesson) and the conservation pass only ever rejects
+# posterior-sourced events, so nothing in pass 2 touched them. This
+# rule admits ONLY the short-gap, same-spot, same-heading pair whose
+# earlier half lacks its exit, measured in BOX LENGTHS so the far field
+# and the near field are held to the same test on a blank site.
+# Write-then-reject of the shorter track's event (the twin-dedup
+# pattern; rejected=1, reviewable). Default OFF until G-DEF-9 judges it.
+FRACTURE_DEDUP = _os2.environ.get(
+    "FRACTURE_DEDUP", "0") in ("1", "true", "on")
+FRACTURE_GAP_S = 1.0          # re-birth within this of the death
+FRACTURE_DIST_BOXES = 1.0     # ... within this many box lengths of it
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
 APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
 APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)

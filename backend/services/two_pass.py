@@ -489,6 +489,30 @@ def _tracks_from_rows(rows: np.ndarray) -> dict:
     return tracks
 
 
+def fracture_pass(project_id: str, camera_id: int, rows: np.ndarray,
+                  fps: float, out_db: str | Path) -> dict:
+    """THE FRACTURE RULE over a dump: pinned gates from the project
+    geometry (the conserve_pass construction), then
+    turn_merge.fracture_track_dedup."""
+    from backend.database import (leg_geometry_for_camera,
+                                  list_paths_for_camera)
+    from backend.services.entry_gates import build_gates
+    from backend.services.turn_merge import fracture_track_dedup
+    geom = leg_geometry_for_camera(project_id, camera_id)
+    mouths = {lid: g["mouth"] for lid, g in geom.items()}
+    heads = {lid: g["heading"] for lid, g in geom.items()}
+    drawn = {lid: g["gate"] for lid, g in geom.items() if g["gate"]}
+    if not mouths:
+        return {"skipped": "no leg mouths"}
+    tracks = _tracks_from_rows(rows)
+    gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
+                        heads, leg_axes=gate_axes_for(mouths, tracks.values()),
+                        leg_gates=drawn or None)
+    if not gates:
+        return {"skipped": "no gates"}
+    return fracture_track_dedup(out_db, camera_id, rows, fps, gates)
+
+
 def conserve_pass(project_id: str, camera_id: int, rows: np.ndarray,
                   fps: float, out_db: str | Path) -> dict:
     """Convenience wrapper for run_pass2 + the ablation harness: build the
@@ -1509,6 +1533,14 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         stats["twin_dedup"] = twin_track_dedup(out_db, camera_id, rows, fps)
         logger.info("two-pass cam%s %s: twin dedup %s", camera_id, variant,
                     stats["twin_dedup"])
+    # THE FRACTURE RULE (flag-gated, 2026-09-11): drop-and-recapture pairs
+    # de-duplicated BEFORE the merge, same reason as the twin dedup.
+    from backend.config import FRACTURE_DEDUP as _frac_on
+    if _frac_on:
+        stats["fracture_dedup"] = fracture_pass(project_id, camera_id, rows,
+                                                fps, out_db)
+        logger.info("two-pass cam%s %s: fracture dedup %s", camera_id,
+                    variant, stats["fracture_dedup"])
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
                                expected_by_cell=expected)
     # V2 MERGE RESCUE (block-2 item 1, diagnosis 2026-08-06): a merged-away

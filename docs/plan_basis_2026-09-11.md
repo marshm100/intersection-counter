@@ -362,3 +362,32 @@ class already ruled on clips 2 and 3.
   The discriminator is the GAP: a re-birth within about a second at
   the death point is the same vehicle; a re-birth many seconds later
   at the same queue position is the next vehicle.
+
+## G-DEF-9, arm d16 (declared before scoring): THE FRACTURE RULE on the large basis
+
+Why nothing in pass 2 caught clips 1-2: the chain rule refuses a pair
+whose later half already owns a full journey (the recapture does: IN S,
+OUT N), by design after ungated chaining merged followers; and the
+conservation pass has never run under the default and only rejects
+posterior-sourced events anyway. The pixel floor caught them by
+accident and deleted three real vehicles for every two duplicates.
+
+The rule (config.FRACTURE_DEDUP, turn_merge.fracture_track_dedup, run
+in pass 2 after the twin dedup): reject the shorter event of every
+pair where track A dies and track B is born within FRACTURE_GAP_S =
+1.0 s at a point within FRACTURE_DIST_BOXES = 1.0 box lengths of A's
+death, B outlives A, A lacks its exit crossing, and the endpoint
+bearings agree within CHAIN_DIR_TOL_DEG. Constants from his two ruled
+pairs (0.1 / 0.7 s; 0.64 / 0.91 box) and his three ruled non-pairs
+(9 / 23 / 46 s). Box lengths, not pixels: a blank site's far field and
+near field get the same test. Census forecast on the l1 dumps: cam5
+1600 about 93 events fewer (75 throughs), cam1 1600 about 16 fewer.
+
+d16 = the large basis everywhere (cam1/cam2 study_*, cam3/4/5 l1_*)
++ FRACTURE_DEDUP=1, all 12 windows, every other default as shipped.
+PASS = the G-DEF-1 letter against 76.97 over 12 windows (fleet rises;
+no camera -1.0; no window -3.0). FM51 (b-series, both windows) judged
+alongside as the blank-site witness. If it passes, the joint default
+(large basis + fracture rule) ships; if cam3's -5.2 under the large
+basis does not close, the rule is judged on the CURRENT basis next
+(d17) before anything ships.
