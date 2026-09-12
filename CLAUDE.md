@@ -17,12 +17,21 @@ intersection. The unit of shipping is a DEFAULT: one configuration, all 12 corri
 scored as a fleet against the all-off baseline (69.43) — never a per-window winner.
 G-DEF-1 PASS: GATE_GROUND_ANCHOR, STRAIGHT_FRAGMENT_RULE, GATE_EVIDENCE_EITHER_CORNER and
 JOURNEY_STATE_MACHINE default ON; G-DEF-4 PASS: STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS default ON
-(fleet 77.08 on 2026-09-11; 75.86 after the heading rulings; 75.70 on 09-10). Env vars are overrides for experiments
+(fleet 76.97 after G-BAR-1 on 2026-09-11; 77.08 before it; 75.86 after the heading rulings; 75.70 on 09-10). Env vars are overrides for experiments
 (X=0 turns a rule off); nothing in production needs them set. Older plan docs' "operating
 notes" that require env flags are superseded. To improve the default: change it, run all
-12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 77.08, ship on a
+12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 76.97, ship on a
 fleet PASS (docs/plan_default_2026-09-10.md). The four windows shipped by hand on 09-09
 and the fleet reprocess on 09-10 are the last per-window applies.
+
+## Calibrating a blank site (operator ruling 2026-09-11, docs/plan_blank_site_2026-09-11.md)
+Draw each gate LINE where vehicles are reliably TRACKED, inside the physical mouth — never at
+the far mouth where boxes are first born. Use scripts/viz_track_density.py (heat of tracked
+positions, births cyan, deaths orange, the lines) to see where that is. Aim each arrow along the
+THROUGH direction of travel entering that approach, judged on moving video. The evidence channel
+activates at coverage 0.20 (EVIDENCE_ACTIVATION_COVERAGE, G-BAR-1); a site drawn at its physical
+mouths sits at ~0.1 and every counting default is then inert. Measured on FM 51 (held-out): lines
+at the mouths 87.5 / 67.8; lines where the tracks are + channel on 91.9 / 79.3.
 
 ## Data model (v3)
 Project → Intersection-Day (one card per intersection × date) → Camera (1+ per card) → Clip/Video (1+ per camera).

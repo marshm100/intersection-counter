@@ -707,11 +707,14 @@ ORIGIN_POSTERIOR_ENABLED = _os.environ.get(
 # only coverage >= C activates. EVIDENCE_ACTIVATION_ENABLED=0 reverts.
 EVIDENCE_ACTIVATION_ENABLED = _os.environ.get(
     "EVIDENCE_ACTIVATION_ENABLED", "1") in ("1", "true", "on")
-# Env-overridable since 2026-09-11 for the blank-site measurement (FM51
-# under the operating rule reaches 0.24-0.30 and the channel stays off);
-# the default 0.45 is the corridor constant and stands until a fleet gate
-# says otherwise.
-EVIDENCE_ACTIVATION_COVERAGE = float(_os.environ.get("EVIDENCE_ACTIVATION_COVERAGE", "0.45"))
+# DEFAULT 0.20 since 2026-09-11 (G-BAR-1 PASS, docs/plan_blank_site_
+# 2026-09-11.md). 0.45 was the corridor's census-definition midpoint;
+# a blank site with its lines drawn where vehicles are tracked (the
+# operating rule) reaches 0.24-0.30, and holding the channel off there
+# cost FM51 4-12 movement points on three of four windows. On the
+# corridor the change is neutral (77.08 -> 76.97; only cam4 1600 and
+# cam5 0700 sat under 0.45). Env-overridable for experiments.
+EVIDENCE_ACTIVATION_COVERAGE = float(_os.environ.get("EVIDENCE_ACTIVATION_COVERAGE", "0.20"))
 
 # --- Posterior EXTRAS under the activation precondition (block D1, ----------
 # docs/plan_v2_conserve_activation_2026-08-11.md). The conservation pass
