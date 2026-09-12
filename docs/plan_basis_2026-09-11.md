@@ -442,3 +442,29 @@ for cam4's near field and the box unit is not the invariant.
   the rule removes the duplicates and exposes the deficit (-130 and
   -330). The deficit is now the question: where are cam4's missing
   NB vehicles?
+
+cam4 1600 NB deficit census (scripts/census_cam4_nb_deficit.py and an
+NB-bearing census, 2026-09-12): the dump holds 2,718 northbound-
+bearing tracks with >= 5 rows and >= 30 px of travel: 2,102 counted
+S->N, 373 rejected (the fracture pairs), 243 with no event - and of
+those 243 only 66 travelled >= 50 px (median 45 px, 21 px boxes,
+dying at the far edge). Miovision: 2,439 NB throughs. The ~330
+missing vehicles are NOT in the dump as droppable tracks; they were
+never tracked as their own NB track (the far-field detection / theft
+floor already closed, plan_theft_2026-09-11.md). Only 1,554 tracks
+ever crossed the S line; the rest of the NB count is posterior.
+The rule stands correct (10/10 rulings across cam4 and cam5); its
+cam4 1100/1600 score cost is the instrument's deficit becoming
+visible.
+
+## Arm d17 (declared before scoring): THE FRACTURE RULE on the CURRENT basis
+
+d16's fleet number carries cam3's -5.0 from the large basis, not from
+the rule. d17 isolates the rule: current production basis on every
+camera (cam1/cam2 study_*, cam3/4/5 fine-tune study_*), FRACTURE_DEDUP
+=1, all 12 windows, every other default as shipped. PASS = the G-DEF-1
+letter against 76.97. FM51 b7 = the rule on the blank site's two
+windows alongside (b6 79.6 / 80.0 is the comparison). Whatever d17
+scores, the ship decision on a rule that is correct by ruling but
+costs cam4 1100/1600 by exposing a detection deficit is the
+operator's, and is put to him with both numbers.
