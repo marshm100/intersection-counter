@@ -1,0 +1,242 @@
+{
+ "v2": {
+  "cells_scored": 62,
+  "compliant": 57,
+  "pct": 91.9,
+  "worst": [
+   {
+    "bin": "07:00",
+    "cell": "NB thru",
+    "ours": 126,
+    "ref": 117
+   },
+   {
+    "bin": "08:00",
+    "cell": "SB thru",
+    "ours": 90,
+    "ref": 81
+   },
+   {
+    "bin": "07:00",
+    "cell": "WB right",
+    "ours": 6,
+    "ref": 13
+   },
+   {
+    "bin": "07:15",
+    "cell": "SB thru",
+    "ours": 89,
+    "ref": 83
+   },
+   {
+    "bin": "08:30",
+    "cell": "NB thru",
+    "ours": 82,
+    "ref": 88
+   }
+  ]
+ },
+ "production": {
+  "cells_scored": 50,
+  "compliant": 40,
+  "pct": 80.0,
+  "worst": [
+   {
+    "bin": "07:45",
+    "cell": "SB thru",
+    "ours": 50,
+    "ref": 81
+   },
+   {
+    "bin": "08:15",
+    "cell": "SB thru",
+    "ours": 43,
+    "ref": 74
+   },
+   {
+    "bin": "08:30",
+    "cell": "SB thru",
+    "ours": 52,
+    "ref": 72
+   },
+   {
+    "bin": "07:30",
+    "cell": "SB thru",
+    "ours": 74,
+    "ref": 88
+   },
+   {
+    "bin": "07:00",
+    "cell": "SB thru",
+    "ours": 52,
+    "ref": 65
+   },
+   {
+    "bin": "07:15",
+    "cell": "SB thru",
+    "ours": 72,
+    "ref": 83
+   },
+   {
+    "bin": "08:00",
+    "cell": "SB thru",
+    "ours": 70,
+    "ref": 81
+   },
+   {
+    "bin": "08:45",
+    "cell": "SB thru",
+    "ours": 60,
+    "ref": 70
+   }
+  ]
+ },
+ "v2_approach": {
+  "cells_scored": 24,
+  "compliant": 20,
+  "pct": 83.3,
+  "worst": [
+   {
+    "bin": "07:00",
+    "cell": "NB",
+    "ours": 131,
+    "ref": 117
+   },
+   {
+    "bin": "08:00",
+    "cell": "SB",
+    "ours": 92,
+    "ref": 83
+   },
+   {
+    "bin": "08:15",
+    "cell": "NB",
+    "ours": 110,
+    "ref": 103
+   },
+   {
+    "bin": "07:15",
+    "cell": "SB",
+    "ours": 91,
+    "ref": 85
+   }
+  ]
+ },
+ "production_approach": {
+  "cells_scored": 24,
+  "compliant": 14,
+  "pct": 58.3,
+  "worst": [
+   {
+    "bin": "08:15",
+    "cell": "SB",
+    "ours": 44,
+    "ref": 76
+   },
+   {
+    "bin": "07:45",
+    "cell": "SB",
+    "ours": 57,
+    "ref": 85
+   },
+   {
+    "bin": "08:30",
+    "cell": "SB",
+    "ours": 53,
+    "ref": 72
+   },
+   {
+    "bin": "07:00",
+    "cell": "SB",
+    "ours": 52,
+    "ref": 65
+   },
+   {
+    "bin": "07:30",
+    "cell": "SB",
+    "ours": 78,
+    "ref": 89
+   },
+   {
+    "bin": "07:15",
+    "cell": "SB",
+    "ours": 75,
+    "ref": 85
+   },
+   {
+    "bin": "08:00",
+    "cell": "SB",
+    "ours": 73,
+    "ref": 83
+   },
+   {
+    "bin": "08:45",
+    "cell": "SB",
+    "ours": 60,
+    "ref": 70
+   }
+  ]
+ },
+ "totals": {
+  "NB_left": [
+   0,
+   9,
+   4
+  ],
+  "NB_right": [
+   1,
+   11,
+   2
+  ],
+  "NB_thru": [
+   853,
+   865,
+   871
+  ],
+  "NB_uturn": [
+   0,
+   5,
+   8
+  ],
+  "SB_left": [
+   11,
+   14,
+   10
+  ],
+  "SB_right": [
+   0,
+   1,
+   4
+  ],
+  "SB_thru": [
+   614,
+   625,
+   473
+  ],
+  "SB_uturn": [
+   0,
+   3,
+   5
+  ],
+  "WB_left": [
+   0,
+   8,
+   2
+  ],
+  "WB_right": [
+   46,
+   43,
+   51
+  ],
+  "WB_thru": [
+   0,
+   14,
+   1
+  ],
+  "WB_uturn": [
+   0,
+   0,
+   0
+  ]
+ }
+}

@@ -245,3 +245,28 @@ E out 1,625 / 1,385, S in 571 / 894. The operating rule does what it
 was meant to; the remaining gate between the lines and the counts is
 the ACTIVATION BAR (0.45), a corridor constant, with FM51 at
 0.24-0.30 under it.
+
+b6 (his redrawn lines, activation bar lowered to 0.20 by env so the
+channel activates at FM51's 0.24-0.30):
+                      channel off (b5)     channel ON (b6)
+  fine-tune  am        87.5 / 66.7          91.9 / 83.3   (+4.4 / +16.6)  NEW SITE BEST
+  fine-tune  pm        67.8 / 33.3          79.3 / 50.0   (+11.5 / +16.7)
+  large      am        79.6 / 58.3          79.6 / 54.2   (0 / -4.1)
+  large      pm        72.7 / 45.8          80.0 / 50.0   (+7.3 / +4.2)
+THE WEEK'S DEFAULTS GENERALISE — once the lines sit where the tracks
+are AND the channel is allowed to activate. Three of four windows
+gain 4-12 movement points and 4-17 approach points; the site's
+best-ever moves from 87.5 to 91.9 on the mode it was set to. The one
+thing between a blank site and those numbers is the activation bar,
+a corridor constant (0.45) that this site cannot reach at 0.24-0.30.
+
+## G-BAR-1 (declared 2026-09-11, before any corridor scoring)
+
+Candidate default: EVIDENCE_ACTIVATION_COVERAGE 0.45 -> 0.20. On the
+corridor only two windows sit under 0.45 (cam4 1600 at 0.424, cam5
+0700 at 0.387); every other window is ON already and cannot change.
+Arm d13 = those two windows at bar 0.20 (the others carry their d7
+scores by construction). PASS = the G-DEF-1 letter on the corridor
+(fleet rises or holds within noise; neither window falls > 3.0) AND
+FM51's b6 table stands. Ship = the constant changes in config; cam4
+1600 / cam5 0700 reprocessed; FM51 stays unshipped (test site).

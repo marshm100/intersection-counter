@@ -707,7 +707,11 @@ ORIGIN_POSTERIOR_ENABLED = _os.environ.get(
 # only coverage >= C activates. EVIDENCE_ACTIVATION_ENABLED=0 reverts.
 EVIDENCE_ACTIVATION_ENABLED = _os.environ.get(
     "EVIDENCE_ACTIVATION_ENABLED", "1") in ("1", "true", "on")
-EVIDENCE_ACTIVATION_COVERAGE = 0.45
+# Env-overridable since 2026-09-11 for the blank-site measurement (FM51
+# under the operating rule reaches 0.24-0.30 and the channel stays off);
+# the default 0.45 is the corridor constant and stands until a fleet gate
+# says otherwise.
+EVIDENCE_ACTIVATION_COVERAGE = float(_os.environ.get("EVIDENCE_ACTIVATION_COVERAGE", "0.45"))
 
 # --- Posterior EXTRAS under the activation precondition (block D1, ----------
 # docs/plan_v2_conserve_activation_2026-08-11.md). The conservation pass
