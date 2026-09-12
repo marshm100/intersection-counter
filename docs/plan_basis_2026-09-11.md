@@ -330,3 +330,12 @@ tracks. Unresolved until he says which vehicle in the reel was the
 right-turner; a track path that reads through while the ringed
 vehicle turned right would mean the box changed vehicles (theft), the
 class already ruled on clips 2 and 3.
+
+  clip 1, RE-RULED on second viewing (2026-09-11, supersedes the
+  earlier clip 1 line): "it is a detection drop and recapture of the
+  same vehicle C and O is the same vehicle." ONE vehicle, a through
+  on the far road (his reading of the still), fractured into two
+  tracks 0.1 s apart at the same spot, BOTH counted S->N through.
+  A duplicate count. The earlier clip 1-5 rulings were given during a
+  clip-numbering mix-up and are to be re-confirmed one clip at a
+  time before anything is built on them.
