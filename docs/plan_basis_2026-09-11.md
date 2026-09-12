@@ -275,15 +275,17 @@ vehicles. The next constant is declared after the ruling.
 
 ### cam5 fragment-pair reel, operator rulings (2026-09-11)
 
-  clip 1 (orange 139644 removed / cyan 139655 counted, both booked
-  S->N through): "clip 1 is a clean right turn C and exited through
+(Corrected by the operator mid-reel: his first three answers were
+given against clips 4, 5 and 5, not 1, 2 and 3. Recorded here under
+the clips he actually watched.)
+
+  clip 4 (orange 132442 removed / cyan 132596 counted 23 s later,
+  both booked S->N through): "a clean right turn C and exited through
   vehicle traffic O." TWO vehicles. The counted cyan track is a RIGHT
   turn booked as a through; the removed orange track is a real
   through that exited. The floor removed a real vehicle here.
-  clip 2 (orange 137465 removed / cyan 137490 counted, both booked
-  S->N through): "2 is a right hand turn O and second right hand turn
-  C." TWO vehicles, BOTH right turns, both booked as throughs. The
-  floor removed one real vehicle; neither count was in the right cell.
-  clip 3 (orange 131179 removed / cyan 131119 counted, near field,
-  both booked S->N through): "it is a different vehicle." TWO
-  vehicles.
+  clip 5 (orange 130639 removed / cyan 130461 counted 46 s earlier,
+  both booked through): "a right hand turn O and second right hand
+  turn C" and "it is a different vehicle." TWO vehicles, BOTH right
+  turns, both booked as throughs. The floor removed one real vehicle;
+  neither count was in the right cell.
