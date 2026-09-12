@@ -292,3 +292,9 @@ the clips he actually watched.)
   clip 1 (orange 139644 removed / cyan 139655 counted 0.1 s later,
   both booked S->N through): "two different vehicles making right
   turns." TWO vehicles, both rights booked as throughs.
+  clip 2 (orange 137465 removed / cyan 137490 counted 0.7 s later,
+  both booked S->N through): "C is a right hand turn, O is a S to W
+  queued vehicle that gets stolen from N to S through traffic." TWO
+  vehicles. Cyan: a right booked as a through. Orange: a queued S->W
+  vehicle whose track is stolen by N->S through traffic (theft class,
+  docs/plan_theft_2026-09-11.md) and booked S->N through.
