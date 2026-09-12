@@ -350,3 +350,15 @@ class already ruled on clips 2 and 3.
   traffic." TWO vehicles, both throughs; the floor removed a real one.
   clip 4, RE-RULED (supersedes): "clip 4 is 2 vehicles through
   traffic." TWO vehicles, both throughs; the floor removed a real one.
+  clip 5, RE-RULED (supersedes): "two vehicles." TWO vehicles.
+
+  FINAL TALLY (re-confirmed one clip at a time): clips 1 and 2, the
+  pairs 0.1 s and 0.7 s apart at the same spot, are ONE vehicle each -
+  a detection drop and recapture on the far road, both halves counted
+  S->N through (a duplicate). Clips 3, 4, 5, the pairs 9, 23 and 46 s
+  apart, are TWO vehicles each, all throughs, and the floor deleted a
+  real vehicle in each. All ten tracks are through traffic on the far
+  road; the earlier 'right turn' readings were the numbering mix-up.
+  The discriminator is the GAP: a re-birth within about a second at
+  the death point is the same vehicle; a re-birth many seconds later
+  at the same queue position is the next vehicle.
