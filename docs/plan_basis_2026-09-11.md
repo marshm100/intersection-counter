@@ -280,3 +280,7 @@ vehicles. The next constant is declared after the ruling.
   vehicle traffic O." TWO vehicles. The counted cyan track is a RIGHT
   turn booked as a through; the removed orange track is a real
   through that exited. The floor removed a real vehicle here.
+  clip 2 (orange 137465 removed / cyan 137490 counted, both booked
+  S->N through): "2 is a right hand turn O and second right hand turn
+  C." TWO vehicles, BOTH right turns, both booked as throughs. The
+  floor removed one real vehicle; neither count was in the right cell.
