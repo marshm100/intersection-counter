@@ -284,3 +284,6 @@ vehicles. The next constant is declared after the ruling.
   S->N through): "2 is a right hand turn O and second right hand turn
   C." TWO vehicles, BOTH right turns, both booked as throughs. The
   floor removed one real vehicle; neither count was in the right cell.
+  clip 3 (orange 131179 removed / cyan 131119 counted, near field,
+  both booked S->N through): "it is a different vehicle." TWO
+  vehicles.
