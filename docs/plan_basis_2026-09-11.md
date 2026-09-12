@@ -493,3 +493,47 @@ The ship decision is the operator's: the rule is correct by his own
 rulings and lifts nine windows, holds two, and costs one (cam4 1600)
 by removing duplicates that had been masking a far-field detection
 deficit already closed as instrument-limited. Put to him 2026-09-12.
+
+## SHIPPED — THE FRACTURE RULE (operator go 2026-09-12: "update the default with the fracture rule")
+
+The operator's ruling on the open decision: SHIP, accepting cam4 1600
+at 70.2 because its old 75.4 was two errors cancelling (~366
+duplicate NB throughs against an equal far-field detection deficit
+that is not in the dump; instrument-limited, no counting rule
+recovers it). Future cam4 1600 movement is read against 70.2.
+
+backend/config.py FRACTURE_DEDUP default "1" (commit bb78362);
+test_default_off -> test_default_on; 1226 green, no env flags set.
+scripts/reprocess_default.py guards the six rules and compares
+against the d17 arm (total/kept, since replay.events counts the
+write-then-rejected rows too). Backup
+backups/project_20260912T010419_pre_default_reprocess_fracture.db
+(467 MB). All 12 windows reprocessed under the default (force_once,
+apply through the gate; ~55 min serial, cam3 27 of them). Production
+event rows IDENTICAL to the d17 arm on 12 of 12 (row-for-row hash);
+re-score PRODUCTION == ARM on 12 of 12 (runs/v2_week1/
+score_d17_*.json, rescore_fracture_20260912.log).
+
+  window       was     now    delta   health
+  cam1 0700    84.0    85.1   +1.1    amber
+  cam1 1600    95.3    95.3    0.0    green
+  cam2 0700    75.2    75.2    0.0    green
+  cam2 1100    75.7    76.7   +1.0    green
+  cam2 1600    71.3    68.5   -2.8    green
+  cam3 0600    87.6    88.5   +0.9    amber
+  cam4 0700    71.1    73.3   +2.2    amber
+  cam4 1100    74.5    78.7   +4.2    green
+  cam4 1600    75.4    70.2   -5.2    amber   accepted by ruling
+  cam5 0700    73.3    79.0   +5.7    amber
+  cam5 1100    71.4    73.3   +1.9    green
+  cam5 1600    68.9    71.8   +2.9    red
+  FLEET        76.97   77.97  +0.99
+
+FM51 stays the held-out witness (b7 81.6 / 80.0; +2.0 / 0 over b6);
+its counts are not shipped. The default is now six rules:
+GATE_GROUND_ANCHOR, STRAIGHT_FRAGMENT_RULE, GATE_EVIDENCE_EITHER_CORNER,
+JOURNEY_STATE_MACHINE, STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS,
+FRACTURE_DEDUP; bar 0.20. CLAUDE.md, scripts/fleet_flags.py `_ALL`
+and memory carry 77.97. Next candidate: whatever closes cam4 1600's
+NB far-field deficit is a DETECTION question (the vehicles were never
+tracked), not a counting one; declared before scoring, one arm at a time.

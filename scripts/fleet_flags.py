@@ -45,7 +45,7 @@ _ARMS = os.environ.get("FLEET_ARMS", "")
 _STEM = os.environ.get("FLEET_STEM", "ff")
 # live standings: cam1 1600 shipped at 95.3 on 2026-09-08; cam1 0700 /
 # cam2 0700 / cam2 1100 / cam3 0600 shipped 2026-09-09 (G-SM-1 iter 3)
-_ALL = {(1, "study_0700"): 84.0, (1, "study_1600"): 95.3, (2, "study_0700"): 75.2, (2, "study_1100"): 75.7, (2, "study_1600"): 71.3, (3, "study_0600"): 87.6, (4, "study_0700"): 71.1, (4, "study_1100"): 74.5, (4, "study_1600"): 75.4, (5, "study_0700"): 73.3, (5, "study_1100"): 71.4, (5, "study_1600"): 68.9}   # THE DEFAULT's standings, 2026-09-11 (fleet 76.97 after G-BAR-1)   # THE DEFAULT's standings, 2026-09-10 (fleet 75.86; cam3 87.6 on the 09-11 ruled headings)
+_ALL = {(1, "study_0700"): 85.1, (1, "study_1600"): 95.3, (2, "study_0700"): 75.2, (2, "study_1100"): 76.7, (2, "study_1600"): 68.5, (3, "study_0600"): 88.5, (4, "study_0700"): 73.3, (4, "study_1100"): 78.7, (4, "study_1600"): 70.2, (5, "study_0700"): 79.0, (5, "study_1100"): 73.3, (5, "study_1600"): 71.8}   # THE DEFAULT's standings, 2026-09-12 (fleet 77.97 after the fracture rule)   # 2026-09-11 (fleet 76.97 after G-BAR-1): 84.0 95.3 75.2 75.7 71.3 87.6 71.1 74.5 75.4 73.3 71.4 68.9   # THE DEFAULT's standings, 2026-09-10 (fleet 75.86; cam3 87.6 on the 09-11 ruled headings)
 if _ARMS:
     want = [tuple(a.split(":")) for a in _ARMS.split(",")]
     # a basis-tagged variant (l1_study_0700) scores against the plain

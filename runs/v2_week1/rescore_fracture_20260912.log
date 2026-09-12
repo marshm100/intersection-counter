@@ -1,0 +1,236 @@
+
+=== d17_cam1_study_0700 (cam1 study_0700, 120 Mio minutes) ===
+5/95 cell-bins: V2 85.1% (63/74)  |  PRODUCTION 85.1% (63/74)
+approach-bins (PRD bar): V2 90.3% (28/31)  |  PRODUCTION 90.3% (28/31)
+        cell    Mio     V2   prod
+     EB left     86     96     96
+    EB right    191    202    202
+     EB thru      2      3      3
+    EB uturn      4      1      1
+     NB left    382    437    437
+    NB right      3     18     18
+     NB thru   2141   2030   2030
+    NB uturn      2      0      0
+     SB left      1      0      0
+    SB right    102    114    114
+     SB thru   1756   1715   1715
+    SB uturn      0      1      1
+     WB left      0      1      1
+    WB right      1      1      1
+     WB thru      1      9      9
+    WB uturn      0      0      0
+-> runs\v2_week1\score_d17_cam1_study_0700.json
+
+=== d17_cam1_study_1600 (cam1 study_1600, 120 Mio minutes) ===
+5/95 cell-bins: V2 95.3% (81/85)  |  PRODUCTION 95.3% (81/85)
+approach-bins (PRD bar): V2 86.7% (26/30)  |  PRODUCTION 86.7% (26/30)
+        cell    Mio     V2   prod
+     EB left    105    114    114
+    EB right    497    497    497
+     EB thru      1      4      4
+    EB uturn     13      3      3
+     NB left    229    230    230
+    NB right      2     16     16
+     NB thru   2078   2101   2101
+    NB uturn      1      1      1
+     SB left      1      1      1
+    SB right    131    139    139
+     SB thru   2498   2516   2516
+    SB uturn      0      2      2
+     WB left     13     11     11
+    WB right      2      0      0
+     WB thru      3      9      9
+    WB uturn      0      0      0
+-> runs\v2_week1\score_d17_cam1_study_1600.json
+
+=== d17_cam2_study_0700 (cam2 study_0700, 120 Mio minutes) ===
+5/95 cell-bins: V2 75.2% (79/105)  |  PRODUCTION 75.2% (79/105)
+approach-bins (PRD bar): V2 50.0% (16/32)  |  PRODUCTION 50.0% (16/32)
+        cell    Mio     V2   prod
+     EB left    229    235    235
+    EB right    167    278    278
+     EB thru    119    102    102
+    EB uturn      2      1      1
+     NB left    411    371    371
+    NB right     22     12     12
+     NB thru   2198   2219   2219
+    NB uturn      0      2      2
+     SB left    115    125    125
+    SB right    379    318    318
+     SB thru   1384   1344   1344
+    SB uturn      1      7      7
+     WB left     61     60     60
+    WB right    293    355    355
+     WB thru    267    293    293
+    WB uturn      0      0      0
+-> runs\v2_week1\score_d17_cam2_study_0700.json
+
+=== d17_cam2_study_1100 (cam2 study_1100, 120 Mio minutes) ===
+5/95 cell-bins: V2 76.7% (79/103)  |  PRODUCTION 76.7% (79/103)
+approach-bins (PRD bar): V2 59.4% (19/32)  |  PRODUCTION 59.4% (19/32)
+        cell    Mio     V2   prod
+     EB left    326    330    330
+    EB right    351    433    433
+     EB thru    176    163    163
+    EB uturn      0      0      0
+     NB left    450    389    389
+    NB right     28     10     10
+     NB thru   1105   1166   1166
+    NB uturn      5      1      1
+     SB left    145    152    152
+    SB right    388    331    331
+     SB thru   1064   1091   1091
+    SB uturn      2      3      3
+     WB left     63     60     60
+    WB right    144    178    178
+     WB thru    196    208    208
+    WB uturn      0      0      0
+-> runs\v2_week1\score_d17_cam2_study_1100.json
+
+=== d17_cam2_study_1600 (cam2 study_1600, 120 Mio minutes) ===
+5/95 cell-bins: V2 68.5% (74/108)  |  PRODUCTION 68.5% (74/108)
+approach-bins (PRD bar): V2 50.0% (16/32)  |  PRODUCTION 50.0% (16/32)
+        cell    Mio     V2   prod
+     EB left    496    460    460
+    EB right    699    853    853
+     EB thru    454    407    407
+    EB uturn      1      0      0
+     NB left    420    398    398
+    NB right     28     16     16
+     NB thru   1726   1713   1713
+    NB uturn      0      4      4
+     SB left    307    321    321
+    SB right    341    365    365
+     SB thru   2247   2052   2052
+    SB uturn     12      9      9
+     WB left     55     57     57
+    WB right    256    299    299
+     WB thru    235    251    251
+    WB uturn      0      0      0
+-> runs\v2_week1\score_d17_cam2_study_1600.json
+
+=== d17_cam3_study_0600 (cam3 study_0600, 840 Mio minutes) ===
+5/95 cell-bins: V2 88.5% (314/355)  |  PRODUCTION 88.5% (314/355)
+approach-bins (PRD bar): V2 76.8% (129/168)  |  PRODUCTION 76.8% (129/168)
+        cell    Mio     V2   prod
+     EB left    196    241    241
+    EB right    155    165    165
+    EB uturn      0      4      4
+     NB left    114     94     94
+     NB thru  13756  13917  13917
+    NB uturn      8      7      7
+    SB right    247    297    297
+     SB thru  14385  14490  14490
+    SB uturn      0     25     25
+-> runs\v2_week1\score_d17_cam3_study_0600.json
+
+=== d17_cam4_study_0700 (cam4 study_0700, 120 Mio minutes) ===
+5/95 cell-bins: V2 73.3% (33/45)  |  PRODUCTION 73.3% (33/45)
+approach-bins (PRD bar): V2 50.0% (12/24)  |  PRODUCTION 50.0% (12/24)
+        cell    Mio     V2   prod
+     EB left     15      3      3
+    EB right      6      1      1
+    EB uturn      0      0      0
+     NB left     20      6      6
+     NB thru   2713   2462   2462
+    NB uturn      0      0      0
+    SB right     22     46     46
+     SB thru   1957   2040   2040
+    SB uturn      0      3      3
+-> runs\v2_week1\score_d17_cam4_study_0700.json
+
+=== d17_cam4_study_1100 (cam4 study_1100, 120 Mio minutes) ===
+5/95 cell-bins: V2 78.7% (37/47)  |  PRODUCTION 78.7% (37/47)
+approach-bins (PRD bar): V2 45.8% (11/24)  |  PRODUCTION 45.8% (11/24)
+        cell    Mio     V2   prod
+     EB left     20      6      6
+    EB right      6      2      2
+    EB uturn      0      0      0
+     NB left     17      7      7
+     NB thru   1546   1441   1441
+    NB uturn      4      1      1
+    SB right     16     23     23
+     SB thru   1640   1751   1751
+    SB uturn      2      1      1
+-> runs\v2_week1\score_d17_cam4_study_1100.json
+
+=== d17_cam4_study_1600 (cam4 study_1600, 120 Mio minutes) ===
+5/95 cell-bins: V2 70.2% (40/57)  |  PRODUCTION 70.2% (40/57)
+approach-bins (PRD bar): V2 45.8% (11/24)  |  PRODUCTION 45.8% (11/24)
+        cell    Mio     V2   prod
+     EB left     29     11     11
+    EB right     15      4      4
+    EB uturn      0      0      0
+     NB left     23     20     20
+     NB thru   2439   2025   2025
+    NB uturn     14      2      2
+    SB right     39    125    125
+     SB thru   2981   3055   3055
+    SB uturn      0      9      9
+-> runs\v2_week1\score_d17_cam4_study_1600.json
+
+=== d17_cam5_study_0700 (cam5 study_0700, 120 Mio minutes) ===
+5/95 cell-bins: V2 79.0% (83/105)  |  PRODUCTION 79.0% (83/105)
+approach-bins (PRD bar): V2 37.5% (12/32)  |  PRODUCTION 37.5% (12/32)
+        cell    Mio     V2   prod
+     EB left     96    103    103
+    EB right    188     91     91
+     EB thru      4     13     13
+    EB uturn      6      6      6
+     NB left    335    418    418
+    NB right     21     18     18
+     NB thru   2379   2374   2374
+    NB uturn      1      1      1
+     SB left     22     27     27
+    SB right     48     68     68
+     SB thru   1868   1973   1973
+    SB uturn      4      1      1
+     WB left     26     29     29
+    WB right     23     11     11
+     WB thru     25     49     49
+    WB uturn      0      0      0
+-> runs\v2_week1\score_d17_cam5_study_0700.json
+
+=== d17_cam5_study_1100 (cam5 study_1100, 120 Mio minutes) ===
+5/95 cell-bins: V2 73.3% (77/105)  |  PRODUCTION 73.3% (77/105)
+approach-bins (PRD bar): V2 34.4% (11/32)  |  PRODUCTION 34.4% (11/32)
+        cell    Mio     V2   prod
+     EB left     87     97     97
+    EB right    162     89     89
+     EB thru     12     30     30
+    EB uturn      1      1      1
+     NB left    185    352    352
+    NB right     26     22     22
+     NB thru   1362   1435   1435
+    NB uturn      1      0      0
+     SB left     27     35     35
+    SB right     88     91     91
+     SB thru   1496   1654   1654
+    SB uturn     15      0      0
+     WB left     17     12     12
+    WB right     21      6      6
+     WB thru     24     41     41
+    WB uturn      0      0      0
+-> runs\v2_week1\score_d17_cam5_study_1100.json
+
+=== d17_cam5_study_1600 (cam5 study_1600, 120 Mio minutes) ===
+5/95 cell-bins: V2 71.8% (74/103)  |  PRODUCTION 71.8% (74/103)
+approach-bins (PRD bar): V2 21.9% (7/32)  |  PRODUCTION 21.9% (7/32)
+        cell    Mio     V2   prod
+     EB left    125    136    136
+    EB right    244    101    101
+     EB thru     29     29     29
+    EB uturn      4      4      4
+     NB left    240    367    367
+    NB right     35     36     36
+     NB thru   2185   2290   2290
+    NB uturn      2      0      0
+     SB left     49     66     66
+    SB right    137    153    153
+     SB thru   2819   3023   3023
+    SB uturn      3      0      0
+     WB left     22     27     27
+    WB right     25     14     14
+     WB thru     27     46     46
+    WB uturn      0      0      0
+-> runs\v2_week1\score_d17_cam5_study_1600.json

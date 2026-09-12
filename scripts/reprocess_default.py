@@ -78,13 +78,15 @@ def main() -> int:
         arm = ARM / f"{ARM_STEM}_cam{cam}_{variant}.db"
         if arm.exists():
             c = sqlite3.connect(f"file:{arm}?mode=ro", uri=True)
+            # replay.events counts every event WRITTEN (write-then-reject
+            # rows included), so compare total; the kept count is shown too
             arm_events = c.execute(
-                "SELECT COUNT(*) FROM vehicle_events WHERE camera_id=? AND rejected=0",
-                (cam,)).fetchone()[0]
+                "SELECT COUNT(*) || '/' || SUM(rejected=0) FROM vehicle_events "
+                "WHERE camera_id=?", (cam,)).fetchone()[0]
             c.close()
         print(f"cam{cam} {variant}: applied={res.get('applied')} "
               f"gate={gate.get('decision')} ({','.join(gate.get('reasons', []))}) "
-              f"events={rep.get('events')} ({ARM_STEM} arm db rows {arm_events}) "
+              f"events={rep.get('events')} ({ARM_STEM} arm total/kept {arm_events}) "
               f"dropped={rep.get('insufficient_data')} cov={act.get('coverage')} "
               f"{'ON' if act.get('activated') else 'OFF'}  ({time.time() - t:.0f}s)",
               flush=True)

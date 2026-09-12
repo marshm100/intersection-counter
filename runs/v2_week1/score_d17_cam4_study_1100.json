@@ -56,32 +56,32 @@
  },
  "production": {
   "cells_scored": 47,
-  "compliant": 35,
-  "pct": 74.5,
+  "compliant": 37,
+  "pct": 78.7,
   "worst": [
    {
-    "bin": "11:00",
+    "bin": "12:45",
     "cell": "NB thru",
-    "ours": 194,
-    "ref": 161
-   },
-   {
-    "bin": "11:45",
-    "cell": "NB thru",
-    "ours": 227,
-    "ref": 202
+    "ours": 190,
+    "ref": 219
    },
    {
     "bin": "12:30",
     "cell": "SB thru",
-    "ours": 227,
+    "ours": 224,
     "ref": 202
    },
    {
     "bin": "11:30",
     "cell": "SB thru",
-    "ours": 230,
+    "ours": 228,
     "ref": 207
+   },
+   {
+    "bin": "12:00",
+    "cell": "NB thru",
+    "ours": 205,
+    "ref": 225
    },
    {
     "bin": "12:00",
@@ -90,22 +90,22 @@
     "ref": 189
    },
    {
+    "bin": "11:15",
+    "cell": "NB thru",
+    "ours": 158,
+    "ref": 175
+   },
+   {
+    "bin": "12:30",
+    "cell": "NB thru",
+    "ours": 181,
+    "ref": 197
+   },
+   {
     "bin": "12:45",
     "cell": "SB thru",
-    "ours": 245,
+    "ours": 242,
     "ref": 229
-   },
-   {
-    "bin": "12:15",
-    "cell": "NB thru",
-    "ours": 199,
-    "ref": 185
-   },
-   {
-    "bin": "11:30",
-    "cell": "NB thru",
-    "ours": 195,
-    "ref": 182
    }
   ]
  },
@@ -170,28 +170,28 @@
   "pct": 45.8,
   "worst": [
    {
-    "bin": "11:00",
+    "bin": "12:45",
     "cell": "NB",
-    "ours": 195,
-    "ref": 164
+    "ours": 190,
+    "ref": 219
    },
    {
     "bin": "11:30",
     "cell": "SB",
-    "ours": 232,
+    "ours": 230,
     "ref": 207
+   },
+   {
+    "bin": "12:00",
+    "cell": "NB",
+    "ours": 206,
+    "ref": 228
    },
    {
     "bin": "12:30",
     "cell": "SB",
-    "ours": 229,
+    "ours": 226,
     "ref": 204
-   },
-   {
-    "bin": "11:45",
-    "cell": "NB",
-    "ours": 228,
-    "ref": 205
    },
    {
     "bin": "12:00",
@@ -200,22 +200,22 @@
     "ref": 191
    },
    {
-    "bin": "12:45",
-    "cell": "SB",
-    "ours": 247,
-    "ref": 230
+    "bin": "12:30",
+    "cell": "NB",
+    "ours": 182,
+    "ref": 200
    },
    {
-    "bin": "12:15",
-    "cell": "SB",
-    "ours": 232,
-    "ref": 219
+    "bin": "11:15",
+    "cell": "NB",
+    "ours": 160,
+    "ref": 176
    },
    {
-    "bin": "11:00",
-    "cell": "SB",
-    "ours": 209,
-    "ref": 197
+    "bin": "11:30",
+    "cell": "NB",
+    "ours": 172,
+    "ref": 187
    }
   ]
  },
@@ -243,7 +243,7 @@
   "NB_thru": [
    1546,
    1441,
-   1654
+   1441
   ],
   "NB_uturn": [
    4,
@@ -253,12 +253,12 @@
   "SB_right": [
    16,
    23,
-   24
+   23
   ],
   "SB_thru": [
    1640,
    1751,
-   1766
+   1751
   ],
   "SB_uturn": [
    2,
