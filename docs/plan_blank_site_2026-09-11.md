@@ -223,3 +223,25 @@ defaults are inert, and neither reading of "the line it came from"
 crossing. What remains for a blank site is the OPERATING rule (draw
 the lines where vehicles are tracked), or an activation bar derived
 per site rather than fixed at the corridor's 0.45 — both his call.
+
+## OPERATOR RULING (2026-09-11): "the operating rule"
+
+Instrument: scripts/viz_track_density.py (heat of tracked positions,
+births cyan, deaths orange, the drawn lines) — the picture the rule
+needs. Page: https://claude.ai/code/artifact/c75661ef-98dd-4518-a57a-25a08658b380
+
+HIS REDRAW (saved): W (392,197)-(318,202) 75 px; S (316,203)-(235,209)
+82 px; E (328,293)-(538,239) 217 px — moved UP the road into the
+tracked band; SE (123,267)-(312,294) 190 px.
+
+b5 (redrawn lines, no rule flags):
+  fine-tune  am 87.5 / 66.7  cov 0.111 -> 0.302 OFF   pm 67.8 / 33.3  cov 0.130 -> 0.303 OFF
+  large      am 79.6 / 58.3  cov 0.122 -> 0.240 OFF   pm 72.7 / 45.8  cov 0.146 -> 0.263 OFF
+Scores identical again — the channel is still off — but the lines
+now WORK: on the large-detector morning, full gate journeys 134 ->
+450, born-inside-all 72% -> 52%; on the fine-tune morning full
+journeys 783 and born-inside 33%. Raw crossings: W in 748 / 1,543,
+E out 1,625 / 1,385, S in 571 / 894. The operating rule does what it
+was meant to; the remaining gate between the lines and the counts is
+the ACTIVATION BAR (0.45), a corridor constant, with FM51 at
+0.24-0.30 under it.
