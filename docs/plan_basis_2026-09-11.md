@@ -391,3 +391,13 @@ alongside as the blank-site witness. If it passes, the joint default
 (large basis + fracture rule) ships; if cam3's -5.2 under the large
 basis does not close, the rule is judged on the CURRENT basis next
 (d17) before anything ships.
+
+### cam4 fracture-pair reel (d16 diagnosis), operator rulings (2026-09-11)
+
+d16 on cam4 1600: the rule merged 423 pairs (371 S->N through), and
+NB_thru went 2480 (+41 vs Mio) -> 2109 (-330). Either the pairs are two
+vehicles (rule wrong on cam4) or one vehicle each and ~330 real NB
+vehicles are missing elsewhere behind the duplicates. Reel of five
+S->N pairs (frac4): orange enters over S and dies within a second,
+cyan born 0.2 s later within 0.2-0.6 box lengths and exits over N.
+  clip 1 (52836 / 52841, gap 0.2 s, 0.19 box): "same vehicle."
