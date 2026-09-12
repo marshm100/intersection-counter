@@ -401,3 +401,4 @@ vehicles are missing elsewhere behind the duplicates. Reel of five
 S->N pairs (frac4): orange enters over S and dies within a second,
 cyan born 0.2 s later within 0.2-0.6 box lengths and exits over N.
   clip 1 (52836 / 52841, gap 0.2 s, 0.19 box): "same vehicle."
+  clip 2 (48736 / 48741, gap 0.2 s, 0.25 box): "same vehicle."
