@@ -161,6 +161,34 @@ the few population-sensitive constants (activation bar, straight-
 fragment bounds, corner pair / truncation windows), each a fleet arm,
 declared one at a time.
 
-## G-DEF-8 verdict
+## G-DEF-8 verdict (recorded 2026-09-11): MISS on the letter, and the picture is now sharp
 
-(to be recorded)
+  window       current   large   delta
+  cam3 0600     87.6     82.4    -5.2   (its fine-tune beats the large model; unchanged from G-DEF-5)
+  cam4 0700     71.1     75.0    +3.9
+  cam4 1100     74.5     82.0    +7.5
+  cam4 1600     75.4     78.6    +3.2   (was -7.3 under the old bar: the channel now on)
+  cam5 0700     73.3     69.2    -4.1   (channel newly on with the large basis)
+  cam5 1100     71.4     73.1    +1.7
+  cam5 1600     68.9     69.2    +0.3
+  cam1 / cam2   unchanged (already the large basis)
+  FLEET 76.97 -> 77.58 (+0.61); cam4 +4.9, cam5 -1.0, cam3 -5.2.
+  Two windows fall > 3.0 (cam3, cam5 0700). MISS on the letter; PASS
+  on the fleet mean for the first time.
+
+What the joint view shows: the bar was indeed the coupling — cam4
+1600 swings from -7.3 to +3.2 once its channel activates — and with
+it the large basis is now a fleet-positive default that loses on
+exactly two windows: cam3, whose corridor fine-tune is a better
+detector for cam3 (a per-camera fact, not a rule), and cam5 0700,
+where the newly-on channel hurts (+4.1 loss; the same window lost 5
+under the fine-tune too). cam4 gains 4.9 — the camera the pixel floor
+hurt most.
+
+Step 2 (the sweep) is now a narrow question, not a day per candidate:
+on the large basis, which of the population-sensitive constants moves
+cam5 0700 and cam3 without moving cam4 back? Candidates, one fleet
+arm each on the existing l1 dumps: STRAIGHT_FRAGMENT bounds (cam5's
+far-field fragments), the u-turn admission constants (cam3 SB_thru
++767 came with SB_uturn 25 -> 2), the corner-pair window. Declared
+one at a time; the dumps are on disk; ~20 min per arm.
