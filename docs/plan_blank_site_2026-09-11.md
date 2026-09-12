@@ -270,3 +270,23 @@ scores by construction). PASS = the G-DEF-1 letter on the corridor
 (fleet rises or holds within noise; neither window falls > 3.0) AND
 FM51's b6 table stands. Ship = the constant changes in config; cam4
 1600 / cam5 0700 reprocessed; FM51 stays unshipped (test site).
+
+## G-BAR-1 result (recorded 2026-09-11)
+
+d13, bar 0.20, the corridor's two sub-bar windows now activating:
+  cam4 1600   78.0 -> 75.4 (-2.6)   approach 62.5 -> 62.5   NB_thru 2391 -> 2588 (Mio 2439), EB_left 38 -> 14 (Mio 29), SB_right 117 -> 133 (Mio 39)
+  cam5 0700   72.0 -> 73.3 (+1.3)   approach 46.9 -> 31.2   SB_thru 1746 -> 2046 (Mio 1868), WB_right 82 -> 11 (Mio 23), EB_right 113 -> 91 (Mio 188)
+  the other ten windows are already ON and cannot change.
+  FLEET 77.08 -> 76.97 (-0.11): flat within noise; no window falls > 3.
+FM51 (b6) with the same bar: +4.4 / +11.5 / 0 / +7.3 movement,
++16.6 / +16.7 / -4.1 / +4.2 approach.
+
+Against the letter: the corridor holds within noise (-0.11) and no
+window falls > 3.0; FM51's table stands. PASS on the letter. The
+honest shape: a corridor-neutral change whose entire benefit is on
+the blank site — which is what the prime directive asks for. Cost on
+the corridor: cam4 1600 -2.6 (its SB_right phantom class grows again
+117 -> 133 with the channel on) and cam5 0700's approach bar halves
+while its movement bar rises 1.3. Ship = EVIDENCE_ACTIVATION_COVERAGE
+0.45 -> 0.20 in config; reprocess cam4 1600 and cam5 0700; FM51 stays
+a test site (its lines are his, its counts are not shipped).
