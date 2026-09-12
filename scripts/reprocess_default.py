@@ -1,16 +1,18 @@
-"""REPROCESS THE FLEET UNDER THE DEFAULT (operator go 2026-09-10).
+"""REPROCESS THE FLEET UNDER THE DEFAULT (operator go 2026-09-10; re-run
+2026-09-11 for G-DEF-4 and 2026-09-12 for the fracture rule).
 
-G-DEF-1 passed and the four rules now default ON in backend/config.py.
+The counting rules default ON in backend/config.py (six since 2026-09-12).
 This applies the default to all 12 production windows so the live
 standings ARE the default's. No environment flags are set — that is
 the point. Flow per window = the ship flow (named pre-ship backup once;
 force_once disposition; run_pass2(apply=True) through the apply gate,
 which takes its own backup and rebuilds the worklist). Afterwards:
-event counts per window compared with the G-DEF-1 d1 arm (they must
+event counts per window compared with the arm that passed (they must
 match — same code, same dumps, same flags), and health sidecars
 rewritten for all 12.
 
-Refuses to run if any of the four rules is not ON in the process.
+Refuses to run if any of the rules is not ON in the process, or if any
+is set in the environment.
 """
 from __future__ import annotations
 
@@ -28,7 +30,7 @@ import backend.config as cfg  # noqa: E402
 
 RULES = ("GATE_GROUND_ANCHOR", "STRAIGHT_FRAGMENT_RULE",
          "GATE_EVIDENCE_EITHER_CORNER", "JOURNEY_STATE_MACHINE",
-         "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS")
+         "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS", "FRACTURE_DEDUP")
 assert all(getattr(cfg, r) for r in RULES), "the default is not ON in config"
 import os  # noqa: E402
 assert not any(os.environ.get(r) for r in RULES), \
@@ -45,8 +47,9 @@ WINDOWS = [(1, "study_0700"), (1, "study_1600"),
            (3, "study_0600"),
            (4, "study_0700"), (4, "study_1100"), (4, "study_1600"),
            (5, "study_0700"), (5, "study_1100"), (5, "study_1600")]
-NOTE = "operator go 2026-09-10: reprocess under THE DEFAULT (G-DEF-1 PASS)"
+NOTE = "operator go 2026-09-12: reprocess under THE DEFAULT (fracture rule ON)"
 ARM = Path("data/projects/97a7849a/_replay_scratch/fleet_20260908")
+ARM_STEM = "d17"   # the arm this reprocess must reproduce
 
 
 def main() -> int:
@@ -55,7 +58,7 @@ def main() -> int:
     con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     con.close()
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
-    backup = proj_db.parent / "backups" / f"project_{ts}_pre_default_reprocess_gdef4.db"
+    backup = proj_db.parent / "backups" / f"project_{ts}_pre_default_reprocess_fracture.db"
     shutil.copy2(proj_db, backup)
     print(f"pre-reprocess backup: {backup} ({backup.stat().st_size // 2**20} MB)",
           flush=True)
@@ -71,18 +74,17 @@ def main() -> int:
         act = res.get("evidence_activation") or {}
         gate = res.get("apply_gate") or {}
         arm_events = None
-        st = ARM / "arm" / f"twopass_cam{cam}_{variant}.stats.json"
-        # the d1 arm's working DB is the last one written for this window
-        d1 = ARM / f"d7_cam{cam}_{variant}.db"
-        if d1.exists():
-            c = sqlite3.connect(f"file:{d1}?mode=ro", uri=True)
+        # the arm's working DB for this window
+        arm = ARM / f"{ARM_STEM}_cam{cam}_{variant}.db"
+        if arm.exists():
+            c = sqlite3.connect(f"file:{arm}?mode=ro", uri=True)
             arm_events = c.execute(
                 "SELECT COUNT(*) FROM vehicle_events WHERE camera_id=? AND rejected=0",
                 (cam,)).fetchone()[0]
             c.close()
         print(f"cam{cam} {variant}: applied={res.get('applied')} "
               f"gate={gate.get('decision')} ({','.join(gate.get('reasons', []))}) "
-              f"events={rep.get('events')} (d1 arm db rows {arm_events}) "
+              f"events={rep.get('events')} ({ARM_STEM} arm db rows {arm_events}) "
               f"dropped={rep.get('insufficient_data')} cov={act.get('coverage')} "
               f"{'ON' if act.get('activated') else 'OFF'}  ({time.time() - t:.0f}s)",
               flush=True)
@@ -97,7 +99,7 @@ def main() -> int:
         print(f"  cam{cam} {variant}: {h.get('verdict') if h else 'no signals'}",
               flush=True)
     print("\nDONE. Standings are now the default's; re-score with "
-          "scripts/v2_score_dev.py on the d1_*.db files (production column).",
+          f"scripts/v2_score_dev.py on the {ARM_STEM}_*.db files (production column).",
           flush=True)
     return 0
 

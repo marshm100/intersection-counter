@@ -131,6 +131,7 @@ class TestFractureRule:
         st = fracture_track_dedup(db, 2, _rows(1, A) + _rows(2, B), FPS, gates)
         assert st["fracture_pairs"] == 0 and _kept(db) == {ea, eb}
 
-    def test_default_off(self):
-        assert cfg.FRACTURE_DEDUP is False
+    def test_default_on(self):
+        # default ON since 2026-09-12 (operator go after arm d17)
+        assert cfg.FRACTURE_DEDUP is True
         assert cfg.FRACTURE_GAP_S == 1.0 and cfg.FRACTURE_DIST_BOXES == 1.0

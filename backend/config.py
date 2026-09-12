@@ -459,9 +459,15 @@ COEXISTING_TWIN_DEDUP = _os2.environ.get(
 # earlier half lacks its exit, measured in BOX LENGTHS so the far field
 # and the near field are held to the same test on a blank site.
 # Write-then-reject of the shorter track's event (the twin-dedup
-# pattern; rejected=1, reviewable). Default OFF until G-DEF-9 judges it.
+# pattern; rejected=1, reviewable).
+# DEFAULT ON since 2026-09-12 (operator go after arm d17: fleet 76.97 ->
+# 77.97, nine windows up, two flat; 10/10 ruled pairs one vehicle; cam4
+# 1600 75.4 -> 70.2 accepted by ruling - its old score was ~366
+# duplicate NB throughs cancelling an equal far-field detection deficit
+# that is not in the dump; FM51 b7 +2.0 / 0). Env-overridable
+# (FRACTURE_DEDUP=0 turns it off for an experiment).
 FRACTURE_DEDUP = _os2.environ.get(
-    "FRACTURE_DEDUP", "0") in ("1", "true", "on")
+    "FRACTURE_DEDUP", "1") in ("1", "true", "on")
 FRACTURE_GAP_S = 1.0          # re-birth within this of the death
 FRACTURE_DIST_BOXES = 1.0     # ... within this many box lengths of it
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
