@@ -289,3 +289,6 @@ the clips he actually watched.)
   turn C" and "it is a different vehicle." TWO vehicles, BOTH right
   turns, both booked as throughs. The floor removed one real vehicle;
   neither count was in the right cell.
+  clip 1 (orange 139644 removed / cyan 139655 counted 0.1 s later,
+  both booked S->N through): "two different vehicles making right
+  turns." TWO vehicles, both rights booked as throughs.
