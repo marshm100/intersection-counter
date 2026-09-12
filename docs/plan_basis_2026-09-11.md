@@ -468,3 +468,28 @@ windows alongside (b6 79.6 / 80.0 is the comparison). Whatever d17
 scores, the ship decision on a rule that is correct by ruling but
 costs cam4 1100/1600 by exposing a detection deficit is the
 operator's, and is put to him with both numbers.
+
+## d17 verdict (recorded 2026-09-12): the rule alone is fleet +0.99; one window fails the letter
+
+  window       current   d17     delta
+  cam1 0700     84.0     85.1    +1.1
+  cam1 1600     95.3     95.3    +0.0
+  cam2 0700     75.2     75.2    +0.0
+  cam2 1100     75.7     76.7    +1.0
+  cam2 1600     71.3     68.5    -2.8
+  cam3 0600     87.6     88.5    +0.9   (NB_thru +224 -> +161, SB_thru +266 -> +105)
+  cam4 0700     71.1     73.3    +2.2
+  cam4 1100     74.5     78.7    +4.2   (NB_thru +108 -> -105)
+  cam4 1600     75.4     70.2    -5.2   (NB_thru -48 -> -414: the exposed deficit)
+  cam5 0700     73.3     79.0    +5.7
+  cam5 1100     71.4     73.3    +1.9
+  cam5 1600     68.9     71.8    +2.9
+  FLEET 76.97 -> 77.97 (+0.99). Cameras: cam1 +0.55, cam2 -0.60,
+  cam3 +0.90, cam4 +0.40, cam5 +3.50. Letter: fleet rises, no camera
+  past -1.0, ONE window past -3.0 (cam4 1600). MISS by that window.
+  FM51 b7: +2.0 / 0. Rulings: 10/10 pairs one vehicle.
+
+The ship decision is the operator's: the rule is correct by his own
+rulings and lifts nine windows, holds two, and costs one (cam4 1600)
+by removing duplicates that had been masking a far-field detection
+deficit already closed as instrument-limited. Put to him 2026-09-12.
