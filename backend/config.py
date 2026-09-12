@@ -492,8 +492,11 @@ TRAJECTORY_THROUGH_MAX_ANGLE = 25
 TRAJECTORY_TURN_MIN_ANGLE = 35
 TRAJECTORY_TURN_MAX_ANGLE = 135
 TRAJECTORY_UTURN_MIN_ANGLE = 135
-TRAJECTORY_MIN_POINTS = 5
-TRAJECTORY_MIN_DISTANCE_PX = 50
+# Env-overridable since 2026-09-11 for the G-DEF-8 step-2 sweep on the
+# large basis (the floors that decide which short tracks count at all;
+# the detector population sits right on them). Defaults unchanged.
+TRAJECTORY_MIN_POINTS = int(_os.environ.get("TRAJECTORY_MIN_POINTS", "5"))
+TRAJECTORY_MIN_DISTANCE_PX = float(_os.environ.get("TRAJECTORY_MIN_DISTANCE_PX", "50"))
 TRAJECTORY_CURVATURE_THRESHOLD = 40  # cumulative curvature tiebreaker for ambiguous zone
 # A real U-turn vehicle traverses the intersection and ends a meaningful distance
 # from where it entered. A trajectory that classifies as a U-turn (>=135° net

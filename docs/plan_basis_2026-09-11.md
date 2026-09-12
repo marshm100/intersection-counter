@@ -192,3 +192,19 @@ arm each on the existing l1 dumps: STRAIGHT_FRAGMENT bounds (cam5's
 far-field fragments), the u-turn admission constants (cam3 SB_thru
 +767 came with SB_uturn 25 -> 2), the corner-pair window. Declared
 one at a time; the dumps are on disk; ~20 min per arm.
+
+## G-DEF-8 step 2, arm d15 (declared before scoring): the distance floor on the large basis
+
+The constants that decide whether a short track is counted at all:
+TRAJECTORY_MIN_POINTS = 5 and TRAJECTORY_MIN_DISTANCE_PX = 50 (a track
+below either is dropped as insufficient_data). The large detector
+hands the counter more far-field fragments near those floors, and
+the two losing windows (cam3 SB_thru +767, cam5 0700 NB_left 417 ->
+521) are posterior completions of such fragments. d15 = the large
+basis everywhere (cam1/cam2 study_*, cam3/4/5 l1_*) with
+TRAJECTORY_MIN_DISTANCE_PX 50 -> 100, all other defaults as shipped.
+PASS = the G-DEF-1 letter against 76.97 over 12 windows. If cam4's
+gain survives and cam3/cam5 recover, the joint default is
+(large basis, floor 100); if cam4 gives its gain back, the floor is
+not the coupling and the next constant is the straight-fragment
+bounds.
