@@ -433,3 +433,12 @@ the next question. If they are two vehicles, the constants are wrong
 for cam4's near field and the box unit is not the invariant.
   clip 3 (48040 / 48042, gap 0.2 s, 0.30 box): "same vehicle."
   clip 4 (64097 / 64105, gap 0.2 s, 0.40 box): "same vehicle."
+  clip 5 (60035 / 60043, gap 0.4 s, 0.63 box, neither crossed a line):
+  "same vehicle."
+
+  TALLY: 5/5 same vehicle. THE FRACTURE RULE IS RIGHT ON cam4. Its
+  pre-rule NB_thru agreement (1544 vs 1546; 2480 vs 2439) was
+  duplicates cancelling an equal number of MISSED northbound vehicles;
+  the rule removes the duplicates and exposes the deficit (-130 and
+  -330). The deficit is now the question: where are cam4's missing
+  NB vehicles?
