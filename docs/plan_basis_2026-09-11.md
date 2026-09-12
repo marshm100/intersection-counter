@@ -339,3 +339,6 @@ class already ruled on clips 2 and 3.
   A duplicate count. The earlier clip 1-5 rulings were given during a
   clip-numbering mix-up and are to be re-confirmed one clip at a
   time before anything is built on them.
+  clip 2, RE-RULED (supersedes): "two different vehicles through
+  movements." TWO vehicles, both throughs. The floor removed a real
+  through.
