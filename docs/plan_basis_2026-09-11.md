@@ -298,3 +298,27 @@ the clips he actually watched.)
   vehicles. Cyan: a right booked as a through. Orange: a queued S->W
   vehicle whose track is stolen by N->S through traffic (theft class,
   docs/plan_theft_2026-09-11.md) and booked S->N through.
+  clip 3 (orange 131179 removed / cyan 131119 counted 9 s earlier,
+  near field, both booked S->N through): "O is a S to W queued
+  vehicle that gets stolen from N to S through traffic. C is a right
+  hand turn." TWO vehicles. Same anatomy as clip 2.
+
+  Tally, five clips: 0/5 fractures. Every counted (cyan) track is a
+  RIGHT turn booked as a through (5/5). The removed (orange) tracks:
+  two rights (1, 5), one real through (4), two queued S->W vehicles
+  stolen by N->S through traffic (2, 3). The 100 px floor raised
+  cam5's score by deleting real vehicles that were sitting in the
+  wrong cell - a lucky error, not a fix. cam5's large-basis through
+  overcount is MISCLASSIFIED RIGHTS plus theft, not fragmentation.
+
+How the five ruled rights were booked (d14 DB + crossing ledger):
+four of five are GATE-FULL S->N journeys - both corners IN over the S
+line, then OUT over the N line's upper end near (21,234) - with net
+heading change +16 to +17 deg and straightness 1.00; the fifth
+(131119) crossed nothing and went posterior to S->N. Their paths run
+from about (445,180) left along the top of the frame to the left
+edge, passing BELOW the E gate segment ((127,211)-(247,188)) without
+touching it, then out over N. The classifier saw 16 deg of turn (its
+through band is 25); the gate channel saw S in, N out; the label
+S->N is 'through' by cardinal geometry. Still for the operator:
+screenshots/cam5_rights_as_through.png.
