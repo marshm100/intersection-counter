@@ -51,7 +51,15 @@ def main() -> int:
             side_s = src_pq.with_name(src_pq.stem + ext)
             side_d = dst_pq.with_name(dst_pq.stem + ext)
             if side_s.exists() and not side_d.exists():
-                os.link(side_s, side_d)
+                try:
+                    os.link(side_s, side_d)
+                except OSError:
+                    try:
+                        import shutil
+                        shutil.copy2(side_s, side_d)
+                    except OSError as e:
+                        print(f"  (sidecar {side_s.name} skipped: {e})",
+                              flush=True)
         rec_dt = datetime.fromisoformat(rec)
         t0 = datetime.fromisoformat(f"{rec_dt.date().isoformat()}T{hms}")
         f_lo = int((t0 - rec_dt).total_seconds() * fps)

@@ -104,6 +104,15 @@ def main() -> int:
             for cur in curves:                     # the SB-right corridor
                 cv2.polylines(img, [cur.astype(np.int32)], False,
                               (200, 0, 200), 1, cv2.LINE_AA)
+            # trailing PATHS (operator: boxes without paths read as
+            # path-creation failure) — black-cased bright polyline
+            recent = trk[(trk[:, 1] <= f) & (trk[:, 1] > f - 25)]
+            for t in np.unique(recent[:, 0]):
+                past = trk[(trk[:, 0] == t) & (trk[:, 1] <= f)][-50:]
+                if len(past) > 1:
+                    pts_ = past[:, 2:4].astype(np.int32)
+                    cv2.polylines(img, [pts_], False, BLACK, 4, cv2.LINE_AA)
+                    cv2.polylines(img, [pts_], False, BLUE, 2, cv2.LINE_AA)
             live = trk[(trk[:, 1] <= f) & (trk[:, 1] > f - 3)]
             for r in live:
                 cx, cy, bw, bh = r[2], r[3], r[4], r[5]
@@ -123,8 +132,8 @@ def main() -> int:
                         f"Miovision 69, we counted 33",
                         (8, 17), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
                         (230, 230, 230), 1, cv2.LINE_AA)
-            cv2.putText(strip, "BLUE box = tracked   YELLOW dot = detected,"
-                        " never tracked   nothing = invisible to us",
+            cv2.putText(strip, "BLUE box+path = tracked vehicle and its path   "
+                        "YELLOW dot = detected, never tracked",
                         (8, 36), cv2.FONT_HERSHEY_SIMPLEX, 0.4,
                         (180, 180, 180), 1, cv2.LINE_AA)
             frames.append(np.vstack([img, strip]))

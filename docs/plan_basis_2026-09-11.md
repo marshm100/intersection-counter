@@ -272,3 +272,11 @@ full frame): cam5 five removed throughs each with its sequential
 counted partner (frag5_a/b); cam1 five removed rights the same way
 (frag1_a/b/c). Question per clip: one vehicle fractured, or two
 vehicles. The next constant is declared after the ruling.
+
+### cam5 fragment-pair reel, operator rulings (2026-09-11)
+
+  clip 1 (orange 139644 removed / cyan 139655 counted, both booked
+  S->N through): "clip 1 is a clean right turn C and exited through
+  vehicle traffic O." TWO vehicles. The counted cyan track is a RIGHT
+  turn booked as a through; the removed orange track is a real
+  through that exited. The floor removed a real vehicle here.

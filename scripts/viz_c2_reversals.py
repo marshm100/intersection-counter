@@ -9,7 +9,7 @@ This films those, spanning entry crossing -> exit crossing (the
 pertinent journey only, not the whole track life), with both bottom
 corners drawn and the crossing frames annotated.
 
-Read-only. Writes screenshots/c2_reversal_{n}.gif
+Read-only. Writes screenshots/c2_sample_{n}.gif
 """
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def main() -> int:
         leg_gates={lg: g["gate"] for lg, g in geom.items() if g.get("gate")})
 
     s = sqlite3.connect(f"file:{STEM}?mode=ro", uri=True)
-    cands = [(t, "EB") for t in (17428, 17526, 18607)]
+    cands = [(t, "EB") for t in (16722, 17168, 17744, 18375)]
     s.close()
 
     td = tracks_dir(parquet_path(PROJ, CAM, chash, VARIANT))
@@ -138,7 +138,7 @@ def main() -> int:
         if len(frames) < 8:
             continue
         made += 1
-        out = Path(f"screenshots/c2_reversal_{made}.gif")
+        out = Path(f"screenshots/c2_sample_{made}.gif")
         q = [f.quantize(72, dither=Image.Dither.NONE) for f in frames]
         q[0].save(out, save_all=True, append_images=q[1:], optimize=True,
                   duration=int(1000 * STEP / fps), loop=0)
