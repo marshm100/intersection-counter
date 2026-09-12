@@ -431,3 +431,4 @@ duplicates cancelling an equal number of missed vehicles, and the
 rule is right while the score says wrong; the missing vehicles become
 the next question. If they are two vehicles, the constants are wrong
 for cam4's near field and the box unit is not the invariant.
+  clip 3 (48040 / 48042, gap 0.2 s, 0.30 box): "same vehicle."
