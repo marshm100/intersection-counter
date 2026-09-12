@@ -322,3 +322,11 @@ touching it, then out over N. The classifier saw 16 deg of turn (its
 through band is 25); the gate channel saw S in, N out; the label
 S->N is 'through' by cardinal geometry. Still for the operator:
 screenshots/cam5_rights_as_through.png.
+
+Operator on the still of the five cyan paths (2026-09-11): "These
+all look like through traffic." The still (track paths) and the reel
+(the vehicle in the ring, ruled a right) disagree for the same five
+tracks. Unresolved until he says which vehicle in the reel was the
+right-turner; a track path that reads through while the ringed
+vehicle turned right would mean the box changed vehicles (theft), the
+class already ruled on clips 2 and 3.
