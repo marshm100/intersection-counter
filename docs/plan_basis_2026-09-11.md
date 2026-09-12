@@ -241,3 +241,34 @@ basis, cam5 0700 +12.0), so the large basis plus a fragment rule that
 does not use pixels is still the live candidate. Next constant,
 declared when armed: the straight-fragment bounds, or a floor in a
 camera-invariant unit (gate widths, or seconds of travel), one arm.
+
+## After d15: the time floor is dead before arming; the removed population, measured (2026-09-11)
+
+Census (scripts/census_short_tracks.py): the 50-100 px tracks live the
+same length on every camera (median 3.3 s on cam1 and cam5; 24% under
+2 s on both). A floor in seconds separates nothing. Not armed.
+
+What the 100 px floor removed (scripts/census_d15_removed.py,
+census_twin_stats.py, census_sequential_partner.py), cam1 1600 vs cam5
+1600 large basis:
+  - cam1: 207 events (144 through, 57 right); cam5: 520 (329 through,
+    149 left). Same physical population on both: 75 px of path, mid-
+    frame queue positions, far-field boxes (cam5 11-21 px).
+  - NOT coexisting twins: median IoU with any overlapping survivor is
+    0.00 on both cameras; the twin dedup was right to leave them.
+  - Every one has a SEQUENTIAL survivor born or dying at the same spot
+    within 50 s (median 8-10 px, 0.25 box lengths) - a queue position.
+    In box units the closest cam5 through pairs sit at gap < 1 s and
+    dist/box < 1 (a track break and re-birth); the cam1 right pairs
+    sit at dist/box 1.5-2.4 (a queue neighbour). That is the only
+    measurable difference found, and it needs eyes before it is a rule.
+  - cam1's loss under the floor was EB_right 497 -> 448 (Mio 497) and
+    NB_left 230 -> 206 (Mio 229): real turns whose only record was a
+    short track; plus WB_thru 9 -> 36 (Mio 3), a reclassification not
+    yet explained.
+
+Reels for the operator's ruling (scripts/viz_fragment_pair_reel.py,
+full frame): cam5 five removed throughs each with its sequential
+counted partner (frag5_a/b); cam1 five removed rights the same way
+(frag1_a/b/c). Question per clip: one vehicle fractured, or two
+vehicles. The next constant is declared after the ruling.
