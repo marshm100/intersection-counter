@@ -402,3 +402,32 @@ S->N pairs (frac4): orange enters over S and dies within a second,
 cyan born 0.2 s later within 0.2-0.6 box lengths and exits over N.
   clip 1 (52836 / 52841, gap 0.2 s, 0.19 box): "same vehicle."
   clip 2 (48736 / 48741, gap 0.2 s, 0.25 box): "same vehicle."
+
+## d16 verdict (recorded 2026-09-11): MISS on the letter, fleet-positive
+
+  window       current   d16     delta      (d14 = large basis alone)
+  cam1 0700     84.0     85.1    +1.1       (84.0)
+  cam1 1600     95.3     95.3    +0.0       (95.3)
+  cam2 0700     75.2     75.2    +0.0       (75.2)
+  cam2 1100     75.7     76.7    +1.0       (75.7)
+  cam2 1600     71.3     68.5    -2.8       (71.3)
+  cam3 0600     87.6     82.6    -5.0       (82.4)  the large-basis loss, rule +0.2
+  cam4 0700     71.1     79.2    +8.1       (75.0)  rule +4.2
+  cam4 1100     74.5     74.0    -0.5       (82.0)  rule -8.0: NB_thru 1544 -> 1416 (Mio 1546)
+  cam4 1600     75.4     69.6    -5.8       (78.6)  rule -9.0: NB_thru 2480 -> 2109 (Mio 2439)
+  cam5 0700     73.3     73.1    -0.2       (69.2)  rule +3.9
+  cam5 1100     71.4     76.9    +5.5       (73.1)  rule +3.8
+  cam5 1600     68.9     73.1    +4.2       (69.2)  rule +3.9
+  FLEET 76.97 -> 77.44 (+0.47); vs the large basis alone 77.58 (-0.14).
+  cam3 -5.0 and cam4 1600 -5.8 fail the letter. MISS.
+
+The rule does what it was built for on cam5 (+3.8 to +3.9 on all
+three windows over the large basis) and on cam4 0700 (+4.2), and it
+costs cam4 1100/1600 8-9 points by removing 130-370 NB throughs per
+window from cells that stood within 41 of Miovision. The operator is
+ruling the cam4 pairs now (clips 1-2 so far: same vehicle). If the
+cam4 pairs are one vehicle each, the pre-rule NB_thru agreement was
+duplicates cancelling an equal number of missed vehicles, and the
+rule is right while the score says wrong; the missing vehicles become
+the next question. If they are two vehicles, the constants are wrong
+for cam4's near field and the box unit is not the invariant.
