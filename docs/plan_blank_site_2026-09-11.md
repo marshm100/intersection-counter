@@ -290,3 +290,24 @@ the corridor: cam4 1600 -2.6 (its SB_right phantom class grows again
 while its movement bar rises 1.3. Ship = EVIDENCE_ACTIVATION_COVERAGE
 0.45 -> 0.20 in config; reprocess cam4 1600 and cam5 0700; FM51 stays
 a test site (its lines are his, its counts are not shipped).
+
+## SHIPPED — the activation bar 0.45 -> 0.20 (operator go 2026-09-11: "yes plan it out")
+
+backend/config.py EVIDENCE_ACTIVATION_COVERAGE default 0.20 (commit
+d8d839b); 1216 green. Backup pre_ship_bar020; cam4 1600 and cam5 0700
+reprocessed under the default (force_once, apply); production ==
+the d13 arm on both. Corridor standings: cam1 84.0 / 95.3 | cam2
+75.2 / 75.7 / 71.3 | cam3 87.6 | cam4 71.1 / 74.5 / 75.4 | cam5 73.3 /
+71.4 / 68.9; FLEET 76.97. FM51 stays a held-out test site with his
+lines saved; its counts are not shipped. CLAUDE.md carries the blank-
+site calibration rule.
+
+## WHERE THIS LEAVES THE PRIME DIRECTIVE (2026-09-11)
+
+A blank intersection now gets: the five counting rules, the state
+machine, ruled-quality headings by the operator's arrow, and an
+evidence channel that activates once its lines sit where its vehicles
+are tracked. On the one site the rules never saw, that is 91.9 / 79.3
+against a pre-week 87.5 / 67.8. What a blank site does NOT yet get: a
+detection basis chosen with the rules (G-DEF-5/6), the theft class,
+or sub-20-px vehicles.
