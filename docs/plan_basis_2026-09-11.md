@@ -346,3 +346,5 @@ class already ruled on clips 2 and 3.
   clip two, I over reacted it is one vehicle through traffic." ONE
   vehicle, a through, fractured into two tracks 0.7 s apart, both
   counted S->N through. A duplicate count (same anatomy as clip 1).
+  clip 3, RE-RULED (supersedes): "clip 3 is two vehcles through
+  traffic." TWO vehicles, both throughs; the floor removed a real one.
