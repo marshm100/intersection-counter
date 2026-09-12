@@ -208,3 +208,36 @@ gain survives and cam3/cam5 recover, the joint default is
 (large basis, floor 100); if cam4 gives its gain back, the floor is
 not the coupling and the next constant is the straight-fragment
 bounds.
+
+## d15 verdict (recorded 2026-09-11): MISS, and the floor is camera-dependent
+
+  window       current   d15     delta
+  cam1 0700     84.0     75.7    -8.3
+  cam1 1600     95.3     86.9    -8.4   (NB_thru 2119 -> 2036, SB_thru 2547 -> 2480, EB_right 497 -> 448: real short tracks removed)
+  cam2 0700     75.2     67.6    -7.6
+  cam2 1100     75.7     74.5    -1.2
+  cam2 1600     71.3     59.8   -11.5
+  cam3 0600     87.6     88.7    +1.1   (recovers its G-DEF-8 loss of 5.2 and passes the current default)
+  cam4 0700     71.1     71.1    +0.0
+  cam4 1100     74.5     74.5    +0.0   (cam4's G-DEF-8 gain of +4.9 is gone: the floor removes what the large basis added)
+  cam4 1600     75.4     75.9    +0.5
+  cam5 0700     73.3     81.2    +7.9
+  cam5 1100     71.4     82.7   +11.3
+  cam5 1600     68.9     81.4   +12.5   (SB_thru 3110 -> 2862, NB_thru 2372 -> 2203: far-field phantom fragments removed)
+  FLEET 76.97 -> 76.67 (-0.30). MISS: two cameras fall past -1.0 and
+  four windows past -3.0.
+
+Reading: a pixel floor is not one rule, it is five. On cam5 (high,
+far camera) a 100 px floor cuts only the far-field fragments that the
+large detector phantoms into NB/SB throughs, and the camera gains
+8-12 per window; on cam1 and cam2 (low, near cameras) the same 100 px
+is a real vehicle's short but complete journey, and the cameras lose
+8-12. cam4 gives back its whole G-DEF-8 gain, so per the declared
+text the floor is NOT the coupling. The distance floor stays at 50.
+
+What d15 does establish for item 1: the two losing windows of G-DEF-8
+were both fragment populations (cam3 recovers +6.3 against the large
+basis, cam5 0700 +12.0), so the large basis plus a fragment rule that
+does not use pixels is still the live candidate. Next constant,
+declared when armed: the straight-fragment bounds, or a floor in a
+camera-invariant unit (gate widths, or seconds of travel), one arm.
