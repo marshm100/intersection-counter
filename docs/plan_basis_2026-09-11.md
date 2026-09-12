@@ -136,3 +136,31 @@ site is a joint change (detector + rules re-derived on that detector),
 a day of GPU per candidate plus the rules loop; not a single arm. The
 corridor's mixed bases stay. Nothing shipped; the default stands at
 77.08.
+
+## G-DEF-8 (declared 2026-09-11, before any scoring): THE BASIS UNDER TODAY'S DEFAULT
+
+Operator: item 1 — the detection basis chosen together with the rules.
+G-DEF-5 (large everywhere, 76.74) and G-DEF-6 (fine-tune everywhere,
+57.7) were scored under the old activation bar (0.45). The bar is now
+0.20 (G-BAR-1), and it was the corridor constant most tied to the
+detection population: on the large basis cam4 1600 (0.43) and cam5
+0700 (0.42) sat under 0.45 and now activate. Step 1 of the joint
+question is therefore free: re-score the large basis on all 12
+windows under today's default (five rules, ruled headings, bar 0.20)
+against the current fleet 76.97. FM51's large-basis numbers under the
+same bar exist already (b6: 79.6 / 80.0).
+
+Arm d14: cam3 l1_study_0600, cam4 l1_x3, cam5 l1_x3 (cam1 and cam2
+are already on the large basis; their d7 scores stand). PASS = the
+G-DEF-1 letter against 76.97 over all 12; FM51 reported alongside.
+Ship = the corridor project's processing mode becomes "accurate" (the
+new-project default) and the l1 dumps are promoted; the counting
+default is unchanged.
+If it misses, step 2 is a per-constant sweep on the large basis of
+the few population-sensitive constants (activation bar, straight-
+fragment bounds, corner pair / truncation windows), each a fleet arm,
+declared one at a time.
+
+## G-DEF-8 verdict
+
+(to be recorded)
