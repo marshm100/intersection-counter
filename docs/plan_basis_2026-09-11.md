@@ -348,3 +348,5 @@ class already ruled on clips 2 and 3.
   counted S->N through. A duplicate count (same anatomy as clip 1).
   clip 3, RE-RULED (supersedes): "clip 3 is two vehcles through
   traffic." TWO vehicles, both throughs; the floor removed a real one.
+  clip 4, RE-RULED (supersedes): "clip 4 is 2 vehicles through
+  traffic." TWO vehicles, both throughs; the floor removed a real one.
