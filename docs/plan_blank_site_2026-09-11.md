@@ -311,3 +311,13 @@ are tracked. On the one site the rules never saw, that is 91.9 / 79.3
 against a pre-week 87.5 / 67.8. What a blank site does NOT yet get: a
 detection basis chosen with the rules (G-DEF-5/6), the theft class,
 or sub-20-px vehicles.
+
+## b7 (2026-09-12): THE FRACTURE RULE on the blank site
+
+Same setup as b6's large-basis rows (his redrawn lines, bar 0.20,
+channel ON, l1 dumps) plus FRACTURE_DEDUP=1:
+                      b6 large (rule off)   b7 large (rule ON)
+  am                  79.6 / 54.2           81.6 / 54.2   (+2.0 / 0)
+  pm                  80.0 / 50.0           80.0 / 50.0   (0 / 0)
+The witness does not object: the rule gains on one blank-site window
+and is neutral on the other. (G-DEF-9, docs/plan_basis_2026-09-11.md.)
