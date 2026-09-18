@@ -174,7 +174,8 @@ def main() -> int:
             for pref in ("v2a_", "v2b_", "v2c_", "v2d_", "v2e_", "v2f_"):
                 variant = variant.replace(pref, "")
             # any other basis tag (l1_, eg_, ft2_ ...) names the same window
-            variant = re.sub(r"^[a-z0-9]+_(?=study_)", "", variant)
+            # (stacked tags too: pr_l1_study_0700 -> study_0700)
+            variant = re.sub(r"^(?:[a-z0-9]+_)+(?=study_)", "", variant)
             blob = {"camera": cam,
                     "events": events_from_db(path, cam, site)}
         else:

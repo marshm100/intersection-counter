@@ -537,3 +537,733 @@ FRACTURE_DEDUP; bar 0.20. CLAUDE.md, scripts/fleet_flags.py `_ALL`
 and memory carry 77.97. Next candidate: whatever closes cam4 1600's
 NB far-field deficit is a DETECTION question (the vehicles were never
 tracked), not a counting one; declared before scoring, one arm at a time.
+
+## cam4 NB deficit — the census (2026-09-12, after the fracture rule shipped)
+
+Operator: "yes sure" to opening cam4 1600's NB question as the next arm.
+The ledger had called it a DETECTION question (the vehicles "never
+tracked"). Measured tracker-independently, it is not: the detector sees
+every northbound vehicle; the TRACKER births the nearest lane late and
+in pieces.
+
+Instrument (scripts/probe_cam4_nb_crosssection.py): deduped raw
+detections (class-agnostic NMS 0.6, conf >= 0.25) greedy-linked into
+chains; distinct chains and distinct pass-1 tracks crossing vertical
+cross-sections rightward (NB = S->N travels left to right, near field
+to the vanishing point at the right). Per window:
+
+  window     Mio NB_thru   chains x=200   chains x=550   tracks x=300   counted S->N
+  cam4 0700     2713          2317           2708           2098           2462
+  cam4 1100     1546          1333           1564           1287           1441
+  cam4 1600     2439          1966           2412           1712           2025
+
+The detector's chains match Miovision within 1% at the FAR end on all
+three windows; at the NEAR end they run 14-20% short, the tracker 17-30%.
+
+Where the far-only chains begin (scripts/probe_cam4_nb_emergence.py,
+1600): of 2486 chains crossing x=550, 469 begin past x=350 — median
+first box 215 px wide, median first y 478 = the BOTTOM EDGE of the
+480-px frame, median conf 0.36. The nearest NB lane enters the picture
+over the bottom edge at x 350-520 (frame strips screenshots/
+cam4_study_1600_emergence_{1..4}.png), never over the S line at x~150.
+0700: 454 such entrances. Per 15-min bin they track the deficit (1600:
+[60,61,64,49,77,54,59,45] entrances vs [43,52,43,42,78,56,51,49] short).
+
+What the tracker does with them (coverage, 1600): 64 never covered by
+any track; 405 covered — first at the chain's 3rd hit (median), i.e.
+x 500-600 with the box already down to 130 px; 328 by a track born
+there, 77 by an OLDER track (id hand-off; 20 of those carry a counted
+N->S: a southbound id continuing on the northbound car).
+
+Why they leave no event (scripts/census_cam4_edge_births_pass2.py,
+pass-2 replayed apply=False with finalize instrumented): the covering
+tracks are 5 points / 46 px of travel at the median (p25: 2 pts / 21
+px). 139 get origin S and die at insufficient_data (destination), 105
+get no origin, 39 have <2 points, 14 take origin N. 56 of 469 end in a
+counted S->N. Corridor-wide in that window: 554 NB-bearing tracks with
+no event, 415 of them origin-S insufficient_data, 192 born at the
+bottom edge with a 200-px box.
+
+Mechanism: at 10 fps a vehicle in the nearest lane, receding toward the
+vanishing point, shrinks 220 -> 50 px within a second or two; sv
+ByteTrack's IoU association loses it repeatedly (the far-field
+fragments born at x 500-550, 53 px, 660 of them, are its pieces), so no
+piece carries origin and destination, and the short near piece drops.
+The blank site FM 51 runs the same default recipe (bytetrack, buffer
+1.0, activation 0.25, match 0.8); cam3 alone runs a buffered IoU (1.3).
+Logs: runs/v2_week1/probe_cam4_nb_xs_study_*.log,
+probe_cam4_nb_emergence_*.log, census_cam4_edge_births_pass2_1600.log.
+Note for any pass-1 candidate: run_pass1 writes the INFLATED boxes to
+the dump when bbox_buffer != 1, so a buffer moves pass-2 geometry
+(bottom-centre, box-length unit) as well as the association.
+
+### Where the near-lane vehicle is lost, step by step (2026-09-12, instruments on cam4 1600)
+
+Death points (scripts/probe_cam4_nb_death_point.py, frames in
+screenshots/cam4_1600_death_points.png, cam4_nf1600_death_points.png):
+the near piece's tracker box at death is a huge, wrong box (Kalman state
+poisoned by the birth from a frame-edge-clipped strip: wide and short,
+then suddenly tall); the next frame's tight detection (conf 0.6-0.9)
+overlaps it at 0.16-0.25, and supervision ByteTrack refuses it — 180 of
+241 mid-frame deaths fall to its score fusion (IoU x conf < 0.2), the
+rest to geometry. With fusion off (TRACKER_FUSE_SCORE=0, built today,
+default ON, 1229 tests green; scratch dump nf_study_1600): 460 of 469
+entrances covered, first at the chain's 2nd hit, but the pieces stay
+short and 82 (not 56) end in a counted S->N. Buffered IoU 1.5
+(bb15_study_1600): 103. Neither closes it alone.
+
+The chains show the vehicle's whole life: enters over the bottom edge
+at x~440 (215 px), recedes along the road and ENDS at x~628, y~297 in a
+14-px box — at the vanishing point, ABOVE the drawn N line (only 6%
+end below it). So every bottom-edge vehicle does pass the N line; it
+passes it UNTRACKED, in the gap between the near piece's death (x 520-
+600, box 100+) and a far piece's birth (15-50 px, y~300, already above
+the line). The far pieces then crawl to the vanishing point: 333 NB-
+bearing tracks with no counted event die at x>=600, y~301, box 15 px;
+pass 2 (census_cam4_edge_births_pass2.py, instrumented) drops 483 such
+origin-S tracks at the DESTINATION stage — score_destination_leg
+refuses because the tail moved < EXIT_DISPLACEMENT_MIN_PX (20 px):
+death x median 626, 463 of 483 at x>=600, 17 points, 73 px of travel.
+That is the pixel-motion floor of the far field, not a counting error.
+
+Reading: the N line sits at the far mouth where the boxes die — the
+placement the blank-site ruling of 09-11 forbids ("where vehicles are
+reliably TRACKED, inside the mouth, never at the far mouth"). The near
+pieces (100-px boxes, fast, tracked) die at x 520-600; a line drawn
+there would be crossed by them while tracked, giving S(heading) -> N
+(gate) full journeys. Instrument next: candidate N lines on the
+production dumps, pass-2 tags only, before anything is drawn.
+
+### Why the tracker breaks — the research (operator ask 2026-09-12: "research why the tracker is breaking")
+
+Ground truth for one vehicle = its detection chain (469 bottom-edge NB
+vehicles, 1600; runs/v2_week1/vehicles_study_1600.json; scripts/
+research_tracker_break.py timeline; log research_tracker_break_1600.log).
+Production dump: track ids per vehicle 0:66 1:182 2:169 3:41 4+:11;
+first track 2 detections after entry (p75 5); 636 breaks, 554 of them
+into an untracked gap (median 2 frames), 82 straight to another id.
+WHERE: 562 of 636 breaks at x >= 550, 374 at x >= 600 — the far field,
+real box 29 px wide, where the vehicle spends its last ~20 frames
+crawling to the vanishing point; only ~50 breaks below x=550. The
+bottom-edge birth is a 2-frame delay and a minority of the breaks (the
+Kalman "giant box" cases are 27% of breaks and mostly NOT at the edge).
+WHY, at the break, the next real box of the same vehicle is refused:
+  305  conf >= 0.25 but IoU x conf < 0.2   (supervision's stage-1 fusion)
+  133  conf < 0.25 and IoU < 0.5           (stage 2 demands IoU 0.5; and
+                                            a box under 0.25 cannot start a track)
+  109  conf >= 0.25, fused >= 0.2          (should match; taken by another id)
+   89  conf < 0.25, IoU >= 0.5             (stage 2 should match)
+Next-box conf median 0.29 at the breaks (35% under 0.25): the breaks
+fall on the far field's weak frames. Consecutive REAL boxes of the same
+29-px vehicle overlap only 0.50 (median) at 10 fps; the tracker's
+Kalman-predicted box overlaps the next real box LESS (0.41) — the
+motion model hurts in this regime. Detector confidence on these same
+vehicles at x 600-640: yolo26s@960 (production) median 0.45, 75% >= 0.25;
+yolo26l@1280 0.63, 90%; yolo26s_ft2@640 0.84, 91%. The l1 dump's
+timeline: 593 breaks, ids per vehicle 0:29 1:188 2:202 — better
+detection alone does not hold the vehicle; the association does not.
+Fusion off (nf): 823 breaks, 284 hand-offs — worse, low boxes grabbed by
+wrong ids. Buffer 1.5: 668 breaks, tracker box 1.65x the real one.
+DEMONSTRATION that the vehicles ARE trackable: the census's own greedy
+linker (velocity-predicted centre, gate 0.9 x box width, any conf >=
+0.10, 5-frame patience) holds each of them as ONE chain of 24 hits
+(median) from the bottom edge to the vanishing point. Distance-in-box-
+units association holds what IoU-with-fusion drops.
+
+## G-DEF-10, arm d18 (declared 2026-09-12 before scoring): POSITION RECOVERY in the default tracker
+
+Operator: "research why the tracker is breaking" -> "sure plan it out"
+(plan approved). Built: config.TRACKER_POSITION_RECOVERY (default OFF),
+TRACKER_RECOVERY_REACH 0.9 box widths, TRACKER_RECOVERY_SIZE_RATIO 0.3;
+backend/services/tracker.py _RecoveringByteTrack — supervision 0.17.1
+ByteTrack with stage 2.5: after stage 1 (IoU x conf) and stage 2 (low
+dets, IoU 0.5), the tracks still unmatched (tracked leftovers AND lost)
+meet the detections still unmatched (high AND low, conf >= 0.10) on
+centre distance in box units against the Kalman-predicted box, greedy
+nearest-first, one-to-one; a recovered detection never births. Births,
+fusion, everything else verbatim (REACH 0 is byte-identical to the
+library; the fork is pinned to sv 0.17.1). Recorded in the dump meta
+(position_recovery) and the resume guard. backend/tests/
+test_tracker_recovery.py, 14 tests; suite 1243 green.
+
+Tracker-level instrument (cam4 1600, pr_study_1600 vs study_1600, the
+469 bottom-edge vehicles' chains as truth):
+  ids per vehicle           0:66 1:182 2:169 3:41 4+:11  ->  0:52 1:224 2:147 3:37 4+:9
+  breaks                    636 (554 gaps, 82 hand-offs)  ->  437 (99 gaps, 338 hand-offs)
+  hand-offs, who took it    (base) twin 18, tracked 28, lost 16, new 20
+                            (pr)   twin 168, tracked 62, lost 2-5 f 57, lost >5 f 36, new 15
+  distinct tracks crossing  x=300 1712 -> 1909;  x=550 1694 -> 2339  (chains 2412, Mio 2439)
+  bottom-edge vehicles ending in a counted S->N (pass-2 replay, apply=False): 56 -> 103
+The gaps are closed: the vehicle is covered to the vanishing point. Half
+the new hand-offs are TWIN boxes of the same vehicle (the detector's
+car+truck double box, dealt with by the twin dedup); genuine steals rose
+~44 -> ~155, 36 of them by ids lost > 5 frames (the linker had 5 frames
+of patience; the tracker keeps lost ids 50). That is the arm's risk.
+
+What still drops them is PASS 2: on the pr dump 537 long NB tracks
+(>= 15 points, reaching x >= 550) have no counted event; 95% cross the
+drawn N segment; the gate machinery tags 316 of them "-->N exit_only"
+(exit observed at a median 26 px/frame, not creep) — and the finalize
+path has NO branch that binds an observed EXIT-ONLY crossing: origin by
+heading, softmax destination refused (tail < 20 px at the vanishing
+point) -> insufficient_data. The "box sides ARE the gates" ruling covers
+this case and the code does not. That is a counting default candidate
+of its own (G-EX-2, declared after d18's verdict), not part of d18.
+
+d18 = TRACKER_POSITION_RECOVERY=1 in pass 1 for every window on the
+default recipe: cam4 x3, cam5 x3 re-tracked from their caches into
+pr_study_* (cams 1-3 run BoT-SORT recipes: unchanged, scores stand);
+pass 2 under the shipped default, no env flags. FM51 cam2
+l1_study_0700/1600 re-tracked into pr_l1_study_* as the witness (b7
+81.6 / 80.0). PASS = the G-DEF-1 letter against 77.97. The number to
+watch for harm: follower merges (NB_thru / NB_left under Mio where they
+were at or over it), the 2026-05-29 failure.
+
+## d18 verdict (recorded 2026-09-12): MISS — the stage over-merges
+
+  window        live    d18    delta   NB_thru (Mio | live | d18)     SB_thru (Mio | live | d18)
+  cam4 0700     73.3    81.8   +8.5    2713 | 2462 | 2145              1957 | 2040 | 1927
+  cam4 1100     78.7    80.0   +1.3    1546 | 1441 | 1231              1640 | 1751 | 1637
+  cam4 1600     70.2    66.7   -3.5    2439 | 2025 | 1665              2981 | 3055 | 2720
+  cam5 0700     79.0    64.3  -14.7    2379 | 2374 | 1873              1868 | 1973 | 1446
+  cam5 1100     73.3    71.8   -1.5    1362 | 1435 | 1184              1496 | 1654 | 1340
+  cam5 1600     71.8    66.1   -5.7    2185 | 2290 | 1840              2819 | 3023 | 2432
+  six-window mean 74.38 -> 71.78 (-2.60); fleet of 12 would be ~76.7 vs 77.97.
+  FM51 witness: 81.6 / 80.0 (b7) -> 65.2 / 68.5; NB_thru 856 -> 699 (Mio 853),
+  SB_thru 462 -> 362 (Mio 614).  MISS on the letter on four corridor
+  windows and on the witness.
+
+Reading: every through cell FALLS under the stage, on every window,
+while the tracks demonstrably reach further (cam4 1600: 2339 distinct
+tracks cross x=550 vs 1694). Two mechanisms, both measured:
+(1) STEALS — on FM51 0700 the stage fires 8,934 times in two hours and
+    the track count drops from 2,292 to 1,485: a live track that misses
+    its IoU match takes the nearest box within 0.9 widths, often a
+    neighbour's (scripts/research_recovery_steals.py labels them against
+    the library's tracks; see the log for the cost / age / direction
+    split). The 2026-05-29 follower-merge failure, inside association.
+(2) PASS 2 REFUSES THE COMPLETED JOURNEY — the fragments the shipped
+    default used to complete by posterior are now long tracks with an
+    observed EXIT-ONLY N crossing and a softmax destination refused for
+    tail motion (< 20 px at the vanishing point); finalize has no branch
+    binding an exit-only crossing, so the long track drops where its
+    fragments used to count (cam4 1600: 537 such tracks, 316 tagged
+    -->N exit_only).
+cam4 0700's +8.5 is what the stage does where the steals are cheap and
+the exits are observed while moving; the same stage on cam5 0700 costs
+14.7. TRACKER_POSITION_RECOVERY stays OFF; the code stays as the
+built-not-shipped candidate. Next: split the steal population by the
+logged cost / age / direction to see whether a principled gate (motion-
+consistent jump, short patience) separates same-vehicle recoveries from
+steals; and G-EX-2 (bind an observed exit-only crossing) as its own
+counting arm, since without it a longer track cannot score.
+
+### d18 diagnosis: where the steals live (2026-09-12, scripts/research_recovery_steals.py)
+
+Every recovery logged (tracker run in-process over the cache), labelled
+against the library's own tracks: a recovery is a STEAL when the box
+belongs to a different library track that was alive at the same time as
+the one the recovering track had been following (two vehicles).
+  FM51 0700: 8,934 recoveries (tracks 2,292 -> 1,485); labelled: same
+  vehicle 1,847, steal 391, unlabelled 6,696 (the library had no track
+  on that box).  cam4 1600: 32,528 recoveries (8,986 -> 5,762); same
+  7,312, steal 1,937, unlabelled 23,279.
+  Neither lost age, nor cost in box widths, nor jump direction separates
+  them. OVERLAP does:
+    IoU(predicted box, recovered box)    FM51 steal share   cam4 steal share   share of the same-vehicle recoveries kept
+      0 (no overlap)                          10%                20%
+      (0, 0.1]                                11%                19%
+      (0.1, 0.2]                               7%                11%
+      > 0.2                                    3%                 3%          92% (FM51) / 88% (cam4)
+  A recovery to a box that still overlaps the prediction by > 0.2 is the
+  fusion / stage-2 refusal the stage was built for; a jump to a box that
+  does not overlap is a neighbour three to seven times as often.
+FM51's counts fell to steals, not to pass 2: the pass-2 replay on FM51
+0700 shows 167 (base) vs 195 (pr) long tracks with no event — the
+exit-only gap is cam4's geometry, not FM51's.
+Built: TRACKER_RECOVERY_MIN_IOU = 0.2 (the recovered box must overlap the
+predicted box by the same geometric bar stage 1 uses; 0 = d18), recorded
+in the dump meta (recovery_min_iou) and the resume guard; test added.
+
+## G-DEF-10, arm d18b (declared 2026-09-12 before scoring): the recovery stage WITH the overlap gate
+
+d18b = d18 with TRACKER_RECOVERY_MIN_IOU 0.2: a leftover track continues
+onto a box only if the box still overlaps its predicted box by >= 0.2,
+whatever the box's confidence (no fusion, no 0.5 bar for weak boxes);
+no jumps. Everything else as d18 (reach 0.9, size ratio 0.3, births
+unchanged). Tracker level, cam4 1600 (pr2_study_1600 vs base / d18):
+  ids per vehicle   base 0:66 1:182 2:169 3:41 4+:11 | d18 0:52 1:224 2:147 3:37 4+:9 | d18b 0:70 1:263 2:119 3:12 4+:5
+  breaks            636 (554 gaps, 82 hand-offs) | 437 (99, 338) | 267 (165 gaps, 102 hand-offs: 28 twins, 29 live neighbours, 28 lost ids, 17 births)
+  tracks crossing   x=300 1712 | 1909 | 1887;  x=550 1694 | 2339 | 2124  (chains 2412)
+  FM51 0700 recoveries 8,934 -> 4,927; tracks 2,292 (library) -> 1,485 (d18) -> 1,802 (d18b);
+  labelled steals 391 -> 189 (same-vehicle 1,847 -> 782).
+Windows: cam4 x3, cam5 x3 into pr2_study_*, FM51 cam2 into pr2_l1_study_*;
+pass 2 the shipped default. PASS = the G-DEF-1 letter against 77.97; FM51
+against b7 81.6 / 80.0. Known limit carried in: pass 2 still drops a long
+track with an exit-only crossing (G-EX-2 not built), so cam4's gain is
+capped by counting, not by tracking.
+
+## d18b verdict (recorded 2026-09-12): PASS on the letter, +2.39 fleet
+
+  window        live    d18b   delta   NB_thru (Mio | live | d18b)   SB_thru (Mio | live | d18b)   notes
+  cam4 0700     73.3    80.9   +7.6    2713 | 2462 | 2412            1957 | 2040 | 2033            SB_right 46 -> 31 (Mio 22)
+  cam4 1100     78.7    80.9   +2.2    1546 | 1441 | 1344            1640 | 1751 | 1708
+  cam4 1600     70.2    71.7   +1.5    2439 | 2025 | 1980            2981 | 3055 | 2976            SB_right 125 -> 96 (Mio 39)
+  cam5 0700     79.0    79.8   +0.8    2379 | 2374 | 2354            1868 | 1973 | 1927            NB_left 418 -> 402 (Mio 335)
+  cam5 1100     73.3    79.0   +5.7    1362 | 1435 | 1416            1496 | 1654 | 1550            NB_left 352 -> 312 (Mio 185)
+  cam5 1600     71.8    82.7  +10.9    2185 | 2290 | 2227            2819 | 3023 | 2923            NB_left 367 -> 338 (Mio 240)
+  cams 1-3 unchanged (BoT-SORT recipes): 85.1 95.3 75.2 76.7 68.5 88.5
+  six-window mean 74.38 -> 79.17 (+4.78); FLEET of 12: 77.97 -> 80.36 (+2.39)
+  letter: fleet rises; cam4 +3.8, cam5 +5.8 (no camera -1.0); every window up (no window -3.0). PASS.
+  FM51 witness (b7 -> d18b): 0700 81.6 -> 80.4 (approach 54.2 -> 62.5), 1600 80.0 -> 80.4
+  (approach 50.0 -> 66.7); NB_thru 848 (Mio 853), 786 (811); SB_thru 478 -> (Mio 614), 884 (1086).
+  Scores: runs/v2_week1/score_d18b_*.json, fleet_d18b.log, fm51_d18b.log.
+
+Reading, honestly: the gain is the OVERCOUNTS coming down — SB_thru and
+the SB_right / NB_left phantoms shrink toward Miovision on every window,
+because the vehicle is now one track instead of two or three fragments
+each completed by posterior. The northbound SHORTFALL that opened this
+work is NOT recovered: cam4 NB_thru 2412 / 1344 / 1980 against 2713 /
+1546 / 2439, marginally lower than live. The tracks now reach the N
+line (x=550 crossings 1694 -> 2124) but pass 2 refuses the journey whose
+exit crossing was observed and whose softmax destination fails on tail
+motion (the exit-only gap, G-EX-2, not built) — and the fragments the
+straight-fragment rule used to complete no longer exist. Watch cells:
+cam5 EB_right 91/89/101 -> 76/64/87 (Mio 188/162/244), already the
+camera's worst cell, a little worse; cam4 NB_left 20 -> 13 (Mio 23).
+Follower merges did not appear as NB_thru/NB_left collapse anywhere.
+
+Ship = TRACKER_POSITION_RECOVERY default "1" (the recipe for every
+default-backend camera: cam4, cam5, any blank site), promote the pr2
+dumps to study_* (rename-aside the current dumps, the l1 precedent),
+reprocess cam4 x3 / cam5 x3 through the apply gate with the pre-ship
+backup, re-score production == arm, standings to _ALL, CLAUDE.md. The
+decision is the operator's.
+
+## TRACKER ENGINEERING LOG (operator 2026-09-12: "improving the engineering of the tracker;
+## how we get there is undetermined" — scoring set aside, the chains are the yardstick)
+
+The recovery stage with the overlap gate is now the default backend's behaviour
+(TRACKER_POSITION_RECOVERY default "1"; env X=0 is the experiment override). Production
+dumps and standings untouched until the operator says so.
+
+Yardstick: cam4 1600's 469 near-lane vehicles (chains), scripts/research_tracker_break.py
+timeline. Columns: ids per vehicle (0 = never tracked / 1 = one track / 2 / 3+), breaks
+(gaps / hand-offs), hand-off kinds.
+
+  dump                         0 / 1 / 2 / 3+       breaks (gaps / hand-offs)   twins  steals  births
+  library (study_1600)         66 / 182 / 169 / 52   636 (554 / 82)               18     44     20
+  recovery, no gate (pr)       52 / 224 / 147 / 46   437 (99 / 338)              168    155     15
+  recovery, IoU>=0.2 (pr2)     70 / 263 / 119 / 17   267 (165 / 102)              28     57     17
+  pr2 + pre-track NMS 0.6 (nm) 69 / 271 / 114 / 15   224 (161 / 63)                2     50     11
+  pr2 + confirm-by-position    4 / 140 / 215 / 110   739 (286 / 453)             244     87    122
+    (cp; no NMS)
+
+Never-tracked vehicles (70 on pr2): 207-px boxes at the bottom edge, max conf 0.57, 86%
+with two or more consecutive confident boxes — killed at CONFIRMATION (the library
+demands IoU x conf >= 0.3 on the very next frame and never offers a weak box; the edge
+strip becomes a full box). Confirmation by position (an unconfirmed track unmatched by
+the library pass takes a remaining box that overlaps it and keeps its width) removes the
+class (70 -> 4) but, without pre-track NMS, confirms the detector's DUPLICATE boxes too:
+twins 28 -> 244, births 17 -> 122. NMS is the prerequisite for confirmation; next run:
+NMS 0.6 + recovery + confirmation (cn), 1600 and 0700.
+
+### Tracker engineering, state at end of 2026-09-12 (all components now the default backend's behaviour)
+
+The recovery tracker = supervision 0.17.1 ByteTrack fork (backend/services/tracker.py
+_RecoveringByteTrack), used by every camera on the default recipe (cam4, cam5, any blank
+site; cams 1-3 run BoT-SORT recipes and are untouched). Components, each measured:
+  1. POSITION RECOVERY (stage 2.5): leftover tracks (tracked + lost <= 0.5 s) x leftover
+     boxes (any conf >= 0.10): centre distance < 0.9 box widths, widths within 0.3, box must
+     overlap the predicted OR last-observed box >= 0.2; greedy nearest-first.
+  2. CONFIRMATION BY POSITION: a newborn the library's IoU x conf pass drops is confirmed
+     by an overlapping, width-consistent box (edge strips becoming full boxes).
+  3. MOTION-STATE RESET: confirmations and any match whose width jumps > 1.5x restart the
+     Kalman state from the observed box (the "giant box" poisoning).
+  4. EDGE EXIT: a track that drives out of the frame (last box on the edge, moving toward
+     it) is retired, not parked 5 s as a lost id (FM51 stale-id steals 529 -> 64).
+     Frame size from the videos row (pass 1 and the live pipeline).
+  5. DOUBLE-BOX DEDUP at input: pairs > 0.8 IoU, any class (measured one vehicle 99-100%;
+     0.6-0.8 is two vehicles 2-14%: left to the tracker). scripts/research_dup_boxes.py.
+  6. STACKED-BOX GUARD: a box stacked > 0.6 on a vehicle already held this frame neither
+     confirms a newborn nor births a track (86-98% of those are double boxes).
+Recorded in the pass-1 dump meta + resume guard; backend/tests/test_tracker_recovery.py
+(24 tests); suite 1253 green. Env X=0 turns any component off for experiments.
+
+Yardstick (scripts/research_tracker_break.py timeline / timeline_all; chains = one vehicle):
+  window (vehicles)                    one track: library -> now     breaks: library -> now
+  cam4 1600 near-lane NB (469)              182 -> 362                   636 -> 274
+  FM51 0700 all moving (1524)               570 -> 1094                 2928 -> 855
+  cam5 1600 all moving (5742)              1964 -> 3332                16682 -> 5007
+Remaining on cam5 (dense): hand-offs to a live neighbour's track 1194, fresh births on
+the vehicle 949, stacked twins 520, other vehicles' ids lost 0.2-0.5 s 406 and > 0.5 s
+180, gaps 1498. The yardstick is itself a greedy linker: in dense queues some of its
+"hand-offs" may be its own swaps; treat cam5's residual classes as indicative.
+Measured and rejected along the way: fusion off (hand-offs up), 1.5 box buffer (tracker
+box 1.65x the real one), ungated recovery (steals; d18), pre-track class-agnostic NMS 0.6
+(merges real occluded pairs; the chain yardstick cannot see that because it is built on
+0.6-deduped boxes), lost-id patience alone (did not touch stale steals: they came from
+the library's stage-1 re-find of ids parked at the frame edge).
+Production dumps and standings are unchanged (built by the library tracker). Any pass-1
+run from now on (re-track, new study, live processing) uses the recovery tracker. The
+counting default was tuned on fragmented tracks; the observed-exit binding (G-EX-2) is
+the counting work these longer tracks need.
+
+### Hand-off reel, cam5 study_1600 (2026-09-12) — operator rulings
+
+Why: after the tracker work the chain yardstick still reported 748 neighbour takeovers and
+683 fresh births on cam5 1600; the yardstick is itself a greedy linker, so the residual
+classes were put on film before engineering against them. scripts/viz_handoff_reel.py on
+dump tk3_study_1600 (recovery tracker defaults): six clips, even spread over each kind, a
+minute clear of the window ends, full frame, 2.5 s either side. Reel page (frame-stepping
+player): https://claude.ai/code/artifact/5ab8a5ed-3f02-4853-86c7-220275798de3
+
+OPERATOR RULINGS (his words):
+  1  takeover 49 -> 64, 16:01:15.2   "No there is a handoff from O to C."
+     Reading (frames 20-31 checked): orange = a white car, cyan = the dark vehicle stacked
+     directly behind it behind the white van's roof; both tracked on their own before and
+     after; the RING jumps from orange's car to cyan's at the hand-off. YARDSTICK ERROR -
+     the tracker kept both ids right.
+  2  takeover 5119 -> 5122, 17:04:35.0   "clip to O and W are tracking a trailer, the handoff
+     to C is the handoff from tailer to towing vehicle, same vehicle technically"
+     Reading: orange (tracker) and the ring (yardstick) are both on a flatbed trailer; cyan
+     is the dark pickup towing it. TWO TRACKER IDS ON ONE RIG - the towed trailer is
+     tracked as a vehicle of its own (a double-count risk for the counting side), a new
+     class, not a swap between cars. The yardstick's hand-off is trailer -> tow vehicle.
+  3  takeover 9341 -> 9340, 17:58:32.5   "Clip three is correctly tracking two vehicles but
+     as they disappear into the horizon C and O collapses together"
+     Reading: two vehicles, two tracker ids, both right; as they recede into the horizon
+     their boxes collapse together and the ring's hand-off falls at the collapse.
+     YARDSTICK ERROR. (Cyan 9340 is the id born on the van in clip 6, 3.7 s earlier.)
+  4  birth 38 -> 57, 16:01:09.0   "Clip 4 already begins with a theaft from O, C comes into
+     view as traffic begines to move from the Queue and W tracks C the whole time"
+     Reading: the ring (yardstick) is on one vehicle the whole clip - YARDSTICK RIGHT. Orange
+     is a stolen id before the clip starts (its path runs in from the lower left and hooks
+     into the queue); cyan is the car's own id, born as it comes into view when the queue
+     moves. TRACKER ERROR = THE EARLIER THEFT (the theft class), not the birth.
+  5  birth 4548 -> 4559, 16:57:24.3   "5 W tracks C the whole time for two vehicles waiting
+     in the queue"
+     Reading: the ring stays on one car (cyan's) the whole clip - YARDSTICK RIGHT. Two
+     vehicles in the queue; the second (cyan's) car had no tracker id of its own until the
+     hand-off although it was visible ~1 s earlier. TRACKER ERROR = LATE BIRTH of a car
+     pulling out from behind another.
+     Cause, measured: the car's boxes in the 1.5 s before its birth had conf 0.10-0.33 and
+     overlapped orange's box only 0.13-0.28 (NOT the 0.6 stacked-box guard). A new track
+     needs one box >= det_thresh 0.35 (activation 0.25 + 0.1); its first came at the
+     hand-off. Class: a partly hidden car's weak boxes cannot start a track.
+  6  birth 9338 -> 9340, 17:58:28.8   "6 C and O are two different vehicles. O is blocking a
+     vehicle, onces the vehicle comes into view, O handsoff to the new vehicle and C tracks
+     the existing vehicle. W starts on O and then stays with the Vehicle as O becomes C."
+     Reading: YARDSTICK RIGHT. The van (entering over the left edge) carried orange; when
+     the SUV it was hiding came into view, orange went to the SUV and the van was re-born
+     as cyan. TRACKER ERROR = THEFT AT DISOCCLUSION.
+     Cause, measured: van box 44 -> 99 -> 154 px wide in two frames while moving ~50 px/f;
+     the 1.5x width jump tripped the MOTION-STATE RESET, which restarted the Kalman state
+     with ZERO velocity, so orange's prediction stayed at the edge, the SUV appeared there,
+     orange matched it, and the van's real box went unmatched and was born. A defect in
+     component 3 (my reset), not the stacked guard (IoU with orange 1.00/0.68 = the van).
+
+  TALLY (6 clips): yardstick errors 2 (clips 1, 3: the ring jumps between stacked / merging
+  boxes, the tracker right). Tracker errors 4: trailer tracked as its own vehicle (2),
+  theft (4 earlier, 6 at disocclusion - caused by the zero-velocity reset), late birth of a
+  partly hidden car's weak boxes (5, birth bar 0.35). The yardstick overstates the dense-
+  traffic residual by about a third; the tracker classes are real.
+
+  FIX from clip 6 (component 3, the motion-state reset): the reset now keeps the vehicle's
+  motion - centre velocity restarts from the observed displacement since the last observed
+  box - and drops only the shape state. Test added (an entering vehicle keeps its id while a
+  second enters behind it); suite 1254 green. Yardstick, tk3 -> tk4:
+    cam4 1600 near-lane NB (469)   one track 362 -> 381   breaks 274 -> 255
+    FM51 0700 (1524)               one track 1094 -> 1165 breaks 855 -> 779
+    cam5 1600 (5742)               one track 3332 -> 3405 breaks 5007 -> 4755
+  (library tracker for reference: 182 / 570 / 1964 one-track; 636 / 2928 / 16682 breaks)
+  Remaining tracker classes named by the reel: late birth of a partly hidden car's weak
+  boxes (birth bar 0.35), a towed trailer tracked as its own vehicle, theft at occlusion.
+
+### Sizing the remaining classes (2026-09-12, tk4 dumps, scripts/research_tracker_classes.py,
+### scripts/research_late_births.py)
+
+LATE BIRTH (first 0.5 s+ of a chain covered by no track): cam5 1600 704 of 5742 (12%),
+FM51 0700 417 of 1524 (27%), cam4 1600 near lane 17 of 469 (4%). Frame traces (TRACE_N on
+cam5): the cars are at the horizon with 10-17 px boxes, detected for 5-10 frames at conf
+0.11-0.28; the first box >= det_thresh 0.35 starts a track and it holds from the next frame.
+(The first split's "confident box present" majority was an artifact: the birth frame itself
+fell inside the uncovered span.) Scoring on the matched boxes instead of the Kalman output
+changed nothing (704 -> 703): not an output-lag effect. Mechanism = the birth bar: weak
+boxes of a distant or partly hidden car cannot start a track (clip 5 is the mid-scene case).
+RIGID PAIRS (trailer candidates): the side-by-side-steady-offset instrument flags 273 / 404 /
+23 pairs on cam4 / cam5 / FM51 - dominated by cars following in one lane; not a usable size.
+A trailer instrument needs attachment (no gap) held through speed changes.
+
+### Phase A — weak-box births, built and measured (2026-09-12; plan approved: "Ok plan it out")
+
+Built: `_RecoveringByteTrack` keeps leftover weak boxes (below the 0.35 birth bar) as
+TENTATIVE histories linked by the tracker's position rule. INHERITANCE: the track born from
+the car's first confident box takes the history; PROMOTION (TRACKER_WEAK_BIRTH_PROMOTE):
+a tentative held 0.5 s and moved 0.5 box widths becomes a track. A coverage guard (share of
+the weak box inside a held vehicle's box < 0.6) stops a car's double/part boxes from
+becoming or feeding a twin — 0.3 first, raised to 0.6 because two equal boxes at IoU 0.2
+(the ruled clip-5 queue car beside its neighbour) already cover 0.33. Pass 1 collects the
+histories as BACK-FILL rows at their true frames in a sidecar (backfill.npy, saved before
+every count.txt write), merges them before the stop-fracture collapse, rewrites the dump in
+frame order; resume clamps to the main rows, keeps back-fill promoted before the resume
+frame, floors the id counter (removing a pre-existing id-reuse hazard), and a complete dump
+is no longer re-stepped on resume. Tests: test_tracker_weak_birth.py (12),
+test_pass1_backfill.py (8); suite 1274 green.
+
+Measured on re-tracks from cache (yardstick: scripts/research_tracker_break.py timeline /
+timeline_all and research_tracker_classes.py), tk4 = the tracker before this phase:
+  site                  late births tk4 / inherit / +promote   one track            breaks
+  cam4 1600 near lane   4% / 1% / 1%                           381 / 389 / 387      255 / 248 / 253
+  FM51 0700             27% / 5% / 4%                          1165 / 1152 / 1149   779 / 825 / 837
+  cam5 1600             12% / 4% / 3%                          3405 / 3620 / 3590   4755 / 4417 / 4497
+Back-fill rows: 18.9k / 5.4k / 22.3k; (id, frame) collisions dropped: 0.
+Reading: INHERITANCE is a clear gain in late births everywhere and on cam5 one-track (+215).
+On FM51 most of the break rise is bookkeeping (43 gap-then-birth breaks now show as a
+hand-off to the back-filled id); the real addition is ~30 twin/neighbour hand-offs.
+PROMOTION trims late births ~1 point more but costs one-track (-2 / -3 / -30) and breaks
+(+5 / +12 / +80) on every site: a car promoted from weak boxes tends to lose that id when its
+confident box arrives. DEFAULT: inheritance on; promotion OFF until that continuity is fixed.
+Back-fill reel (Phase A film step; promotion being off, the film checks INHERITED starts):
+scripts/viz_backfill_reel.py on wi2 dumps, 3 FM51 0700 + 3 cam5 1600, even spread over
+tracks with >= 8 back-filled frames; page https://claude.ai/code/artifact/fb28b061-39f0-4bf2-abf6-7755558e660d
+(yellow = back-filled start, cyan = the same track after its birth, grey = tracks nearby).
+Pre-look: five read as the same car; FM51 clip 3 (track 2440) shows cyan on a white SUV at
+the right edge a second after the birth — for the operator's ruling.
+
+OPERATOR RULINGS (his words), "Is the yellow start the same car as the cyan track?":
+  1  FM51 0700, track 11, 13 back-filled frames, born 7:01:14.1 (f252711)
+     "yes it is the same"   Reading: SAME CAR - the inherited start is right.
+  2  FM51 0700, track 1162, 11 back-filled frames, born 7:51:07.6 (f282646)
+     "its the same vehicle"   Reading: SAME VEHICLE - a white semi coming toward the camera,
+     first seen as a 12-px speck at the far end (conf 0.10-0.33); box grows smoothly 12 -> 81 px
+     over 3 s with no jump. The inherited start is right.
+  3  FM51 0700, track 2440, 11 back-filled frames, born 8:56:21.9 (f321789) - the pre-look's suspect
+     "same vehicle"   Reading: SAME VEHICLE - the white SUV itself, first seen as a 12-px speck
+     (conf 0.11-0.23); box 12 -> 25 px at the birth -> 171 px one second later, sliding steadily
+     down-right, no skip; the track ends by edge exit at the right edge. The pre-look's "jump"
+     was the SUV's own fast approach. The inherited start is right.
+  4  cam5 1600, track 69, 14 back-filled frames, born 16:01:16.6 (f576746)
+     "It is the same vehicle"   Reading: SAME VEHICLE - a far-field car in a cluster of white
+     vehicles moving left beyond the white van; its back-fill = 2 full boxes (24x16), ~1 s of a
+     6-8 px tall strip (the car partly hidden) beside a grey neighbour track, then 17x13 at the
+     birth. Asked specifically about the strip: it is the same car. The inherited start is right.
+  5  cam5 1600, track 4629, 8 back-filled frames, born 16:59:12.2 (f611502)
+     "it is a theaft I think, clossly passing vehicles but it is hard to tell"
+     Reading: SUSPECTED THEFT, not certain - two vehicles passing close in the far field by the
+     signal pole; the id may move between them. (Dump: box 15 -> 22 px, smooth leftward drift,
+     no jump; a grey track just left of it at the birth.) Evidence to settle it follows.
+     Dump + raw detections (study_1600 cache): a platoon leaving the far signal along the far
+     side, right to left. 4627 (white car) leaves the spot x536 y180 at f611479; 4629's weak
+     boxes sit on that same spot 611494-611505 (a second car pulled up, then leaving), one raw
+     chain, no crossing, grey = 4627 ahead. After the reel clip ends (+2 s): 4633 born ahead of
+     cyan at +1.8 s (x440, far lane), 4634 behind; cyan catches and passes 4633 at +3.0-3.6 s,
+     boxes touching, and ends on a silver car in the nearer lane (y 183 -> 200, box 22 -> 86 px).
+     Clip 5b on the page (f611474-611562, every nearby id labelled in its own colour,
+     screenshots/bfcam5_sprite_2long.jpg) put to the operator.
+  5b "Its the same car but there is a theaft with the o car near the end of the film where it
+     theafs from one car to another"
+     Reading: CLIP 5 SETTLED - cyan 4629 is one car from the yellow start to the end; the
+     inherited start is right. The suspected theft is ORANGE's (4627), not the back-fill's.
+     Measured (dump): orange rides a DARK car along the far side; a silver car (track 4630) is
+     just ahead of it. At f611531-534 (+2.9 to +3.2 s) the dark car overtakes the silver car on
+     the near side and hides it; orange goes unmatched two frames (611532-533); 4630 takes the
+     dark car's box (w 53 -> 67 -> 71, y 195 -> 207); orange comes back at 611534 on the silver car
+     as it re-emerges (w 55 -> 43, then 43 -> 74 to the left edge). THE TWO IDS SWAP CARS at an
+     overtaking occlusion - a theft-class sample for Phase B (the first filmed one since hand-off
+     clips 4 and 6), the mechanism being the occluded car's id taking the occluder's merged box
+     while the occluder's id is briefly unmatched, then recovered onto the re-emerging car.
+  6  cam5 1600, track 9265, 20 back-filled frames, born 17:58:52.2 (f647302)
+     "it looks like the same vehicle"   Reading: SAME VEHICLE - a far car moving left along the
+     far side, a 6-9 px tall strip for its whole back-fill (x 518 -> 474, conf 0.12-0.35), a
+     black pickup passing in front at the birth. The inherited start is right.
+
+  TALLY (6 clips, rulings 2026-09-12/13): the inherited start is the same vehicle 6 of 6
+  (clip 5 settled on the longer clip 5b; the pre-look's suspect, FM51 clip 3, was the SUV's own
+  fast approach). No back-fill came from the wrong vehicle. INHERITANCE STANDS AS BUILT
+  (default on). The film surfaced one theft of the kind Phase B targets: an id swap between
+  two cars at an overtaking occlusion (clip 5b, tracks 4627 / 4630, cam5 16:59:15).
+
+### Phase B — thefts, instrument built and measured (2026-09-13; plan step "instrument and film first")
+
+Built: `_RecoveringByteTrack.match_log` (diagnostics only, None = off; one record per
+association: absolute frame, id, stage s1 / s2 / s25 / unconf / confirm_pos / birth, was_lost,
+frames since seen, predicted box, det box, det score); test
+test_match_log_records_stages_and_changes_nothing (output identical with the log on; suite 1275
+green). scripts/research_thefts.py: every dump row labelled with its yardstick chain (IoU >=
+0.3); a SWITCH = one id on chain A >= 5 frames then on chain B >= 5 frames, sorted by what the
+two vehicles do: THEFT (A detected >= 3 times in the 2 s after the switch AND B >= 3 times in the
+2 s before: two vehicles in view), EMERGENCE (A goes on, B only appears), A ENDS (B was there, A
+stops), CHAIN SEAM (neither: the yardstick split one car). The A/B overlap at the switch is
+REPORTED, not excluded (the ruled clip-5b swap had overlap 0.31; hand-off clips 1 and 3 were
+yardstick errors under overlap). Swap = an id that was on B before is on A after. Stage from an
+in-process re-run of the dump's tracker with the match log (reproduced the dump's box for
+70/71, 384/386, 713/715 switches). Logs runs/v2_week1/research_thefts_{fm51_0700,cam4_1600,
+cam5_1600}.log; events thefts_<proj>_<cam>_<variant>.json. Dumps: wi2_* (the tracker as it stands).
+
+  site (vehicles)        THEFT  EMERGENCE  A ENDS  SEAM   THEFT: overlap <=0.2/0.2-0.5/>0.5  swaps  stage onto B
+  cam4 1600 (5516)        107      107        65    107          37 / 53 / 17               51    s25 66 (46 tracked, 20 lost), s1 38, s2 1
+  cam5 1600 (5742)        221      155       210    129          93 / 98 / 30              113    s25 137 (71 tracked, 66 lost), s1 68, s2 14
+  FM51 0700 (1524)         23       21        14     13           9 /  6 /  8                6    s25 14, s1 7, s2 2
+  THEFT lost age when taken (lost ids): median 2-4 frames, almost all <= 5 f (cam5 75 of 77);
+  IoU(predicted box, B's box) median 0.34-0.38; B conf median 0.28-0.36. Where: cam5 x >= 384
+  (the far field, 169 of 221), cam4 spread over the frame, FM51 x 256-512 (the road).
+  VALIDATION: the ruled clip-5b swap is found at the right frames - 4630 (the silver car's id)
+  takes the dark car's merged box at f611532 by STAGE 1 (tracked, IoU(pred, det) 0.50, conf
+  0.87) as the dark car overtakes and hides it; 4627 (the dark car's id) is lost two frames and
+  comes back at f611534 by POSITION RECOVERY (lost age 3, IoU 0.25, conf 0.42) on the silver car.
+Reading before the film: position recovery makes ~60% of the THEFT-class matches (s25), mostly
+onto weak boxes of neighbours in the far field; about half the thefts are two-id swaps. Not yet
+known how many are real: the film decides (plan: the fix is declared from the rulings and the
+stage breakdown, not in advance - the emergence-guard vetoes missed twice).
+THEFT REEL: scripts/viz_theft_reel.py (orange = the id, white ring = car A, cyan ring = car B,
+grey = other ids labelled; 2.5 s either side; per site one clip overlap <= 0.5 and one > 0.5,
+even spread, >= 1 min from the ends, B >= 15 px). Page
+https://claude.ai/code/artifact/3e6ae678-9fc1-4b8f-ba4e-b494a0c406ae (clips 1-2 cam4, 3-4 cam5,
+5-6 FM51). Pre-look: FM51 clip 5 is a white pickup towing a load (the yardstick sees the rig as
+two vehicles - a trailer case in the theft class); FM51 clip 6 has both rings on nearly the same
+shape (a split chain?); cam5 clip 4's car B ring jumps from a near box to a far one (a chain
+error?).
+
+OPERATOR RULINGS (his words), "Does the orange id stay on one vehicle, or does it move from
+one vehicle to another?":
+  1  cam4 1600, id 3247, switch 16:42:04.5 (f601225), overlap 0.51, stage 1, swap with 3256
+     "one vehicle"   Reading: YARDSTICK ERROR - the id stays on one car in the bunched far
+     field; the chains swapped, not the tracker ids.
+  2  cam4 1600, id 4594, switch 17:02:08.0 (f613260), overlap 0.44, position recovery onto a
+     0.15 box
+     "clip teo is a series of thefts between the main vehicle and a neighboring vehicle"
+     Reading: TRACKER THEFT, repeated - two cars moving left close together (4594 on the farther,
+     4599 on the nearer). Dump: 4594 ~42 px at y 311; at the switch recovery puts it on a weak
+     box of the nearer car (y 328), its box balloons 82 -> 136 px over both cars for 0.5 s, then
+     settles at ~70 px between them; the id goes back and forth between the two cars.
+  3  cam5 1600, id 4846, switch 17:01:55.8 (f613138), overlap 0.44, recovery from lost 2 f,
+     swap with 4864
+     "No only did it leave with the passing car, but orange comes off of a theft that happened
+     before the clip began"
+     Reading: TRACKER THEFT, twice on one id. (a) In the clip: 4846 sits on a car STANDING on
+     the far side (x 443, 38 px, conf 0.7-0.8); car 4864 passes it moving left; 4846 drops to weak
+     boxes 3 frames, then leaves with the passing car (recovery, lost 2 f) while 4864 stays on the
+     standing car - the ids swap at the pass. (b) Before the clip: 4846 is born 16:59:41.8 on a
+     car coming in from the lower left (74 px), which slows as it drives away to the far side
+     (box 74 -> 47 px); at f613013-015 its box jumps onto the car already standing at x 446 y 192
+     (35 px). So one id was on three cars in 14 s.
+     INSTRUMENT BLIND SPOT found by this ruling: the yardstick holds only MOVING vehicles (chains
+     >= 120 px of travel), so a standing car in a queue has no chain; the jump in (b) was filed
+     CHAIN SEAM (47 unlabelled frames between the two chains). Thefts onto or off a standing car
+     are under-counted - on cam5's queues that matters.
+  4  cam5 1600, id 6345, switch 17:21:00.6 (f624586), overlap 0.52, stage 2 (weak box, IoU with
+     the prediction 0.73), swap with 6355
+     "It says on the correct vehicle the whole time"
+     Reading: YARDSTICK ERROR - orange moves smoothly left along the far side (~6 px/frame,
+     14 -> 40 px, no jump). Chain B (3821) had linked a near-field car driving away into the
+     far-side traffic and landed on orange's car; chain A jumped to the car beside it (6355).
+  5  FM51 0700, id 1195, switch 7:52:03.7 (f283207), overlap 0.22, recovery onto a 0.14 box
+     (asked: one rig, a pickup towing its load, or two vehicles?)
+     "I think it switches from the from the forward vehicle to the following vehicle"
+     Reading: TRACKER THEFT (his reading, "I think") - orange moves from the forward vehicle to
+     the one following it as they recede toward the horizon. Dump: 1195 enters at the lower
+     right (70 -> 119 px) and recedes; 1197 is born behind it a second later; at the switch, boxes
+     merging at ~25 px, 1195 widens 24 -> 33 px onto the follower (recovery, conf 0.14); 1198 is
+     born at the far end. He described two vehicles (forward / following), not a towed load.
+  6  FM51 0700, id 1986, switch 8:31:48.6 (f307056), overlap 0.59, stage 1 (tracked, IoU with
+     the prediction 0.48, conf 0.48) - the pre-look's "both rings on nearly the same shape"
+     "Its one vehicle towing a white box trailer"   (ruled 2026-09-15)
+     Reading: YARDSTICK ERROR, TRAILER CASE - one rig; the yardstick split the tow vehicle and
+     its box trailer into two chains and the id simply stayed on the rig. Not a theft; the
+     first ruled trailer sample for Phase C (with hand-off clip 2).
+
+  TALLY (6 clips, rulings 2026-09-13/15), by the stage that made the match:
+     REAL THEFT   3 of 6: clips 2, 3, 5 - ALL THREE by POSITION RECOVERY (s25) onto a weak box
+                  (conf 0.14-0.15 in clips 2 and 5; recovery from lost 2 f in clip 3) of a
+                  NEIGHBOUR moving close beside or past the id's own car.
+     YARDSTICK    3 of 6: clips 1, 4, 6 - all by the ordinary stages (s1, s2, s1); the id stayed
+                  on one vehicle each time (clip 6 a rig the yardstick split in two).
+  The stage breakdown and the film agree: the ordinary matches were right every time they were
+  filmed; the position-recovery matches were thefts every time they were filmed. On the census
+  s25 makes 66 / 137 / 14 of the THEFT-class matches (cam4 / cam5 / FM51), about 60%, and those
+  are the ones to fix. The fix is declared below from this.
+
+### Phase B — the recovery-guard census (2026-09-15, scripts/research_recovery_guard.py, wi2 dumps)
+
+Every stage-2.5 match of an in-process run, sorted by the chains: SAME (the box is on the id's
+own chain), OTHER (another chain that goes on being detected = theft), SEAM/EMERGE, NONE
+(unlabelled: standing cars and far specks have no chain). Per match: overlap with boxes other
+ids took this frame (held boxes), overlap with the neighbours' boxes of the previous frame,
+the jump from the last observed box (widths) and its angle against the predicted motion, the
+taken box's conf. Logs runs/v2_week1/recovery_guard_{cam4_1600,cam5_1600,fm51_0700}_b.log,
+cross-tabs scripts/research_recovery_guard_tab.py.
+
+  site        recoveries   SAME    OTHER   NONE    OTHER: angle>60  (SAME)     held IoU>=0.6: OTHER/SAME/NONE refused
+  cam4 1600     20468     15340     417    4486    151 of 267  (1585 of 11247)      86 / 154 / 188
+  cam5 1600     25257     13736     862   10008    309 of 511  (2889 of 8828)      168 / 445 / 661
+  FM51 0700      6427      5289      86     996     40 of  52  ( 397 of 4447)       18 / 105 /  43
+  Thefts are 1.3-3.4% of recoveries. The taken box is weak in both classes (conf median 0.22 vs
+  0.26-0.36). The theft jump goes AGAINST the vehicle's motion (angle median 148 / 100 / 78 deg
+  on FM51 / cam5 / cam4 vs 8 / 23 / 12 for good recoveries) but a third to a half of the thefts
+  are on standing tracks with no direction to judge, and every rule tried refuses 2-7 good
+  recoveries per theft on the census (angle>90 & jump>=0.3 widths: 19/71, 98/436, 38/248
+  OTHER/SAME on FM51/cam5/cam4; held-box IoU>=0.6: 18/105, 168/445, 86/154). NO PER-FRAME GATE
+  SEPARATES THEM CLEANLY. A refused good recovery is not a break, though - the id coasts lost one
+  frame and stage 1 re-finds it on the next confident box - so the cost is measured by
+  re-tracking, not by counting refusals.
+
+### Arms rg1 / rg2 / rg3 (declared 2026-09-15 before scoring): the guards, re-tracked, on the chains
+
+Built as knobs (backend/config.py TRACKER_RECOVERY_HELD_IOU, _REVERSE_DEG, _REVERSE_JUMP; 0 =
+off, the default; tracker.py stage 2.5, `_reverse_jump_mask`; recipe key `recovery_guard` in
+the dump meta + PASS1_RESUME_KEYS; 3 tests). Re-tracks from cache (scripts/arm_retrack_alias.py,
+~83 s a window): rg1 = held-box guard IoU 0.6; rg2 = reverse-jump guard 90 deg / 0.15 widths;
+rg3 = both. Judged against wi2 (the tracker as it stands) by research_tracker_break timeline_all
+(one-track-per-vehicle, breaks, hand-off kinds) and research_thefts (THEFT / swaps). The bar: a
+guard earns its place only if THEFT + swaps fall and one-track-per-vehicle does not (breaks
+may not rise more than the thefts fall).
+  wi2 baseline: one-track 389/469 (cam4 near lane) / 3620 of 5742 (cam5) / 1152 of 1524 (FM51);
+  breaks 248 / 4417 / 825; THEFT 107 / 221 / 23; swaps 51 / 113 / 6.
+  (cam4's wi2 one-track / breaks above were the NEAR-LANE yardstick; the all-vehicle figures,
+  wb_wi2all_cam4.log, are 4188 of 5516 / 3046 and are what the table below compares.)
+
+### rg1 / rg2 / rg3 verdict (recorded 2026-09-15): the held-box guard wins on every measure, every site
+
+  all-vehicle yardstick (research_tracker_break timeline_all) and thefts (research_thefts):
+  site   arm                  one-track   breaks   twin hand-offs   lost 2-5 f -> ANOTHER   THEFT   swaps
+  cam4   wi2 (as it stood)     4188       3046        202                 159                107     51
+  cam4   rg1 held 0.6          4241       2918        121                 142                 83     29
+  cam4   rg2 reverse 90        4163       3281        205                 153                 87     37
+  cam4   rg3 both              4196       3161        127                 145                 72     24
+  cam5   wi2                   3620       4417        557                 432                221    113
+  cam5   rg1                   3738       4057        329                 408                196     99
+  cam5   rg2                   3522       4959        465                 430                202     94
+  cam5   rg3                   3623       4577        279                 394                177     83
+  FM51   wi2                   1152        825        139                  36                 23      6
+  FM51   rg1                   1168        766         97                  37                 18      5
+  FM51   rg2                   1143        874        124                  38                 20      8
+  FM51   rg3                   1149        820         86                  35                 19      7
+  Logs runs/v2_week1/wb_rg{1,2,3}_{cam4,cam5,fm51}.log, research_thefts_rg*_*.log.
+
+  READING. rg1 (refuse a recovery onto a box that overlaps, IoU >= 0.6, a box another id took
+  this frame) is better on every column on all three sites: thefts -24 / -25 / -5, swaps -22 /
+  -14 / -1, one-track +53 / +118 / +16, breaks -128 / -360 / -59, and the TWIN hand-offs fall by
+  40% - the guard also stops a recovering id from climbing onto a neighbour's double box and
+  riding it as a twin, which the census had filed under SAME (the same-chain refusals it
+  predicted were mostly twins, and refusing a twin's recovery is a gain, not a break). rg2 (the
+  reverse-jump guard) removes a few more thefts but breaks far more tracks (+235 / +542 / +49):
+  the backward jumps it refuses are mostly a slow vehicle's own box jitter, as the census's SAME
+  rows at 150-180 deg already suggested. rg3 inherits rg2's breaks.
+  DECISION (the tracker-engineering rule: fix the mechanism, keep the win, keep going): the
+  held-box guard IS the tracker's behaviour - TRACKER_RECOVERY_HELD_IOU default 0.6. The
+  reverse-jump guard stays a knob, default off, with the verdict in backend/config.py. Suite
+  1278 green. Production dumps and standings untouched (the re-tracks are scratch variants rg1_*).
+  WHAT IS LEFT (rg1 thefts by the stage that made the match onto B): cam4 83 = s25 43 (30 tracked,
+  13 lost) + s1 37 + s2 1 + back-fill 2; cam5 196 = s25 109 (54 / 55) + s1 67 + s2 18 + 2;
+  FM51 18 = s25 9 + s1 7 + s2 2. Position recovery still makes about half; the rest are
+  ordinary IoU matches (the clip-3 kind: an occluder's prediction lands on the occluded car's
+  box - the classic swap, which no recovery-side rule can reach). Next: a filmed sample of what
+  the guard REFUSED on rg1 (the operator's ruling that the refusals are right), then the s25
+  residual - its lost-age / conf / neighbour picture on rg1 - before any further rule.
+
+Phase C instrument drafted (scripts/research_trailers.py, the plan's attached-pair test). First
+run FM51 0700: 44 nose-to-tail pairs >= 1 s, 24 steady, 24 steady through a speed change - the
+speed change is in PIXELS and perspective alone gives 2.75x on FM51's approach, so the test does
+not separate rigs from followers yet; speed must be measured in box widths per frame. Not run
+further until that is fixed.

@@ -28,6 +28,20 @@ by ruling: its old 75.4 was ~366 duplicate NB throughs cancelling an equal far-f
 deficit that is not in the dump (instrument-limited), so a future drop there is read against
 70.2, not 75.4.
 
+## The tracker (2026-09-12, operator: "improving the engineering of the tracker")
+The default recipe's tracker (cam4, cam5, every blank site) is now the recovery tracker:
+supervision ByteTrack forked in backend/services/tracker.py with position recovery,
+confirmation by position, motion-state reset (motion kept), edge exit, >0.8 double-box
+dedup, a stacked-box guard, a HELD-BOX GUARD on recovery (2026-09-15: a recovery may not take
+a box that overlaps >= 0.6 a box another id took this frame; thefts 107/221/23 -> 83/196/18,
+one-track and breaks better on all three sites), and weak-box births by inheritance (a car's weak early boxes
+become its track's back-filled start; pass 1 merges them from a backfill.npy sidecar)
+(docs/plan_basis_2026-09-11.md "Tracker engineering", "Phase A"). It is judged by
+the tracking evidence — one track per vehicle against the detection chains
+(scripts/research_tracker_break.py) — not by switching it on and off against fleet scores.
+PRODUCTION DUMPS WERE BUILT BY THE LIBRARY TRACKER: any pass-1 run now (re-track, new
+study, live) uses the new one, so a re-tracked window is a new basis.
+
 ## Calibrating a blank site (operator ruling 2026-09-11, docs/plan_blank_site_2026-09-11.md)
 Draw each gate LINE where vehicles are reliably TRACKED, inside the physical mouth — never at
 the far mouth where boxes are first born. Use scripts/viz_track_density.py (heat of tracked
@@ -90,7 +104,7 @@ a ctrl/arm comparison against it.
 
 ## Testing
 .venv\Scripts\python.exe -m pytest backend/tests/ -q
-# 1200 passing as of 2026-09-10
+# 1278 passing as of 2026-09-15
 
 ## Git
 git commit -m "Step X.X — [title]"

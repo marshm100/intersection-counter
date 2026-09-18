@@ -479,6 +479,76 @@ def _cfg_emergence_guard():
     return EMERGENCE_GUARD
 
 
+def _cfg_fuse_score():
+    from backend.config import TRACKER_FUSE_SCORE
+    return TRACKER_FUSE_SCORE
+
+
+def _cfg_position_recovery():
+    from backend.config import TRACKER_POSITION_RECOVERY
+    return TRACKER_POSITION_RECOVERY
+
+
+def _cfg_recovery_min_iou():
+    from backend.config import TRACKER_RECOVERY_MIN_IOU
+    return TRACKER_RECOVERY_MIN_IOU
+
+
+def _cfg_recovery_guard():
+    """The stage-2.5 guards as a recipe value (None when both are off)."""
+    from backend import config as c
+    held = float(getattr(c, "TRACKER_RECOVERY_HELD_IOU", 0.6))
+    deg = float(getattr(c, "TRACKER_RECOVERY_REVERSE_DEG", 0.0))
+    if held <= 0 and deg <= 0:
+        return None
+    return {"held_iou": held, "reverse_deg": deg,
+            "reverse_jump": float(getattr(c, "TRACKER_RECOVERY_REVERSE_JUMP", 0.15))}
+
+
+def _cfg_confirm_by_position():
+    from backend.config import TRACKER_CONFIRM_BY_POSITION
+    return TRACKER_CONFIRM_BY_POSITION
+
+
+def _cfg_edge_exit():
+    from backend.config import TRACKER_EDGE_EXIT
+    return TRACKER_EDGE_EXIT
+
+
+def _cfg_dup_box_iou():
+    from backend.config import TRACKER_DUP_BOX_IOU
+    return TRACKER_DUP_BOX_IOU
+
+
+def _cfg_stack_iou():
+    from backend.config import TRACKER_STACK_IOU
+    return TRACKER_STACK_IOU
+
+
+def _cfg_weak_birth():
+    """The weak-box birth recipe (None when the stage is off)."""
+    from backend import config as c
+    if not (getattr(c, "TRACKER_POSITION_RECOVERY", False)
+            and getattr(c, "TRACKER_WEAK_BIRTH", False)):
+        return None
+    return {"persist_s": float(c.TRACKER_WEAK_BIRTH_PERSIST_S),
+            "gap_s": float(c.TRACKER_WEAK_BIRTH_GAP_S),
+            "min_move": float(c.TRACKER_WEAK_BIRTH_MIN_MOVE),
+            "max_cover": float(c.TRACKER_WEAK_BIRTH_MAX_COVER),
+            "history_s": float(c.TRACKER_WEAK_BIRTH_HISTORY_S),
+            "promote": bool(c.TRACKER_WEAK_BIRTH_PROMOTE)}
+
+
+# Dump meta keys that define the pass-1 recipe: a resume whose existing dump
+# differs on any of them is a hard error (delete the dump to start over).
+PASS1_RESUME_KEYS = ("format", "frames", "backend", "nms_iou",
+                     "activation", "match", "bbox_buffer",
+                     "lost_buffer", "emergence_guard",
+                     "fuse_score", "position_recovery", "recovery_min_iou",
+                     "recovery_guard", "confirm_by_position", "edge_exit",
+                     "dup_box_iou", "stack_iou", "weak_birth")
+
+
 def _tracks_from_rows(rows: np.ndarray) -> dict:
     """{track_id: [(frame, x, y), ...]} — the shape the gate/census helpers
     consume."""
@@ -782,6 +852,135 @@ def _split_gate_straddles(arr, drawn, fps):
     return n_split
 
 
+# ---- weak-box birth back-fill (2026-09-12) --------------------------------
+# The recovery tracker emits BACK-FILL rows: past-frame observations of a
+# track born from a car's weak boxes. They cannot go into rows.npy mid-run
+# (resume assumes a frame-ordered tail), so they collect in a sidecar saved
+# just before every count.txt write, and join the dump at the end of the run.
+BACKFILL_FILE = "backfill.npy"      # (K, 9) float64: the 8 dump columns + promoted_at
+
+
+def _save_backfill(out: Path, rows: list) -> None:
+    import os
+    arr = np.asarray(rows, dtype=np.float64).reshape(-1, 9)
+    tmp = out / "backfill.tmp.npy"
+    np.save(tmp, arr)
+    os.replace(tmp, out / BACKFILL_FILE)
+
+
+def _load_backfill(out: Path, resume_from: int) -> list:
+    """Sidecar rows of tracks promoted BEFORE the resume frame (the rest are
+    produced again by the resumed run)."""
+    p = out / BACKFILL_FILE
+    if not p.exists():
+        return []
+    arr = np.load(p).reshape(-1, 9)
+    return [tuple(r) for r in arr[arr[:, 8] < float(resume_from)].tolist()]
+
+
+def _reset_backfill(out: Path) -> None:
+    for name in (BACKFILL_FILE, "backfill.tmp.npy", "rows_ordered.tmp.npy"):
+        (out / name).unlink(missing_ok=True)
+
+
+def _resume_count(out: Path, old_meta: dict | None) -> int:
+    """count.txt, clamped to the main rows when a back-fill merge had begun
+    (rows past it are a partly written tail). The clamp is written back at
+    once: the start-of-run meta write erases the marker."""
+    w = int((out / "count.txt").read_text())
+    mk = (old_meta or {}).get("backfill_merge")
+    if mk and "main_rows" in mk and w > int(mk["main_rows"]):
+        w = int(mk["main_rows"])
+        (out / "count.txt").write_text(str(w))
+    return w
+
+
+def _backfill_keep_mask(main: np.ndarray, bf: np.ndarray) -> np.ndarray:
+    """Keep back-fill rows whose (id, frame) the main rows do NOT have, and
+    the first of any duplicates within the back-fill: pass 2 must never see
+    two rows for one (id, frame)."""
+    if len(bf) == 0:
+        return np.zeros(0, dtype=bool)
+    bk = bf[:, 0].astype(np.int64) * 10_000_000 + bf[:, 1].astype(np.int64)
+    keep = np.ones(len(bf), dtype=bool)
+    if len(main):
+        mk = main[:, 0].astype(np.int64) * 10_000_000 + main[:, 1].astype(np.int64)
+        keep &= ~np.isin(bk, mk)
+    _, first = np.unique(bk, return_index=True)
+    uniq = np.zeros(len(bf), dtype=bool)
+    uniq[first] = True
+    return keep & uniq
+
+
+def _append_backfill_tail(out: Path, meta: dict, state: dict, grow_rows) -> int:
+    """Append the (deduplicated, frame-sorted) back-fill after the main rows.
+    The marker goes to meta.json FIRST, so a crash mid-append resumes clamped
+    to the main rows."""
+    bf = np.asarray(state.get("bf") or [], dtype=np.float64).reshape(-1, 9)
+    w = int(state["w"])
+    if len(bf) == 0:
+        meta["backfill_rows"] = 0
+        meta["backfill_dup_dropped"] = 0
+        return 0
+    keep = _backfill_keep_mask(np.asarray(state["mm"][:w]), bf)
+    dup = int((~keep).sum())
+    bf = bf[keep]
+    bf = bf[np.argsort(bf[:, 1], kind="stable")]
+    k = len(bf)
+    meta["backfill_merge"] = {"main_rows": w, "rows": int(k)}
+    (out / "meta.json").write_text(json.dumps(meta, indent=2))
+    if k:
+        grow_rows(k)
+        state["mm"][w:w + k] = bf[:, :8].astype(np.float32)
+        state["w"] = w + k
+    meta["backfill_rows"] = int(k)
+    meta["backfill_dup_dropped"] = dup
+    return k
+
+
+def _frame_order_rewrite(out: Path, n: int) -> bool:
+    """Rewrite rows.npy (its first n rows) in frame order, main rows before
+    back-fill within a frame (stable). Runs after the dump is marked complete;
+    on failure the tail layout stays, which load_dump re-sorts."""
+    import os
+    from numpy.lib.format import open_memmap
+    try:
+        rows = np.array(np.load(out / "rows.npy", mmap_mode="r")[:n])
+        order = np.argsort(rows[:, 1], kind="stable")
+        tmp = out / "rows_ordered.tmp.npy"
+        mm = open_memmap(tmp, mode="w+", dtype=np.float32, shape=(max(n, 1), 8))
+        if n:
+            mm[:n] = rows[order]
+        mm.flush()
+        del mm
+        os.replace(tmp, out / "rows.npy")
+        return True
+    except OSError:
+        (out / "rows_ordered.tmp.npy").unlink(missing_ok=True)
+        return False
+
+
+def _floor_bytetrack_ids(out: Path) -> None:
+    """On resume the tracker is new but supervision's id counter is process-
+    global: floor it at the dump's (and sidecar's) max id so a resumed run
+    never reuses an id — reuse plus back-fill would give two rows for one
+    (id, frame)."""
+    try:
+        from supervision.tracker.byte_tracker.basetrack import BaseTrack
+        n = int((out / "count.txt").read_text()) if (out / "count.txt").exists() else 0
+        mx = 0
+        if n and (out / "rows.npy").exists():
+            mx = int(np.load(out / "rows.npy", mmap_mode="r")[:n, 0].max())
+        if (out / BACKFILL_FILE).exists():
+            a = np.load(out / BACKFILL_FILE).reshape(-1, 9)
+            if len(a):
+                mx = max(mx, int(a[:, 0].max()))
+        if BaseTrack._count < mx:
+            BaseTrack._count = mx
+    except Exception:
+        pass
+
+
 def run_pass1(project_id: str, camera_id: int, *, variant: str,
               start_frame: int, end_frame: int, backend: str | None = None,
               resume: bool = True, progress=None, should_cancel=None) -> dict:
@@ -851,6 +1050,10 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         tracker_kwargs["lost_track_buffer"] = int(lb)
     if ntt is not None and tracker_backend == "botsort":
         tracker_kwargs["new_track_thresh"] = float(ntt)
+    if tracker_backend == "bytetrack" and video["width"] and video["height"]:
+        tracker_kwargs["frame_size"] = (int(video["width"]), int(video["height"]))
+    if tracker_backend == "bytetrack":
+        tracker_kwargs["collect_backfill"] = True
     if with_reid:
         side = pq.with_name(pq.stem + ".reid")
         if not side.exists():
@@ -879,24 +1082,49 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         "activation": activation, "match": match, "bbox_buffer": buf,
         "lost_buffer": (int(lb) if lb is not None else None),
         "emergence_guard": bool(_cfg_emergence_guard()),
+        "fuse_score": bool(_cfg_fuse_score()),
+        "position_recovery": bool(_cfg_position_recovery()),
+        "recovery_min_iou": (float(_cfg_recovery_min_iou()) if _cfg_position_recovery() else None),
+        "recovery_guard": (_cfg_recovery_guard() if _cfg_position_recovery() else None),
+        "confirm_by_position": (bool(_cfg_confirm_by_position()) if _cfg_position_recovery() else None),
+        "edge_exit": (bool(_cfg_edge_exit()) if _cfg_position_recovery() else None),
+        "dup_box_iou": (float(_cfg_dup_box_iou()) if _cfg_position_recovery() else None),
+        "stack_iou": (float(_cfg_stack_iou()) if _cfg_position_recovery() else None),
+        "weak_birth": (_cfg_weak_birth() if tracker_backend == "bytetrack" else None),
     }
     out.mkdir(parents=True, exist_ok=True)
     warm_frames = int(PASS1_SEAM_WARMUP_SECONDS * fps)
 
     def _check_resume_meta():
         old_meta = json.loads((out / "meta.json").read_text())
-        mismatches = [k for k in ("format", "frames", "backend", "nms_iou",
-                                  "activation", "match", "bbox_buffer",
-                                  "lost_buffer", "emergence_guard")
+        mismatches = [k for k in PASS1_RESUME_KEYS
                       if old_meta.get(k) != meta.get(k)]
         if mismatches:
             raise ValueError(
                 f"pass-1 resume: existing dump differs on {mismatches} — "
                 f"delete {out} to start over")
+        return old_meta
+
+    # A COMPLETE dump is not re-stepped on resume (it may already carry a
+    # merged back-fill tail; re-stepping its last frame would mint new ids).
+    if resume and (out / "meta.json").exists() and (out / "count.txt").exists():
+        try:
+            _old = json.loads((out / "meta.json").read_text())
+        except (OSError, ValueError):
+            _old = {}
+        if _old.get("complete"):
+            _check_resume_meta()
+            return {"camera_id": camera_id, "variant": variant, "recipe": recipe,
+                    "rows": int((out / "count.txt").read_text()),
+                    "frames": [start_frame, end_frame], "tracks_dir": str(out),
+                    "status": "complete"}
+    if resume and tracker_backend == "bytetrack":
+        _floor_bytetrack_ids(out)
 
     # Shared per-frame step: NMS -> bbox buffer -> tracker -> dump rows.
     # write=False = warm-up (tracker state only, nothing persisted).
-    state = {"mm": None, "w": 0}
+    pop_bf = getattr(be, "pop_backfill", None)
+    state = {"mm": None, "w": 0, "bf": [], "bf_on": pop_bf is not None}
 
     def _grow_rows(extra: int) -> None:
         """rows.npy capacity is an estimate; grow by copy when it falls short
@@ -930,8 +1158,9 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
                 inflated.append(d)
             dets = inflated
         tracks = be.update(dets, fidx)
+        bf_rows = pop_bf() if pop_bf is not None else []
         if not write:
-            return
+            return          # warm-up: the run that wrote these frames kept their back-fill
         _grow_rows(len(tracks))
         mm = state["mm"]
         for t in tracks:
@@ -941,6 +1170,12 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
                 float(t.get("bbox_width", 0.0)), float(t.get("bbox_height", 0.0)),
                 float(t.get("confidence", 0.0)), float(t.get("class_id", -1)))
             state["w"] += 1
+        for r in bf_rows:
+            bx, by = r["center"]
+            state["bf"].append((float(r["track_id"]), float(r["frame"]), float(bx), float(by),
+                                float(r["bbox_width"]), float(r["bbox_height"]),
+                                float(r["confidence"]), float(r["class_id"]),
+                                float(r["promoted_at"])))
 
     if cache_exists(pq):
         _pass1_from_cache(
@@ -975,6 +1210,15 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
     ev = getattr(getattr(be, "bot", None), "emergence_vetoes", None)
     if ev is not None:
         meta["emergence_vetoes"] = int(ev)
+    # Weak-box birth back-fill joins the dump BEFORE the stop-fracture
+    # collapse (which must relabel back-filled rows too, and judge a
+    # fragment's true first frame).
+    if state.get("bf_on") and state["mm"] is not None:
+        _save_backfill(out, state["bf"])
+        _append_backfill_tail(out, meta, state, _grow_rows)
+        bt = getattr(be, "byte_track", None)
+        meta["weak_births"] = int(getattr(bt, "n_weak_births", 0))
+        meta["weak_inherited"] = int(getattr(bt, "n_weak_inherited", 0))
     # Counted-path C (flag-gated, default off): collapse red-light
     # stop-fracture twin pairs before anything reads the dump.
     from backend.config import STOP_FRACTURE_COLLAPSE
@@ -1016,6 +1260,9 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
     # incomplete until this line runs.
     meta["complete"] = True
     (out / "meta.json").write_text(json.dumps(meta, indent=2))
+    if meta.get("backfill_rows"):
+        meta["frame_ordered"] = _frame_order_rewrite(out, state["w"])
+        (out / "meta.json").write_text(json.dumps(meta, indent=2))
     return {"camera_id": camera_id, "variant": variant, "recipe": recipe,
             "rows": state["w"], "frames": [start_frame, end_frame],
             "tracks_dir": str(out)}
@@ -1035,9 +1282,9 @@ def _pass1_from_cache(pq, out, meta, start_frame, end_frame, warm_frames,
 
     resume_from = start_frame
     if resume and (out / "rows.npy").exists() and (out / "count.txt").exists():
-        check_resume_meta()
+        old_meta = check_resume_meta()
         mm = open_memmap(out / "rows.npy", mode="r+")
-        w0 = int((out / "count.txt").read_text())
+        w0 = _resume_count(out, old_meta)
         if w0 > 0:
             f_last = int(mm[w0 - 1, 1])
             w = w0
@@ -1046,7 +1293,9 @@ def _pass1_from_cache(pq, out, meta, start_frame, end_frame, warm_frames,
             state["w"] = w
             resume_from = f_last
         state["mm"] = mm
+        state["bf"] = _load_backfill(out, resume_from)
     if state["mm"] is None:
+        _reset_backfill(out)
         state["mm"] = open_memmap(out / "rows.npy", mode="w+",
                                   dtype=_np.float32, shape=(cap_rows, 8))
     (out / "meta.json").write_text(json.dumps(meta, indent=2))
@@ -1064,6 +1313,8 @@ def _pass1_from_cache(pq, out, meta, start_frame, end_frame, warm_frames,
         if should_cancel is not None and should_cancel():
             # flush so the resume high-water mark reflects everything written
             state["mm"].flush()
+            if state.get("bf_on"):
+                _save_backfill(out, state["bf"])     # never behind count.txt
             (out / "count.txt").write_text(str(state["w"]))
             raise JobCancelled(f"pass-1 cancelled at frame {fidx} (resumable)")
         while nxt is not None and nxt[0] < fidx:
@@ -1077,6 +1328,8 @@ def _pass1_from_cache(pq, out, meta, start_frame, end_frame, warm_frames,
         done += 1
         if done % 5000 == 0:
             state["mm"].flush()
+            if state.get("bf_on"):
+                _save_backfill(out, state["bf"])     # never behind count.txt
             (out / "count.txt").write_text(str(state["w"]))
             if progress:
                 progress(done, end_frame - loop_start, state["w"])
@@ -1122,19 +1375,21 @@ def _pass1_ingest(project_id, video, chash, hash_method, pq, out, meta, fps,
     resume_from = start_frame + k0 * chunk_frames
     if (k0 and resume and (out / "rows.npy").exists()
             and (out / "count.txt").exists()):
-        check_resume_meta()
+        old_meta = check_resume_meta()
         mm = open_memmap(out / "rows.npy", mode="r+")
         # Truncate to rows strictly before the resume chunk: count.txt is
         # written after the part closes, so a crash between the two leaves
         # either stale count (no-op here) or rows past the last closed part
         # (dropped here) — both orders reconverge.
-        w = int((out / "count.txt").read_text())
+        w = _resume_count(out, old_meta)
         while w > 0 and int(mm[w - 1, 1]) >= resume_from:
             w -= 1
         state["mm"], state["w"] = mm, w
+        state["bf"] = _load_backfill(out, resume_from)
     else:
         k0 = 0
         resume_from = start_frame
+        _reset_backfill(out)
         for k in range(n_chunks):
             part_path(k).unlink(missing_ok=True)
         cap_rows = (end_frame - start_frame) * 8 + 1000
@@ -1191,6 +1446,8 @@ def _pass1_ingest(project_id, video, chash, hash_method, pq, out, meta, fps,
                 if progress and done % 200 == 0:
                     progress(done, total, state["w"])
             state["mm"].flush()
+            if state.get("bf_on"):
+                _save_backfill(out, state["bf"])     # never behind count.txt
             (out / "count.txt").write_text(str(state["w"]))
             writer.close()
     finally:

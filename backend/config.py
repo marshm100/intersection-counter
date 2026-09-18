@@ -544,6 +544,150 @@ TRAJECTORY_UTURN_MIN_NET_DISPLACEMENT_PX = 90
 TRACKER_LOST_BUFFER = 150            # frames before dropping track (5s @ 30fps; ByteTrack default 30)
 TRACKER_MATCH_THRESHOLD = 0.8        # ByteTrack default — IoU>=0.2 matches (loose)
 TRACKER_ACTIVATION_THRESHOLD = 0.25  # ByteTrack default — confirms tracks for conf >= 0.25
+# Score fusion in the first association (2026-09-12, cam4 NB census):
+# supervision's ByteTrack multiplies IoU by the detection confidence before
+# the match, so the effective overlap bar is 0.2 / conf — at conf 0.63 an
+# overlap of 0.32, at 0.4 an overlap of 0.5. A big box receding at 10 fps
+# sits at 0.25-0.4 and is refused although the detector is sure of it
+# (cam4 1600: 180 of 241 mid-frame deaths of the nearest-lane NB tracks,
+# scripts/probe_cam4_nb_death_point.py). The original ByteTrack has this
+# fusion switchable (its MOT20 mode); boxmot's BoT-SORT, which cams 1-3
+# run, does not fuse by default. TRACKER_FUSE_SCORE=0 turns the fusion
+# off for the default (supervision ByteTrack) recipe. Default ON = the
+# shipped behaviour until an arm passes the letter.
+TRACKER_FUSE_SCORE = _os.environ.get("TRACKER_FUSE_SCORE", "1") in ("1", "true", "on")
+# Position recovery, stage 2.5 of the default (supervision ByteTrack) recipe
+# (2026-09-12, cam4 NB research, docs/plan_basis_2026-09-11.md "Why the
+# tracker breaks"). Each near-lane vehicle's detection chain is continuous
+# (24 hits) but the tracker splits it into 1-3 tracks with gaps, 562 of 636
+# breaks in the far field where the box is ~29 px: consecutive real boxes
+# overlap only 0.50 at 10 fps, the Kalman prediction 0.41 (the filter is
+# stiff at small size), and the next real box is refused by IoU x conf
+# (stage 1) or by IoU 0.5 for a weak box (stage 2). The stage takes the
+# tracks still unmatched after stage 2 (tracked AND lost) and the detections
+# still unmatched (high AND low, conf >= 0.10), and pairs them greedily by
+# centre distance in BOX UNITS: distance / max(widths) < REACH, sizes within
+# SIZE_RATIO. Births unchanged; recovered boxes never seed a new track.
+# The census's linker with exactly this rule holds every vehicle as one
+# chain. Default OFF until the fleet arm (d18) passes the letter.
+# 2026-09-12 (operator: "improving the engineering of the tracker", not a
+# switch): the stage IS the default backend's behaviour. Env X=0 is the
+# experiment override, like every other rule. Production dumps are re-tracked
+# only when the operator says so.
+TRACKER_POSITION_RECOVERY = _os.environ.get(
+    "TRACKER_POSITION_RECOVERY", "1") in ("1", "true", "on")
+TRACKER_RECOVERY_REACH = 0.9        # box widths
+TRACKER_RECOVERY_SIZE_RATIO = 0.3   # min(w)/max(w) below this = not the same box
+# d18 (2026-09-12) MISSED: recovering boxes that no longer OVERLAP the
+# prediction steals neighbours (FM51 0700: 10-11% of such recoveries were
+# two-vehicle merges vs 3% of those overlapping > 0.2; cam4 1600: 19-20%
+# vs 3%). The recovered box must still overlap the predicted box by at
+# least this IoU — the same geometric bar stage 1 uses (match 0.8), only
+# without the confidence fusion and without stage 2's 0.5 for weak boxes.
+# 0 disables the gate (d18's behaviour).
+TRACKER_RECOVERY_MIN_IOU = 0.2
+# Confirmation by position (2026-09-12): a just-born track must be matched
+# again on the very next frame by IoU x conf >= 0.3 or it is removed, and it
+# is never offered a weak box. A vehicle entering over the frame edge is a
+# clipped strip one frame and a full box the next (IoU ~0.2 despite the same
+# width), so it is born and killed frame after frame: 70 of cam4 1600's 469
+# near-lane vehicles never got a track although 86% had two or more
+# consecutive confident boxes. An unconfirmed track unmatched by the library
+# pass is offered the remaining boxes (any conf >= 0.10) that overlap it at
+# all and keep its width within WIDTH_RATIO. 0 disables.
+TRACKER_CONFIRM_BY_POSITION = _os.environ.get(
+    "TRACKER_CONFIRM_BY_POSITION", "1") in ("1", "true", "on")
+TRACKER_CONFIRM_WIDTH_RATIO = 0.5
+# Motion-state reset (2026-09-12): supervision's Kalman filter carries aspect
+# and height velocities; one violent shape change launches them and the
+# predicted box balloons (2x the real width at 60% of cam4 1600's remaining
+# breaks after confirmation was added). A confirmation by position always
+# restarts the state from the full box; a recovery whose box width differs
+# from the prediction by more than this factor does too. 0 disables.
+TRACKER_REINIT_WIDTH_JUMP = 1.5
+# Lost-track patience for position recovery, in SECONDS (fps-invariant):
+# the census linker's 5 frames at 10 fps. Older lost ids are left to the
+# library's own stage-1 re-find (IoU x conf); recovering them by position
+# handed stale ids to following vehicles (FM51 0700: 246 -> 573).
+TRACKER_RECOVERY_LOST_PATIENCE_S = 0.5
+# Recovery guards (Phase B thefts, 2026-09-15). The theft reel ruled that every
+# filmed position recovery onto a NEIGHBOUR's weak box was a theft (3 of 3)
+# while every ordinary-stage match filmed was right. The census
+# (scripts/research_recovery_guard.py) found no per-frame gate that separates
+# thefts from good recoveries cleanly, so two candidates were built as knobs
+# and judged by re-tracking cam4 1600 / cam5 1600 / FM51 0700 against the
+# chain yardstick (ledger: docs/plan_basis_2026-09-11.md "Arms rg1 / rg2 / rg3").
+#  HELD_IOU (DEFAULT 0.6, the tracker's behaviour): refuse a box that overlaps,
+#    by at least this IoU, a box some other track already took this frame by
+#    the ordinary stages - the neighbour's second box. Re-tracked: thefts
+#    107 -> 83 / 221 -> 196 / 23 -> 18, one-track vehicles +53 / +118 / +16,
+#    breaks -128 / -360 / -59, twin hand-offs 202 -> 121 / 557 -> 329 /
+#    139 -> 97. Better on every measure on every site. 0 = off (experiment).
+#  REVERSE_DEG / REVERSE_JUMP (DEFAULT OFF): refuse a box that lies >= JUMP
+#    box widths from the track's last observed box in a direction more than
+#    DEG degrees off the track's observed motion. At 90 deg / 0.15 it removed
+#    a few more thefts but broke far more tracks (breaks +235 / +542 / +49);
+#    the backward jumps it refuses are mostly a slow vehicle's own box
+#    jitter. Kept as a knob for the record, not the default.
+TRACKER_RECOVERY_HELD_IOU = float(_os.environ.get("TRACKER_RECOVERY_HELD_IOU", "0.6"))
+TRACKER_RECOVERY_REVERSE_DEG = float(_os.environ.get("TRACKER_RECOVERY_REVERSE_DEG", "0"))
+TRACKER_RECOVERY_REVERSE_JUMP = float(_os.environ.get("TRACKER_RECOVERY_REVERSE_JUMP", "0.15"))
+# Edge exit (2026-09-12): a track whose last observed box touches the frame
+# edge while it was moving toward that edge has driven out of the picture;
+# it is removed at the Tracked -> Lost transition instead of waiting 5 s as a
+# lost id at the edge. FM51 0700: 133 of 200 stale-id steals were by ids last
+# seen touching the right edge (the next vehicle leaving through the same
+# spot inherited the id). Needs the video's frame size: pass 1 and the live
+# pipeline read it from the videos row; without it the rule does nothing.
+TRACKER_EDGE_EXIT = _os.environ.get("TRACKER_EDGE_EXIT", "1") in ("1", "true", "on")
+# Double-box suppression at the tracker's input (2026-09-12). YOLO26 is
+# NMS-free and emits stacked double boxes of either class. Measured
+# (scripts/research_dup_boxes.py): pairs above 0.8 IoU are ONE vehicle 99-
+# 100% of the time on cam4, cam5 and FM51 (they never separate within +-1 s);
+# 0.6-0.8 is two vehicles 2-14% of the time, 0.45-0.6 up to 33%. So the input
+# step removes only > 0.8 pairs, any class; 0 disables. Independent of
+# PRE_TRACK_NMS_IOU (class-agnostic at the pipeline level, off).
+TRACKER_DUP_BOX_IOU = 0.8
+# Stacked-box guard (2026-09-12): below the 0.8 input dedup, a box stacked on
+# a box a track already holds this frame (IoU > 0.6) is that vehicle's double
+# box 86-98% of the time. Such a box neither confirms a newborn by position
+# nor starts a new track; a genuinely occluded vehicle is born once it
+# separates. 0 disables.
+TRACKER_STACK_IOU = 0.6
+# Weak-box births (2026-09-12, docs/plan_basis_2026-09-11.md "Sizing the
+# remaining classes"): a distant or partly hidden car's boxes stay under the
+# birth bar (activation + 0.1 = 0.35) for 0.5-1.5 s — cam5 1600: 12% of
+# vehicles start >= 0.5 s late, FM51 0700: 27%; the hand-off reel's clip 5
+# (a car hidden in a queue, conf 0.10-0.33 for 1.5 s). The recovery tracker
+# keeps those weak boxes as tentative histories linked by its position rule.
+# Inheritance: the track born from the car's first confident box takes the
+# history as back-fill (no new tracks). Promotion (_PROMOTE): a tentative
+# that held together _PERSIST_S and moved _MIN_MOVE box widths, and whose box
+# does not lie inside a held vehicle (_MAX_COVER), becomes a track. Needs
+# TRACKER_POSITION_RECOVERY. _GAP_S stays under the 0.5 s stop-fracture grace;
+# _HISTORY_S stays far under the 90 s pass-1 resume warm-up.
+TRACKER_WEAK_BIRTH = _os.environ.get("TRACKER_WEAK_BIRTH", "1") in ("1", "true", "on")
+# Promotion OFF by default (2026-09-12, measured): on cam4 / FM51 / cam5 it
+# trims late births by ~1 point over inheritance alone but costs one-track
+# vehicles (-2 / -3 / -30) and adds breaks (+5 / +12 / +80) — a car promoted
+# from weak boxes tends to lose that id when its confident box arrives. Back
+# on once that continuity is fixed. Inheritance (no new tracks) stays on.
+TRACKER_WEAK_BIRTH_PROMOTE = _os.environ.get(
+    "TRACKER_WEAK_BIRTH_PROMOTE", "0") in ("1", "true", "on")
+TRACKER_WEAK_BIRTH_PERSIST_S = 0.5
+TRACKER_WEAK_BIRTH_GAP_S = 0.2
+TRACKER_WEAK_BIRTH_MIN_MOVE = 0.5
+# the share of a weak box lying inside a held vehicle's box above which it is
+# that vehicle's double/part box. Not lower: two equal boxes at IoU 0.2 (the
+# ruled clip-5 queue car beside its neighbour) already cover 0.33; the
+# doubles live above IoU 0.45 (research_dup_boxes.py), i.e. cover >= ~0.6.
+TRACKER_WEAK_BIRTH_MAX_COVER = 0.6
+TRACKER_WEAK_BIRTH_HISTORY_S = 10.0
+# ... and the same reset applies to the library's own stage-1/2 matches (a
+# confident match whose box width jumps > 1.5x against the prediction), and
+# the recovery gate also accepts overlap with the LAST OBSERVED box, so a
+# drifted prediction cannot hide a continuation (remaining cam4 1600 breaks:
+# prediction-to-next IoU 0.16 while real-to-next was 0.32).
 
 # Origin assignment
 ORIGIN_ASSIGN_MIN_FRAMES = 2   # trajectory points needed before assigning origin

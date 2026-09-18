@@ -348,6 +348,25 @@ class ProcessingPipeline:
             )
         return self._detector
 
+    def _video_frame_size(self) -> tuple[int, int] | None:
+        """(width, height) of this pipeline's video from the videos row, or
+        None when it cannot be read (never raises)."""
+        if not getattr(self, "video_id", None):
+            return None
+        try:
+            import sqlite3 as _sq
+            con = _sq.connect(self.db_path)
+            try:
+                row = con.execute("SELECT width, height FROM videos WHERE video_id = ?",
+                                  (self.video_id,)).fetchone()
+            finally:
+                con.close()
+        except Exception:
+            return None
+        if row and row[0] and row[1]:
+            return (int(row[0]), int(row[1]))
+        return None
+
     @property
     def tracker(self) -> VehicleTracker:
         if self._tracker is None:
@@ -386,6 +405,12 @@ class ProcessingPipeline:
             ntt = self._calibration_params.get("new_track_thresh")
             if ntt is not None and self._tracker_backend == "botsort":
                 backend_kwargs.setdefault("new_track_thresh", float(ntt))
+            # The default backend's edge-exit rule needs the frame size
+            # (2026-09-12); the videos row carries it.
+            if (self._tracker_backend or "bytetrack") == "bytetrack" and "frame_size" not in backend_kwargs:
+                fs = self._video_frame_size()
+                if fs:
+                    backend_kwargs["frame_size"] = fs
             if backend_kwargs:
                 kw["backend_kwargs"] = backend_kwargs
             self._tracker = VehicleTracker(**kw)

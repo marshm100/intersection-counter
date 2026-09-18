@@ -14,6 +14,14 @@ from collections import deque as _deque
 
 import numpy as np
 import supervision as sv
+from supervision.tracker.byte_tracker import matching as _m
+from supervision.tracker.byte_tracker.basetrack import TrackState as _TrackState
+from supervision.tracker.byte_tracker.core import STrack as _STrack
+from supervision.tracker.byte_tracker.core import joint_tracks as _joint_tracks
+from supervision.tracker.byte_tracker.core import (
+    remove_duplicate_tracks as _remove_duplicate_tracks,
+)
+from supervision.tracker.byte_tracker.core import sub_tracks as _sub_tracks
 
 from backend.config import (
     TRACKER_ACTIVATION_THRESHOLD,
@@ -23,6 +31,870 @@ from backend.config import (
 )
 
 ALL_CLASSES = VEHICLE_CLASSES
+
+# _RecoveringByteTrack.update_with_tensors is a line-for-line fork of this
+# supervision version's ByteTrack.update_with_tensors (core.py L257-407) with
+# one stage inserted. A version bump must re-diff the fork (test pins it).
+_FORK_SV_VERSION = "0.17.1"
+
+
+_SV_FUSE_SCORE_ORIG = None
+
+
+def apply_fuse_score_setting(enabled: bool) -> None:
+    """Switch supervision ByteTrack's first-association score fusion
+    (config.TRACKER_FUSE_SCORE, 2026-09-12). The library multiplies IoU
+    similarity by detection confidence before the Hungarian match, which
+    makes the effective overlap bar 0.2 / conf; a confident box receding
+    at 10 fps is refused at overlap 0.25-0.4 (cam4's nearest-lane NB
+    tracks). Disabled = plain IoU in every stage, the original ByteTrack's
+    MOT20 behaviour and boxmot BoT-SORT's default. Module-level patch:
+    only the supervision backend consults this function."""
+    global _SV_FUSE_SCORE_ORIG
+    from supervision.tracker.byte_tracker import matching as _m
+    if _SV_FUSE_SCORE_ORIG is None:
+        _SV_FUSE_SCORE_ORIG = _m.fuse_score
+    if enabled:
+        _m.fuse_score = _SV_FUSE_SCORE_ORIG
+    else:
+        _m.fuse_score = lambda cost_matrix, detections: cost_matrix
+
+
+def _dedup_boxes(detections: list[dict], iou_thr: float) -> list[dict]:
+    """Drop the lower-confidence box of every pair overlapping above iou_thr,
+    ANY class (YOLO26 is NMS-free: it emits same-class and cross-class double
+    boxes alike). scripts/research_dup_boxes.py, 2026-09-12: pairs above 0.8
+    IoU separate into two vehicles within +-1 s in 0-1% of cases on cam4,
+    cam5 and FM51; between 0.6 and 0.8 in 2-14%. Stable order."""
+    n = len(detections)
+    if n < 2 or iou_thr <= 0:
+        return detections
+    b = np.asarray([d["bbox"] for d in detections], dtype=np.float32)
+    c = np.asarray([d["confidence"] for d in detections], dtype=np.float32)
+    order = np.argsort(-c, kind="stable")
+    area = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
+    drop = np.zeros(n, dtype=bool)
+    for a_i, i in enumerate(order):
+        if drop[i]:
+            continue
+        for j in order[a_i + 1:]:
+            if drop[j]:
+                continue
+            ix = max(0.0, min(b[i, 2], b[j, 2]) - max(b[i, 0], b[j, 0]))
+            iy = max(0.0, min(b[i, 3], b[j, 3]) - max(b[i, 1], b[j, 1]))
+            inter = ix * iy
+            if inter > 0 and inter / (area[i] + area[j] - inter) > iou_thr:
+                drop[j] = True
+    return [d for d, x in zip(detections, drop) if not x]
+
+
+def _recovery_cost(track_tlbr: np.ndarray, det_tlbr: np.ndarray,
+                   size_ratio: float) -> np.ndarray:
+    """(T,4) x (D,4) -> (T,D) centre distance in BOX UNITS: |c_t - c_d| /
+    max(w_t, w_d). inf where min(w)/max(w) < size_ratio or a width is not
+    positive (a 200-px near box and a 15-px far box are never the same
+    vehicle one frame apart)."""
+    if len(track_tlbr) == 0 or len(det_tlbr) == 0:
+        return np.zeros((len(track_tlbr), len(det_tlbr)), dtype=np.float32)
+    tc = (track_tlbr[:, :2] + track_tlbr[:, 2:]) / 2.0
+    dc = (det_tlbr[:, :2] + det_tlbr[:, 2:]) / 2.0
+    tw = (track_tlbr[:, 2] - track_tlbr[:, 0])[:, None]
+    dw = (det_tlbr[:, 2] - det_tlbr[:, 0])[None, :]
+    dist = np.hypot(tc[:, None, 0] - dc[None, :, 0], tc[:, None, 1] - dc[None, :, 1])
+    wmax = np.maximum(tw, dw)
+    wmin = np.minimum(tw, dw)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cost = dist / wmax
+        ratio = wmin / wmax
+    bad = (wmin <= 0) | ~np.isfinite(cost) | (ratio < size_ratio)
+    cost = np.where(bad, np.inf, cost)
+    return cost.astype(np.float32)
+
+
+def _greedy_pairs(cost: np.ndarray, reach: float) -> list[tuple[int, int]]:
+    """Nearest pair first, one-to-one, stop at the first cost >= reach.
+    Stable ascending sort, so ties resolve in row order (rows are ordered
+    tracked-then-lost by the caller: the live track wins a tie). Greedy on
+    purpose: a sum-minimising assignment cross-pairs leftovers onto a
+    FOLLOWER (the 2026-05-29 recovery failure); the nearest-within-reach
+    rule is the one the census linker validated."""
+    if cost.size == 0:
+        return []
+    order = np.argsort(cost, axis=None, kind="stable")
+    used_t: set[int] = set()
+    used_d: set[int] = set()
+    pairs: list[tuple[int, int]] = []
+    ncol = cost.shape[1]
+    for flat in order:
+        c = cost.flat[flat]
+        if not np.isfinite(c) or c >= reach:
+            break
+        ti, di = divmod(int(flat), ncol)
+        if ti in used_t or di in used_d:
+            continue
+        used_t.add(ti); used_d.add(di)
+        pairs.append((ti, di))
+    return pairs
+
+
+def _coverage(a_tlbr: np.ndarray, b_tlbr: np.ndarray) -> np.ndarray:
+    """(A,4) x (B,4) -> (A,B): the share of each a-box's area that lies inside
+    each b-box (asymmetric; a weak double box riding a held car covers ~1)."""
+    a = np.asarray(a_tlbr, dtype=np.float32).reshape(-1, 4)
+    b = np.asarray(b_tlbr, dtype=np.float32).reshape(-1, 4)
+    if len(a) == 0 or len(b) == 0:
+        return np.zeros((len(a), len(b)), dtype=np.float32)
+    ix = np.clip(np.minimum(a[:, None, 2], b[None, :, 2]) - np.maximum(a[:, None, 0], b[None, :, 0]), 0, None)
+    iy = np.clip(np.minimum(a[:, None, 3], b[None, :, 3]) - np.maximum(a[:, None, 1], b[None, :, 1]), 0, None)
+    area = np.maximum((a[:, 2] - a[:, 0]) * (a[:, 3] - a[:, 1]), 1e-6)
+    return (ix * iy / area[:, None]).astype(np.float32)
+
+
+def _obs(lf: int, af: int, tlbr, score: float, cls, cover: float) -> tuple:
+    """One tentative observation as a tuple of Python scalars (pickle-stable):
+    (local frame, absolute frame, x1, y1, x2, y2, score, class, cover)."""
+    try:
+        c = int(cls)
+    except (TypeError, ValueError):
+        c = -1
+    return (int(lf), int(af), float(tlbr[0]), float(tlbr[1]), float(tlbr[2]), float(tlbr[3]),
+            float(score), c, float(cover))
+
+
+def _majority(classes: list) -> int:
+    """Most common class; ties go to the latest."""
+    if not classes:
+        return -1
+    counts: dict = {}
+    for c in classes:
+        counts[c] = counts.get(c, 0) + 1
+    best = max(counts.values())
+    for c in reversed(classes):
+        if counts[c] == best:
+            return int(c)
+    return int(classes[-1])
+
+
+def _adopt(track, det, frame_id: int, kalman_filter, width_jump: float,
+           was_tracked: bool) -> bool:
+    """Continue `track` on `det`: a normal Kalman update (or re_activate for a
+    lost track) unless the box width jumped by more than `width_jump` against
+    the PREDICTED width, in which case the motion state restarts from `det`
+    (_adopt_reinit). Records the observed box on the track (last_obs_tlbr).
+    Returns True when the state was re-initiated."""
+    pred = track.tlbr
+    pw = float(pred[2] - pred[0]); dw = float(det.tlbr[2] - det.tlbr[0])
+    jump = (width_jump > 0 and pw > 0 and dw > 0
+            and (dw / pw > width_jump or pw / dw > width_jump))
+    if jump:
+        _adopt_reinit(track, det, frame_id, kalman_filter)
+    elif was_tracked:
+        track.update(det, frame_id)
+    else:
+        track.re_activate(det, frame_id, new_id=False)
+    _note_obs(track, det.tlbr, frame_id)
+    return jump
+
+
+def _match_rec(bt, stage: str, track, det, was_lost: bool) -> tuple:
+    """One match_log record, taken BEFORE the track adopts the box: (absolute
+    frame, track id, stage, was_lost, frames since the track was last seen,
+    the track's predicted tlbr, the det tlbr, det score). Stages: "s1" (high
+    boxes, IoU x conf), "s2" (low boxes, IoU 0.5), "s25" (position recovery),
+    "unconf" (a newborn confirmed by IoU x conf), "confirm_pos" (confirmed by
+    position), "birth"."""
+    return (bt._abs(), int(track.track_id), stage, bool(was_lost),
+            int(bt.frame_id - track.end_frame),
+            tuple(float(v) for v in track.tlbr), tuple(float(v) for v in det.tlbr),
+            float(det.score))
+
+
+def _note_obs(track, tlbr, frame_id: int) -> None:
+    """Record an OBSERVED box on the track: last_obs_tlbr + the last few
+    observed centres (the exit-direction test reads them)."""
+    tlbr = np.asarray(tlbr, dtype=np.float32)
+    track.last_obs_tlbr = tlbr
+    hist = getattr(track, "obs_centers", None) or []
+    hist.append((int(frame_id), float((tlbr[0] + tlbr[2]) / 2), float((tlbr[1] + tlbr[3]) / 2)))
+    track.obs_centers = hist[-4:]
+
+
+def _reverse_jump_mask(tracks: list, det_tlbr: np.ndarray, max_deg: float,
+                       min_jump: float) -> np.ndarray:
+    """(T,D) bool: the box lies >= min_jump box widths from the track's last
+    OBSERVED box in a direction more than max_deg off the track's observed
+    motion (over its last few observed centres). A track with no observed
+    motion (standing, or one observation) refuses nothing."""
+    T, D = len(tracks), len(det_tlbr)
+    mask = np.zeros((T, D), dtype=bool)
+    if T == 0 or D == 0:
+        return mask
+    dc = (det_tlbr[:, :2] + det_tlbr[:, 2:]) / 2.0
+    dw = det_tlbr[:, 2] - det_tlbr[:, 0]
+    cos_max = float(np.cos(np.radians(max_deg)))
+    for ti, t in enumerate(tracks):
+        hist = getattr(t, "obs_centers", None) or []
+        last = getattr(t, "last_obs_tlbr", None)
+        if len(hist) < 2 or last is None:
+            continue
+        w = float(last[2] - last[0])
+        if w <= 0:
+            continue
+        vx, vy = hist[-1][1] - hist[0][1], hist[-1][2] - hist[0][2]
+        nv = float(np.hypot(vx, vy))
+        if nv < 0.1 * w:          # no observed motion: no direction to judge
+            continue
+        jx, jy = dc[:, 0] - hist[-1][1], dc[:, 1] - hist[-1][2]
+        nj = np.hypot(jx, jy)
+        jump = nj / np.maximum(np.maximum(w, dw), 1e-6)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            cosang = (vx * jx + vy * jy) / (nv * nj)
+        mask[ti] = (jump >= min_jump) & (nj > 0) & (cosang < cos_max)
+    return mask
+
+
+def _exited_frame(track, frame_w: float, frame_h: float, margin: float) -> bool:
+    """True when the track's last OBSERVED box touches a frame edge AND its
+    observed motion was toward that edge: the vehicle drove out of the
+    picture. (A box touching the edge while moving AWAY from it is entering.)"""
+    b = getattr(track, "last_obs_tlbr", None)
+    hist = getattr(track, "obs_centers", None) or []
+    if b is None or len(hist) < 2 or frame_w <= 0 or frame_h <= 0:
+        return False
+    (f0, x0, y0), (f1, x1, y1) = hist[0], hist[-1]
+    vx, vy = x1 - x0, y1 - y0
+    return ((b[2] >= frame_w - margin and vx > 0) or (b[0] <= margin and vx < 0)
+            or (b[3] >= frame_h - margin and vy > 0) or (b[1] <= margin and vy < 0))
+
+
+def _adopt_reinit(track, det, frame_id: int, kalman_filter) -> None:
+    """Continue `track` on `det` with a FRESH motion state instead of a Kalman
+    update. supervision's filter tracks aspect ratio and height with their
+    velocities; one violent shape change (a frame-edge strip becoming a full
+    box, a far box replacing a near one) launches those velocities and the
+    predicted box balloons to twice the real width within frames — 60% of
+    the remaining breaks on cam4 1600 (2026-09-12). Mirrors STrack.update
+    except kf.initiate replaces kf.update."""
+    track.frame_id = frame_id
+    track.tracklet_len += 1
+    track.mean, track.covariance = kalman_filter.initiate(
+        _STrack.tlwh_to_xyah(det.tlwh))
+    # Keep the vehicle's MOTION, drop only the poisoned SHAPE state: the
+    # centre velocity restarts from the observed displacement since the last
+    # observed box, not from zero. A zero-velocity restart parked the
+    # prediction of a vehicle entering over the frame edge (its box grows
+    # 44 -> 154 px while it moves ~50 px/frame) at the edge, where the vehicle
+    # it had been hiding appeared and took its id (cam5 1600 hand-off reel
+    # clip 6, operator ruling 2026-09-12).
+    hist = getattr(track, "obs_centers", None) or []
+    if hist:
+        f0, x0, y0 = hist[-1]
+        gap = frame_id - f0
+        if gap >= 1:
+            cx = float(det.tlwh[0] + det.tlwh[2] / 2.0)
+            cy = float(det.tlwh[1] + det.tlwh[3] / 2.0)
+            track.mean[4] = (cx - x0) / gap
+            track.mean[5] = (cy - y0) / gap
+    track.state = _TrackState.Tracked
+    track.is_activated = True
+    track.score = det.score
+
+
+class _RecoveringByteTrack(sv.ByteTrack):
+    """supervision ByteTrack with STAGE 2.5 — position recovery
+    (config.TRACKER_POSITION_RECOVERY, 2026-09-12).
+
+    After the library's stage 1 (high dets, IoU x conf) and stage 2 (low
+    dets, IoU 0.5), the tracks still unmatched (Tracked leftovers AND the
+    Lost tracks stage 1 passed over) meet the detections still unmatched
+    (high AND low, any conf >= 0.10) on centre distance in box units against
+    the track's Kalman-PREDICTED box. A recovered Tracked track is updated,
+    a recovered Lost track re-activated with its own id; the detection leaves
+    both leftover pools, so it never reaches the unconfirmed pass or a
+    birth. Births are unchanged (det_thresh). Confirmation by position now
+    offers a just-born track the leftover boxes, low ones included.
+
+    WEAK-BOX BIRTHS (config.TRACKER_WEAK_BIRTH, 2026-09-12): a distant or
+    partly hidden car's boxes stay under det_thresh for 0.5-1.5 s (cam5 1600:
+    12% of vehicles start >= 0.5 s late). The leftover weak boxes are kept as
+    TENTATIVE histories, linked frame to frame by the tracker's own position
+    rule. Inheritance: the track born from the car's first confident box takes
+    the history as its prefix. Promotion (TRACKER_WEAK_BIRTH_PROMOTE): a
+    tentative that held together 0.5 s and moved >= 0.5 box widths, and does
+    not ride a held vehicle (coverage guard), becomes a track. Either way the
+    prefix is emitted as back-fill rows at their absolute frames (opt-in
+    collection, popped by run_pass1; the live pipeline never collects).
+
+    Module-level class with plain attributes: pickles through the backend's
+    get_state/load_state. recovery_reach <= 0 disables the stage (the fork
+    is then byte-identical to the library; a test proves it)."""
+
+    def __init__(self, *args, recovery_reach: float = 0.9,
+                 recovery_size_ratio: float = 0.3, recovery_min_iou: float = 0.2,
+                 recovery_held_iou: float = 0.6, recovery_reverse_deg: float = 0.0,
+                 recovery_reverse_jump: float = 0.15,
+                 confirm_by_position: bool = True, confirm_width_ratio: float = 0.5,
+                 reinit_width_jump: float = 1.5, lost_patience_s: float = 0.5,
+                 edge_exit: bool = True, frame_size: tuple | None = None,
+                 edge_margin: float = 3.0, stack_iou: float = 0.6,
+                 weak_birth: bool = False, weak_birth_persist_s: float = 0.5,
+                 weak_birth_gap_s: float = 0.2, weak_birth_min_move: float = 0.5,
+                 weak_birth_max_cover: float = 0.6, weak_birth_history_s: float = 10.0,
+                 weak_birth_promote: bool = True, collect_backfill: bool = False,
+                 **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stack_iou = float(stack_iou)
+        self.n_births_deferred = 0
+        self.edge_exit = bool(edge_exit)
+        self.edge_margin = float(edge_margin)
+        # (w, h) of the video. Edge exit applies ONLY when the caller knows it
+        # (pass 1 and the live pipeline read it from the videos row): extents
+        # learnt from boxes are defined by the very vehicles they would judge.
+        self.frame_w = float(frame_size[0]) if frame_size else 0.0
+        self.frame_h = float(frame_size[1]) if frame_size else 0.0
+        self.n_edge_exits = 0
+        fr = float(kwargs.get("frame_rate", 30) or 30)
+        # a LOST track is offered a box by position only while its prediction
+        # is still trustworthy: the census linker held every vehicle with 5
+        # frames of patience at 10 fps; the library keeps lost ids 5 s, and
+        # recovering those by position hands a stale id to the next vehicle
+        # through the spot (2026-09-12: FM51 0700 stale hand-offs 246 -> 573).
+        self.lost_patience_frames = max(1, int(round(float(lost_patience_s) * fr)))
+        # weak-box births (see the class docstring). Plain attributes only:
+        # tentatives are dicts of scalar tuples, so checkpoints pickle stably.
+        self.weak_birth = bool(weak_birth)
+        self.wb_persist_frames = max(2, int(round(float(weak_birth_persist_s) * fr)))
+        self.wb_gap_frames = max(1, int(round(float(weak_birth_gap_s) * fr)))
+        self.wb_history_frames = max(self.wb_persist_frames + 1,
+                                     int(round(float(weak_birth_history_s) * fr)))
+        self.wb_min_move = float(weak_birth_min_move)
+        self.wb_max_cover = float(weak_birth_max_cover)
+        self.wb_promote = bool(weak_birth_promote)
+        self.tentatives: list = []
+        self.backfill = [] if collect_backfill else None
+        self.n_weak_births = 0
+        self.n_weak_inherited = 0
+        self.weak_birth_log = None
+        self._abs_now = None
+        self.recovery_reach = float(recovery_reach)
+        self.recovery_size_ratio = float(recovery_size_ratio)
+        self.recovery_min_iou = float(recovery_min_iou)
+        self.recovery_held_iou = float(recovery_held_iou)
+        self.recovery_reverse_deg = float(recovery_reverse_deg)
+        self.recovery_reverse_jump = float(recovery_reverse_jump)
+        self.n_recovery_refused_held = 0
+        self.n_recovery_refused_reverse = 0
+        self.confirm_by_position = bool(confirm_by_position)
+        self.confirm_width_ratio = float(confirm_width_ratio)
+        self.reinit_width_jump = float(reinit_width_jump)
+        self.n_confirmed_by_position = 0
+        self.n_reinit = 0
+        self.n_recovered = 0        # Tracked leftovers continued
+        self.n_recovered_lost = 0   # Lost tracks re-found by position
+        # Diagnostics only (research scripts set a list): one tuple per
+        # recovery — (frame, track_id, was_lost, frames_since_seen, cost,
+        # predicted tlbr, det tlbr, det score). None = no logging.
+        self.recovery_log = None
+        # Diagnostics only: births (frame, id, tlbr, score) and newborns
+        # removed unconfirmed (frame, id, their box, the nearest leftover box
+        # tlbr or None, its score). None = no logging.
+        self.birth_log = None
+        self.unconfirmed_death_log = None
+        # Diagnostics only (research_thefts.py sets a list): one tuple per
+        # association that puts a box on a track — see _match_rec. None = off.
+        self.match_log = None
+
+    def update_with_tensors(self, tensors: np.ndarray) -> list:
+        mlog = getattr(self, "match_log", None)
+        # ---- fork of supervision 0.17.1 core.py L267-327 (verbatim) ----------
+        self.frame_id += 1
+        wb = (getattr(self, "weak_birth", False) and self.recovery_reach > 0
+              and getattr(self, "tentatives", None) is not None)
+        activated_starcks = []
+        refind_stracks = []
+        lost_stracks = []
+        removed_stracks = []
+
+        class_ids = tensors[:, 5]
+        scores = tensors[:, 4]
+        bboxes = tensors[:, :4]
+
+        remain_inds = scores > self.track_thresh
+        inds_low = scores > 0.1
+        inds_high = scores < self.track_thresh
+
+        inds_second = np.logical_and(inds_low, inds_high)
+        dets_second = bboxes[inds_second]
+        dets = bboxes[remain_inds]
+        scores_keep = scores[remain_inds]
+        scores_second = scores[inds_second]
+
+        class_ids_keep = class_ids[remain_inds]
+        class_ids_second = class_ids[inds_second]
+
+        if len(dets) > 0:
+            detections = [
+                _STrack(_STrack.tlbr_to_tlwh(tlbr), s, c)
+                for (tlbr, s, c) in zip(dets, scores_keep, class_ids_keep)
+            ]
+        else:
+            detections = []
+
+        unconfirmed = []
+        tracked_stracks = []
+        for track in self.tracked_tracks:
+            if not track.is_activated:
+                unconfirmed.append(track)
+            else:
+                tracked_stracks.append(track)
+
+        # Stage 1: high dets, IoU x conf (module attribute: the fuse switch applies)
+        strack_pool = _joint_tracks(tracked_stracks, self.lost_tracks)
+        _STrack.multi_predict(strack_pool)
+        dists = _m.iou_distance(strack_pool, detections)
+        dists = _m.fuse_score(dists, detections)
+        matches, u_track, u_detection = _m.linear_assignment(
+            dists, thresh=self.match_thresh
+        )
+        for itracked, idet in matches:
+            track = strack_pool[itracked]
+            det = detections[idet]
+            was_tracked = track.state == _TrackState.Tracked
+            if mlog is not None:
+                mlog.append(_match_rec(self, "s1", track, det, not was_tracked))
+            if _adopt(track, det, self.frame_id, self.kalman_filter,
+                      self.reinit_width_jump, was_tracked):
+                self.n_reinit += 1
+            (activated_starcks if was_tracked else refind_stracks).append(track)
+
+        # ---- L329-356: stage 2, low dets, plain IoU 0.5 -------------------------
+        if len(dets_second) > 0:
+            detections_second = [
+                _STrack(_STrack.tlbr_to_tlwh(tlbr), s, c)
+                for (tlbr, s, c) in zip(dets_second, scores_second, class_ids_second)
+            ]
+        else:
+            detections_second = []
+        r_tracked_stracks = [
+            strack_pool[i]
+            for i in u_track
+            if strack_pool[i].state == _TrackState.Tracked
+        ]
+        # Lost tracks stage 1 passed over: the library forgets them here
+        # (they are not in stage 2); the recovery stage offers them a box.
+        r_lost_stracks = [
+            strack_pool[i]
+            for i in u_track
+            if strack_pool[i].state == _TrackState.Lost
+        ]
+        dists = _m.iou_distance(r_tracked_stracks, detections_second)
+        matches, u_track_second, u_detection_second = _m.linear_assignment(
+            dists, thresh=0.5
+        )
+        for itracked, idet in matches:
+            track = r_tracked_stracks[itracked]
+            det = detections_second[idet]
+            was_tracked = track.state == _TrackState.Tracked
+            if mlog is not None:
+                mlog.append(_match_rec(self, "s2", track, det, not was_tracked))
+            if _adopt(track, det, self.frame_id, self.kalman_filter,
+                      self.reinit_width_jump, was_tracked):
+                self.n_reinit += 1
+            (activated_starcks if was_tracked else refind_stracks).append(track)
+
+        # ---- STAGE 2.5: position recovery (the insertion) -----------------------
+        recovered_ids: set[int] = set()
+        u_detection = list(u_detection)
+        u_detection_second = list(u_detection_second)
+        if self.recovery_reach > 0:
+            fresh_lost = [t for t in r_lost_stracks
+                          if self.frame_id - t.end_frame <= self.lost_patience_frames]
+            cand_tracks = [r_tracked_stracks[i] for i in u_track_second] + fresh_lost
+            cand_index = [(0, i) for i in u_detection] + [(1, i) for i in u_detection_second]
+            cand_dets = [detections[i] if p == 0 else detections_second[i]
+                         for p, i in cand_index]
+            if cand_tracks and cand_dets:
+                t_tlbr = np.asarray([t.tlbr for t in cand_tracks], dtype=np.float32)
+                d_tlbr = np.asarray([d.tlbr for d in cand_dets], dtype=np.float32)
+                # where the vehicle was last actually SEEN: a drifted or ballooned
+                # prediction must not hide a box that overlaps the last real one
+                o_tlbr = np.asarray([getattr(t, "last_obs_tlbr", t.tlbr) for t in cand_tracks],
+                                    dtype=np.float32)
+                cost = np.minimum(_recovery_cost(t_tlbr, d_tlbr, self.recovery_size_ratio),
+                                  _recovery_cost(o_tlbr, d_tlbr, self.recovery_size_ratio))
+                if self.recovery_min_iou > 0:
+                    # the box must still overlap the prediction OR the last observed
+                    # box: a jump to a non-overlapping box is where the steals live (d18)
+                    iou_ = np.maximum(1.0 - _m.iou_distance(t_tlbr, d_tlbr),
+                                      1.0 - _m.iou_distance(o_tlbr, d_tlbr))
+                    cost = np.where(iou_ >= self.recovery_min_iou, cost, np.inf).astype(np.float32)
+                # ---- recovery guards (Phase B, 2026-09-15; 0 = off) ----
+                held_iou = float(getattr(self, "recovery_held_iou", 0.0))
+                if held_iou > 0 and (activated_starcks or refind_stracks):
+                    # a box on top of one some other track already took this
+                    # frame is that vehicle's second box: taking it is a theft
+                    h_tlbr = np.asarray([h.tlbr for h in activated_starcks + refind_stracks],
+                                        dtype=np.float32)
+                    stacked = (1.0 - _m.iou_distance(d_tlbr, h_tlbr)).max(axis=1) >= held_iou
+                    if stacked.any():
+                        self.n_recovery_refused_held += int(np.isfinite(cost[:, stacked]).sum())
+                        cost[:, stacked] = np.inf
+                rev_deg = float(getattr(self, "recovery_reverse_deg", 0.0))
+                if rev_deg > 0:
+                    refused = _reverse_jump_mask(cand_tracks, d_tlbr, rev_deg,
+                                                 float(getattr(self, "recovery_reverse_jump", 0.15)))
+                    if refused.any():
+                        self.n_recovery_refused_reverse += int(np.isfinite(cost[refused]).sum())
+                        cost[refused] = np.inf
+                used_d: set[int] = set()
+                for ti, di in _greedy_pairs(cost, self.recovery_reach):
+                    track, det = cand_tracks[ti], cand_dets[di]
+                    if self.recovery_log is not None:
+                        self.recovery_log.append((
+                            self.frame_id, int(track.track_id),
+                            track.state == _TrackState.Lost,
+                            int(self.frame_id - track.end_frame),
+                            float(cost[ti, di]), tuple(float(v) for v in track.tlbr),
+                            tuple(float(v) for v in det.tlbr), float(det.score)))
+                    was_tracked = track.state == _TrackState.Tracked
+                    if mlog is not None:
+                        mlog.append(_match_rec(self, "s25", track, det, not was_tracked))
+                    if _adopt(track, det, self.frame_id, self.kalman_filter,
+                              self.reinit_width_jump, was_tracked):
+                        self.n_reinit += 1
+                    if was_tracked:
+                        activated_starcks.append(track)
+                        self.n_recovered += 1
+                    else:
+                        refind_stracks.append(track)
+                        self.n_recovered_lost += 1
+                    recovered_ids.add(track.track_id)
+                    used_d.add(di)
+                if used_d:
+                    u_detection = [i for n, (p, i) in enumerate(cand_index)
+                                   if p == 0 and n not in used_d]
+                    u_detection_second = [i for n, (p, i) in enumerate(cand_index)
+                                          if p == 1 and n not in used_d]
+
+        # ---- L358-362: leftovers of stage 2 go lost (recovered ones skipped) ----
+        for it in u_track_second:
+            track = r_tracked_stracks[it]
+            if track.track_id in recovered_ids:
+                continue
+            if not track.state == _TrackState.Lost:
+                if self.edge_exit and _exited_frame(track, self.frame_w, self.frame_h, self.edge_margin):
+                    # the vehicle left the picture: its id must not wait at the
+                    # edge for the next vehicle through the same spot
+                    track.mark_removed()
+                    removed_stracks.append(track)
+                    self.n_edge_exits += 1
+                    continue
+                track.mark_lost()
+                lost_stracks.append(track)
+
+        # ---- L364-407 (verbatim) -------------------------------------------------
+        detections = [detections[i] for i in u_detection]
+        dists = _m.iou_distance(unconfirmed, detections)
+        dists = _m.fuse_score(dists, detections)
+        matches, u_unconfirmed, u_detection = _m.linear_assignment(
+            dists, thresh=0.7
+        )
+        for itracked, idet in matches:
+            if mlog is not None:
+                mlog.append(_match_rec(self, "unconf", unconfirmed[itracked], detections[idet], False))
+            unconfirmed[itracked].update(detections[idet], self.frame_id)
+            _note_obs(unconfirmed[itracked], detections[idet].tlbr, self.frame_id)
+            activated_starcks.append(unconfirmed[itracked])
+        # ---- CONFIRMATION BY POSITION (the second insertion) --------------------
+        # A just-born track the IoU x conf pass (0.3) did not confirm is offered
+        # the remaining boxes — high AND low — that still overlap it and keep
+        # its width (a frame-edge strip becomes a full box of the same width).
+        u_unconfirmed = list(u_unconfirmed)
+        u_detection = list(u_detection)
+        if self.confirm_by_position and u_unconfirmed:
+            cand_tracks = [unconfirmed[i] for i in u_unconfirmed]
+            cand_index = [(0, i) for i in u_detection] + [(1, i) for i in u_detection_second]
+            cand_dets = [detections[i] if p == 0 else detections_second[i] for p, i in cand_index]
+            if cand_dets:
+                t_tlbr = np.asarray([t.tlbr for t in cand_tracks], dtype=np.float32)
+                d_tlbr = np.asarray([d.tlbr for d in cand_dets], dtype=np.float32)
+                cost = _recovery_cost(t_tlbr, d_tlbr, self.confirm_width_ratio)
+                iou_ = 1.0 - _m.iou_distance(t_tlbr, d_tlbr)
+                cost = np.where(iou_ > 0.0, cost, np.inf).astype(np.float32)
+                # a box stacked on a track that already holds a vehicle this
+                # frame (IoU > stack_iou) is that vehicle's double box, not a
+                # second vehicle: confirming it would make a twin track
+                held = activated_starcks + refind_stracks
+                if held and self.stack_iou > 0:
+                    h_tlbr = np.asarray([h.tlbr for h in held], dtype=np.float32)
+                    stacked = (1.0 - _m.iou_distance(d_tlbr, h_tlbr)).max(axis=1) > self.stack_iou
+                    cost[:, stacked] = np.inf
+                taken_t: set[int] = set()
+                used_d: set[int] = set()
+                for ti, di in _greedy_pairs(cost, self.recovery_reach):
+                    track, det = cand_tracks[ti], cand_dets[di]
+                    if mlog is not None:
+                        mlog.append(_match_rec(self, "confirm_pos", track, det, False))
+                    # the birth box was the unrepresentative one (an edge strip);
+                    # the motion state starts over from this full box
+                    _adopt_reinit(track, det, self.frame_id, self.kalman_filter)
+                    _note_obs(track, det.tlbr, self.frame_id)
+                    activated_starcks.append(track)
+                    self.n_confirmed_by_position += 1
+                    taken_t.add(ti); used_d.add(di)
+                if taken_t:
+                    u_unconfirmed = [u for n, u in enumerate(u_unconfirmed) if n not in taken_t]
+                    u_detection = [i for n, (p, i) in enumerate(cand_index) if p == 0 and n not in used_d]
+                    u_detection_second = [i for n, (p, i) in enumerate(cand_index) if p == 1 and n not in used_d]
+        if self.unconfirmed_death_log is not None and u_unconfirmed:
+            left = [detections[i] for i in u_detection] + [detections_second[i] for i in u_detection_second]
+            for it in u_unconfirmed:
+                tb = np.asarray(unconfirmed[it].tlbr, dtype=np.float32)
+                near, near_s = None, None
+                if left:
+                    lt = np.asarray([d.tlbr for d in left], dtype=np.float32)
+                    cd = np.hypot((lt[:, 0] + lt[:, 2]) / 2 - (tb[0] + tb[2]) / 2,
+                                  (lt[:, 1] + lt[:, 3]) / 2 - (tb[1] + tb[3]) / 2)
+                    k = int(np.argmin(cd))
+                    near, near_s = tuple(float(v) for v in lt[k]), float(left[k].score)
+                self.unconfirmed_death_log.append(
+                    (self.frame_id, int(unconfirmed[it].track_id), tuple(float(v) for v in tb), near, near_s))
+        for it in u_unconfirmed:
+            track = unconfirmed[it]
+            track.mark_removed()
+            removed_stracks.append(track)
+            if wb and getattr(track, "weak_prefix", None):
+                # the newborn died unconfirmed: its weak history goes back to the pool
+                self.tentatives.append({"obs": list(track.weak_prefix[-self.wb_history_frames:])})
+                track.weak_prefix = None
+
+        if wb:
+            self.tentatives = [t for t in self.tentatives
+                               if self.frame_id - t["obs"][-1][0] <= self.wb_gap_frames]
+        born = []
+
+        # births: a box stacked (IoU > stack_iou) on a box already held by a
+        # track this frame is that vehicle's double box 86-98% of the time
+        # (research_dup_boxes.py); a real occluded vehicle is born once it
+        # separates. Deferring the birth prevents the twin track.
+        held_tlbr = (np.asarray([h.tlbr for h in activated_starcks + refind_stracks], dtype=np.float32)
+                     if self.stack_iou > 0 and (activated_starcks or refind_stracks) else None)
+        for inew in u_detection:
+            track = detections[inew]
+            if track.score < self.det_thresh:
+                continue
+            if held_tlbr is not None:
+                ov = 1.0 - _m.iou_distance(np.asarray([track.tlbr], dtype=np.float32), held_tlbr)
+                if ov.max() > self.stack_iou:
+                    self.n_births_deferred += 1
+                    if self.birth_log is not None:
+                        self.birth_log.append((self.frame_id, -1, tuple(float(v) for v in track.tlbr), float(track.score)))
+                    continue
+            track.activate(self.kalman_filter, self.frame_id)
+            _note_obs(track, track.tlbr, self.frame_id)
+            if mlog is not None:
+                mlog.append(_match_rec(self, "birth", track, track, False))
+            if self.birth_log is not None:
+                self.birth_log.append((self.frame_id, int(track.track_id),
+                                       tuple(float(v) for v in track.tlbr), float(track.score)))
+            activated_starcks.append(track)
+            born.append(track)
+        if wb:
+            weak = ([detections_second[i] for i in u_detection_second]
+                    + [detections[i] for i in u_detection if detections[i].score < self.det_thresh])
+            self._weak_stage(born, weak, activated_starcks + refind_stracks, activated_starcks)
+        for track in self.lost_tracks:
+            if self.frame_id - track.end_frame > self.max_time_lost:
+                track.mark_removed()
+                removed_stracks.append(track)
+
+        self.tracked_tracks = [
+            t for t in self.tracked_tracks if t.state == _TrackState.Tracked
+        ]
+        self.tracked_tracks = _joint_tracks(self.tracked_tracks, activated_starcks)
+        self.tracked_tracks = _joint_tracks(self.tracked_tracks, refind_stracks)
+        self.lost_tracks = _sub_tracks(self.lost_tracks, self.tracked_tracks)
+        self.lost_tracks.extend(lost_stracks)
+        self.lost_tracks = _sub_tracks(self.lost_tracks, self.removed_tracks)
+        self.removed_tracks.extend(removed_stracks)
+        self.tracked_tracks, self.lost_tracks = _remove_duplicate_tracks(
+            self.tracked_tracks, self.lost_tracks
+        )
+        output_stracks = [track for track in self.tracked_tracks if track.is_activated]
+        if wb:
+            self._emit_backfill(output_stracks)
+        return output_stracks
+
+    # ---- weak-box births -----------------------------------------------------
+    def _abs(self) -> int:
+        a = getattr(self, "_abs_now", None)
+        return int(a) if a is not None else int(self.frame_id)
+
+    def _tent_boxes(self):
+        """Last observed box and a velocity-shifted box per tentative."""
+        L, P = [], []
+        for t in self.tentatives:
+            o = t["obs"]
+            last = o[-1]
+            box = np.array(last[2:6], dtype=np.float32)
+            vx = vy = 0.0
+            a = o[max(0, len(o) - 4)]
+            if last[0] > a[0]:
+                vx = ((last[2] + last[4]) - (a[2] + a[4])) / 2.0 / (last[0] - a[0])
+                vy = ((last[3] + last[5]) - (a[3] + a[5])) / 2.0 / (last[0] - a[0])
+            g = self.frame_id - last[0]
+            L.append(box)
+            P.append(box + np.array([vx * g, vy * g, vx * g, vy * g], dtype=np.float32))
+        return (np.asarray(L, dtype=np.float32).reshape(-1, 4),
+                np.asarray(P, dtype=np.float32).reshape(-1, 4))
+
+    def _tent_pairs(self, boxes_tlbr: np.ndarray) -> list[tuple[int, int]]:
+        """(tentative index, box index) pairs by the tracker's position rule:
+        box units against the last or velocity-shifted box, overlap gate,
+        width ratio, nearest first, oldest tentative first on ties."""
+        if not self.tentatives or len(boxes_tlbr) == 0:
+            return []
+        L, P = self._tent_boxes()
+        cost = np.minimum(_recovery_cost(L, boxes_tlbr, self.confirm_width_ratio),
+                          _recovery_cost(P, boxes_tlbr, self.confirm_width_ratio))
+        if self.recovery_min_iou > 0:
+            ov = np.maximum(1.0 - _m.iou_distance(L, boxes_tlbr), 1.0 - _m.iou_distance(P, boxes_tlbr))
+            cost = np.where(ov >= self.recovery_min_iou, cost, np.inf).astype(np.float32)
+        return _greedy_pairs(cost, self.recovery_reach)
+
+    def _tent_ready(self, t: dict) -> bool:
+        if not self.wb_promote:
+            return False
+        o = t["obs"]
+        if len(o) < 3 or o[-1][0] - o[0][0] < self.wb_persist_frames:
+            return False
+        k = min(3, len(o) // 2)
+        c = np.array([((q[2] + q[4]) / 2.0, (q[3] + q[5]) / 2.0) for q in o], dtype=np.float64)
+        w = float(np.median([q[4] - q[2] for q in o]))
+        move = float(np.hypot(*(c[-k:].mean(axis=0) - c[:k].mean(axis=0)))) / max(w, 1e-6)
+        if move < self.wb_min_move:
+            return False
+        recent = [q[8] for q in o if o[-1][0] - q[0] < self.wb_persist_frames] or [o[-1][8]]
+        if float(np.median(recent)) >= self.wb_max_cover or o[-1][8] >= self.wb_max_cover:
+            return False
+        return True
+
+    def _promote(self, t: dict, det, out_list: list) -> None:
+        o = t["obs"]
+        det.class_ids = _majority([q[7] for q in o])
+        det.activate(self.kalman_filter, self.frame_id)     # new id, Kalman from this box
+        det.is_activated = True                             # output THIS frame
+        a, b = o[max(0, len(o) - 4)], o[-1]
+        if b[0] > a[0]:
+            det.mean[4] = ((b[2] + b[4]) - (a[2] + a[4])) / 2.0 / (b[0] - a[0])
+            det.mean[5] = ((b[3] + b[5]) - (a[3] + a[5])) / 2.0 / (b[0] - a[0])
+        det.obs_centers = [(q[0], (q[2] + q[4]) / 2.0, (q[3] + q[5]) / 2.0) for q in o[-4:-1]]
+        _note_obs(det, det.tlbr, self.frame_id)
+        det.weak_prefix = list(o[:-1])                      # strictly before this frame
+        out_list.append(det)
+        self.n_weak_births += 1
+        if self.weak_birth_log is not None:
+            self.weak_birth_log.append(("promote", self.frame_id, int(det.track_id), len(o)))
+
+    def _weak_stage(self, born: list, weak: list, held: list, out_list: list) -> None:
+        lf, af = self.frame_id, self._abs()
+        # (a) inheritance: a newborn that continues a tentative takes its history
+        if born and self.tentatives:
+            bt = np.asarray([b.tlbr for b in born], dtype=np.float32)
+            used = set()
+            for ti, bi in self._tent_pairs(bt):
+                b = born[bi]
+                used.add(ti)
+                obs = self.tentatives[ti]["obs"]
+                # the same coverage guard as promotion: a history that rode
+                # inside a held vehicle is that vehicle's double box, and
+                # back-filling it would run a twin beside the vehicle's track
+                if float(np.median([q[8] for q in obs])) >= self.wb_max_cover:
+                    continue
+                b.weak_prefix = obs + [_obs(lf, af, b.tlbr, b.score, b.class_ids, 0.0)]
+                self.n_weak_inherited += 1
+                if self.weak_birth_log is not None:
+                    self.weak_birth_log.append(("inherit", lf, int(b.track_id), len(self.tentatives[ti]["obs"])))
+            if used:
+                self.tentatives = [t for i, t in enumerate(self.tentatives) if i not in used]
+        # (b) candidates: weak leftovers not stacked on a held vehicle
+        kept, covers = [], []
+        if weak:
+            wt = np.asarray([d.tlbr for d in weak], dtype=np.float32)
+            if held:
+                ht = np.asarray([h.tlbr for h in held], dtype=np.float32)
+                stacked = ((1.0 - _m.iou_distance(wt, ht)).max(axis=1) > self.stack_iou
+                           if self.stack_iou > 0 else np.zeros(len(weak), dtype=bool))
+                cov_max = _coverage(wt, ht).max(axis=1)
+            else:
+                stacked = np.zeros(len(weak), dtype=bool)
+                cov_max = np.zeros(len(weak), dtype=np.float32)
+            for i, d in enumerate(weak):
+                if not stacked[i]:
+                    kept.append(d)
+                    covers.append(float(cov_max[i]))
+        # (c) association (and new tentatives from unmatched candidates)
+        seen = set()
+        if kept:
+            kt = np.asarray([d.tlbr for d in kept], dtype=np.float32)
+            used_k = set()
+            for ti, ki in self._tent_pairs(kt):
+                t = self.tentatives[ti]
+                d = kept[ki]
+                t["obs"].append(_obs(lf, af, d.tlbr, d.score, d.class_ids, covers[ki]))
+                if len(t["obs"]) > self.wb_history_frames:
+                    del t["obs"][:len(t["obs"]) - self.wb_history_frames]
+                t["det"] = d
+                seen.add(ti)
+                used_k.add(ki)
+            for ki, d in enumerate(kept):
+                if ki not in used_k:
+                    self.tentatives.append({"obs": [_obs(lf, af, d.tlbr, d.score, d.class_ids, covers[ki])],
+                                            "det": d})
+                    seen.add(len(self.tentatives) - 1)
+        # (d) promotion, oldest first, never onto a box promoted this frame
+        promoted: list = []
+        drop = set()
+        for ti in sorted(seen):
+            t = self.tentatives[ti]
+            d = t.get("det")
+            if d is None or not self._tent_ready(t):
+                continue
+            box = np.asarray([d.tlbr], dtype=np.float32)
+            if promoted:
+                pt = np.asarray(promoted, dtype=np.float32)
+                if ((1.0 - _m.iou_distance(box, pt)).max() > self.stack_iou
+                        or _coverage(box, pt).max() >= self.wb_max_cover):
+                    continue
+            self._promote(t, d, out_list)
+            promoted.append(np.asarray(d.tlbr, dtype=np.float32))
+            drop.add(ti)
+        for t in self.tentatives:
+            t.pop("det", None)
+        if drop:
+            self.tentatives = [t for i, t in enumerate(self.tentatives) if i not in drop]
+
+    def _emit_backfill(self, output: list) -> None:
+        """A track's weak prefix becomes back-fill rows on its first output
+        frame (after duplicate removal, so no row is orphaned)."""
+        promo = self._abs()
+        rows = getattr(self, "backfill", None)
+        for t in output:
+            pre = getattr(t, "weak_prefix", None)
+            if not pre:
+                continue
+            t.weak_prefix = None
+            if rows is None:
+                continue
+            try:
+                cls = int(t.class_ids)
+            except (TypeError, ValueError):
+                cls = -1
+            tid = int(t.track_id)
+            for q in pre:
+                if q[1] < promo:
+                    rows.append((tid, q[1], (q[2] + q[4]) / 2.0, (q[3] + q[5]) / 2.0,
+                                 q[4] - q[2], q[5] - q[3], q[6], cls, promo))
 
 
 class ByteTrackBackend:
@@ -34,22 +906,65 @@ class ByteTrackBackend:
         lost_track_buffer: int = TRACKER_LOST_BUFFER,
         minimum_matching_threshold: float = TRACKER_MATCH_THRESHOLD,
         frame_rate: int = 30,
+        frame_size: tuple | None = None,
+        collect_backfill: bool = False,
     ):
+        from backend import config as _cfg
+        self.fuse_score = bool(getattr(_cfg, "TRACKER_FUSE_SCORE", True))
+        apply_fuse_score_setting(self.fuse_score)
+        # Read late (per instance) so tests can monkeypatch the config module.
+        self.position_recovery = bool(getattr(_cfg, "TRACKER_POSITION_RECOVERY", False))
+        self._recovery_kwargs = {
+            "recovery_reach": float(getattr(_cfg, "TRACKER_RECOVERY_REACH", 0.9)),
+            "recovery_size_ratio": float(getattr(_cfg, "TRACKER_RECOVERY_SIZE_RATIO", 0.3)),
+            "recovery_min_iou": float(getattr(_cfg, "TRACKER_RECOVERY_MIN_IOU", 0.2)),
+            "recovery_held_iou": float(getattr(_cfg, "TRACKER_RECOVERY_HELD_IOU", 0.6)),
+            "recovery_reverse_deg": float(getattr(_cfg, "TRACKER_RECOVERY_REVERSE_DEG", 0.0)),
+            "recovery_reverse_jump": float(getattr(_cfg, "TRACKER_RECOVERY_REVERSE_JUMP", 0.15)),
+            "confirm_by_position": bool(getattr(_cfg, "TRACKER_CONFIRM_BY_POSITION", True)),
+            "confirm_width_ratio": float(getattr(_cfg, "TRACKER_CONFIRM_WIDTH_RATIO", 0.5)),
+            "reinit_width_jump": float(getattr(_cfg, "TRACKER_REINIT_WIDTH_JUMP", 1.5)),
+            "lost_patience_s": float(getattr(_cfg, "TRACKER_RECOVERY_LOST_PATIENCE_S", 0.5)),
+            "edge_exit": bool(getattr(_cfg, "TRACKER_EDGE_EXIT", True)),
+            "frame_size": (tuple(frame_size) if frame_size else None),
+            "stack_iou": float(getattr(_cfg, "TRACKER_STACK_IOU", 0.6)),
+            "weak_birth": bool(getattr(_cfg, "TRACKER_WEAK_BIRTH", False)),
+            "weak_birth_persist_s": float(getattr(_cfg, "TRACKER_WEAK_BIRTH_PERSIST_S", 0.5)),
+            "weak_birth_gap_s": float(getattr(_cfg, "TRACKER_WEAK_BIRTH_GAP_S", 0.2)),
+            "weak_birth_min_move": float(getattr(_cfg, "TRACKER_WEAK_BIRTH_MIN_MOVE", 0.5)),
+            "weak_birth_max_cover": float(getattr(_cfg, "TRACKER_WEAK_BIRTH_MAX_COVER", 0.6)),
+            "weak_birth_history_s": float(getattr(_cfg, "TRACKER_WEAK_BIRTH_HISTORY_S", 10.0)),
+            "weak_birth_promote": bool(getattr(_cfg, "TRACKER_WEAK_BIRTH_PROMOTE", False)),
+            "collect_backfill": bool(collect_backfill),
+        }
         self._init_kwargs = {
             "track_thresh": track_activation_threshold,
             "track_buffer": lost_track_buffer,
             "match_thresh": minimum_matching_threshold,
             "frame_rate": frame_rate,
         }
-        self.byte_track = sv.ByteTrack(**self._init_kwargs)
+        self.byte_track = self._make_bytetrack()
         self._active_track_ids: set[int] = set()
+        # the tracker's input step: stacked double boxes (> 0.8 IoU) are one
+        # vehicle; below that the tracker decides (see the confirmation guard)
+        self.dup_box_iou = (float(getattr(_cfg, "TRACKER_DUP_BOX_IOU", 0.8))
+                            if self.position_recovery else 0.0)
+
+    def _make_bytetrack(self):
+        if self.position_recovery:
+            return _RecoveringByteTrack(**self._init_kwargs, **self._recovery_kwargs)
+        return sv.ByteTrack(**self._init_kwargs)
 
     def update(self, detections: list[dict], frame_number: int) -> list[dict]:
+        # the absolute frame, for back-fill rows (the fork counts frames locally)
+        self.byte_track._abs_now = int(frame_number)
         if not detections:
             self.byte_track.update_with_detections(sv.Detections.empty())
             self._active_track_ids = set()
             return []
 
+        if getattr(self, "dup_box_iou", 0.0) > 0:
+            detections = _dedup_boxes(detections, self.dup_box_iou)
         xyxy = np.array([d["bbox"] for d in detections], dtype=np.float32)
         confidence = np.array([d["confidence"] for d in detections], dtype=np.float32)
         class_id = np.array([d["class_id"] for d in detections], dtype=int)
@@ -94,8 +1009,22 @@ class ByteTrackBackend:
     def get_active_track_ids(self) -> list[int]:
         return sorted(self._active_track_ids)
 
+    def pop_backfill(self) -> list[dict]:
+        """Back-fill rows collected since the last call (weak-box births):
+        each a past-frame observation of a track now in the output, at its
+        ABSOLUTE frame, with the frame the track was first output. Empty
+        unless the backend was built with collect_backfill=True."""
+        bt = self.byte_track
+        rows = getattr(bt, "backfill", None)
+        if not rows:
+            return []
+        bt.backfill = []
+        return [{"track_id": int(r[0]), "frame": int(r[1]), "center": [float(r[2]), float(r[3])],
+                 "bbox_width": float(r[4]), "bbox_height": float(r[5]), "confidence": float(r[6]),
+                 "class_id": int(r[7]), "promoted_at": int(r[8])} for r in rows]
+
     def reset(self):
-        self.byte_track = sv.ByteTrack(**self._init_kwargs)
+        self.byte_track = self._make_bytetrack()
         self._active_track_ids = set()
 
     def get_state(self) -> bytes:
@@ -1166,6 +2095,10 @@ class GatedBotSortBackend(BotSortBackend):
 # a catchable nearby id there — turn-sustaining is BoT-SORT's *association*
 # property, not post-hoc recoverable). Position-based sequential recovery is a
 # dead end at this scene; the robust turn fix needs BoT-style association or ReID.
+# 2026-09-12: _RecoveringByteTrack is NOT that wrapper — it runs INSIDE the
+# association, before births, on leftovers only, gated in box units, so a
+# recovered box can never seed a follower's new track; the follower-merge risk
+# above is exactly what its fleet arm (d18) measures. Default OFF until then.
 
 # Backend registry. ByteTrack is the default; OC-SORT/BoT-SORT (boxmot) are
 # opt-in. boxmot is imported lazily inside each backend so this module imports
