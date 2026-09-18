@@ -1,0 +1,12 @@
+cam4 study_1600: 8986 tracks; drawn N line ((631.5, 335.6), (377.3, 300.7))
+  [drawn       ] S->N full   699  (of which no counted event today    0)   -->N exit_only 1385   N->S full  1817   N entry_only  445   S entry_only  964   no_crossing  2279
+  [N at x=500  ] S->N full  1462  (of which no counted event today  482)   -->N exit_only  375   N->S full  1381   N entry_only  391   S entry_only  202   no_crossing  3342
+  [N at x=550  ] S->N full   965  (of which no counted event today  181)   -->N exit_only  953   N->S full   638   N entry_only  249   S entry_only  699   no_crossing  2906
+cam4 study_0700: 7664 tracks; drawn N line ((631.5, 335.6), (377.3, 300.7))
+  [drawn       ] S->N full  1033  (of which no counted event today    0)   -->N exit_only 1480   N->S full  1438   N entry_only  119   S entry_only 1036   no_crossing  1658
+  [N at x=500  ] S->N full  1879  (of which no counted event today  466)   -->N exit_only  421   N->S full   860   N entry_only  125   S entry_only  190   no_crossing  2709
+  [N at x=550  ] S->N full  1191  (of which no counted event today  110)   -->N exit_only 1145   N->S full   143   N entry_only   76   S entry_only  877   no_crossing  2035
+cam4 study_1100: 4970 tracks; drawn N line ((631.5, 335.6), (377.3, 300.7))
+  [drawn       ] S->N full   909  (of which no counted event today    0)   -->N exit_only  584   N->S full  1477   N entry_only  121   S entry_only  355   no_crossing  1133
+  [N at x=500  ] S->N full  1198  (of which no counted event today  187)   -->N exit_only   83   N->S full  1162   N entry_only  167   S entry_only   65   no_crossing  1589
+  [N at x=550  ] S->N full   988  (of which no counted event today   65)   -->N exit_only  300   N->S full   552   N entry_only  122   S entry_only  275   no_crossing  1417

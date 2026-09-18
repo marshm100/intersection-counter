@@ -1,0 +1,3246 @@
+{
+"variant": "study_1600",
+"never": 64,
+"covering": [
+{
+"tid": 56,
+"first_cov_x": 505.8333435058594,
+"first_cov_w": 155.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 111,
+"first_cov_x": 494.0,
+"first_cov_w": 174.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 127,
+"first_cov_x": 575.0,
+"first_cov_w": 14.6666259765625,
+"hit_index": 7,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 198,
+"first_cov_x": 520.3333740234375,
+"first_cov_w": 130.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 229,
+"first_cov_x": 387.0833435058594,
+"first_cov_w": 269.16668701171875,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 383,
+"first_cov_x": 558.5,
+"first_cov_w": 82.3333740234375,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 393,
+"first_cov_x": 512.5,
+"first_cov_w": 123.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 430,
+"first_cov_x": 523.1666870117188,
+"first_cov_w": 125.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 463,
+"first_cov_x": 413.8333435058594,
+"first_cov_w": 243.66668701171875,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 669,
+"first_cov_x": 499.33331298828125,
+"first_cov_w": 151.99996948242188,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 764,
+"first_cov_x": 526.6666870117188,
+"first_cov_w": 142.66665649414062,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 778,
+"first_cov_x": 449.66668701171875,
+"first_cov_w": 232.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 786,
+"first_cov_x": 573.0,
+"first_cov_w": 66.0,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 842,
+"first_cov_x": 492.3333435058594,
+"first_cov_w": 156.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1056,
+"first_cov_x": 546.8333129882812,
+"first_cov_w": 102.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1067,
+"first_cov_x": 497.83331298828125,
+"first_cov_w": 142.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1137,
+"first_cov_x": 525.0,
+"first_cov_w": 67.33334350585938,
+"hit_index": 0,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 1137,
+"first_cov_x": 488.66668701171875,
+"first_cov_w": 192.00003051757812,
+"hit_index": 4,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 1164,
+"first_cov_x": 528.3333740234375,
+"first_cov_w": 152.66668701171875,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1174,
+"first_cov_x": 534.5,
+"first_cov_w": 132.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1207,
+"first_cov_x": 530.8333129882812,
+"first_cov_w": 114.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1207,
+"first_cov_x": 505.5,
+"first_cov_w": 143.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1233,
+"first_cov_x": 561.0,
+"first_cov_w": 76.6666259765625,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1241,
+"first_cov_x": 580.5,
+"first_cov_w": 62.3333740234375,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1431,
+"first_cov_x": 494.3333435058594,
+"first_cov_w": 152.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1512,
+"first_cov_x": 482.83331298828125,
+"first_cov_w": 200.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1546,
+"first_cov_x": 392.33331298828125,
+"first_cov_w": 265.9999694824219,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 1768,
+"first_cov_x": 571.1666259765625,
+"first_cov_w": 66.33331298828125,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1775,
+"first_cov_x": 483.33331298828125,
+"first_cov_w": 167.99996948242188,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1778,
+"first_cov_x": 520.8333740234375,
+"first_cov_w": 141.66668701171875,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 1849,
+"first_cov_x": 500.1666564941406,
+"first_cov_w": 190.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2288,
+"first_cov_x": 600.8333740234375,
+"first_cov_w": 46.33331298828125,
+"hit_index": 7,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2327,
+"first_cov_x": 572.6666259765625,
+"first_cov_w": 79.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2330,
+"first_cov_x": 524.1666870117188,
+"first_cov_w": 133.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2373,
+"first_cov_x": 550.8333129882812,
+"first_cov_w": 108.33334350585938,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2399,
+"first_cov_x": 511.16668701171875,
+"first_cov_w": 145.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2444,
+"first_cov_x": 538.8333129882812,
+"first_cov_w": 106.99996948242188,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2415,
+"first_cov_x": 496.6666564941406,
+"first_cov_w": 165.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2450,
+"first_cov_x": 514.5,
+"first_cov_w": 127.66665649414062,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2475,
+"first_cov_x": 588.6666870117188,
+"first_cov_w": 64.0,
+"hit_index": 6,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2518,
+"first_cov_x": 449.33331298828125,
+"first_cov_w": 189.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2550,
+"first_cov_x": 512.5,
+"first_cov_w": 133.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2561,
+"first_cov_x": 525.5,
+"first_cov_w": 112.33334350585938,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2574,
+"first_cov_x": 479.1666564941406,
+"first_cov_w": 170.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2569,
+"first_cov_x": 536.8333129882812,
+"first_cov_w": 106.33334350585938,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2596,
+"first_cov_x": 608.8333740234375,
+"first_cov_w": 32.33331298828125,
+"hit_index": 10,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2596,
+"first_cov_x": 563.8333129882812,
+"first_cov_w": 116.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2689,
+"first_cov_x": 522.0,
+"first_cov_w": 117.33334350585938,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2722,
+"first_cov_x": 530.8333129882812,
+"first_cov_w": 116.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 2952,
+"first_cov_x": 502.66668701171875,
+"first_cov_w": 156.00003051757812,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 3067,
+"first_cov_x": 608.6666259765625,
+"first_cov_w": 33.33331298828125,
+"hit_index": 6,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 3083,
+"first_cov_x": 554.3333740234375,
+"first_cov_w": 82.66668701171875,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 3097,
+"first_cov_x": 591.1666870117188,
+"first_cov_w": 47.0,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 3104,
+"first_cov_x": 583.0,
+"first_cov_w": 54.6666259765625,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 3117,
+"first_cov_x": 553.8333740234375,
+"first_cov_w": 36.33331298828125,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 3234,
+"first_cov_x": 587.8333129882812,
+"first_cov_w": 57.0,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 3277,
+"first_cov_x": 522.6666870117188,
+"first_cov_w": 108.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 3310,
+"first_cov_x": 560.5,
+"first_cov_w": 102.33334350585938,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 3475,
+"first_cov_x": 368.3333435058594,
+"first_cov_w": 291.33331298828125,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 3525,
+"first_cov_x": 515.0,
+"first_cov_w": 147.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 3624,
+"first_cov_x": 500.0,
+"first_cov_w": 170.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 4159,
+"first_cov_x": 474.66668701171875,
+"first_cov_w": 182.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 4191,
+"first_cov_x": 363.8333435058594,
+"first_cov_w": 296.33331298828125,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 4230,
+"first_cov_x": 426.16668701171875,
+"first_cov_w": 233.00003051757812,
+"hit_index": 1,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 4267,
+"first_cov_x": 513.3333740234375,
+"first_cov_w": 138.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 4299,
+"first_cov_x": 521.3333740234375,
+"first_cov_w": 134.66668701171875,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 4329,
+"first_cov_x": 406.33331298828125,
+"first_cov_w": 197.33334350585938,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 4360,
+"first_cov_x": 499.16668701171875,
+"first_cov_w": 145.00003051757812,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 4626,
+"first_cov_x": 608.8333740234375,
+"first_cov_w": 31.66668701171875,
+"hit_index": 8,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 4655,
+"first_cov_x": 407.5,
+"first_cov_w": 238.33334350585938,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 4658,
+"first_cov_x": 411.58331298828125,
+"first_cov_w": 246.83334350585938,
+"hit_index": 0,
+"born_here": false,
+"fate": "NO EVENT"
+},
+{
+"tid": 4731,
+"first_cov_x": 510.33331298828125,
+"first_cov_w": 255.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5018,
+"first_cov_x": 561.1666259765625,
+"first_cov_w": 81.66668701171875,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5022,
+"first_cov_x": 385.3333435058594,
+"first_cov_w": 40.0,
+"hit_index": 3,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 5040,
+"first_cov_x": 502.0,
+"first_cov_w": 188.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5233,
+"first_cov_x": 510.5,
+"first_cov_w": 41.666656494140625,
+"hit_index": 0,
+"born_here": true,
+"fate": "counted N->S"
+},
+{
+"tid": 5233,
+"first_cov_x": 464.66668701171875,
+"first_cov_w": 51.333343505859375,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 5298,
+"first_cov_x": 493.5,
+"first_cov_w": 26.33331298828125,
+"hit_index": 0,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5298,
+"first_cov_x": 502.83331298828125,
+"first_cov_w": 32.999969482421875,
+"hit_index": 14,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5297,
+"first_cov_x": 493.5,
+"first_cov_w": 73.0,
+"hit_index": 0,
+"born_here": true,
+"fate": "counted N->S"
+},
+{
+"tid": 5341,
+"first_cov_x": 568.5,
+"first_cov_w": 65.0,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5347,
+"first_cov_x": 498.16668701171875,
+"first_cov_w": 157.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5345,
+"first_cov_x": 395.33331298828125,
+"first_cov_w": 310.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 5474,
+"first_cov_x": 594.3333740234375,
+"first_cov_w": 53.33331298828125,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5543,
+"first_cov_x": 363.1666564941406,
+"first_cov_w": 297.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 5652,
+"first_cov_x": 522.8333129882812,
+"first_cov_w": 128.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5652,
+"first_cov_x": 506.83331298828125,
+"first_cov_w": 164.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5684,
+"first_cov_x": 514.6666259765625,
+"first_cov_w": 125.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5774,
+"first_cov_x": 406.75,
+"first_cov_w": 243.16665649414062,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 5746,
+"first_cov_x": 382.66668701171875,
+"first_cov_w": 430.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 5931,
+"first_cov_x": 604.6666259765625,
+"first_cov_w": 39.33331298828125,
+"hit_index": 9,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 5954,
+"first_cov_x": 403.0,
+"first_cov_w": 274.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 6021,
+"first_cov_x": 573.6666259765625,
+"first_cov_w": 77.33331298828125,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6049,
+"first_cov_x": 497.83331298828125,
+"first_cov_w": 27.666656494140625,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 6036,
+"first_cov_x": 542.0,
+"first_cov_w": 106.66665649414062,
+"hit_index": 0,
+"born_here": false,
+"fate": "NO EVENT"
+},
+{
+"tid": 5787,
+"first_cov_x": 353.8333435058594,
+"first_cov_w": 297.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 6162,
+"first_cov_x": 497.5,
+"first_cov_w": 147.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6201,
+"first_cov_x": 520.0,
+"first_cov_w": 139.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6201,
+"first_cov_x": 507.83331298828125,
+"first_cov_w": 130.99996948242188,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6201,
+"first_cov_x": 537.1666870117188,
+"first_cov_w": 181.00003051757812,
+"hit_index": 0,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6201,
+"first_cov_x": 554.5,
+"first_cov_w": 109.0,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6288,
+"first_cov_x": 501.6666564941406,
+"first_cov_w": 135.33331298828125,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6345,
+"first_cov_x": 511.33331298828125,
+"first_cov_w": 131.99996948242188,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6408,
+"first_cov_x": 528.3333129882812,
+"first_cov_w": 101.99996948242188,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6432,
+"first_cov_x": 534.6666259765625,
+"first_cov_w": 107.33331298828125,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6514,
+"first_cov_x": 430.66668701171875,
+"first_cov_w": 234.66665649414062,
+"hit_index": 1,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 6609,
+"first_cov_x": 505.5,
+"first_cov_w": 134.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6539,
+"first_cov_x": 524.3333740234375,
+"first_cov_w": 42.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "counted N->S"
+},
+{
+"tid": 6641,
+"first_cov_x": 555.1666259765625,
+"first_cov_w": 28.33331298828125,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6609,
+"first_cov_x": 428.83331298828125,
+"first_cov_w": 228.33334350585938,
+"hit_index": 1,
+"born_here": false,
+"fate": "NO EVENT"
+},
+{
+"tid": 6686,
+"first_cov_x": 530.8333740234375,
+"first_cov_w": 113.66668701171875,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6689,
+"first_cov_x": 500.5,
+"first_cov_w": 151.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6733,
+"first_cov_x": 448.16668701171875,
+"first_cov_w": 199.66665649414062,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 6802,
+"first_cov_x": 435.5,
+"first_cov_w": 219.0,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6819,
+"first_cov_x": 581.3333740234375,
+"first_cov_w": 63.33331298828125,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6879,
+"first_cov_x": 463.33331298828125,
+"first_cov_w": 173.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6985,
+"first_cov_x": 528.8333129882812,
+"first_cov_w": 112.99996948242188,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 6934,
+"first_cov_x": 363.4166564941406,
+"first_cov_w": 261.16668701171875,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->W"
+},
+{
+"tid": 7262,
+"first_cov_x": 495.66668701171875,
+"first_cov_w": 176.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 7332,
+"first_cov_x": 483.5,
+"first_cov_w": 159.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 7341,
+"first_cov_x": 508.5,
+"first_cov_w": 145.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 7405,
+"first_cov_x": 477.83331298828125,
+"first_cov_w": 194.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 7397,
+"first_cov_x": 523.1666870117188,
+"first_cov_w": 29.666656494140625,
+"hit_index": 0,
+"born_here": true,
+"fate": "counted N->S"
+},
+{
+"tid": 7400,
+"first_cov_x": 454.16668701171875,
+"first_cov_w": 37.666656494140625,
+"hit_index": 1,
+"born_here": false,
+"fate": "NO EVENT"
+},
+{
+"tid": 7500,
+"first_cov_x": 529.8333129882812,
+"first_cov_w": 124.99996948242188,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 7626,
+"first_cov_x": 538.3333129882812,
+"first_cov_w": 103.99996948242188,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 7616,
+"first_cov_x": 565.0,
+"first_cov_w": 82.0,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 7352,
+"first_cov_x": 401.0833435058594,
+"first_cov_w": 299.83331298828125,
+"hit_index": 1,
+"born_here": false,
+"fate": "counted N->W"
+},
+{
+"tid": 7397,
+"first_cov_x": 449.0,
+"first_cov_w": 21.33331298828125,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 7689,
+"first_cov_x": 553.6666870117188,
+"first_cov_w": 54.0,
+"hit_index": 7,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 7710,
+"first_cov_x": 510.5,
+"first_cov_w": 128.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 7769,
+"first_cov_x": 372.9166564941406,
+"first_cov_w": 292.16668701171875,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 7785,
+"first_cov_x": 504.5,
+"first_cov_w": 41.0,
+"hit_index": 0,
+"born_here": true,
+"fate": "counted N->S"
+},
+{
+"tid": 7847,
+"first_cov_x": 500.33331298828125,
+"first_cov_w": 137.99996948242188,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 7847,
+"first_cov_x": 417.66668701171875,
+"first_cov_w": 232.00003051757812,
+"hit_index": 1,
+"born_here": false,
+"fate": "NO EVENT"
+},
+{
+"tid": 7949,
+"first_cov_x": 508.33331298828125,
+"first_cov_w": 141.99996948242188,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 7958,
+"first_cov_x": 519.0,
+"first_cov_w": 126.66665649414062,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 8018,
+"first_cov_x": 535.3333129882812,
+"first_cov_w": 111.99996948242188,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 8144,
+"first_cov_x": 369.4166564941406,
+"first_cov_w": 172.5,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 8220,
+"first_cov_x": 508.5,
+"first_cov_w": 85.0,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 8143,
+"first_cov_x": 507.5,
+"first_cov_w": 53.0,
+"hit_index": 0,
+"born_here": true,
+"fate": "counted N->W"
+},
+{
+"tid": 8207,
+"first_cov_x": 375.16668701171875,
+"first_cov_w": 224.33334350585938,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 8214,
+"first_cov_x": 416.0,
+"first_cov_w": 212.66665649414062,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 8306,
+"first_cov_x": 487.6666564941406,
+"first_cov_w": 165.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 8333,
+"first_cov_x": 506.0,
+"first_cov_w": 144.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 8432,
+"first_cov_x": 532.0,
+"first_cov_w": 21.3333740234375,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 8569,
+"first_cov_x": 470.8333435058594,
+"first_cov_w": 215.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 8729,
+"first_cov_x": 435.41668701171875,
+"first_cov_w": 236.50003051757812,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 8784,
+"first_cov_x": 562.1666259765625,
+"first_cov_w": 89.66668701171875,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 8825,
+"first_cov_x": 493.16668701171875,
+"first_cov_w": 167.00003051757812,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9211,
+"first_cov_x": 590.0,
+"first_cov_w": 60.6666259765625,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9239,
+"first_cov_x": 491.5,
+"first_cov_w": 194.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9335,
+"first_cov_x": 511.83331298828125,
+"first_cov_w": 132.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9478,
+"first_cov_x": 512.0,
+"first_cov_w": 137.33334350585938,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9343,
+"first_cov_x": 355.25,
+"first_cov_w": 313.5,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 9533,
+"first_cov_x": 551.1666870117188,
+"first_cov_w": 83.00003051757812,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9588,
+"first_cov_x": 422.1666564941406,
+"first_cov_w": 43.0,
+"hit_index": 7,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 9708,
+"first_cov_x": 437.33331298828125,
+"first_cov_w": 213.33334350585938,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 9716,
+"first_cov_x": 489.0,
+"first_cov_w": 203.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9790,
+"first_cov_x": 478.8333435058594,
+"first_cov_w": 177.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9802,
+"first_cov_x": 367.4166564941406,
+"first_cov_w": 268.5,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 9914,
+"first_cov_x": 583.6666259765625,
+"first_cov_w": 48.66668701171875,
+"hit_index": 6,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9953,
+"first_cov_x": 520.8333129882812,
+"first_cov_w": 116.33334350585938,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9971,
+"first_cov_x": 559.3333740234375,
+"first_cov_w": 76.66668701171875,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9979,
+"first_cov_x": 584.3333740234375,
+"first_cov_w": 64.66668701171875,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9984,
+"first_cov_x": 482.8333435058594,
+"first_cov_w": 167.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 9994,
+"first_cov_x": 524.5,
+"first_cov_w": 121.0,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 10243,
+"first_cov_x": 565.1666259765625,
+"first_cov_w": 79.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 10248,
+"first_cov_x": 499.6666564941406,
+"first_cov_w": 151.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 10403,
+"first_cov_x": 484.66668701171875,
+"first_cov_w": 152.00003051757812,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 10732,
+"first_cov_x": 530.0,
+"first_cov_w": 106.66665649414062,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 10860,
+"first_cov_x": 527.6666870117188,
+"first_cov_w": 104.00003051757812,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 10944,
+"first_cov_x": 437.16668701171875,
+"first_cov_w": 207.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 10992,
+"first_cov_x": 520.0,
+"first_cov_w": 126.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11018,
+"first_cov_x": 578.3333740234375,
+"first_cov_w": 62.66668701171875,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11023,
+"first_cov_x": 578.1666259765625,
+"first_cov_w": 60.33331298828125,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11045,
+"first_cov_x": 531.1666870117188,
+"first_cov_w": 105.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11045,
+"first_cov_x": 513.0,
+"first_cov_w": 175.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11188,
+"first_cov_x": 559.0,
+"first_cov_w": 100.66665649414062,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11188,
+"first_cov_x": 526.8333740234375,
+"first_cov_w": 149.66668701171875,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11503,
+"first_cov_x": 514.8333129882812,
+"first_cov_w": 140.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11531,
+"first_cov_x": 487.83331298828125,
+"first_cov_w": 166.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11735,
+"first_cov_x": 508.6666564941406,
+"first_cov_w": 125.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11836,
+"first_cov_x": 520.1666870117188,
+"first_cov_w": 133.00003051757812,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11878,
+"first_cov_x": 501.33331298828125,
+"first_cov_w": 153.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 11893,
+"first_cov_x": 505.16668701171875,
+"first_cov_w": 135.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 12105,
+"first_cov_x": 550.1666870117188,
+"first_cov_w": 101.66665649414062,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 12148,
+"first_cov_x": 518.1666259765625,
+"first_cov_w": 120.33331298828125,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 12256,
+"first_cov_x": 532.8333129882812,
+"first_cov_w": 112.33334350585938,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 12473,
+"first_cov_x": 601.6666259765625,
+"first_cov_w": 50.66668701171875,
+"hit_index": 6,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 12511,
+"first_cov_x": 519.6666870117188,
+"first_cov_w": 136.00003051757812,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 12541,
+"first_cov_x": 598.0,
+"first_cov_w": 48.0,
+"hit_index": 6,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 12511,
+"first_cov_x": 464.0,
+"first_cov_w": 221.33334350585938,
+"hit_index": 0,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 12598,
+"first_cov_x": 487.66668701171875,
+"first_cov_w": 180.00003051757812,
+"hit_index": 0,
+"born_here": true,
+"fate": "rejected"
+},
+{
+"tid": 12598,
+"first_cov_x": 443.5,
+"first_cov_w": 252.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "rejected"
+},
+{
+"tid": 12626,
+"first_cov_x": 594.0,
+"first_cov_w": 44.0,
+"hit_index": 6,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 12827,
+"first_cov_x": 505.5,
+"first_cov_w": 147.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 12844,
+"first_cov_x": 572.6666870117188,
+"first_cov_w": 66.0,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 12982,
+"first_cov_x": 532.8333129882812,
+"first_cov_w": 112.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 13032,
+"first_cov_x": 446.16668701171875,
+"first_cov_w": 221.00003051757812,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 13360,
+"first_cov_x": 521.6666870117188,
+"first_cov_w": 114.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 13413,
+"first_cov_x": 508.66668701171875,
+"first_cov_w": 128.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 13573,
+"first_cov_x": 375.8333435058594,
+"first_cov_w": 205.0,
+"hit_index": 1,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 13546,
+"first_cov_x": 491.0,
+"first_cov_w": 198.66665649414062,
+"hit_index": 1,
+"born_here": false,
+"fate": "counted N->N"
+},
+{
+"tid": 13634,
+"first_cov_x": 530.1666259765625,
+"first_cov_w": 110.33331298828125,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 13869,
+"first_cov_x": 571.5,
+"first_cov_w": 70.3333740234375,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 14112,
+"first_cov_x": 376.08331298828125,
+"first_cov_w": 288.5,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 14188,
+"first_cov_x": 489.83331298828125,
+"first_cov_w": 168.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 14215,
+"first_cov_x": 599.0,
+"first_cov_w": 56.0,
+"hit_index": 7,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 14477,
+"first_cov_x": 530.1666259765625,
+"first_cov_w": 132.33331298828125,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 14621,
+"first_cov_x": 390.5833435058594,
+"first_cov_w": 153.5,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 14730,
+"first_cov_x": 422.0,
+"first_cov_w": 216.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 14880,
+"first_cov_x": 583.6666259765625,
+"first_cov_w": 64.66668701171875,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15040,
+"first_cov_x": 508.33331298828125,
+"first_cov_w": 25.999969482421875,
+"hit_index": 1,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 15316,
+"first_cov_x": 381.16668701171875,
+"first_cov_w": 200.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 15352,
+"first_cov_x": 486.66668701171875,
+"first_cov_w": 158.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15425,
+"first_cov_x": 481.33331298828125,
+"first_cov_w": 167.99996948242188,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15500,
+"first_cov_x": 504.3333435058594,
+"first_cov_w": 138.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15590,
+"first_cov_x": 427.0,
+"first_cov_w": 145.33331298828125,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 15595,
+"first_cov_x": 413.3333435058594,
+"first_cov_w": 264.66668701171875,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 15634,
+"first_cov_x": 593.5,
+"first_cov_w": 56.3333740234375,
+"hit_index": 8,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15655,
+"first_cov_x": 450.75,
+"first_cov_w": 236.5,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15688,
+"first_cov_x": 578.6666870117188,
+"first_cov_w": 70.0,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15869,
+"first_cov_x": 621.0,
+"first_cov_w": 22.0,
+"hit_index": 13,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15913,
+"first_cov_x": 559.3333129882812,
+"first_cov_w": 103.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15894,
+"first_cov_x": 441.25,
+"first_cov_w": 240.16665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15937,
+"first_cov_x": 591.8333740234375,
+"first_cov_w": 52.33331298828125,
+"hit_index": 6,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15937,
+"first_cov_x": 580.6666870117188,
+"first_cov_w": 64.0,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15937,
+"first_cov_x": 566.8333129882812,
+"first_cov_w": 81.0,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 15987,
+"first_cov_x": 503.0,
+"first_cov_w": 146.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 16053,
+"first_cov_x": 605.6666259765625,
+"first_cov_w": 34.66668701171875,
+"hit_index": 7,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 16078,
+"first_cov_x": 544.6666870117188,
+"first_cov_w": 112.00003051757812,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 16365,
+"first_cov_x": 569.0,
+"first_cov_w": 68.6666259765625,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 16449,
+"first_cov_x": 542.8333129882812,
+"first_cov_w": 106.33334350585938,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 16524,
+"first_cov_x": 516.0,
+"first_cov_w": 129.33334350585938,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 16390,
+"first_cov_x": 352.8333435058594,
+"first_cov_w": 294.33331298828125,
+"hit_index": 0,
+"born_here": true,
+"fate": "counted N->S"
+},
+{
+"tid": 16610,
+"first_cov_x": 575.3333129882812,
+"first_cov_w": 62.0,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 16804,
+"first_cov_x": 442.5,
+"first_cov_w": 223.66665649414062,
+"hit_index": 1,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 16996,
+"first_cov_x": 570.1666870117188,
+"first_cov_w": 107.0,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 16999,
+"first_cov_x": 544.0,
+"first_cov_w": 37.3333740234375,
+"hit_index": 5,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 17131,
+"first_cov_x": 600.1666259765625,
+"first_cov_w": 78.33331298828125,
+"hit_index": 7,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 17294,
+"first_cov_x": 467.6666564941406,
+"first_cov_w": 187.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 17307,
+"first_cov_x": 571.0,
+"first_cov_w": 90.6666259765625,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 17358,
+"first_cov_x": 573.6666259765625,
+"first_cov_w": 63.33331298828125,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 17363,
+"first_cov_x": 554.6666870117188,
+"first_cov_w": 82.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 17375,
+"first_cov_x": 593.8333740234375,
+"first_cov_w": 52.33331298828125,
+"hit_index": 6,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 17371,
+"first_cov_x": 363.5,
+"first_cov_w": 97.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 17462,
+"first_cov_x": 387.33331298828125,
+"first_cov_w": 155.33334350585938,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 17589,
+"first_cov_x": 412.58331298828125,
+"first_cov_w": 170.83334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 17584,
+"first_cov_x": 363.83331298828125,
+"first_cov_w": 293.6666564941406,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 17666,
+"first_cov_x": 369.1666564941406,
+"first_cov_w": 292.33331298828125,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 17778,
+"first_cov_x": 626.3333740234375,
+"first_cov_w": 26.66668701171875,
+"hit_index": 9,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 17856,
+"first_cov_x": 482.8333435058594,
+"first_cov_w": 169.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 17908,
+"first_cov_x": 443.0,
+"first_cov_w": 200.66665649414062,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 17913,
+"first_cov_x": 520.3333129882812,
+"first_cov_w": 207.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 17913,
+"first_cov_x": 545.5,
+"first_cov_w": 100.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 17976,
+"first_cov_x": 514.3333740234375,
+"first_cov_w": 124.66668701171875,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 17992,
+"first_cov_x": 552.8333129882812,
+"first_cov_w": 86.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18021,
+"first_cov_x": 508.66668701171875,
+"first_cov_w": 136.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18222,
+"first_cov_x": 505.83331298828125,
+"first_cov_w": 154.99996948242188,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18222,
+"first_cov_x": 481.0,
+"first_cov_w": 164.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18325,
+"first_cov_x": 540.1666259765625,
+"first_cov_w": 108.33331298828125,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18405,
+"first_cov_x": 499.3333435058594,
+"first_cov_w": 154.66668701171875,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18424,
+"first_cov_x": 512.8333129882812,
+"first_cov_w": 134.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18552,
+"first_cov_x": 423.66668701171875,
+"first_cov_w": 238.66665649414062,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 18592,
+"first_cov_x": 617.0,
+"first_cov_w": 26.0,
+"hit_index": 10,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18612,
+"first_cov_x": 426.6666564941406,
+"first_cov_w": 225.33331298828125,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 18654,
+"first_cov_x": 544.1666870117188,
+"first_cov_w": 117.00003051757812,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18669,
+"first_cov_x": 500.33331298828125,
+"first_cov_w": 165.99996948242188,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18758,
+"first_cov_x": 603.8333129882812,
+"first_cov_w": 29.0,
+"hit_index": 11,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18766,
+"first_cov_x": 389.0,
+"first_cov_w": 211.33331298828125,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 18882,
+"first_cov_x": 520.0,
+"first_cov_w": 118.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 18894,
+"first_cov_x": 429.83331298828125,
+"first_cov_w": 182.99996948242188,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 18981,
+"first_cov_x": 597.5,
+"first_cov_w": 58.3333740234375,
+"hit_index": 6,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 19102,
+"first_cov_x": 470.33331298828125,
+"first_cov_w": 187.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 19234,
+"first_cov_x": 623.0,
+"first_cov_w": 21.3333740234375,
+"hit_index": 11,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 19274,
+"first_cov_x": 504.16668701171875,
+"first_cov_w": 153.00003051757812,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 19289,
+"first_cov_x": 623.5,
+"first_cov_w": 19.6666259765625,
+"hit_index": 14,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 19307,
+"first_cov_x": 509.1666564941406,
+"first_cov_w": 134.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 19361,
+"first_cov_x": 567.3333129882812,
+"first_cov_w": 78.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 19395,
+"first_cov_x": 551.0,
+"first_cov_w": 88.0,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 19499,
+"first_cov_x": 399.33331298828125,
+"first_cov_w": 94.66665649414062,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 19497,
+"first_cov_x": 576.1666259765625,
+"first_cov_w": 70.33331298828125,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 19570,
+"first_cov_x": 417.83331298828125,
+"first_cov_w": 254.33334350585938,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 19586,
+"first_cov_x": 359.16668701171875,
+"first_cov_w": 409.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 19795,
+"first_cov_x": 619.8333129882812,
+"first_cov_w": 23.0,
+"hit_index": 12,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 19810,
+"first_cov_x": 523.5,
+"first_cov_w": 119.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 19816,
+"first_cov_x": 568.3333740234375,
+"first_cov_w": 70.66668701171875,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 20057,
+"first_cov_x": 553.8333129882812,
+"first_cov_w": 84.33334350585938,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 20091,
+"first_cov_x": 429.5,
+"first_cov_w": 233.66665649414062,
+"hit_index": 0,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 20073,
+"first_cov_x": 450.83331298828125,
+"first_cov_w": 222.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 20123,
+"first_cov_x": 602.1666259765625,
+"first_cov_w": 43.66668701171875,
+"hit_index": 7,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 20213,
+"first_cov_x": 505.1666564941406,
+"first_cov_w": 138.33331298828125,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 20227,
+"first_cov_x": 594.0,
+"first_cov_w": 48.6666259765625,
+"hit_index": 8,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 20240,
+"first_cov_x": 491.1666564941406,
+"first_cov_w": 98.33331298828125,
+"hit_index": 4,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 20258,
+"first_cov_x": 562.8333740234375,
+"first_cov_w": 36.33331298828125,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 20524,
+"first_cov_x": 447.0,
+"first_cov_w": 36.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 20517,
+"first_cov_x": 480.5,
+"first_cov_w": 163.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 20566,
+"first_cov_x": 591.0,
+"first_cov_w": 65.3333740234375,
+"hit_index": 8,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 20544,
+"first_cov_x": 414.16668701171875,
+"first_cov_w": 227.00003051757812,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 20753,
+"first_cov_x": 428.5,
+"first_cov_w": 241.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 20840,
+"first_cov_x": 567.8333740234375,
+"first_cov_w": 73.66668701171875,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 20846,
+"first_cov_x": 516.8333129882812,
+"first_cov_w": 144.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 21279,
+"first_cov_x": 505.83331298828125,
+"first_cov_w": 136.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 21315,
+"first_cov_x": 507.66668701171875,
+"first_cov_w": 130.00003051757812,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 21336,
+"first_cov_x": 513.1666259765625,
+"first_cov_w": 144.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 21451,
+"first_cov_x": 520.3333129882812,
+"first_cov_w": 135.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 21552,
+"first_cov_x": 581.5,
+"first_cov_w": 59.6666259765625,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 21777,
+"first_cov_x": 406.83331298828125,
+"first_cov_w": 234.33334350585938,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 21820,
+"first_cov_x": 553.3333129882812,
+"first_cov_w": 101.99996948242188,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 22071,
+"first_cov_x": 535.3333129882812,
+"first_cov_w": 115.99996948242188,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 22128,
+"first_cov_x": 514.5,
+"first_cov_w": 133.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 22128,
+"first_cov_x": 457.16668701171875,
+"first_cov_w": 197.66665649414062,
+"hit_index": 0,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 22149,
+"first_cov_x": 376.25,
+"first_cov_w": 165.5,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 22181,
+"first_cov_x": 413.16668701171875,
+"first_cov_w": 231.00003051757812,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 22214,
+"first_cov_x": 577.8333129882812,
+"first_cov_w": 65.0,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 22236,
+"first_cov_x": 541.0,
+"first_cov_w": 60.666656494140625,
+"hit_index": 4,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 22242,
+"first_cov_x": 541.1666870117188,
+"first_cov_w": 117.00003051757812,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 22582,
+"first_cov_x": 602.1666259765625,
+"first_cov_w": 46.33331298828125,
+"hit_index": 8,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 22784,
+"first_cov_x": 531.3333129882812,
+"first_cov_w": 131.99996948242188,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 22820,
+"first_cov_x": 525.8333129882812,
+"first_cov_w": 120.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 22846,
+"first_cov_x": 460.0,
+"first_cov_w": 188.0,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 23028,
+"first_cov_x": 366.3333435058594,
+"first_cov_w": 290.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "NO EVENT"
+},
+{
+"tid": 23279,
+"first_cov_x": 469.3333435058594,
+"first_cov_w": 184.66668701171875,
+"hit_index": 1,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 23472,
+"first_cov_x": 462.8333435058594,
+"first_cov_w": 189.66668701171875,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 23528,
+"first_cov_x": 374.6666564941406,
+"first_cov_w": 266.0,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 23545,
+"first_cov_x": 576.5,
+"first_cov_w": 63.6666259765625,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 23545,
+"first_cov_x": 556.5,
+"first_cov_w": 82.3333740234375,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 23775,
+"first_cov_x": 455.0,
+"first_cov_w": 197.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 23968,
+"first_cov_x": 608.6666259765625,
+"first_cov_w": 30.66668701171875,
+"hit_index": 11,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 23937,
+"first_cov_x": 525.1666870117188,
+"first_cov_w": 25.0,
+"hit_index": 11,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 24095,
+"first_cov_x": 578.0,
+"first_cov_w": 69.3333740234375,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 24112,
+"first_cov_x": 592.8333740234375,
+"first_cov_w": 45.66668701171875,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 24279,
+"first_cov_x": 527.0,
+"first_cov_w": 118.0,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 24391,
+"first_cov_x": 527.5,
+"first_cov_w": 142.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 24474,
+"first_cov_x": 352.25,
+"first_cov_w": 289.5,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 24547,
+"first_cov_x": 607.5,
+"first_cov_w": 39.0,
+"hit_index": 10,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 24578,
+"first_cov_x": 487.83331298828125,
+"first_cov_w": 168.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 24593,
+"first_cov_x": 575.8333740234375,
+"first_cov_w": 72.33331298828125,
+"hit_index": 6,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 24615,
+"first_cov_x": 611.3333740234375,
+"first_cov_w": 31.33331298828125,
+"hit_index": 9,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 24738,
+"first_cov_x": 527.3333129882812,
+"first_cov_w": 30.0,
+"hit_index": 1,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 24816,
+"first_cov_x": 521.6666870117188,
+"first_cov_w": 130.00003051757812,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 24861,
+"first_cov_x": 532.8333740234375,
+"first_cov_w": 115.66668701171875,
+"hit_index": 1,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 24913,
+"first_cov_x": 503.16668701171875,
+"first_cov_w": 147.00003051757812,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 24913,
+"first_cov_x": 442.0,
+"first_cov_w": 210.0,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 25024,
+"first_cov_x": 623.6666870117188,
+"first_cov_w": 22.0,
+"hit_index": 12,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 25021,
+"first_cov_x": 521.5,
+"first_cov_w": 121.0,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 25092,
+"first_cov_x": 451.5,
+"first_cov_w": 237.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 25092,
+"first_cov_x": 501.16668701171875,
+"first_cov_w": 157.00003051757812,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 25122,
+"first_cov_x": 477.5,
+"first_cov_w": 211.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 25394,
+"first_cov_x": 540.3333129882812,
+"first_cov_w": 36.0,
+"hit_index": 1,
+"born_here": true,
+"fate": "counted N->S"
+},
+{
+"tid": 25981,
+"first_cov_x": 561.0,
+"first_cov_w": 74.0,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 26229,
+"first_cov_x": 407.1666564941406,
+"first_cov_w": 465.66668701171875,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->W"
+},
+{
+"tid": 26305,
+"first_cov_x": 442.5,
+"first_cov_w": 151.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 26348,
+"first_cov_x": 607.6666870117188,
+"first_cov_w": 34.0,
+"hit_index": 10,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 26407,
+"first_cov_x": 620.3333740234375,
+"first_cov_w": 20.66668701171875,
+"hit_index": 13,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 26507,
+"first_cov_x": 506.8333435058594,
+"first_cov_w": 141.66668701171875,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 26507,
+"first_cov_x": 456.0,
+"first_cov_w": 208.0,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 26779,
+"first_cov_x": 601.1666259765625,
+"first_cov_w": 46.33331298828125,
+"hit_index": 6,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 26792,
+"first_cov_x": 510.66668701171875,
+"first_cov_w": 146.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 26980,
+"first_cov_x": 539.1666259765625,
+"first_cov_w": 40.33331298828125,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 27255,
+"first_cov_x": 405.3333435058594,
+"first_cov_w": 469.33331298828125,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 27308,
+"first_cov_x": 586.5,
+"first_cov_w": 67.6666259765625,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 27412,
+"first_cov_x": 481.33331298828125,
+"first_cov_w": 177.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 27461,
+"first_cov_x": 511.83331298828125,
+"first_cov_w": 138.33334350585938,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 27494,
+"first_cov_x": 625.6666870117188,
+"first_cov_w": 28.0,
+"hit_index": 12,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 27756,
+"first_cov_x": 370.5,
+"first_cov_w": 205.0,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 27817,
+"first_cov_x": 424.16668701171875,
+"first_cov_w": 106.33334350585938,
+"hit_index": 3,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 27923,
+"first_cov_x": 592.8333740234375,
+"first_cov_w": 61.66668701171875,
+"hit_index": 7,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 27949,
+"first_cov_x": 630.5,
+"first_cov_w": 18.3333740234375,
+"hit_index": 20,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 27963,
+"first_cov_x": 569.5,
+"first_cov_w": 62.3333740234375,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 27963,
+"first_cov_x": 574.1666259765625,
+"first_cov_w": 72.33331298828125,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 27991,
+"first_cov_x": 584.6666259765625,
+"first_cov_w": 71.33331298828125,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 28376,
+"first_cov_x": 508.3333435058594,
+"first_cov_w": 144.66668701171875,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 28473,
+"first_cov_x": 501.5,
+"first_cov_w": 135.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 28473,
+"first_cov_x": 488.16668701171875,
+"first_cov_w": 203.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 28556,
+"first_cov_x": 619.1666259765625,
+"first_cov_w": 25.66668701171875,
+"hit_index": 13,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 28559,
+"first_cov_x": 531.3333740234375,
+"first_cov_w": 114.66668701171875,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 28808,
+"first_cov_x": 515.1666870117188,
+"first_cov_w": 127.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 28942,
+"first_cov_x": 376.75,
+"first_cov_w": 156.5,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 29058,
+"first_cov_x": 564.6666870117188,
+"first_cov_w": 44.0,
+"hit_index": 7,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 29090,
+"first_cov_x": 547.6666870117188,
+"first_cov_w": 74.00003051757812,
+"hit_index": 4,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 29571,
+"first_cov_x": 452.0,
+"first_cov_w": 212.0,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 29587,
+"first_cov_x": 536.0,
+"first_cov_w": 124.0,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 29592,
+"first_cov_x": 454.3333435058594,
+"first_cov_w": 88.0,
+"hit_index": 1,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 29618,
+"first_cov_x": 522.6666259765625,
+"first_cov_w": 117.33331298828125,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 29752,
+"first_cov_x": 429.66668701171875,
+"first_cov_w": 194.00003051757812,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 29759,
+"first_cov_x": 477.5,
+"first_cov_w": 173.0,
+"hit_index": 0,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 29842,
+"first_cov_x": 433.83331298828125,
+"first_cov_w": 230.99996948242188,
+"hit_index": 1,
+"born_here": false,
+"fate": "NO EVENT"
+},
+{
+"tid": 29827,
+"first_cov_x": 476.0,
+"first_cov_w": 113.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "counted S->N"
+},
+{
+"tid": 29948,
+"first_cov_x": 474.0,
+"first_cov_w": 179.33334350585938,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 30212,
+"first_cov_x": 511.16668701171875,
+"first_cov_w": 85.00003051757812,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 30330,
+"first_cov_x": 453.1666564941406,
+"first_cov_w": 232.33331298828125,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 30373,
+"first_cov_x": 440.0,
+"first_cov_w": 206.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 30253,
+"first_cov_x": 462.66668701171875,
+"first_cov_w": 35.333343505859375,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted N->S"
+},
+{
+"tid": 30469,
+"first_cov_x": 401.83331298828125,
+"first_cov_w": 224.33334350585938,
+"hit_index": 0,
+"born_here": false,
+"fate": "rejected"
+},
+{
+"tid": 30722,
+"first_cov_x": 433.33331298828125,
+"first_cov_w": 249.99996948242188,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 31200,
+"first_cov_x": 551.5,
+"first_cov_w": 109.0,
+"hit_index": 3,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 31232,
+"first_cov_x": 352.16668701171875,
+"first_cov_w": 310.3333435058594,
+"hit_index": 0,
+"born_here": false,
+"fate": "counted S->N"
+},
+{
+"tid": 31394,
+"first_cov_x": 544.6666259765625,
+"first_cov_w": 42.66668701171875,
+"hit_index": 0,
+"born_here": true,
+"fate": "counted N->S"
+},
+{
+"tid": 31512,
+"first_cov_x": 480.0,
+"first_cov_w": 174.66665649414062,
+"hit_index": 2,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 31526,
+"first_cov_x": 568.8333740234375,
+"first_cov_w": 67.66668701171875,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 32049,
+"first_cov_x": 467.5,
+"first_cov_w": 185.66665649414062,
+"hit_index": 1,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 32081,
+"first_cov_x": 569.0,
+"first_cov_w": 71.3333740234375,
+"hit_index": 5,
+"born_here": true,
+"fate": "NO EVENT"
+},
+{
+"tid": 32230,
+"first_cov_x": 597.1666259765625,
+"first_cov_w": 50.33331298828125,
+"hit_index": 7,
+"born_here": true,
+"fate": "NO EVENT"
+}
+]
+}

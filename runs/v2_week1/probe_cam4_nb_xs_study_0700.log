@@ -1,0 +1,119 @@
+cam4 study_0700: frames 251980-323980, 8 bins, model yolo26s.pt@960
+
+A. distinct TRACKS crossing X rightward, per bin  (Mio NB_thru per bin on the last row)
+   X   b0    b1    b2    b3    b4    b5    b6    b7     total  med_box_px
+   200   241   254   274   268   228   247   242   232   1986   124.2
+   250   251   264   278   281   234   253   249   237   2047   126.4
+   300   260   279   285   286   237   262   247   242   2098   122.9
+   350   263   282   290   293   240   262   250   241   2121   111.8
+   400   269   287   297   297   243   264   252   243   2152    98.8
+   450   283   300   312   305   253   270   257   253   2233    84.0
+   500   276   294   307   299   226   261   245   253   2161    65.9
+   550   260   287   292   283   230   251   241   244   2088    42.5
+
+B. counting FATE of tracks crossing X rightward (top 8 fates per X)
+  X=200: 1986 tracks; 1400 carry a counted S->N
+         1400  counted S->N
+          525  rejected S->N
+           47  NO EVENT
+            6  counted S->W
+            3  counted N->N
+            3  counted N->S
+            1  counted W->S
+            1  counted N->W
+  X=250: 2047 tracks; 1461 carry a counted S->N
+         1461  counted S->N
+          534  rejected S->N
+           41  NO EVENT
+            6  counted S->W
+            3  counted N->N
+            1  counted W->S
+            1  counted N->W
+  X=300: 2098 tracks; 1519 carry a counted S->N
+         1519  counted S->N
+          533  rejected S->N
+           36  NO EVENT
+            6  counted S->W
+            3  counted N->N
+            1  counted W->N
+  X=350: 2121 tracks; 1554 carry a counted S->N
+         1554  counted S->N
+          533  rejected S->N
+           22  NO EVENT
+            6  counted S->W
+            3  counted N->N
+            2  counted N->S
+            1  counted W->N
+  X=400: 2152 tracks; 1582 carry a counted S->N
+         1582  counted S->N
+          532  rejected S->N
+           27  NO EVENT
+            4  counted S->W
+            3  counted N->N
+            2  counted W->N
+            2  counted N->S
+  X=450: 2233 tracks; 1613 carry a counted S->N
+         1613  counted S->N
+          525  rejected S->N
+           85  NO EVENT
+            3  counted N->N
+            3  counted S->W
+            2  counted W->N
+            2  counted N->S
+  X=500: 2161 tracks; 1618 carry a counted S->N
+         1618  counted S->N
+          398  rejected S->N
+          132  NO EVENT
+            3  counted N->S
+            3  counted N->N
+            3  counted S->W
+            2  counted W->N
+            1  rejected W->N
+  X=550: 2088 tracks; 1725 carry a counted S->N
+         1725  counted S->N
+          314  NO EVENT
+           41  rejected S->N
+            3  counted S->W
+            2  counted W->N
+            2  counted N->S
+            1  counted N->N
+
+   death x (50-px buckets) of tracks that crossed X=300 rightward: [(0, 7), (50, 11), (100, 1), (150, 1), (200, 1), (250, 1), (300, 9), (350, 7), (400, 28), (450, 214), (500, 837), (550, 737), (600, 244)]
+
+C. raw detections: 343475 rows
+   after class-agnostic NMS 0.6: 254831 rows (74% kept)
+   deduped dets conf [0.10,0.25):   65137; untracked share by x band: 0:77% 100:42% 200:28% 300:38% 400:71% 500:78%
+   deduped dets conf [0.25,1.01):  189694; untracked share by x band: 0:19% 100:3% 200:3% 300:5% 400:17% 500:22%
+
+   conf >= 0.10 (deduped): detection CHAINS (>=3 hits, >=40 px rightward) crossing X rightward
+   X   b0    b1    b2    b3    b4    b5    b6    b7     total
+   200   289   324   329   314   266   288   270   265   2345
+   250   291   325   330   318   269   291   276   269   2369
+   300   294   326   328   318   273   292   275   271   2377
+   350   303   338   335   324   279   302   283   278   2442
+   400   325   367   366   348   283   317   305   302   2613
+   450   342   384   387   369   298   331   319   311   2741
+   500   349   391   400   377   302   337   323   315   2794
+   550   348   393   399   375   309   332   319   315   2790
+
+   conf >= 0.25 (deduped): detection CHAINS (>=3 hits, >=40 px rightward) crossing X rightward
+   X   b0    b1    b2    b3    b4    b5    b6    b7     total
+   200   283   321   325   314   259   284   270   261   2317
+   250   286   321   326   316   262   283   271   263   2328
+   300   290   323   326   314   267   284   271   263   2338
+   350   294   330   329   315   269   288   278   267   2370
+   400   311   357   356   337   274   304   297   289   2525
+   450   333   376   379   362   291   320   314   303   2678
+   500   346   384   396   368   300   331   320   310   2755
+   550   344   379   388   365   294   322   312   304   2708
+
+   UNTRACKED only, conf >= 0.10 (deduped): detection CHAINS (>=3 hits, >=40 px rightward) crossing X rightward
+   X   b0    b1    b2    b3    b4    b5    b6    b7     total
+   200    22    32    25    16    21    12    18    18    164
+   250    21    33    28    20    23    16    24    20    185
+   300    22    42    31    29    28    17    26    23    218
+   350    26    50    32    33    32    20    31    26    250
+   400    41    64    45    47    36    29    47    39    348
+   450    50    75    56    47    44    35    56    45    408
+   500    53    77    60    53    50    39    47    44    423
+   550    50    73    58    57    56    41    39    40    414

@@ -1,0 +1,12 @@
+0acb12c0 cam2 tk4_l1_study_0700: 1524 vehicles on the yardstick
+  LATE BIRTH (>= 5 hits = 0.5 s uncovered at the start): 417 (27%); all uncovered boxes < 0.35: 22; some >= 0.35: 395; delay median 8 frames
+  on time 1107; never covered 0
+  RIGID PAIRS (side by side >= 1 s, both moving, steady offset): 23 (of 45 side-by-side pairs >= 1 s)
+97a7849a cam4 tk4_study_1600: 469 vehicles on the yardstick
+  LATE BIRTH (>= 5 hits = 0.5 s uncovered at the start): 17 (4%); all uncovered boxes < 0.35: 1; some >= 0.35: 16; delay median 5 frames
+  on time 448; never covered 4
+  RIGID PAIRS (side by side >= 1 s, both moving, steady offset): 273 (of 1123 side-by-side pairs >= 1 s)
+97a7849a cam5 tk4_study_1600: 5742 vehicles on the yardstick
+  LATE BIRTH (>= 5 hits = 0.5 s uncovered at the start): 704 (12%); all uncovered boxes < 0.35: 59; some >= 0.35: 645; delay median 9 frames
+  on time 5038; never covered 0
+  RIGID PAIRS (side by side >= 1 s, both moving, steady offset): 404 (of 1849 side-by-side pairs >= 1 s)

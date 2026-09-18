@@ -1,0 +1,21 @@
+0acb12c0 cam2 l1_study_0700: pairs on 1577 frames; TWO-vehicle share (separate within +-10 frames):
+   cross IoU 0.45-0.6:     54 pairs, two vehicles     8 (15%)
+   cross IoU 0.6-0.8 :     79 pairs, two vehicles     3 (4%)
+   cross IoU >0.8    :   1148 pairs, two vehicles     0 (0%)
+   same  IoU 0.45-0.6:    127 pairs, two vehicles    15 (12%)
+   same  IoU 0.6-0.8 :    299 pairs, two vehicles     6 (2%)
+   same  IoU >0.8    :    187 pairs, two vehicles     1 (1%)
+97a7849a cam4 study_1600: pairs on 2687 frames; TWO-vehicle share (separate within +-10 frames):
+   cross IoU 0.45-0.6:     69 pairs, two vehicles    23 (33%)
+   cross IoU 0.6-0.8 :     93 pairs, two vehicles    13 (14%)
+   cross IoU >0.8    :   3141 pairs, two vehicles     1 (0%)
+   same  IoU 0.45-0.6:    367 pairs, two vehicles    86 (23%)
+   same  IoU 0.6-0.8 :    575 pairs, two vehicles    38 (7%)
+   same  IoU >0.8    :    818 pairs, two vehicles     6 (1%)
+97a7849a cam5 study_1600: pairs on 2880 frames; TWO-vehicle share (separate within +-10 frames):
+   cross IoU 0.45-0.6:    237 pairs, two vehicles    58 (24%)
+   cross IoU 0.6-0.8 :    252 pairs, two vehicles    14 (6%)
+   cross IoU >0.8    :   7411 pairs, two vehicles     0 (0%)
+   same  IoU 0.45-0.6:    986 pairs, two vehicles   206 (21%)
+   same  IoU 0.6-0.8 :   1267 pairs, two vehicles    71 (6%)
+   same  IoU >0.8    :   2029 pairs, two vehicles    10 (0%)

@@ -1,0 +1,18 @@
+454 bottom-edge vehicles saved -> runs\v2_week1\vehicles_study_0700.json; hits median 28
+[study_0700] 454 vehicles
+  track ids per vehicle: 0:18  1:176  2:201  3:44  4:14  5:1   (5 = 5+)
+  track breaks along these vehicles: 687 (613 into a gap, 74 straight to another id)
+    hand-offs, who took the vehicle: new id born on the next frame: 36; existing id, tracked last frame: 27; twin (other id already on this vehicle, IoU>=0.5): 6; existing id, lost 2-5 frames: 4; existing id, lost > 5 frames: 1
+[pr_study_0700] 454 vehicles
+  track ids per vehicle: 0:9  1:211  2:168  3:50  4:11  5:5   (5 = 5+)
+  track breaks along these vehicles: 498 (118 into a gap, 380 straight to another id)
+    hand-offs, who took the vehicle: twin (other id already on this vehicle, IoU>=0.5): 152; existing id, tracked last frame: 87; existing id, lost 2-5 frames: 66; existing id, lost > 5 frames: 39; new id born on the next frame: 36
+193 bottom-edge vehicles saved -> runs\v2_week1\vehicles_study_1100.json; hits median 51
+[study_1100] 193 vehicles
+  track ids per vehicle: 0:2  1:47  2:112  3:27  4:4  5:1   (5 = 5+)
+  track breaks along these vehicles: 340 (305 into a gap, 35 straight to another id)
+    hand-offs, who took the vehicle: new id born on the next frame: 15; existing id, tracked last frame: 13; twin (other id already on this vehicle, IoU>=0.5): 6; existing id, lost 2-5 frames: 1
+[pr_study_1100] 193 vehicles
+  track ids per vehicle: 0:1  1:64  2:90  3:27  4:11   (5 = 5+)
+  track breaks along these vehicles: 263 (91 into a gap, 172 straight to another id)
+    hand-offs, who took the vehicle: twin (other id already on this vehicle, IoU>=0.5): 83; existing id, lost 2-5 frames: 24; new id born on the next frame: 23; existing id, tracked last frame: 23; existing id, lost > 5 frames: 19

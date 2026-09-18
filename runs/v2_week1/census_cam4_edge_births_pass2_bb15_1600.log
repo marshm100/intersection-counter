@@ -1,0 +1,25 @@
+replay done: events=None out_db=C:\Users\marsh\AppData\Local\Temp\edge_census_cam4_bb15_study_1600_dhcgqzt9\twopass_cam4_bb15_study_1600.db; finalize records 7849
+(a) 435 covering tracks of bottom-edge NB entrances (bb15_study_1600); fate in THIS replay vs reason:
+    173  NO EVENT               origin S: n_insufficient_data
+     80  NO EVENT               no origin (dropped)
+     71  counted S->N           origin S: no counter moved | sfr=kept through->33
+     27  counted N->S           origin N: no counter moved | sfr=kept through->35
+     18  NO EVENT               origin N: n_insufficient_data
+     17  NO EVENT               no origin (<2 pts)
+     14  counted S->N           origin S: n_posterior_vetoed | sfr=kept through->33
+      9  rejected               origin S: no counter moved | sfr=kept through->33
+      8  counted S->N           origin S: n_origin_corrected | sfr=kept through->33
+      6  counted S->N           origin S: n_origin_rewrite_gated,n_posterior_vetoed | sfr=kept through->33
+      4  counted S->N           origin S: n_posterior_rescued | sfr=kept through->33
+      3  counted S->W           origin S: no counter moved | sfr=kept left->34
+      2  counted N->W           origin N: no counter moved | sfr=kept right->34
+      1  rejected               origin S: n_posterior_rescued | sfr=kept through->33
+      1  rejected               origin S: n_posterior_vetoed | sfr=kept through->33
+      1  NO EVENT               origin W: n_insufficient_data,n_origin_flow_inferred,n_origin_rescued
+  NO EVENT covering tracks: points median 8 (p25 2), displacement median 87 px (p25 38)
+(b) NB-bearing dump tracks with NO EVENT in this replay: 563
+    465  origin S: n_insufficient_data
+     83  no origin (dropped)
+     14  origin N: n_insufficient_data
+      1  origin W: n_insufficient_data
+  born with box bottom >= 440 px (frame bottom edge): 306 of 563; their median box width 262 px, median birth x 511

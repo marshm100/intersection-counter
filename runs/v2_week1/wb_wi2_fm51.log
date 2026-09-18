@@ -1,0 +1,5 @@
+== wi2 FM51 0700
+  track ids per vehicle: 1:1152  2:323  3:44  4:5   (5 = 5+)
+  track breaks along these vehicles: 825 (295 into a gap, 530 straight to another id)
+    hand-offs, who took the vehicle: new id born on the next frame: 153; existing id, tracked last frame: 141; twin (other id already on this vehicle, IoU>=0.5): 139; existing id, lost 2-5 frames [OWN earlier id returns]: 42; existing id, lost 2-5 frames [ANOTHER vehicle's id]: 36; existing id, lost > 5 frames [ANOTHER vehicle's id]: 17; existing id, lost > 5 frames [OWN earlier id returns]: 2
+  LATE BIRTH (>= 5 hits = 0.5 s uncovered at the start): 72 (5%); all uncovered boxes < 0.35: 67; some >= 0.35: 5; delay median 8 frames

@@ -1,0 +1,24 @@
+    NB right      1      2      2
+     NB thru    853    699    871
+    NB uturn      0      6      8
+     SB left     11     20     10
+    SB right      0      0      4
+     SB thru    614    362    473
+    SB uturn      0      1      5
+     WB left      0      3      2
+    WB right     46     38     51
+     WB thru      0      5      1
+    WB uturn      0      0      0
+-> runs\v2_week1\score_d18_cam2_pr_l1_study_0700.json
+    NB right      3      0      1
+     NB thru    811    573    834
+    NB uturn      0      5      9
+     SB left     30     25     23
+    SB right      0      0      3
+     SB thru   1086    720    830
+    SB uturn      0     15      0
+     WB left      1      0      1
+    WB right     13     11     16
+     WB thru      0      7      1
+    WB uturn      0      0      0
+-> runs\v2_week1\score_d18_cam2_pr_l1_study_1600.json

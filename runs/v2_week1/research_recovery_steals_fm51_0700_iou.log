@@ -1,0 +1,5 @@
+by IoU(predicted box, recovered box):
+   0 (no overlap): n=  192  steal   20 (10%)  same    2  unknown  170
+   (0, 0.1]: n=  734  steal   83 (11%)  same   25  unknown  626
+   (0.1, 0.2]: n= 1493  steal  106 (7%)  same  116  unknown 1271
+      > 0.2: n= 6515  steal  182 (3%)  same 1704  unknown 4629

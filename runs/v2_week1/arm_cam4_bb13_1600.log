@@ -1,0 +1,19 @@
+pass-1 bb13_study_1600: 304261 in 131s; dump meta bbox_buffer=1.3
+
+[study_1600] tracks 8986; NB-bearing (>=40 px rightward) 3181
+  distinct tracks crossing X rightward: 200:1626  250:1690  300:1712  350:1747  400:1732  450:1783  500:1757  550:1694
+  bottom-edge NB births (box bottom >= 440, w >= 120): 852; points median 10 (p25 8); rightward travel median 396 px
+
+[bb13_study_1600] tracks 8128; NB-bearing (>=40 px rightward) 2848
+  distinct tracks crossing X rightward: 200:1825  250:1864  300:1875  350:1896  400:1889  450:1954  500:1980  550:1918
+  bottom-edge NB births (box bottom >= 440, w >= 120): 1295; points median 20 (p25 10); rightward travel median 440 px
+Traceback (most recent call last):
+  File "C:\dev\intersection-counter\scripts\arm_cam4_bbuf_retrack.py", line 101, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\dev\intersection-counter\scripts\arm_cam4_bbuf_retrack.py", line 95, in main
+    from probe_cam4_nb_emergence import coverage
+  File "C:\dev\intersection-counter\scripts\probe_cam4_nb_emergence.py", line 35, in <module>
+    K = int(sys.argv[2]) if len(sys.argv) > 2 else 4
+        ^^^^^^^^^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'study_1600'

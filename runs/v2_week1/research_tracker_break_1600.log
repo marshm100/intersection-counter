@@ -1,0 +1,45 @@
+[study_1600] 469 vehicles
+  track ids per vehicle: 0:66  1:182  2:169  3:41  4:8  5:3   (5 = 5+)
+  detections before the first track covers it: median 2, p75 5
+  untracked gaps inside a vehicle: 646, median length 2 frames
+  track breaks along these vehicles: 636 (554 into a gap, 82 straight to another id)
+    at the break: tracker box / real box  width x1.08  height x0.99 (median)
+    IoU(tracker box, next real box) median 0.41   vs IoU(real box, next real box) 0.50   next conf 0.29   next/now width 0.86
+    breaks where the tracker's box is >1.5x wider than the real one: 172 (27%); of those, real box touching the bottom edge: 24
+    break x: 350-400:4  400-450:5  450-500:11  500-550:32  550-600:188  600-650:374
+[nf_study_1600] 469 vehicles
+  track ids per vehicle: 0:11  1:170  2:211  3:67  4:8  5:2   (5 = 5+)
+  detections before the first track covers it: median 1, p75 2
+  untracked gaps inside a vehicle: 689, median length 1 frames
+  track breaks along these vehicles: 823 (539 into a gap, 284 straight to another id)
+    at the break: tracker box / real box  width x1.10  height x0.99 (median)
+    IoU(tracker box, next real box) median 0.44   vs IoU(real box, next real box) 0.49   next conf 0.27   next/now width 0.85
+    breaks where the tracker's box is >1.5x wider than the real one: 236 (29%); of those, real box touching the bottom edge: 34
+    break x: 350-400:1  400-450:3  450-500:14  500-550:39  550-600:225  600-650:519
+[bb15_study_1600] 469 vehicles
+  track ids per vehicle: 0:37  1:193  2:184  3:47  4:7  5:1   (5 = 5+)
+  detections before the first track covers it: median 2, p75 3
+  untracked gaps inside a vehicle: 637, median length 2 frames
+  track breaks along these vehicles: 668 (537 into a gap, 131 straight to another id)
+    at the break: tracker box / real box  width x1.65  height x1.48 (median)
+    IoU(tracker box, next real box) median 0.24   vs IoU(real box, next real box) 0.48   next conf 0.27   next/now width 0.85
+    breaks where the tracker's box is >1.5x wider than the real one: 458 (69%); of those, real box touching the bottom edge: 30
+    break x: 350-400:0  400-450:4  450-500:10  500-550:34  550-600:191  600-650:424
+[l1_study_1600] 469 vehicles
+  track ids per vehicle: 0:29  1:188  2:202  3:38  4:10  5:2   (5 = 5+)
+  detections before the first track covers it: median 2, p75 4
+  untracked gaps inside a vehicle: 710, median length 2 frames
+  track breaks along these vehicles: 593 (501 into a gap, 92 straight to another id)
+    at the break: tracker box / real box  width x1.06  height x0.97 (median)
+    IoU(tracker box, next real box) median 0.37   vs IoU(real box, next real box) 0.48   next conf 0.31   next/now width 0.86
+    breaks where the tracker's box is >1.5x wider than the real one: 174 (29%); of those, real box touching the bottom edge: 40
+    break x: 350-400:2  400-450:6  450-500:10  500-550:35  550-600:193  600-650:334
+    IoU(tracker box, next real box) median 0.41   vs IoU(real box, next real box) 0.50   next conf 0.29   next/now width 0.86
+    breaks where the tracker's box is >1.5x wider than the real one: 172 (27%); of those, real box touching the bottom edge: 24
+    the next real box at the break, by tracker stage:
+        305  conf>=0.25, fused IoU*conf < 0.2 (stage-1 refuses)
+        133  conf<0.25, IoU < 0.5 (stage-2 refuses; and cannot re-birth)
+        109  conf>=0.25, fused >= 0.2 (should match; taken by another id)
+         89  conf<0.25, IoU >= 0.5 (stage 2 should match)
+    breaks at x>=550: 562; their next conf median 0.28; share with next conf < 0.25: 35%; real-box width at those breaks median 29 px
+    break x: 350-400:4  400-450:5  450-500:11  500-550:32  550-600:188  600-650:374

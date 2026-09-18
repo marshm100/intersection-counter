@@ -1,0 +1,79 @@
+=== GTR1 cam2 study_0700 start 2026-08-24T12:59:54.2252614-05:00 ===
+loaded 16 operator channels from the channels table
+cam2 GT-free bank — 07:00:00+120min, 6549 usable tracks, agreement rate 46%, bearing-rebinned 25
+cell                          n  share straight bearing_res  status
+L26->L26 u_turn              51     --       --          --  UTURN_HELDOUT (21/51 reverse, frac 0.41)
+L26->L27 right              326     --       --          --  CHANNEL_DIRECT (drawn curve, support 326)
+L26->L28 through            146     --       --          --  CHANNEL_DIRECT (drawn curve, support 146)
+L26->L29 left                29     --       --          --  CHANNEL_DIRECT (drawn curve, support 29)
+L27->L26 left               414     --       --          --  CHANNEL_DIRECT (drawn curve, support 414)
+L27->L27 u_turn              18     --       --          --  UTURN_HELDOUT (4/18 reverse, frac 0.22)
+L27->L28 right              127     --       --          --  CHANNEL_DIRECT (drawn curve, support 127)
+L27->L29 through           1242     --       --          --  CHANNEL_DIRECT (drawn curve, support 1242)
+L28->L26 through            157     --       --          --  CHANNEL_DIRECT (drawn curve, support 157)
+L28->L27 left               119     --       --          --  CHANNEL_DIRECT (drawn curve, support 119)
+    (u-turn L28->L28 u_turn ADMITTED: 97/188 reverse, frac 0.52)
+L28->L28 u_turn             188     --       --          --  CHANNEL_DIRECT (drawn curve, support 188)
+L28->L29 right              483     --       --          --  CHANNEL_DIRECT (drawn curve, support 483)
+L29->L26 right               64     --       --          --  CHANNEL_DIRECT (drawn curve, support 64)
+L29->L27 through           1630     --       --          --  CHANNEL_DIRECT (drawn curve, support 1630)
+L29->L28 left              1478     --       --          --  CHANNEL_DIRECT (drawn curve, support 1478)
+L29->L29 u_turn              77     --       --          --  UTURN_HELDOUT (31/77 reverse, frac 0.40)
+
+wrote data\projects\97a7849a\_replay_scratch\trackrepair2_20260824\twopass_bank_cam2_a3_study_0700.json (13 paths) + data\projects\97a7849a\_replay_scratch\trackrepair2_20260824\twopass_bank_cam2_a3_study_0700_qa.json
+[pass2] cam2 study_0700: tracks=8631 events=6524 insufficient=1964 merge_kept=1863 merged_away=316 out=data\projects\97a7849a\_replay_scratch\trackrepair2_20260824\twopass_cam2_a3_study_0700.db (170s)
+=== GTR1 cam2 study_0700 exit 0 2026-08-24T13:02:46.5347808-05:00 ===
+=== GTR1 cam2 study_1100 start 2026-08-24T13:02:46.5357916-05:00 ===
+loaded 16 operator channels from the channels table
+cam2 GT-free bank — 11:00:00+120min, 5169 usable tracks, agreement rate 41%, bearing-rebinned 35
+cell                          n  share straight bearing_res  status
+    (u-turn L26->L26 u_turn ADMITTED: 30/58 reverse, frac 0.52)
+L26->L26 u_turn              58     --       --          --  CHANNEL_DIRECT (drawn curve, support 58)
+L26->L27 right              172     --       --          --  CHANNEL_DIRECT (drawn curve, support 172)
+L26->L28 through            145     --       --          --  CHANNEL_DIRECT (drawn curve, support 145)
+L26->L29 left                39     --       --          --  CHANNEL_DIRECT (drawn curve, support 39)
+L27->L26 left               400     --       --          --  CHANNEL_DIRECT (drawn curve, support 400)
+    (u-turn L27->L27 u_turn ADMITTED: 10/19 reverse, frac 0.53)
+L27->L27 u_turn              19     --       --          --  CHANNEL_DIRECT (drawn curve, support 19)
+L27->L28 right               97     --       --          --  CHANNEL_DIRECT (drawn curve, support 97)
+L27->L29 through            994     --       --          --  CHANNEL_DIRECT (drawn curve, support 994)
+L28->L26 through            264     --       --          --  CHANNEL_DIRECT (drawn curve, support 264)
+L28->L27 left               153     --       --          --  CHANNEL_DIRECT (drawn curve, support 153)
+    (u-turn L28->L28 u_turn ADMITTED: 136/237 reverse, frac 0.57)
+L28->L28 u_turn             237     --       --          --  CHANNEL_DIRECT (drawn curve, support 237)
+L28->L29 right              538     --       --          --  CHANNEL_DIRECT (drawn curve, support 538)
+L29->L26 right               79     --       --          --  CHANNEL_DIRECT (drawn curve, support 79)
+L29->L27 through            981     --       --          --  CHANNEL_DIRECT (drawn curve, support 981)
+L29->L28 left               922     --       --          --  CHANNEL_DIRECT (drawn curve, support 922)
+L29->L29 u_turn              71     --       --          --  UTURN_HELDOUT (28/71 reverse, frac 0.39)
+
+wrote data\projects\97a7849a\_replay_scratch\trackrepair2_20260824\twopass_bank_cam2_a3_study_1100.json (15 paths) + data\projects\97a7849a\_replay_scratch\trackrepair2_20260824\twopass_bank_cam2_a3_study_1100_qa.json
+[pass2] cam2 study_1100: tracks=7698 events=5094 insufficient=2498 merge_kept=1886 merged_away=378 out=data\projects\97a7849a\_replay_scratch\trackrepair2_20260824\twopass_cam2_a3_study_1100.db (289s)
+=== GTR1 cam2 study_1100 exit 0 2026-08-24T13:07:38.2054897-05:00 ===
+=== GTR1 cam2 study_1600 start 2026-08-24T13:07:38.2054897-05:00 ===
+loaded 16 operator channels from the channels table
+cam2 GT-free bank — 16:00:00+120min, 8255 usable tracks, agreement rate 38%, bearing-rebinned 41
+cell                          n  share straight bearing_res  status
+L26->L26 u_turn              52     --       --          --  UTURN_HELDOUT (20/52 reverse, frac 0.38)
+L26->L27 right              300     --       --          --  CHANNEL_DIRECT (drawn curve, support 300)
+L26->L28 through            156     --       --          --  CHANNEL_DIRECT (drawn curve, support 156)
+L26->L29 left                24     --       --          --  CHANNEL_DIRECT (drawn curve, support 24)
+L27->L26 left               727     --       --          --  CHANNEL_DIRECT (drawn curve, support 727)
+    (u-turn L27->L27 u_turn ADMITTED: 17/33 reverse, frac 0.52)
+L27->L27 u_turn              33     --       --          --  CHANNEL_DIRECT (drawn curve, support 33)
+L27->L28 right               56     --       --          --  CHANNEL_DIRECT (drawn curve, support 56)
+L27->L29 through           1789     --       --          --  CHANNEL_DIRECT (drawn curve, support 1789)
+L28->L26 through            458     --       --          --  CHANNEL_DIRECT (drawn curve, support 458)
+L28->L27 left               286     --       --          --  CHANNEL_DIRECT (drawn curve, support 286)
+    (u-turn L28->L28 u_turn ADMITTED: 174/340 reverse, frac 0.51)
+L28->L28 u_turn             340     --       --          --  CHANNEL_DIRECT (drawn curve, support 340)
+L28->L29 right             1203     --       --          --  CHANNEL_DIRECT (drawn curve, support 1203)
+L29->L26 right               83     --       --          --  CHANNEL_DIRECT (drawn curve, support 83)
+L29->L27 through           1317     --       --          --  CHANNEL_DIRECT (drawn curve, support 1317)
+L29->L28 left              1321     --       --          --  CHANNEL_DIRECT (drawn curve, support 1321)
+L29->L29 u_turn             110     --       --          --  UTURN_HELDOUT (42/110 reverse, frac 0.38)
+
+wrote data\projects\97a7849a\_replay_scratch\trackrepair2_20260824\twopass_bank_cam2_a3_study_1600.json (14 paths) + data\projects\97a7849a\_replay_scratch\trackrepair2_20260824\twopass_bank_cam2_a3_study_1600_qa.json
+[pass2] cam2 study_1600: tracks=11654 events=8077 insufficient=3456 merge_kept=2822 merged_away=499 out=data\projects\97a7849a\_replay_scratch\trackrepair2_20260824\twopass_cam2_a3_study_1600.db (395s)
+=== GTR1 cam2 study_1600 exit 0 2026-08-24T13:14:16.1743524-05:00 ===
+GTR1_DONE 2026-08-24T13:14:16.1748574-05:00

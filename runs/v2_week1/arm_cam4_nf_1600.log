@@ -1,0 +1,73 @@
+C:\dev\intersection-counter\scripts\arm_retrack_alias.py:6: SyntaxWarning: invalid escape sequence '\S'
+  Usage:  TRACKER_FUSE_SCORE=0 .venv\Scripts\python.exe -X utf8 scripts/arm_retrack_alias.py PROJ CAM VARIANT PREFIX
+pass-1 cam4 nf_study_1600: 338240 rows in 83s; recipe backend=bytetrack fuse_score=False bbox_buffer=1.0 activation=0.25
+
+COVERAGE of 469 emergence chains by pass-1 tracks (nf_study_1600):
+  never covered by any track: 9
+  covered: 460; first covered at hit index median 1 (0 = at emergence)
+  x where a track first covers the chain: 300-400:49  400-450:69  450-500:104  500-550:156  550-600:80  600-641:2
+  box width at first coverage: median 144 px; at emergence median 215 px
+  covering track born within 60 px of that point: 355; older track (id hand-off / theft): 105
+  wrote runs\v2_week1\probe_cam4_nb_emergence_nf_study_1600_tids.json
+  counting fate of the covering tracks:
+      385  NO EVENT
+       37  counted N->S
+       24  counted S->N
+        7  rejected S->N
+        3  counted N->W
+        3  rejected N->S
+        1  rejected N->W
+  => emergences ending in exactly one counted S->N: 24; never tracked 9; hand-offs 105; other fates 436
+cam4 nf_study_1600: 460 covering tracks; life median 11 pts
+    222  died at the right edge (left the frame)
+    137  conf>=0.25 but IoU*conf<0.2: fused score refuses
+     33  conf<0.25 and IoU<0.5: low-score stage refuses (scale)
+     31  conf>=0.25, IoU>=0.2, fused>=0.2: should have matched
+     27  no detection next frame near the track
+     10  conf<0.25, IoU>=0.5: low-score stage should match
+  next-frame IoU median 0.16, conf median 0.71, width ratio median 0.30
+pass-2 replay cam4 nf_study_1600 -> C:\Users\marsh\AppData\Local\Temp\edge_census_cam4_nf_study_1600_khg5u249
+cam4 GT-free bank — 16:00:00+120min, 6773 usable tracks, agreement rate 66%, bearing-rebinned 1147
+cell                          n  share straight bearing_res  status
+L33->L35 through           3045  48.8%    0.999  [2.0, 0.7]  ok
+L35->L33 through           2382  38.2%    0.993  [0.0, 9.0]  ok
+L34->L35 right              736  11.8%    1.000  [0.4, 0.2]  ok  [WARN straight turn]
+L35->L34 left                44   0.7%    0.981[1.9, 101.6]  BEARING_REJECTED
+L33->L34 right               20   0.3%    0.959 [1.8, 50.3]  MINOR_REJECTED (member spread 79px)
+L34->L33 left                15   0.2%    0.895[34.3, 11.2]  MINOR_REJECTED (member spread 70px)
+!! LEG SANITY: leg 34 calibrated 119.4deg but traffic enters at 266.1deg — check label/heading
+!! MISSING MOVEMENTS: 3 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L33->L34 right
+     L34->L33 left
+     L35->L34 left
+
+wrote C:\Users\marsh\AppData\Local\Temp\edge_census_cam4_nf_study_1600_khg5u249\twopass_bank_cam4_nf_study_1600.json (3 paths) + C:\Users\marsh\AppData\Local\Temp\edge_census_cam4_nf_study_1600_khg5u249\twopass_bank_cam4_nf_study_1600_qa.json
+replay done: events=None out_db=C:\Users\marsh\AppData\Local\Temp\edge_census_cam4_nf_study_1600_khg5u249\twopass_cam4_nf_study_1600.db; finalize records 9098
+
+(a) 460 covering tracks of bottom-edge NB entrances (nf_study_1600); fate in THIS replay vs reason:
+    196  NO EVENT               origin S: n_insufficient_data
+    108  NO EVENT               no origin (dropped)
+     63  counted S->N           origin S: no counter moved | sfr=kept through->33
+     22  NO EVENT               origin N: n_insufficient_data
+     19  counted N->S           origin N: no counter moved | sfr=kept through->35
+     13  rejected               origin S: no counter moved | sfr=kept through->33
+     11  NO EVENT               no origin (<2 pts)
+      9  counted S->N           origin S: n_posterior_vetoed | sfr=kept through->33
+      5  counted S->N           origin S: n_origin_corrected | sfr=kept through->33
+      3  counted N->W           origin N: no counter moved | sfr=kept right->34
+      3  counted S->N           origin S: n_origin_rewrite_gated,n_posterior_vetoed | sfr=kept through->33
+      2  counted S->N           origin S: n_posterior_rescued | sfr=kept through->33
+      2  counted N->N           origin N: no counter moved | sfr=kept u_turn->33
+      1  rejected               origin S: n_posterior_rescued | sfr=kept through->33
+      1  rejected               origin S: n_posterior_vetoed | sfr=kept through->33
+      1  counted N->S           origin N: n_straight_rerouted | sfr=reroute
+  NO EVENT covering tracks: points median 6 (p25 2), displacement median 77 px (p25 39)
+
+(b) NB-bearing dump tracks with NO EVENT in this replay: 723
+    587  origin S: n_insufficient_data
+    103  no origin (dropped)
+     24  origin N: n_insufficient_data
+      6  origin W: n_insufficient_data
+      2  origin S: n_insufficient_data,n_origin_rewrite_gated,n_posterior_vetoed
+      1  origin S: n_insufficient_data,n_origin_flow_inferred,n_origin_rescued
+  born with box bottom >= 440 px (frame bottom edge): 284 of 723; their median box width 243 px, median birth x 463

@@ -1,0 +1,31 @@
+replay done: events=None out_db=C:\Users\marsh\AppData\Local\Temp\edge_census_cam4_pr_study_1600_bz6ym_ln\twopass_cam4_pr_study_1600.db; finalize records 5762
+(a) 419 covering tracks of bottom-edge NB entrances (pr_study_1600); fate in THIS replay vs reason:
+    190  NO EVENT               origin S: n_insufficient_data @destination (softmax dest=None, conf 0)
+    101  counted S->N           origin S: no counter moved | sfr=kept through->33
+     29  NO EVENT               no origin (dropped)
+     27  counted N->S           origin N: no counter moved | sfr=kept through->35
+     13  counted N->N           origin N: no counter moved | sfr=kept u_turn->33
+      7  NO EVENT               origin N: n_insufficient_data @destination (softmax dest=None, conf 0)
+      5  counted W->N           origin W: no counter moved | sfr=kept left->33
+      4  rejected               origin S: no counter moved | sfr=kept through->33
+      3  counted N->S           origin N: n_posterior_rescued | sfr=kept through->35
+      2  counted N->S           origin N: n_origin_corrected,n_posterior_rescued | sfr=kept through->35
+      2  rejected               origin S: n_origin_corrected | sfr=kept through->33
+      2  counted N->W           origin N: no counter moved | sfr=kept right->34
+      2  counted S->N           origin S: n_origin_rewrite_gated,n_posterior_vetoed | sfr=kept through->33
+      2  NO EVENT               origin S: n_insufficient_data @classify (pts 3, dist 93)
+      2  counted N->N           origin N: n_origin_corrected | sfr=kept u_turn->33
+      2  counted S->S           origin S: no counter moved | sfr=kept u_turn->35
+  NO EVENT covering tracks: points median 24 (p25 15), displacement median 136 px (p25 78)
+(b) NB-bearing dump tracks with NO EVENT in this replay: 551
+    334  origin S: n_insufficient_data @destination
+     30  origin N: n_insufficient_data @destination
+     29  no origin (dropped)
+      2  origin S: n_insufficient_data @classify (pts 2, dist 53)
+      2  origin N: n_insufficient_data @classify (pts 68, dist 1194)
+      1  origin S: n_insufficient_data @classify (pts 4, dist 169)
+      1  origin N: n_insufficient_data @classify (pts 47, dist 191)
+      1  origin N: n_insufficient_data @classify (pts 80, dist 818)
+      1  origin N: n_insufficient_data @classify (pts 281, dist 1507)
+      1  origin N: n_insufficient_data @classify (pts 77, dist 1166)
+      1  origin N: n_insufficient_data @classify (pts 85, dist 1419)

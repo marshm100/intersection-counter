@@ -1,0 +1,52 @@
+loaded 9 operator channels from the channels table
+cam2 GT-free bank — 07:00:00+120min, 1346 usable tracks, agreement rate 15%, bearing-rebinned 1
+cell                          n  share straight bearing_res  status
+L1->L2 through              822     --       --          --  CHANNEL_DIRECT (drawn curve, support 822)
+L1->L3 u_turn                 3     --       --          --  UTURN_HELDOUT (2/3 reverse, frac 0.67)
+L1->L4 right                  2     --       --          --  CHANNEL_DIRECT (drawn curve, support 2)
+L2->L1 through              396     --       --          --  CHANNEL_DIRECT (drawn curve, support 396)
+L2->L3 left                  45     --       --          --  CHANNEL_DIRECT (drawn curve, support 45)
+L2->L4 u_turn                13     --       --          --  UTURN_HELDOUT (0/13 reverse, frac 0.00)
+L3->L1 left                   4     --       --          --  CHANNEL_DIRECT (drawn curve, support 4)
+L3->L2 right                 55     --       --          --  CHANNEL_DIRECT (drawn curve, support 55)
+L3->L4 through                3     --       --          --  CHANNEL_DIRECT (drawn curve, support 3)
+!! MISSING MOVEMENTS: 1 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L1->L3 right
+
+wrote data\projects\0acb12c0\_replay_scratch\blank_20260911\arm\twopass_bank_cam2_pr_l1_study_0700.json (7 paths) + data\projects\0acb12c0\_replay_scratch\blank_20260911\arm\twopass_bank_cam2_pr_l1_study_0700_qa.json
+ Traceback (most recent call last):
+  File "C:\dev\intersection-counter\scripts\v2_score_dev.py", line 244, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\dev\intersection-counter\scripts\v2_score_dev.py", line 184, in main
+    lo, hi = site["windows"][variant]
+             ~~~~~~~~~~~~~~~^^^^^^^^^
+KeyError: 'pr_l1_study_0700'
+
+FM51 d18 pr_l1_study_0700: movement None  approach None  cov 0.335 ON  events=1223 dropped=262  (29s)
+loaded 9 operator channels from the channels table
+cam2 GT-free bank — 16:00:00+120min, 1548 usable tracks, agreement rate 13%, bearing-rebinned 2
+cell                          n  share straight bearing_res  status
+L1->L2 through              760     --       --          --  CHANNEL_DIRECT (drawn curve, support 760)
+L1->L3 u_turn                 1     --       --          --  UTURN_HELDOUT (1/1 reverse, frac 1.00)
+L1->L4 right                  0     --       --          --  CHANNEL_DIRECT (drawn curve, support 0)
+L2->L1 through              707     --       --          --  CHANNEL_DIRECT (drawn curve, support 707)
+L2->L3 left                  37     --       --          --  CHANNEL_DIRECT (drawn curve, support 37)
+L2->L4 u_turn                18     --       --          --  UTURN_HELDOUT (2/18 reverse, frac 0.11)
+L3->L1 left                   3     --       --          --  CHANNEL_DIRECT (drawn curve, support 3)
+L3->L2 right                 11     --       --          --  CHANNEL_DIRECT (drawn curve, support 11)
+L3->L4 through                2     --       --          --  CHANNEL_DIRECT (drawn curve, support 2)
+!! MISSING MOVEMENTS: 1 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L1->L3 right
+
+wrote data\projects\0acb12c0\_replay_scratch\blank_20260911\arm\twopass_bank_cam2_pr_l1_study_1600.json (7 paths) + data\projects\0acb12c0\_replay_scratch\blank_20260911\arm\twopass_bank_cam2_pr_l1_study_1600_qa.json
+ Traceback (most recent call last):
+  File "C:\dev\intersection-counter\scripts\v2_score_dev.py", line 244, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\dev\intersection-counter\scripts\v2_score_dev.py", line 184, in main
+    lo, hi = site["windows"][variant]
+             ~~~~~~~~~~~~~~~^^^^^^^^^
+KeyError: 'pr_l1_study_1600'
+
+FM51 d18 pr_l1_study_1600: movement None  approach None  cov 0.414 ON  events=1465 dropped=294  (35s)

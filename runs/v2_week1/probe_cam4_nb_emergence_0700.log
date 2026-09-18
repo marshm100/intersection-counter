@@ -1,0 +1,21 @@
+cam4 study_0700: 8530 chains (>=3 hits) from 254831 deduped dets
+chains crossing x=550 rightward: 2790
+  first x of those chains: 0-100:2158  100-200:62  200-300:44  300-350:72  350-400:181  400-450:130  450-500:75  500-550:67
+  EMERGENCES (first x > 350): 454; median first box w 216.3 px, median first conf 0.36, median first y 478
+  companion at the emergence frame: {'companion moving right': 231, 'companion still': 114, 'companion moving left': 86, 'none': 23}
+  emergences per 15-min bin: [56, 73, 81, 62, 44, 45, 49, 44]
+
+COVERAGE of 454 emergence chains by pass-1 tracks (study_0700):
+  never covered by any track: 16
+  covered: 438; first covered at hit index median 2 (0 = at emergence)
+  x where a track first covers the chain: 300-400:40  400-450:42  450-500:119  500-550:146  550-600:87  600-641:4
+  box width at first coverage: median 136 px; at emergence median 216 px
+  covering track born within 60 px of that point: 348; older track (id hand-off / theft): 90
+  counting fate of the covering tracks:
+      326  NO EVENT
+       80  counted S->N
+       25  rejected S->N
+        5  counted N->S
+        1  counted N->N
+        1  counted W->N
+  => emergences ending in exactly one counted S->N: 80; never tracked 16; hand-offs 90; other fates 358

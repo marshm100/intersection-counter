@@ -1,0 +1,12 @@
+== cam4 1600 near-lane NB
+  track ids per vehicle: 0:4  1:381  2:73  3:6  4:4  5:1   (5 = 5+)
+  track breaks along these vehicles: 255 (189 into a gap, 66 straight to another id)
+    hand-offs, who took the vehicle: existing id, tracked last frame: 32; new id born on the next frame: 24; twin (other id already on this vehicle, IoU>=0.5): 5; existing id, lost 2-5 frames [OWN earlier id returns]: 3; existing id, lost 2-5 frames [ANOTHER vehicle's id]: 1; existing id, lost > 5 frames [ANOTHER vehicle's id]: 1
+== tk4_l1_study_0700 0acb12c0 2
+  track ids per vehicle: 1:1165  2:307  3:46  4:6   (5 = 5+)
+  track breaks along these vehicles: 779 (338 into a gap, 441 straight to another id)
+    hand-offs, who took the vehicle: existing id, tracked last frame: 126; twin (other id already on this vehicle, IoU>=0.5): 121; new id born on the next frame: 110; existing id, lost 2-5 frames [OWN earlier id returns]: 37; existing id, lost 2-5 frames [ANOTHER vehicle's id]: 28; existing id, lost > 5 frames [ANOTHER vehicle's id]: 16; existing id, lost > 5 frames [OWN earlier id returns]: 3
+== tk4_study_1600 97a7849a 5
+  track ids per vehicle: 1:3405  2:1715  3:446  4:126  5:50   (5 = 5+)
+  track breaks along these vehicles: 4755 (1403 into a gap, 3352 straight to another id)
+    hand-offs, who took the vehicle: existing id, tracked last frame: 1174; new id born on the next frame: 898; twin (other id already on this vehicle, IoU>=0.5): 524; existing id, lost 2-5 frames [ANOTHER vehicle's id]: 417; existing id, lost 2-5 frames [OWN earlier id returns]: 251; existing id, lost > 5 frames [ANOTHER vehicle's id]: 79; existing id, lost > 5 frames [OWN earlier id returns]: 9

@@ -1,0 +1,19 @@
+97a7849a cam4 rg3_study_1600: 350506 dump rows, 7140 tracks; yardstick 5516 vehicles
+  in-process tracker reproduced the dump's box for 304 of 305 switches; stage found for 304
+  switches (>= 5 frames on each vehicle): 305  THEFT 72  EMERGENCE 87  A ENDS 53  CHAIN SEAM 93
+  THEFT: 72; A/B box overlap at the switch <=0.2 22  0.2-0.5 32  >0.5 18; swaps 24; unseen frames median 0; box width median 53 px
+     stage onto B: s1/tracked 31; s25/tracked 19; s1/lost 10; s25/lost 10; s2/tracked 1; back-fill/none/tracked 1
+     lost age when it took B: median 4 f, <=5 f 14, > 5 f 6
+     IoU(predicted box, B's box) median 0.48; B conf median 0.42
+     where (x of B's box): 0-128:5  128-256:15  256-384:14  384-512:19  512-640:19
+  EMERGENCE: 87; A/B box overlap at the switch <=0.2 41  0.2-0.5 29  >0.5 17; swaps 1; unseen frames median 1; box width median 32 px
+     stage onto B: s1/tracked 39; s25/lost 16; s25/tracked 15; s1/lost 11; s2/tracked 6
+     lost age when it took B: median 4 f, <=5 f 20, > 5 f 7
+     IoU(predicted box, B's box) median 0.51; B conf median 0.38
+     where (x of B's box): 0-128:3  128-256:7  256-384:13  384-512:39  512-640:25
+  A ENDS: 53; A/B box overlap at the switch <=0.2 24  0.2-0.5 24  >0.5 5; swaps 5; unseen frames median 0; box width median 48 px
+     stage onto B: s1/tracked 24; s25/lost 15; s25/tracked 8; s1/lost 3; s2/tracked 3
+     lost age when it took B: median 3 f, <=5 f 15, > 5 f 3
+     IoU(predicted box, B's box) median 0.50; B conf median 0.42
+     where (x of B's box): 0-128:12  128-256:10  256-384:9  384-512:9  512-640:13
+  -> runs\v2_week1\thefts_97a7849a_4_rg3_study_1600.json

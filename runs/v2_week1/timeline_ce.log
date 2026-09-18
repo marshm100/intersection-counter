@@ -1,0 +1,15 @@
+== cam4 1600 near-lane NB
+  NEVER-TRACKED vehicles: 4; hits median 4; max conf median 0.26; hits >= 0.25 median 0; hits >= 0.35 (birth bar) median 0; longest consecutive run >= 0.25: median 0, share with run >= 2: 0%; first box width median 226 px
+  track ids per vehicle: 0:4  1:363  2:87  3:12  4:1  5:2   (5 = 5+)
+  track breaks along these vehicles: 269 (195 into a gap, 74 straight to another id)
+    hand-offs, who took the vehicle: existing id, tracked last frame: 34; new id born on the next frame: 27; existing id, lost 2-5 frames [ANOTHER vehicle's id]: 4; existing id, lost 2-5 frames [OWN earlier id returns]: 3; existing id, lost > 5 frames [ANOTHER vehicle's id]: 3; twin (other id already on this vehicle, IoU>=0.5): 3
+== ce_l1_study_0700 0acb12c0 2
+  track ids per vehicle: 1:1141  2:320  3:52  4:11   (5 = 5+)
+  track breaks along these vehicles: 728 (381 into a gap, 347 straight to another id)
+    hand-offs, who took the vehicle: new id born on the next frame: 104; existing id, tracked last frame: 102; existing id, lost > 5 frames [ANOTHER vehicle's id]: 64; twin (other id already on this vehicle, IoU>=0.5): 26; existing id, lost 2-5 frames [ANOTHER vehicle's id]: 25; existing id, lost 2-5 frames [OWN earlier id returns]: 23; existing id, lost > 5 frames [OWN earlier id returns]: 3
+    stale hand-offs by ANOTHER vehicle's id (lost > 5 f): 64; lost age median 18 f; where: x median 472, bottom y median 287; examples -> runs\v2_week1\stale_handoffs_0acb12c0_2_ce_l1_study_0700.json
+== ce_study_1600 97a7849a 5
+  track ids per vehicle: 1:3504  2:1613  3:443  4:130  5:52   (5 = 5+)
+  track breaks along these vehicles: 4363 (1505 into a gap, 2858 straight to another id)
+    hand-offs, who took the vehicle: existing id, tracked last frame: 1087; new id born on the next frame: 934; existing id, lost 2-5 frames [ANOTHER vehicle's id]: 376; existing id, lost > 5 frames [ANOTHER vehicle's id]: 167; existing id, lost 2-5 frames [OWN earlier id returns]: 156; twin (other id already on this vehicle, IoU>=0.5): 133; existing id, lost > 5 frames [OWN earlier id returns]: 5
+    stale hand-offs by ANOTHER vehicle's id (lost > 5 f): 167; lost age median 19 f; where: x median 421, bottom y median 198; examples -> runs\v2_week1\stale_handoffs_97a7849a_5_ce_study_1600.json

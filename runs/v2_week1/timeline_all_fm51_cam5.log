@@ -1,0 +1,20 @@
+== l1_study_0700 0acb12c0 2
+[l1_study_0700] 1524 vehicles
+  track ids per vehicle: 0:30  1:570  2:644  3:217  4:51  5:12   (5 = 5+)
+  track breaks along these vehicles: 2928 (2171 into a gap, 757 straight to another id)
+    hand-offs, who took the vehicle: twin (other id already on this vehicle, IoU>=0.5): 261; existing id, lost > 5 frames: 246; new id born on the next frame: 153; existing id, tracked last frame: 75; existing id, lost 2-5 frames: 22
+== cr_l1_study_0700 0acb12c0 2
+[cr_l1_study_0700] 1524 vehicles
+  track ids per vehicle: 1:639  2:614  3:220  4:46  5:5   (5 = 5+)
+  track breaks along these vehicles: 1622 (737 into a gap, 885 straight to another id)
+    hand-offs, who took the vehicle: existing id, lost > 5 frames: 573; existing id, tracked last frame: 120; new id born on the next frame: 104; existing id, lost 2-5 frames: 66; twin (other id already on this vehicle, IoU>=0.5): 22
+== study_1600 97a7849a 5
+[study_1600] 5742 vehicles
+  track ids per vehicle: 0:11  1:1964  2:2003  3:1057  4:433  5:274   (5 = 5+)
+  track breaks along these vehicles: 16682 (8147 into a gap, 8535 straight to another id)
+    hand-offs, who took the vehicle: twin (other id already on this vehicle, IoU>=0.5): 3745; existing id, tracked last frame: 1902; new id born on the next frame: 1816; existing id, lost 2-5 frames: 591; existing id, lost > 5 frames: 481
+== cr_study_1600 97a7849a 5
+[cr_study_1600] 5742 vehicles
+  track ids per vehicle: 1:2771  2:1833  3:782  4:249  5:107   (5 = 5+)
+  track breaks along these vehicles: 6485 (1906 into a gap, 4579 straight to another id)
+    hand-offs, who took the vehicle: existing id, lost > 5 frames: 1570; existing id, tracked last frame: 1167; new id born on the next frame: 873; existing id, lost 2-5 frames: 792; twin (other id already on this vehicle, IoU>=0.5): 177

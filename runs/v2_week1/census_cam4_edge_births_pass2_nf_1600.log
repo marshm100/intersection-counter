@@ -1,0 +1,34 @@
+replay done: events=None out_db=C:\Users\marsh\AppData\Local\Temp\edge_census_cam4_nf_study_1600_io3cbfxm\twopass_cam4_nf_study_1600.db; finalize records 9098
+(a) 460 covering tracks of bottom-edge NB entrances (nf_study_1600); fate in THIS replay vs reason:
+    169  NO EVENT               origin S: n_insufficient_data @destination (softmax dest=None, conf 0)
+    108  NO EVENT               no origin (dropped)
+     63  counted S->N           origin S: no counter moved | sfr=kept through->33
+     19  counted N->S           origin N: no counter moved | sfr=kept through->35
+     13  rejected               origin S: no counter moved | sfr=kept through->33
+     13  NO EVENT               origin N: n_insufficient_data @destination (softmax dest=None, conf 0)
+     11  NO EVENT               no origin (<2 pts)
+      9  counted S->N           origin S: n_posterior_vetoed | sfr=kept through->33
+      5  counted S->N           origin S: n_origin_corrected | sfr=kept through->33
+      3  counted N->W           origin N: no counter moved | sfr=kept right->34
+      3  counted S->N           origin S: n_origin_rewrite_gated,n_posterior_vetoed | sfr=kept through->33
+      3  NO EVENT               origin S: n_insufficient_data @classify (pts 3, dist 127)
+      2  NO EVENT               origin S: n_insufficient_data @classify (pts 3, dist 77)
+      2  NO EVENT               origin N: n_insufficient_data @classify (pts 4, dist 156)
+      2  counted S->N           origin S: n_posterior_rescued | sfr=kept through->33
+      2  counted N->N           origin N: no counter moved | sfr=kept u_turn->33
+  NO EVENT covering tracks: points median 6 (p25 2), displacement median 77 px (p25 39)
+(b) NB-bearing dump tracks with NO EVENT in this replay: 723
+    469  origin S: n_insufficient_data @destination
+    103  no origin (dropped)
+      9  origin N: n_insufficient_data @destination
+      6  origin S: n_insufficient_data @classify (pts 2, dist 58)
+      4  origin S: n_insufficient_data @classify (pts 2, dist 51)
+      4  origin S: n_insufficient_data @classify (pts 2, dist 64)
+      4  origin S: n_insufficient_data @classify (pts 2, dist 50)
+      4  origin S: n_insufficient_data @classify (pts 2, dist 56)
+      3  origin S: n_insufficient_data @classify (pts 2, dist 82)
+      3  origin S: n_insufficient_data @classify (pts 3, dist 77)
+      3  origin W: n_insufficient_data @destination
+      3  origin S: n_insufficient_data @classify (pts 2, dist 54)
+  dropped @destination: 483; death x median 626, died at x >= 600 (right edge): 463; pts median 17; rightward travel median 73 px; born at bottom edge: 139
+  born with box bottom >= 440 px (frame bottom edge): 284 of 723; their median box width 243 px, median birth x 463

@@ -1,0 +1,49 @@
+97a7849a cam5 wi2_study_1600: 25257 position recoveries (8494 of lost ids); yardstick 5742 vehicles
+  by chain: SAME 13736  OTHER 862  SEAM/EMERGE 651  NONE 10008
+  max IoU with a box taken this frame by another id:
+     bin         0.0   0.1   0.2   0.3   0.4   0.5   0.6   0.7   0.8
+     SAME          9844  1552   626   484   418   367   238   207     0   n=13736
+     OTHER          302   116    69    65    66    76    85    82     1   n=862
+     SEAM/EMERGE    255    42    24    50    48    50    93    89     0   n=651
+     NONE          6426  1514   639   253   236   279   357   304     0   n=10008
+  max share of the box inside another id's box:
+     bin         0.0   0.1   0.2   0.3   0.4   0.5   0.6   0.7   0.8
+     SAME          7830  1247   962   830   657   564   365   228  1053   n=13736
+     OTHER          214    64    67    73    86    78    83    71   126   n=862
+     SEAM/EMERGE    206    35    32    43    37    48    74    59   117   n=651
+     NONE          4591  1028   946   796   638   464   364   271   910   n=10008
+  held-box guard (refuse the box when IoU with a taken box >= thr): OTHER refused / SAME refused / NONE refused
+     thr 0.2:  444 /  2340 /  2068   (of 862 / 13736 / 10008)
+     thr 0.3:  375 /  1714 /  1429   (of 862 / 13736 / 10008)
+     thr 0.4:  310 /  1230 /  1176   (of 862 / 13736 / 10008)
+     thr 0.5:  244 /   812 /   940   (of 862 / 13736 / 10008)
+     thr 0.6:  168 /   445 /   661   (of 862 / 13736 / 10008)
+     thr 0.7:   83 /   207 /   304   (of 862 / 13736 / 10008)
+  same guard by COVERAGE (share of the box inside a taken box >= thr):
+     thr 0.3:  517 /  3697 /  3443
+     thr 0.5:  358 /  2210 /  2009
+     thr 0.7:  197 /  1281 /  1181
+     thr 0.9:  104 /   922 /   795
+  held-box guard counting only boxes held by an id on ANOTHER chain (twins excluded):
+     thr 0.3:  116 /   644 /  1173
+     thr 0.4:   75 /   330 /   967
+     thr 0.5:   41 /   154 /   774
+     thr 0.6:    4 /    30 /   542
+     thr 0.7:    2 /     8 /   244
+  max IoU with a NEIGHBOUR's box of the previous frame (where the other ids were):
+     bin         0.0   0.1   0.2   0.3   0.4   0.5   0.6   0.7   0.8
+     SAME          9020  1825   964   675   510   368   221   101    52   n=13736
+     OTHER          182   111   107   126   100    95    75    43    23   n=862
+     SEAM/EMERGE    154    52    51    82    74    88    82    49    19   n=651
+     NONE          5804  1577   810   540   387   329   297   194    70   n=10008
+  neighbour guard (refuse the box when IoU with a neighbour's previous box >= thr): OTHER / SAME / NONE refused
+     thr 0.1:  680 /  4716 /  4204
+     thr 0.2:  569 /  2891 /  2627
+     thr 0.3:  462 /  1927 /  1817
+     thr 0.4:  336 /  1252 /  1277
+     thr 0.5:  236 /   742 /   890
+  OTHER: cost from the prediction median 0.29 (>0.5: 140); jump from the last box median 0.28 widths; angle vs prediction median 100 deg (>60: 309 of 511); own car's box present and free this frame: 93 of 543 known
+  SAME: cost from the prediction median 0.21 (>0.5: 957); jump from the last box median 0.16 widths; angle vs prediction median 23 deg (>60: 2889 of 8828); own car's box present and free this frame: 12431 of 13736 known
+  OTHER: taken-box conf median 0.22, <0.35 705 of 862
+  SAME: taken-box conf median 0.26, <0.35 10954 of 13736
+  -> runs\v2_week1\recovery_guard_97a7849a_5_wi2_study_1600.json

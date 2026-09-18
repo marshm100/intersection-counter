@@ -1,0 +1,5 @@
+== wi2 cam4 near lane
+  track ids per vehicle: 0:3  1:389  2:65  3:7  4:4  5:1   (5 = 5+)
+  track breaks along these vehicles: 248 (157 into a gap, 91 straight to another id)
+    hand-offs, who took the vehicle: new id born on the next frame: 49; existing id, tracked last frame: 32; twin (other id already on this vehicle, IoU>=0.5): 5; existing id, lost 2-5 frames [OWN earlier id returns]: 4; existing id, lost > 5 frames [ANOTHER vehicle's id]: 1
+  LATE BIRTH (>= 5 hits = 0.5 s uncovered at the start): 3 (1%); all uncovered boxes < 0.35: 1; some >= 0.35: 2; delay median 5 frames

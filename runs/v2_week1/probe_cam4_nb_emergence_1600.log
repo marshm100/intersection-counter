@@ -1,0 +1,33 @@
+cam4 study_1600: 10862 chains (>=3 hits) from 403940 deduped dets
+chains crossing x=550 rightward: 2486
+  first x of those chains: 0-100:1851  100-200:48  200-300:48  300-350:69  350-400:147  400-450:191  450-500:73  500-550:57
+  EMERGENCES (first x > 350): 469; median first box w 215.0 px, median first conf 0.36, median first y 478
+  companion at the emergence frame: {'companion moving left': 132, 'companion still': 120, 'companion moving right': 191, 'none': 26}
+  emergences per 15-min bin: [60, 61, 64, 49, 77, 54, 59, 45]
+  strip 1: chain first at f576110 x=441 y=479 w=220 conf=0.77, 32 hits, ends x=633 -> screenshots/cam4_study_1600_emergence_1.png
+  strip 2: chain first at f576186 x=430 y=480 w=180 conf=0.44, 38 hits, ends x=636 -> screenshots/cam4_study_1600_emergence_2.png
+  strip 3: chain first at f576633 x=508 y=477 w=141 conf=0.44, 29 hits, ends x=630 -> screenshots/cam4_study_1600_emergence_3.png
+  strip 4: chain first at f577269 x=414 y=479 w=244 conf=0.85, 35 hits, ends x=632 -> screenshots/cam4_study_1600_emergence_4.png
+
+COVERAGE of 469 emergence chains by pass-1 tracks (study_1600):
+  never covered by any track: 64
+  covered: 405; first covered at hit index median 2 (0 = at emergence)
+  x where a track first covers the chain: 300-400:34  400-450:50  450-500:68  500-550:141  550-600:85  600-641:27
+  box width at first coverage: median 130 px; at emergence median 215 px
+  covering track born within 60 px of that point: 328; older track (id hand-off / theft): 77
+
+COVERAGE of 469 emergence chains by pass-1 tracks (study_1600):
+  never covered by any track: 64
+  covered: 405; first covered at hit index median 2 (0 = at emergence)
+  x where a track first covers the chain: 300-400:34  400-450:50  450-500:68  500-550:141  550-600:85  600-641:27
+  box width at first coverage: median 130 px; at emergence median 215 px
+  covering track born within 60 px of that point: 328; older track (id hand-off / theft): 77
+  counting fate of the covering tracks:
+      304  NO EVENT
+       56  counted S->N
+       20  rejected S->N
+       20  counted N->S
+        2  counted S->W
+        2  counted N->W
+        1  counted N->N
+  => emergences ending in exactly one counted S->N: 56; never tracked 64; hand-offs 77; other fates 349

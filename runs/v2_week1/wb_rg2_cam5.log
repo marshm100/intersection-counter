@@ -1,0 +1,17 @@
+[rg2_study_1600] 5742 vehicles
+  track ids per vehicle: 1:3522  2:1594  3:456  4:117  5:53   (5 = 5+)
+  detections before the first track covers it: median 1, p75 1
+  untracked gaps inside a vehicle: 3651, median length 1 frames
+  track breaks along these vehicles: 4959 (1371 into a gap, 3588 straight to another id)
+    hand-offs, who took the vehicle: existing id, tracked last frame: 1197; new id born on the next frame: 1009; twin (other id already on this vehicle, IoU>=0.5): 465; existing id, lost 2-5 frames [ANOTHER vehicle's id]: 430; existing id, lost 2-5 frames [OWN earlier id returns]: 390; existing id, lost > 5 frames [ANOTHER vehicle's id]: 86; existing id, lost > 5 frames [OWN earlier id returns]: 11
+    stale hand-offs by ANOTHER vehicle's id (lost > 5 f): 86; lost age median 13 f; where: x median 444, bottom y median 196; examples -> runs\v2_week1\stale_handoffs_97a7849a_5_rg2_study_1600.json
+    at the break: tracker box / real box  width x1.03  height x1.00 (median)
+    IoU(tracker box, next real box) median 0.28   vs IoU(real box, next real box) 0.42   next conf 0.24   next/now width 0.97
+    breaks where the tracker's box is >1.5x wider than the real one: 625 (13%); of those, real box touching the bottom edge: 1
+    the next real box at the break, by tracker stage:
+       2120  conf<0.25, IoU < 0.5 (stage-2 refuses; and cannot re-birth)
+       1645  conf>=0.25, fused IoU*conf < 0.2 (stage-1 refuses)
+        767  conf>=0.25, fused >= 0.2 (should match; taken by another id)
+        427  conf<0.25, IoU >= 0.5 (stage 2 should match)
+    breaks at x>=550: 1651; their next conf median 0.16; share with next conf < 0.25: 74%; real-box width at those breaks median 18 px
+    break x: 350-400:209  400-450:630  450-500:756  500-550:754  550-600:1439  600-650:212

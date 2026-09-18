@@ -1,0 +1,13 @@
+== cam4 1600 near-lane NB
+  NEVER-TRACKED vehicles: 4; hits median 4; max conf median 0.26; hits >= 0.25 median 0; hits >= 0.35 (birth bar) median 0; longest consecutive run >= 0.25: median 0, share with run >= 2: 0%; first box width median 226 px
+  track ids per vehicle: 0:4  1:390  2:62  3:11  5:2   (5 = 5+)
+  track breaks along these vehicles: 146 (72 into a gap, 74 straight to another id)
+    hand-offs, who took the vehicle: existing id, tracked last frame: 33; new id born on the next frame: 27; existing id, lost 2-5 frames: 8; existing id, lost > 5 frames: 3; twin (other id already on this vehicle, IoU>=0.5): 3
+== ct_l1_study_0700 0acb12c0 2
+  track ids per vehicle: 1:834  2:497  3:158  4:30  5:5   (5 = 5+)
+  track breaks along these vehicles: 1222 (360 into a gap, 862 straight to another id)
+    hand-offs, who took the vehicle: existing id, lost > 5 frames: 565; existing id, tracked last frame: 102; new id born on the next frame: 101; existing id, lost 2-5 frames: 68; twin (other id already on this vehicle, IoU>=0.5): 26
+== ct_study_1600 97a7849a 5
+  track ids per vehicle: 1:2866  2:1720  3:731  4:292  5:133   (5 = 5+)
+  track breaks along these vehicles: 5956 (1438 into a gap, 4518 straight to another id)
+    hand-offs, who took the vehicle: existing id, lost > 5 frames: 1620; existing id, tracked last frame: 1095; new id born on the next frame: 919; existing id, lost 2-5 frames: 741; twin (other id already on this vehicle, IoU>=0.5): 143

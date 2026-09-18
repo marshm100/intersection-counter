@@ -1,0 +1,30 @@
+(b) NB-bearing dump tracks with NO EVENT in this replay: 167
+     14  no origin (dropped)
+      3  origin E: n_insufficient_data @destination
+      2  origin SE: n_insufficient_data @destination
+      2  origin E: n_insufficient_data,n_origin_flow_inferred,n_origin_rescued @classify (pts 19, dist 47)
+      2  origin W: n_insufficient_data @classify (pts 15, dist 32)
+      2  origin W: n_insufficient_data @classify (pts 22, dist 41)
+      2  origin E: n_insufficient_data,n_origin_flow_inferred,n_origin_rescued @classify (pts 21, dist 48)
+      2  origin E: n_insufficient_data,n_origin_flow_inferred,n_origin_rescued @classify (pts 17, dist 43)
+      2  origin E: n_insufficient_data,n_origin_flow_inferred,n_origin_rescued @classify (pts 22, dist 45)
+      2  origin E: n_insufficient_data,n_origin_flow_inferred,n_origin_rescued @classify (pts 18, dist 40)
+      1  origin S: n_insufficient_data @classify (pts 67, dist 34)
+      1  origin E: n_insufficient_data @classify (pts 21, dist 49)
+  dropped @destination: 5; death x median 331, died at x >= 600 (right edge): 0; pts median 33; rightward travel median -50 px; born at bottom edge: 2
+  born with box bottom >= 440 px (frame bottom edge): 2 of 167; their median box width 80 px, median birth x 43
+(b) NB-bearing dump tracks with NO EVENT in this replay: 195
+      7  no origin (dropped)
+      4  origin E: n_insufficient_data @destination
+      2  origin SE: n_insufficient_data @destination
+      1  origin S: n_insufficient_data @classify (pts 103, dist 104)
+      1  origin E: n_insufficient_data @classify (pts 127, dist 1180)
+      1  origin E: n_insufficient_data @classify (pts 68, dist 639)
+      1  origin W: n_insufficient_data @classify (pts 46, dist 362)
+      1  origin W: n_insufficient_data @classify (pts 51, dist 407)
+      1  origin W: n_insufficient_data @classify (pts 52, dist 600)
+      1  origin W: n_insufficient_data @classify (pts 23, dist 38)
+      1  origin E: n_insufficient_data @classify (pts 67, dist 484)
+      1  origin W: n_insufficient_data @classify (pts 75, dist 691)
+  dropped @destination: 6; death x median 331, died at x >= 600 (right edge): 0; pts median 39; rightward travel median -49 px; born at bottom edge: 2
+  born with box bottom >= 440 px (frame bottom edge): 2 of 195; their median box width 80 px, median birth x 43

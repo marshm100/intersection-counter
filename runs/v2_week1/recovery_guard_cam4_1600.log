@@ -1,0 +1,29 @@
+97a7849a cam4 wi2_study_1600: 20468 position recoveries (5261 of lost ids); yardstick 5516 vehicles
+  by chain: SAME 15340  OTHER 417  SEAM/EMERGE 225  NONE 4486
+  max IoU with a box taken this frame by another id:
+     bin         0.0   0.1   0.2   0.3   0.4   0.5   0.6   0.7   0.8
+     SAME         13616   838   308   187   131   106    77    77     0   n=15340
+     OTHER          176    41    28    29    23    34    39    47     0   n=417
+     SEAM/EMERGE     96    14    10    17     8    19    25    36     0   n=225
+     NONE          3256   540   241    93    79    89   100    86     2   n=4486
+  max share of the box inside another id's box:
+     bin         0.0   0.1   0.2   0.3   0.4   0.5   0.6   0.7   0.8
+     SAME         12331   810   533   319   300   280   163   130   474   n=15340
+     OTHER          134    21    27    24    27    38    42    44    60   n=417
+     SEAM/EMERGE     78    10     5    10    11    18    28    28    37   n=225
+     NONE          2471   435   298   256   189   188   143   136   370   n=4486
+  held-box guard (refuse the box when IoU with a taken box >= thr): OTHER refused / SAME refused / NONE refused
+     thr 0.2:  200 /   886 /   690   (of 417 / 15340 / 4486)
+     thr 0.3:  172 /   578 /   449   (of 417 / 15340 / 4486)
+     thr 0.4:  143 /   391 /   356   (of 417 / 15340 / 4486)
+     thr 0.5:  120 /   260 /   277   (of 417 / 15340 / 4486)
+     thr 0.6:   86 /   154 /   188   (of 417 / 15340 / 4486)
+     thr 0.7:   47 /    77 /    88   (of 417 / 15340 / 4486)
+  same guard by COVERAGE (share of the box inside a taken box >= thr):
+     thr 0.3:  235 /  1666 /  1282
+     thr 0.5:  184 /  1047 /   837
+     thr 0.7:  104 /   604 /   506
+     thr 0.9:   53 /   410 /   321
+  OTHER: taken-box conf median 0.22, <0.35 320 of 417
+  SAME: taken-box conf median 0.28, <0.35 10991 of 15340
+  -> runs\v2_week1\recovery_guard_97a7849a_4_wi2_study_1600.json

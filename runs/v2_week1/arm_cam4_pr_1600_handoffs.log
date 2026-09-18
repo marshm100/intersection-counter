@@ -1,0 +1,8 @@
+[pr_study_1600] 469 vehicles
+  track ids per vehicle: 0:52  1:224  2:147  3:37  4:7  5:2   (5 = 5+)
+  track breaks along these vehicles: 437 (99 into a gap, 338 straight to another id)
+    hand-offs, who took the vehicle: existing id, tracked last frame: 225; existing id, lost 2-5 frames: 62; existing id, lost > 5 frames: 36; new id born on the next frame: 15
+[study_1600] 469 vehicles
+  track ids per vehicle: 0:66  1:182  2:169  3:41  4:8  5:3   (5 = 5+)
+  track breaks along these vehicles: 636 (554 into a gap, 82 straight to another id)
+    hand-offs, who took the vehicle: existing id, tracked last frame: 46; new id born on the next frame: 20; existing id, lost > 5 frames: 9; existing id, lost 2-5 frames: 7

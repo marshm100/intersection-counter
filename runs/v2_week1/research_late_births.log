@@ -1,0 +1,20 @@
+0acb12c0 cam2 l1_study_0700: births 2507, deferred by the stacked guard 303, newborns removed unconfirmed 553
+  late-born vehicles: 417; dominant reason per vehicle:
+      389  born, then something else
+       22  only weak boxes
+        6  born, removed unconfirmed next frame
+  newborns removed unconfirmed: next leftover box IoU median 0.00 (share 0: 100%), centre distance median 17.22 box widths (share < 0.9: 0%)
+97a7849a cam5 study_1600: births 9357, deferred by the stacked guard 1156, newborns removed unconfirmed 1666
+  late-born vehicles: 704; dominant reason per vehicle:
+      623  born, then something else
+       59  only weak boxes
+       22  born, removed unconfirmed next frame
+  newborns removed unconfirmed: next leftover box IoU median 0.00 (share 0: 94%), centre distance median 2.83 box widths (share < 0.9: 6%)
+97a7849a cam5 study_1600: births 9357, deferred by the stacked guard 1156, newborns removed unconfirmed 1666
+  late-born vehicles: 704; dominant reason per vehicle:
+      623  born, then something else
+       59  only weak boxes
+       22  born, removed unconfirmed next frame
+  uncovered hits of late-born vehicles, best overlap with ANY output box: (0, 0.1]: 1338 (17%)  (0.1, 0.3): 997 (13%)  0: 5508 (70%)
+  frames from the birth on the car to the first output box overlapping it >= 0.1: median 1; never within the span: 0 of 646
+  newborns removed unconfirmed: next leftover box IoU median 0.00 (share 0: 94%), centre distance median 2.83 box widths (share < 0.9: 6%)

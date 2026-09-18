@@ -1,0 +1,12 @@
+== cn_study_1600
+pass-1 cam4 cn_study_1600: 342667 rows in 60s; recipe backend=bytetrack fuse_score=True position_recovery=True bbox_buffer=1.0 activation=0.25
+  NEVER-TRACKED vehicles: 4; hits median 4; max conf median 0.26; hits >= 0.25 median 0; hits >= 0.35 (birth bar) median 0; longest consecutive run >= 0.25: median 0, share with run >= 2: 0%; first box width median 226 px
+  track ids per vehicle: 0:4  1:212  2:219  3:27  4:5  5:2   (5 = 5+)
+  track breaks along these vehicles: 383 (293 into a gap, 90 straight to another id)
+    hand-offs, who took the vehicle: existing id, tracked last frame: 34; new id born on the next frame: 26; existing id, lost > 5 frames: 14; existing id, lost 2-5 frames: 13; twin (other id already on this vehicle, IoU>=0.5): 3
+== cn_study_0700
+pass-1 cam4 cn_study_0700: 211195 rows in 50s; recipe backend=bytetrack fuse_score=True position_recovery=True bbox_buffer=1.0 activation=0.25
+  NEVER-TRACKED vehicles: 3; hits median 5; max conf median 0.22; hits >= 0.25 median 0; hits >= 0.35 (birth bar) median 0; longest consecutive run >= 0.25: median 0, share with run >= 2: 0%; first box width median 14 px
+  track ids per vehicle: 0:3  1:166  2:230  3:48  4:5  5:2   (5 = 5+)
+  track breaks along these vehicles: 421 (267 into a gap, 154 straight to another id)
+    hand-offs, who took the vehicle: new id born on the next frame: 58; existing id, tracked last frame: 58; existing id, lost > 5 frames: 17; existing id, lost 2-5 frames: 15; twin (other id already on this vehicle, IoU>=0.5): 6

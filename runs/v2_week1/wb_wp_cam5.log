@@ -1,0 +1,5 @@
+== wp cam5 1600
+  track ids per vehicle: 1:3687  2:1519  3:389  4:108  5:39   (5 = 5+)
+  track breaks along these vehicles: 4341 (975 into a gap, 3366 straight to another id)
+    hand-offs, who took the vehicle: existing id, tracked last frame: 1185; new id born on the next frame: 754; twin (other id already on this vehicle, IoU>=0.5): 598; existing id, lost 2-5 frames [ANOTHER vehicle's id]: 460; existing id, lost 2-5 frames [OWN earlier id returns]: 275; existing id, lost > 5 frames [ANOTHER vehicle's id]: 83; existing id, lost > 5 frames [OWN earlier id returns]: 11
+  LATE BIRTH (>= 5 hits = 0.5 s uncovered at the start): 143 (2%); all uncovered boxes < 0.35: 126; some >= 0.35: 17; delay median 7 frames

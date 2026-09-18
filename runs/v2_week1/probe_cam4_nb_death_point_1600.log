@@ -1,0 +1,10 @@
+C:\dev\intersection-counter\scripts\probe_cam4_nb_death_point.py:10: SyntaxWarning: invalid escape sequence '\S'
+  Usage: .venv\Scripts\python.exe -X utf8 scripts/probe_cam4_nb_death_point.py [VARIANT]
+cam4 study_1600: 405 covering tracks; life median 9 pts
+    180  conf>=0.25 but IoU*conf<0.2: fused score refuses
+    164  died at the right edge (left the frame)
+     31  conf>=0.25, IoU>=0.2, fused>=0.2: should have matched
+     16  no detection next frame near the track
+     11  conf<0.25 and IoU<0.5: low-score stage refuses (scale)
+      3  conf<0.25, IoU>=0.5: low-score stage should match
+  next-frame IoU median 0.25, conf median 0.63, width ratio median 0.47

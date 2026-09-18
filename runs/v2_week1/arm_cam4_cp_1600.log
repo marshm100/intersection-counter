@@ -1,0 +1,4 @@
+  NEVER-TRACKED vehicles: 4; hits median 4; max conf median 0.26; hits >= 0.25 median 0; hits >= 0.35 (birth bar) median 0; longest consecutive run >= 0.25: median 0, share with run >= 2: 0%; first box width median 226 px
+  track ids per vehicle: 0:4  1:140  2:215  3:90  4:17  5:3   (5 = 5+)
+  track breaks along these vehicles: 739 (286 into a gap, 453 straight to another id)
+    hand-offs, who took the vehicle: twin (other id already on this vehicle, IoU>=0.5): 244; new id born on the next frame: 122; existing id, tracked last frame: 39; existing id, lost 2-5 frames: 30; existing id, lost > 5 frames: 18

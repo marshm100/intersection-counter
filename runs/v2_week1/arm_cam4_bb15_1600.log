@@ -1,0 +1,35 @@
+pass-1 bb15_study_1600: 308198 in 122s; dump meta bbox_buffer=1.5
+
+[study_1600] tracks 8986; NB-bearing (>=40 px rightward) 3181
+  distinct tracks crossing X rightward: 200:1626  250:1690  300:1712  350:1747  400:1732  450:1783  500:1757  550:1694
+  bottom-edge NB births (box bottom >= 440, w >= 120): 852; points median 10 (p25 8); rightward travel median 396 px
+
+[bb15_study_1600] tracks 7849; NB-bearing (>=40 px rightward) 2728
+  distinct tracks crossing X rightward: 200:1854  250:1898  300:1903  350:1923  400:1916  450:1980  500:2025  550:2034
+  bottom-edge NB births (box bottom >= 440, w >= 120): 1659; points median 24 (p25 13); rightward travel median 467 px
+Traceback (most recent call last):
+  File "C:\dev\intersection-counter\scripts\arm_cam4_bbuf_retrack.py", line 101, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\dev\intersection-counter\scripts\arm_cam4_bbuf_retrack.py", line 95, in main
+    from probe_cam4_nb_emergence import coverage
+  File "C:\dev\intersection-counter\scripts\probe_cam4_nb_emergence.py", line 35, in <module>
+    K = int(sys.argv[2]) if len(sys.argv) > 2 else 4
+        ^^^^^^^^^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'study_1600'
+
+COVERAGE of 469 emergence chains by pass-1 tracks (bb15_study_1600):
+  never covered by any track: 34
+  covered: 435; first covered at hit index median 1 (0 = at emergence)
+  x where a track first covers the chain: 300-400:52  400-450:64  450-500:72  500-550:164  550-600:79  600-641:4
+  box width at first coverage: median 136 px; at emergence median 215 px
+  covering track born within 60 px of that point: 311; older track (id hand-off / theft): 124
+  wrote runs\v2_week1\probe_cam4_nb_emergence_bb15_study_1600_tids.json
+  counting fate of the covering tracks:
+      350  NO EVENT
+       48  counted N->S
+       31  counted S->N
+        3  rejected S->N
+        2  counted N->W
+        1  rejected N->S
+  => emergences ending in exactly one counted S->N: 31; never tracked 34; hand-offs 124; other fates 404

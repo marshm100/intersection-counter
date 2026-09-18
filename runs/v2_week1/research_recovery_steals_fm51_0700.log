@@ -1,0 +1,23 @@
+0acb12c0 cam2 l1_study_0700: 8934 recoveries over 72001 frames; tracks 1485 (base dump: 2292)
+labels: {'unknown': 6696, 'same vehicle': 1832, 'STEAL (two vehicles alive together)': 391, 'same vehicle (base fragments)': 15}
+by track state:
+    tracked: n= 6944  steal  262 (4%)  same 1575  unknown 5107
+       lost: n= 1990  steal  129 (6%)  same  272  unknown 1589
+by frames since last seen (6 = 6+):
+          1: n= 6944  steal  262 (4%)  same 1575  unknown 5107
+          2: n=  814  steal   69 (8%)  same  170  unknown  575
+          3: n=  303  steal   26 (9%)  same   42  unknown  235
+          4: n=  168  steal   10 (6%)  same   31  unknown  127
+          5: n=  113  steal   13 (12%)  same   17  unknown   83
+          6: n=  592  steal   11 (2%)  same   12  unknown  569
+by cost (box widths, bucket start):
+        0.0: n= 1001  steal   36 (4%)  same  137  unknown  828
+       0.15: n= 2696  steal   65 (2%)  same  786  unknown 1845
+        0.3: n= 2660  steal  127 (5%)  same  663  unknown 1870
+       0.45: n= 1573  steal   93 (6%)  same  200  unknown 1280
+        0.6: n=  616  steal   39 (6%)  same   51  unknown  526
+       0.75: n=  388  steal   31 (8%)  same   10  unknown  347
+by direction of the jump vs the track's motion:
+    forward: n= 4024  steal  245 (6%)  same  640  unknown 3139
+   backward: n= 4424  steal  146 (3%)  same 1206  unknown 3072
+      still: n=    3  steal    0 (0%)  same    1  unknown    2
