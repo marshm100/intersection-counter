@@ -1,0 +1,19 @@
+0acb12c0 cam2 vl5_l1_study_0700: 67473 dump rows, 1864 tracks; yardstick 1524 vehicles
+  in-process tracker reproduced the dump's box for 45 of 46 switches; stage found for 45
+  switches (>= 5 frames on each vehicle): 46  THEFT 12  EMERGENCE 16  A ENDS 11  CHAIN SEAM 7
+  THEFT: 12; A/B box overlap at the switch <=0.2 3  0.2-0.5 3  >0.5 6; swaps 2; unseen frames median 0; box width median 17 px
+     stage onto B: s1/tracked 6; s25/tracked 4; s25/lost 1; s2/tracked 1
+     lost age when it took B: median 4 f, <=5 f 1, > 5 f 0
+     IoU(predicted box, B's box) median 0.45; B conf median 0.42
+     where (x of B's box): 0-128:0  128-256:0  256-384:11  384-512:1  512-640:0
+  EMERGENCE: 16; A/B box overlap at the switch <=0.2 3  0.2-0.5 6  >0.5 7; swaps 0; unseen frames median 0; box width median 15 px
+     stage onto B: s25/tracked 5; s1/tracked 5; s2/tracked 4; back-fill/none/tracked 1; s25/lost 1
+     lost age when it took B: median 3 f, <=5 f 1, > 5 f 0
+     IoU(predicted box, B's box) median 0.55; B conf median 0.24
+     where (x of B's box): 0-128:0  128-256:0  256-384:15  384-512:0  512-640:1
+  A ENDS: 11; A/B box overlap at the switch <=0.2 7  0.2-0.5 3  >0.5 1; swaps 0; unseen frames median 2; box width median 26 px
+     stage onto B: s25/lost 5; s1/lost 3; s25/tracked 2; s1/tracked 1
+     lost age when it took B: median 4 f, <=5 f 5, > 5 f 3
+     IoU(predicted box, B's box) median 0.30; B conf median 0.30
+     where (x of B's box): 0-128:0  128-256:0  256-384:7  384-512:4  512-640:0
+  -> runs\v2_week1\thefts_0acb12c0_2_vl5_l1_study_0700.json

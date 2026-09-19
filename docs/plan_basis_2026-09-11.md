@@ -1440,6 +1440,91 @@ breaks_<proj>_<cam>_<variant>.json.
   3624) a lost id whose prediction ballooned 3 widths away; 1 (cam4) and 4 (cam5) bunched far
   field, his eyes needed.
 
+OPERATOR RULINGS (his words, 2026-09-19), "Is the vehicle under the cyan ring the same vehicle
+the orange id was on?": "1 same, 2 different, 3 same, 4 different, 5 same, 6 same"
+  1  cam4 1600, id 3254, miss 16:42:04.4 (f601224), lost 4 f, conf 0.26, IoU pred 0.09 / obs 0.06
+     SAME VEHICLE - a real break in the bunched far-side row; the car got a new id (3257).
+  2  cam4 1600, id 5938, miss 17:20:19.7 (f624177), lost 2 f, conf 0.54, IoU 0.00 / 0.00
+     DIFFERENT VEHICLE - the car emerging at the box truck's left is not the orange id's car;
+     the yardstick's chain jumped through the occlusion. Not a tracker break.
+  3  cam5 1600, id 3624, miss 16:46:30.3 (f603883), lost 4 f, conf 0.38, IoU 0.00 / 0.16
+     SAME VEHICLE - a real break; the prediction had ballooned three widths away; the car got
+     a new id (3642).
+  4  cam5 1600, id 6461, miss 17:21:54.4 (f625124), lost 3 f, conf 0.49, IoU 0.00 / 0.14
+     DIFFERENT VEHICLE - the chain jumped to a neighbour by the far signal; the orange id was
+     re-found on its own car a frame later. Not a tracker break.
+  5  FM51 0700, id 717, miss 7:33:48.8 (f272258), tracked, conf 0.91, IoU 0.11 / 0.19
+     SAME VEHICLE - the mechanism on film: the SUV approaching fast moved half a width in one
+     frame; the prediction barely moved from the last box; the car left the frame without an id.
+  6  FM51 0700, id 1568, miss 8:10:35.8 (f294328), lost 5 f, conf 0.12, IoU 0.03 / 0.13
+     SAME VEHICLE - the truck already under its new id 1569; a real fragment.
+  TALLY: 4 of 6 real breaks (the tracker lost a car it should have kept), 2 of 6 the yardstick
+  chain jumping between vehicles (an occlusion, a far-field neighbour). The min_iou<0.2 class
+  is mostly real; a third of it may be chain error - read its counts with that discount.
+
+### The fix declared (2026-09-19): the filter's velocity must follow the vehicle
+
+From the measurement, not designed in advance: the misses of the largest confident-box class
+are vehicles whose pixel speed the Kalman filter under-estimates by 2-5x (its velocity process
+noise, std_weight_velocity = h/160 per frame, is the 30-fps pedestrian default). Candidate:
+raise the velocity process noise so the filter follows a changing pixel speed, as a knob
+(TRACKER_KF_VEL_STD, the fraction of box height per frame; 1/160 = the library), re-tracked
+on the three sites and judged on the chains: one-track up, breaks down, thefts NOT up (a
+looser filter predicts further and can overlap a neighbour). Arms vl1 = 1/80, vl2 = 1/40,
+vl3 = 1/20 on FM51 first (the cleanest site for the mechanism), the best on cam4 / cam5.
+
+### Arms vl1-vl3 on FM51 (recorded 2026-09-19): every measure improves with the weight
+
+Built: config.TRACKER_KF_VEL_STD (env; default 1/160 = the library), fork kwarg kf_vel_std
+set on both filters the library uses (the per-tracker one for initiate / update and the
+class-shared one for multi_predict); recipe key kf_vel_std in the dump meta and
+PASS1_RESUME_KEYS; research_breaks.recipe_check extended; test
+test_kf_velocity_noise_follows_an_accelerating_vehicle (an 18%-a-frame accelerating chain
+breaks at 1/160 and holds one id at 1/20); suite 1280 green.
+
+  FM51 0700          weight    one-track   breaks   new id born   twins   THEFT   swaps
+  rg1 (as it stands)  1/160      1168        766       152         97      18       5
+  vl1                 1/80       1200        711       140         90      16       6
+  vl2                 1/40       1234        655       134         90      13       3
+  vl3                 1/20       1249        624       127         82      13       3
+  Monotonic on every column; the curve has not turned at 8x the library. Thefts FALL (a
+  prediction that keeps up with its own car overlaps the neighbour's box less, not more).
+  Next: vl4 = 1/10 and vl5 = 1/5 on FM51 to find the knee; vl2 and vl3 on cam4 / cam5.
+
+### Arms vl1-vl5 verdict (recorded 2026-09-19): 1/20 is the tracker's velocity noise
+
+  site   weight        one-track   breaks   new id born   twins   lost 2-5 f -> ANOTHER   THEFT   swaps
+  FM51   1/160 (rg1)    1168        766        152          97          37                18       5
+  FM51   1/80  (vl1)    1200        711        140          90          34                16       6
+  FM51   1/40  (vl2)    1234        655        134          90          34                13       3
+  FM51   1/20  (vl3)    1249        624        127          82          31                13       3
+  FM51   1/10  (vl4)    1254        614        122          81           -                12       2
+  FM51   1/5   (vl5)    1257        599        122          75           -                12       2
+  cam4   1/160 (rg1)    4241       2918        738         121         142                83      29
+  cam4   1/40  (vl2)    4428       2539        626          93         107                71      31
+  cam4   1/20  (vl3)    4422       2547        635          96         101                73      32
+  cam5   1/160 (rg1)    3738       4057        878         329         408               196      99
+  cam5   1/40  (vl2)    3938       3659        806         288         325               162      85
+  cam5   1/20  (vl3)    3952       3637        795         293         324               149      78
+  Logs runs/v2_week1/wb_vl*_*.log, research_thefts_vl*_*.log, arm_vl*_*.log.
+
+  READING. The filter's velocity noise was the mechanism: raising it improves every column
+  on every site, and thefts fall with it (the prediction that keeps up with its own car
+  overlaps the neighbour's box less). The knee is 1/40 on cam4 (1/20 flat) and 1/20 on cam5
+  and FM51 (FM51 still creeps at 1/10 and 1/5, cam4 does not). Across the three sites 1/20
+  beats 1/40 on every sum: one-track 9623 vs 9600, breaks 6808 vs 6853, thefts 235 vs 246.
+  DECISION (the tracker-engineering rule): TRACKER_KF_VEL_STD default 1/20. Against the
+  tracker as it stood this morning: one-track +181 / +214 / +81 (4.3% / 5.7% / 6.9%), breaks
+  -371 / -420 / -142 (-13% / -10% / -19%), thefts -10 / -47 / -5. Production dumps and
+  standings untouched (the vl* dumps are scratch variants). The next basis for any tracker
+  work is vl3_* (the tracker as it now stands).
+  WHAT IS LEFT of the breaks, by the miss-log classes: the far-field detection floor (weak
+  7-19 px boxes: min_iou / size_ratio on lost ids), the contested boxes (thefts, parked), the
+  double-box twins (a newborn on the second detector box of one car: 181 / - / 51 within half a
+  width of the id's own box), and the yardstick's own tails (edge exits, chain jumps: 2 of 6
+  filmed misses). Next candidate by size with a mechanism: the double-box twins (measure
+  first on the vl3 dumps with research_breaks.py + research_dup_boxes.py).
+
 Phase C instrument drafted (scripts/research_trailers.py, the plan's attached-pair test). First
 run FM51 0700: 44 nose-to-tail pairs >= 1 s, 24 steady, 24 steady through a speed change - the
 speed change is in PIXELS and perspective alone gives 2.75x on FM51's approach, so the test does

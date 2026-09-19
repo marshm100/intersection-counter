@@ -630,6 +630,21 @@ TRACKER_RECOVERY_LOST_PATIENCE_S = 0.5
 #    the backward jumps it refuses are mostly a slow vehicle's own box
 #    jitter. Kept as a knob for the record, not the default.
 TRACKER_RECOVERY_HELD_IOU = float(_os.environ.get("TRACKER_RECOVERY_HELD_IOU", "0.6"))
+# Kalman velocity process noise (2026-09-19, the miss log): supervision's filter
+# lets the velocity change by std_weight_velocity x box height per frame - 1/160,
+# the 30-fps pedestrian default. At 10 fps a vehicle whose pixel speed keeps
+# growing (approaching the camera) is followed at a fifth to a half of its
+# speed (research_breaks.py: the car moved 0.55-1.22 widths a frame where the
+# filter said 0.21-0.67), and the prediction then overlaps the next box too
+# little for any stage. This is that weight, a fraction of box height per
+# frame; 1/160 = the library. Re-tracked and scored on the chains (ledger
+# "Arms vl1-vl5"): every measure improves with the weight on all three sites,
+# the knee at 1/40 on cam4 and 1/20 on cam5 / FM51; at 1/20 (DEFAULT) against
+# 1/160: one-track 4241/3738/1168 -> 4422/3952/1249, breaks 2918/4057/766 ->
+# 2547/3637/624, thefts 83/196/18 -> 73/149/13 (a prediction that keeps up
+# with its own car overlaps the neighbour's box less). Env override for
+# experiments; 1/160 reproduces the library.
+TRACKER_KF_VEL_STD = float(_os.environ.get("TRACKER_KF_VEL_STD", str(1.0 / 20)))
 TRACKER_RECOVERY_REVERSE_DEG = float(_os.environ.get("TRACKER_RECOVERY_REVERSE_DEG", "0"))
 TRACKER_RECOVERY_REVERSE_JUMP = float(_os.environ.get("TRACKER_RECOVERY_REVERSE_JUMP", "0.15"))
 # Edge exit (2026-09-12): a track whose last observed box touches the frame

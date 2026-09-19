@@ -494,6 +494,11 @@ def _cfg_recovery_min_iou():
     return TRACKER_RECOVERY_MIN_IOU
 
 
+def _cfg_kf_vel_std():
+    from backend import config as c
+    return float(getattr(c, "TRACKER_KF_VEL_STD", 1.0 / 20))
+
+
 def _cfg_recovery_guard():
     """The stage-2.5 guards as a recipe value (None when both are off)."""
     from backend import config as c
@@ -545,7 +550,7 @@ PASS1_RESUME_KEYS = ("format", "frames", "backend", "nms_iou",
                      "activation", "match", "bbox_buffer",
                      "lost_buffer", "emergence_guard",
                      "fuse_score", "position_recovery", "recovery_min_iou",
-                     "recovery_guard", "confirm_by_position", "edge_exit",
+                     "recovery_guard", "kf_vel_std", "confirm_by_position", "edge_exit",
                      "dup_box_iou", "stack_iou", "weak_birth")
 
 
@@ -1086,6 +1091,7 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         "position_recovery": bool(_cfg_position_recovery()),
         "recovery_min_iou": (float(_cfg_recovery_min_iou()) if _cfg_position_recovery() else None),
         "recovery_guard": (_cfg_recovery_guard() if _cfg_position_recovery() else None),
+        "kf_vel_std": (float(_cfg_kf_vel_std()) if tracker_backend == "bytetrack" else None),
         "confirm_by_position": (bool(_cfg_confirm_by_position()) if _cfg_position_recovery() else None),
         "edge_exit": (bool(_cfg_edge_exit()) if _cfg_position_recovery() else None),
         "dup_box_iou": (float(_cfg_dup_box_iou()) if _cfg_position_recovery() else None),

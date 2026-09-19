@@ -600,3 +600,28 @@ def test_miss_log_records_misses_and_changes_nothing(recovery_on):
     # an old pickle without the attribute still runs (stage-off guard)
     del be.byte_track.miss_log
     be.update(frames[30], 1031)
+
+
+def test_kf_velocity_noise_follows_an_accelerating_vehicle(monkeypatch, recovery_on):
+    """A vehicle whose pixel speed grows every frame (approaching the camera):
+    with the library's velocity noise (h/160) the prediction falls behind and
+    the id breaks; with TRACKER_KF_VEL_STD raised it keeps one id. The knob is
+    recorded in the pass-1 recipe."""
+    def frames_for():
+        frames, x, v = {}, 100.0, 4.0
+        for f in range(1, 31):
+            w = 30.0 + f * 1.5                      # the box grows as the car nears
+            frames[f] = [det(x, 240.0, w, 0.75 * w, 0.8)]
+            x += v
+            v *= 1.18                                # pixel speed grows 18% a frame
+        return frames
+    be0, out0 = _run_with(monkeypatch, frames_for(), 30, TRACKER_KF_VEL_STD=1.0 / 160)
+    be1, out1 = _run_with(monkeypatch, frames_for(), 30, TRACKER_KF_VEL_STD=1.0 / 20)
+    ids0 = {t for v in out0.values() for t in v}
+    ids1 = {t for v in out1.values() for t in v}
+    assert len(ids1) == 1, out1
+    assert len(ids0) > len(ids1), (ids0, ids1)
+    assert abs(be1.byte_track.kalman_filter._std_weight_velocity - 1.0 / 20) < 1e-9
+    assert "kf_vel_std" in tp.PASS1_RESUME_KEYS
+    monkeypatch.setattr(cfg, "TRACKER_KF_VEL_STD", 1.0 / 160)
+    assert abs(tp._cfg_kf_vel_std() - 1.0 / 160) < 1e-12

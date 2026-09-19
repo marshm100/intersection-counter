@@ -34,7 +34,11 @@ supervision ByteTrack forked in backend/services/tracker.py with position recove
 confirmation by position, motion-state reset (motion kept), edge exit, >0.8 double-box
 dedup, a stacked-box guard, a HELD-BOX GUARD on recovery (2026-09-15: a recovery may not take
 a box that overlaps >= 0.6 a box another id took this frame; thefts 107/221/23 -> 83/196/18,
-one-track and breaks better on all three sites), and weak-box births by inheritance (a car's weak early boxes
+one-track and breaks better on all three sites), a KALMAN VELOCITY NOISE of 1/20 of the box
+height per frame instead of the library's 1/160 (2026-09-19, from the miss log: the filter
+followed a vehicle's growing pixel speed at a fifth to a half; one-track 4241/3738/1168 ->
+4422/3952/1249, breaks 2918/4057/766 -> 2547/3637/624, thefts down too), and weak-box births
+by inheritance (a car's weak early boxes
 become its track's back-filled start; pass 1 merges them from a backfill.npy sidecar)
 (docs/plan_basis_2026-09-11.md "Tracker engineering", "Phase A"). It is judged by
 the tracking evidence — one track per vehicle against the detection chains
@@ -104,7 +108,7 @@ a ctrl/arm comparison against it.
 
 ## Testing
 .venv\Scripts\python.exe -m pytest backend/tests/ -q
-# 1278 passing as of 2026-09-15
+# 1280 passing as of 2026-09-19
 
 ## Git
 git commit -m "Step X.X — [title]"

@@ -332,7 +332,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
     def __init__(self, *args, recovery_reach: float = 0.9,
                  recovery_size_ratio: float = 0.3, recovery_min_iou: float = 0.2,
                  recovery_held_iou: float = 0.6, recovery_reverse_deg: float = 0.0,
-                 recovery_reverse_jump: float = 0.15,
+                 recovery_reverse_jump: float = 0.15, kf_vel_std: float = 1.0 / 20,
                  confirm_by_position: bool = True, confirm_width_ratio: float = 0.5,
                  reinit_width_jump: float = 1.5, lost_patience_s: float = 0.5,
                  edge_exit: bool = True, frame_size: tuple | None = None,
@@ -384,6 +384,12 @@ class _RecoveringByteTrack(sv.ByteTrack):
         self.recovery_reverse_jump = float(recovery_reverse_jump)
         self.n_recovery_refused_held = 0
         self.refusal_log = None      # diagnostics only (viz_refusal_reel.py)
+        # the Kalman velocity process noise, on both filters the library uses
+        # (the per-tracker one for initiate/update, the class-shared one for
+        # multi_predict): a fraction of box height per frame
+        self.kf_vel_std = float(kf_vel_std)
+        self.kalman_filter._std_weight_velocity = self.kf_vel_std
+        _STrack.shared_kalman._std_weight_velocity = self.kf_vel_std
         # Diagnostics only (research_breaks.py): one 15-tuple per track that
         # ends a frame WITHOUT a box after stage 2.5 - (absolute frame, id,
         # was_lost, frames since seen, predicted tlbr x4, last observed tlbr x4
@@ -977,6 +983,7 @@ class ByteTrackBackend:
             "recovery_held_iou": float(getattr(_cfg, "TRACKER_RECOVERY_HELD_IOU", 0.6)),
             "recovery_reverse_deg": float(getattr(_cfg, "TRACKER_RECOVERY_REVERSE_DEG", 0.0)),
             "recovery_reverse_jump": float(getattr(_cfg, "TRACKER_RECOVERY_REVERSE_JUMP", 0.15)),
+            "kf_vel_std": float(getattr(_cfg, "TRACKER_KF_VEL_STD", 1.0 / 20)),
             "confirm_by_position": bool(getattr(_cfg, "TRACKER_CONFIRM_BY_POSITION", True)),
             "confirm_width_ratio": float(getattr(_cfg, "TRACKER_CONFIRM_WIDTH_RATIO", 0.5)),
             "reinit_width_jump": float(getattr(_cfg, "TRACKER_REINIT_WIDTH_JUMP", 1.5)),

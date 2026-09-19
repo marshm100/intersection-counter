@@ -59,6 +59,7 @@ def recipe_check(meta: dict) -> None:
             "position_recovery": bool(c.TRACKER_POSITION_RECOVERY),
             "recovery_min_iou": float(c.TRACKER_RECOVERY_MIN_IOU),
             "recovery_guard": tp._cfg_recovery_guard(),
+            "kf_vel_std": tp._cfg_kf_vel_std(),
             "confirm_by_position": bool(c.TRACKER_CONFIRM_BY_POSITION),
             "edge_exit": bool(c.TRACKER_EDGE_EXIT),
             "dup_box_iou": float(c.TRACKER_DUP_BOX_IOU),
