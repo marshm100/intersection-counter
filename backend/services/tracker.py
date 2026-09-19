@@ -383,6 +383,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
         self.recovery_reverse_deg = float(recovery_reverse_deg)
         self.recovery_reverse_jump = float(recovery_reverse_jump)
         self.n_recovery_refused_held = 0
+        self.refusal_log = None      # diagnostics only (viz_refusal_reel.py)
         self.n_recovery_refused_reverse = 0
         self.confirm_by_position = bool(confirm_by_position)
         self.confirm_width_ratio = float(confirm_width_ratio)
@@ -533,10 +534,26 @@ class _RecoveringByteTrack(sv.ByteTrack):
                 if held_iou > 0 and (activated_starcks or refind_stracks):
                     # a box on top of one some other track already took this
                     # frame is that vehicle's second box: taking it is a theft
-                    h_tlbr = np.asarray([h.tlbr for h in activated_starcks + refind_stracks],
-                                        dtype=np.float32)
-                    stacked = (1.0 - _m.iou_distance(d_tlbr, h_tlbr)).max(axis=1) >= held_iou
+                    held = activated_starcks + refind_stracks
+                    h_tlbr = np.asarray([h.tlbr for h in held], dtype=np.float32)
+                    h_iou = 1.0 - _m.iou_distance(d_tlbr, h_tlbr)
+                    stacked = h_iou.max(axis=1) >= held_iou
                     if stacked.any():
+                        rlog = getattr(self, "refusal_log", None)
+                        if rlog is not None:
+                            # diagnostics: the pairs the greedy rule WOULD have
+                            # taken without the guard, where the box is stacked
+                            for ti, di in _greedy_pairs(cost, self.recovery_reach):
+                                if stacked[di]:
+                                    hj = int(h_iou[di].argmax())
+                                    t = cand_tracks[ti]
+                                    rlog.append((self._abs(),
+                                                 int(t.track_id), t.state == _TrackState.Lost,
+                                                 int(self.frame_id - t.end_frame),
+                                                 tuple(float(v) for v in cand_dets[di].tlbr),
+                                                 float(cand_dets[di].score),
+                                                 tuple(float(v) for v in held[hj].tlbr),
+                                                 int(held[hj].track_id), float(h_iou[di, hj])))
                         self.n_recovery_refused_held += int(np.isfinite(cost[:, stacked]).sum())
                         cost[:, stacked] = np.inf
                 rev_deg = float(getattr(self, "recovery_reverse_deg", 0.0))

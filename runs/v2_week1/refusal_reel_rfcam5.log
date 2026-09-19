@@ -1,0 +1,4 @@
+97a7849a cam5 rg1_study_1600: 1254 refusals (794 of lost ids); the id was seen again within 1 s after 684 of them; conf median 0.18; -> runs\v2_week1\refusals_97a7849a_5_rg1_study_1600.json
+  1164 filmable; filming 2
+  #1 id 3906 at f605522: refused a 38 px box (conf 0.17, IoU 0.61 with the box of id 3899); lost True age 3; seen again in the next s: 10 frames -> screenshots\rfcam5_sprite_1.jpg
+  #2 id 6956 at f629319: refused a 28 px box (conf 0.12, IoU 0.68 with the box of id 6969); lost True age 5; seen again in the next s: 0 frames -> screenshots\rfcam5_sprite_2.jpg

@@ -1262,6 +1262,67 @@ may not rise more than the thefts fall).
   the guard REFUSED on rg1 (the operator's ruling that the refusals are right), then the s25
   residual - its lost-age / conf / neighbour picture on rg1 - before any further rule.
 
+### Refusal reel (2026-09-19, scripts/viz_refusal_reel.py on the rg1 dumps; tracker.py refusal_log diagnostics)
+
+Refusals by the held-box guard (greedy pairs it would have taken without the guard, box stacked
+IoU >= 0.6 on a box another id took this frame): cam4 1600 376 (215 of lost ids; the id seen
+again within 1 s after 191), cam5 1600 1254 (794; 684), FM51 0700 127 (76; 66); refused-box conf
+median 0.18-0.20. So after about half the refusals the id ENDS: the id had been a second id on
+a vehicle another id holds (or had wandered onto it), and the refusal is where it dies.
+Page https://claude.ai/artifact/HzMHofMeNUEtdu3KVHGW2y (clips 1-2 cam4, 3-4 cam5, 5-6 FM51;
+ORANGE = the refused id, CYAN ring = the refused box, WHITE ring / white label = the id holding
+it). The question: "Was the orange id on the vehicle under the cyan ring, or on a different
+vehicle?" - a different vehicle = a theft stopped; the same vehicle = the guard let the white
+id keep it and the orange id ended (a twin resolved, the survivor being whichever id had the
+box by the ordinary stages).
+Pre-look (close crops screenshots/rf*_look_*.jpg): 5 (FM51, 1033) is a far car 1029 lost for
+two frames, 1033 born on it, 1029 re-finds it, 1033 refused and ends - the same car, the older
+id survives. 6 (FM51, 1940) is a truck 1942 holds throughout; 1940 came from the lower left,
+sat on the truck two frames, refused, ends. 3 (cam5, 3906) is a queue neighbour's box; 3906 is
+back on its own car the next frame - no cost. 2 (cam4, 4292) looks like the same car leaving
+at the left edge under a newer id 4298 (the older id refused its own car's edge strip). 1
+(cam4, 2139) and 4 (cam5, 6956) need his eyes: a wandering id along the far-side row, and a
+lost id under a passing SUV.
+
+OPERATOR RULINGS (his words), "Was the orange id on the vehicle under the cyan ring, or on a
+different vehicle?":
+  1  cam4 1600, id 2139, refusal 16:29:56.6 (f593946), box held by 2124 (IoU 0.69), tracked
+     "1 same"   Reading: SAME VEHICLE - 2139 was a second id on the standing flatbed pickup
+     that 2124 holds; the guard let 2124 keep it and 2139 ended. A twin resolved, no theft.
+  2  cam4 1600, id 4292, refusal 16:57:26.4 (f610444), box held by 4298 (IoU 0.76), lost 4 f
+     "2 dif"   Reading: DIFFERENT VEHICLE - 4292 was on another vehicle; the guard stopped a
+     lost id from taking the exiting car's edge strip, which 4298 rightly holds. A THEFT STOPPED
+     (the pre-look's "same car under a newer id" was wrong).
+  3  cam5 1600, id 3906, refusal 16:49:14.2 (f605522), box held by 3899 (IoU 0.61), lost 3 f
+     "3 same but unsure"   Reading: SAME VEHICLE, NOT CERTAIN - in the touching far-side queue
+     he reads the cyan box as 3906's own car, which 3899 also holds (two ids on one queued car).
+     Either way the refusal cost nothing: 3906 was back on its own box the next frame and held
+     it for the following second (10 of 10). Where it matters is the twin: if 3899 and 3906 are
+     one car, the queue carries a double id the guard did not resolve (3906 kept its box by the
+     ordinary stage). Filed as SAME with the uncertainty noted.
+  4  cam5 1600, id 6956, refusal 17:28:53.9 (f629319), box held by 6969 (IoU 0.68), lost 5 f
+     "4 is corrupted it came after a theft"   Reading: CORRUPT BEFORE THE CLIP - the orange id
+     had already been stolen onto another car earlier (its path from the lower left up into the
+     far-side queue is that theft); the box it was refused belongs to a car 6969 holds. Ending
+     an already-corrupt id there is the right outcome; the theft itself is upstream of the guard
+     (a Phase B residual, the clip-3-of-the-theft-reel kind: a lost id under a passing SUV).
+  5  FM51 0700, id 1033, refusal 7:46:06.1 (f279631), box held by 1029 (IoU 0.68), tracked
+     "5 same"   Reading: SAME VEHICLE - the far car 1029 lost for two frames, 1033 born on it,
+     1029 re-found it, 1033 refused and ended. The older id kept the car. A twin resolved.
+  6  FM51 0700, id 1940, refusal 8:29:15.5 (f305525), box held by 1942 (IoU 0.78), tracked
+     "6 same"   Reading: SAME VEHICLE - the white truck 1942 held throughout; 1940 sat on it
+     two frames and was refused. A twin resolved; 1942 kept the truck.
+
+  TALLY (6 clips, rulings 2026-09-19): SAME VEHICLE 4 (1, 3 unsure, 5, 6), DIFFERENT 1 (2),
+  CORRUPT BEFORE THE CLIP 1 (4). In every SAME clip another id rightly held the vehicle by the
+  ordinary stages and the refused id was a second id on it: the guard ended the twin and the
+  vehicle kept one track. In the DIFFERENT clip the guard stopped a theft. In no clip did the
+  guard refuse a vehicle's only track its own box. THE HELD-BOX GUARD STANDS AS BUILT (default
+  0.6). Two things the film adds to the residual: (a) twins in the far-side queues (clip 3:
+  two ids on one queued car, neither refused because both hold boxes by the ordinary stages) -
+  the double-box class, upstream of recovery; (b) clip 4's theft happened before the guard could
+  matter, a lost id under an occluder - the s25 residual the ledger already names next.
+
 Phase C instrument drafted (scripts/research_trailers.py, the plan's attached-pair test). First
 run FM51 0700: 44 nose-to-tail pairs >= 1 s, 24 steady, 24 steady through a speed change - the
 speed change is in PIXELS and perspective alone gives 2.75x on FM51's approach, so the test does

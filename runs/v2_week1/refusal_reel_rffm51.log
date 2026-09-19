@@ -1,0 +1,4 @@
+0acb12c0 cam2 rg1_l1_study_0700: 127 refusals (76 of lost ids); the id was seen again within 1 s after 66 of them; conf median 0.20; -> runs\v2_week1\refusals_0acb12c0_2_rg1_l1_study_0700.json
+  106 filmable; filming 2
+  #1 id 1033 at f279631: refused a 22 px box (conf 0.3, IoU 0.68 with the box of id 1029); lost False age 1; seen again in the next s: 0 frames -> screenshots\rffm51_sprite_1.jpg
+  #2 id 1940 at f305525: refused a 32 px box (conf 0.24, IoU 0.78 with the box of id 1942); lost False age 1; seen again in the next s: 0 frames -> screenshots\rffm51_sprite_2.jpg
