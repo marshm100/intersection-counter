@@ -104,6 +104,32 @@ def extract_all(variant, proj=PROJ, cam=CAM):
     print(f"{len(out)} moving vehicles (chains >= 15 hits, >= 120 px) saved -> {p}; hits median {np.median([len(v) for v in out]):.0f}")
 
 
+def label_hits(veh, rows, fidx=None):
+    """Label every hit of every yardstick chain with the dump track whose box
+    overlaps it best (IoU >= 0.1). rows = dump rows sorted by frame; fidx =
+    {frame: (start, end)} into rows (built here when None). Returns, per
+    vehicle, [(frame, det_tlbr, conf, dump_id | None, dump_box | None)]."""
+    if fidx is None:
+        ufr, s_ = np.unique(rows[:, 1], return_index=True); e_ = np.append(s_[1:], len(rows))
+        fidx = dict(zip(ufr.astype(int), zip(s_, e_)))
+    out = []
+    for v in veh:
+        tl = []
+        for (f, a, b, c, d, s) in v:
+            det = (a, b, c, d); best = (0.0, None, None)
+            ab = fidx.get(int(f))
+            if ab is not None:
+                for r in rows[ab[0]:ab[1]]:
+                    tb = (r[2] - r[4] / 2, r[3] - r[5] / 2, r[2] + r[4] / 2, r[3] + r[5] / 2)
+                    v_ = iou(det, tb)
+                    if v_ > best[0]:
+                        best = (v_, int(r[0]), tb)
+            ok = best[0] >= 0.1
+            tl.append((int(f), det, s, best[1] if ok else None, best[2] if ok else None))
+        out.append(tl)
+    return out
+
+
 def timeline(variant, proj=PROJ, cam=CAM, generic=False):
     global PROJ, CAM
     PROJ, CAM = proj, cam
@@ -126,19 +152,7 @@ def timeline(variant, proj=PROJ, cam=CAM, generic=False):
     for t_, a_, b_ in zip(ut, st_, en_):
         tid_frames[int(t_)] = rt[a_:b_, 1].astype(int)
     handoff = Counter(); handoff_age = []; stale_examples = []
-    for v in veh:
-        tl = []
-        for (f, a, b, c, d, s) in v:
-            det = (a, b, c, d); best = (0.0, None, None)
-            ab = fidx.get(f)
-            if ab is not None:
-                for r in rows[ab[0]:ab[1]]:
-                    tb = (r[2] - r[4] / 2, r[3] - r[5] / 2, r[2] + r[4] / 2, r[3] + r[5] / 2)
-                    v_ = iou(det, tb)
-                    if v_ > best[0]:
-                        best = (v_, int(r[0]), tb)
-            ok = best[0] >= 0.1
-            tl.append((f, det, s, best[1] if ok else None, best[2] if ok else None))
+    for tl in label_hits(veh, rows, fidx):
         ids = [x[3] for x in tl if x[3] is not None]
         ids_per.append(len(set(ids)))
         first = next((k for k, x in enumerate(tl) if x[3] is not None), None)

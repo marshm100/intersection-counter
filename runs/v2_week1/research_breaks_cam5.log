@@ -1,0 +1,53 @@
+97a7849a cam5 rg1_study_1600: 636231 dump rows, 5742 yardstick vehicles, 20331 back-fill rows, stop-fracture relabels 8
+  in-process run: 625308 matches, 72104 miss records; patience 5 f, reach 0.9, min IoU 0.2, held 0.6
+  breaks 4057 (as the yardstick counts them); 0 at the window end dropped (the dump stops at f1); 4057 joined
+  mapping: same id 3916, BACKFILL_AT_K 140, by box (relabelled) 1
+  id A at f_n: MISSED 1713  ID_MATCHED_ELSEWHERE 2147  LABEL_ARTEFACT 22  NO_RECORD 34  NOT_IN_INPUT 1  BACKFILL_AT_K 140  UNMAPPED 0
+     NOT_IN_INPUT: dropped by input dedup 1
+  the next real box at f_n: free 1573, new id 805, other id s25 737, other id s1 423, twin s1 162, - 141, other id s2 105, twin s2 59, twin s25 52
+  id A status x box fate:
+       780  MISSED                 free
+       747  ID_MATCHED_ELSEWHERE   free
+       599  ID_MATCHED_ELSEWHERE   new id
+       405  ID_MATCHED_ELSEWHERE   other id s25
+       329  MISSED                 other id s25
+       242  MISSED                 other id s1
+       201  MISSED                 new id
+       180  ID_MATCHED_ELSEWHERE   other id s1
+       140  BACKFILL_AT_K          -
+        84  ID_MATCHED_ELSEWHERE   twin s1
+        77  MISSED                 twin s1
+        63  ID_MATCHED_ELSEWHERE   other id s2
+        42  MISSED                 other id s2
+        39  ID_MATCHED_ELSEWHERE   twin s2
+     NO_RECORD (last fate, alive at f_n): (2, False) 34
+  MISSED 1713: by box class x state: high/tracked 599, low/tracked 515, low/lost 437, high/lost 162
+     gate 1 (the ordinary stage): s1_fused<0.2 564, s2_iou<0.5 499, s2_ineligible(lost) 437, s1_assignment_lost 197, s2_assignment_lost 16
+     gate 2 (recovery):           min_iou<0.2 673, held_guard 388, size_ratio<0.3 358, recovery_unexplained 292, reach>=0.9 2
+     gate 1 x gate 2 (top 10):
+          310  s2_ineligible(lost)          min_iou<0.2            obs would pass the stage 0/0   obs would pass recovery 0/310   IoU pred med 0.05  IoU obs med 0.05  conf med 0.13  w med 15 px
+          199  s2_iou<0.5                   min_iou<0.2            obs would pass the stage 0/199   obs would pass recovery 0/199   IoU pred med 0.08  IoU obs med 0.09  conf med 0.14  w med 15 px
+          195  s1_assignment_lost           held_guard             obs would pass the stage 172/195   obs would pass recovery 0/195   IoU pred med 0.52  IoU obs med 0.55  conf med 0.62  w med 34 px
+          180  s2_iou<0.5                   size_ratio<0.3         obs would pass the stage 0/180   obs would pass recovery 0/180   IoU pred med 0.15  IoU obs med 0.15  conf med 0.16  w med 7 px
+          166  s1_fused<0.2                 size_ratio<0.3         obs would pass the stage 0/166   obs would pass recovery 0/166   IoU pred med 0.19  IoU obs med 0.19  conf med 0.39  w med 8 px
+          164  s1_fused<0.2                 min_iou<0.2            obs would pass the stage 0/164   obs would pass recovery 0/164   IoU pred med 0.09  IoU obs med 0.07  conf med 0.42  w med 31 px
+          119  s1_fused<0.2                 held_guard             obs would pass the stage 45/119   obs would pass recovery 0/119   IoU pred med 0.35  IoU obs med 0.44  conf med 0.43  w med 31 px
+          115  s1_fused<0.2                 recovery_unexplained   obs would pass the stage 25/115   obs would pass recovery 111/115   IoU pred med 0.41  IoU obs med 0.45  conf med 0.32  w med 26 px
+           92  s2_iou<0.5                   recovery_unexplained   obs would pass the stage 13/92   obs would pass recovery 88/92   IoU pred med 0.34  IoU obs med 0.33  conf med 0.15  w med 26 px
+           83  s2_ineligible(lost)          recovery_unexplained   obs would pass the stage 0/0   obs would pass recovery 75/83   IoU pred med 0.34  IoU obs med 0.36  conf med 0.14  w med 19 px
+     prediction error median 0.45 widths; last-observation error median 0.69; observation closer than prediction in 739 of 1713; pred width / obs width median 1.00
+     x >= 550 (cam4's floor band): 684 of the MISSED; gate 2 there: min_iou<0.2 325, recovery_unexplained 186, held_guard 107, size_ratio<0.3 66
+     gap == 1 (next hit the very next frame): 1037; gap median 1; pred err med 0.33 w, obs err med 0.55 w; actual speed med 0.55 w/f vs Kalman 0.31 w/f; box fate: free 403, other id s1 191, other id s25 180, new id 141
+     gap > 1: 676; gap median 3; pred err med 0.72 w, obs err med 0.75 w; actual speed med 0.28 w/f vs Kalman 0.15 w/f; box fate: free 377, other id s25 149, new id 60, other id s1 51
+     MISSED by box fate x gate 2:
+          496  free                   min_iou<0.2
+          268  other id s25           recovery_unexplained
+          250  free                   size_ratio<0.3
+          224  other id s1            held_guard
+          103  new id                 size_ratio<0.3
+           98  new id                 min_iou<0.2
+           77  twin s1                held_guard
+           58  other id s25           min_iou<0.2
+           35  other id s2            held_guard
+           32  free                   held_guard
+  -> runs\v2_week1\breaks_97a7849a_5_rg1_study_1600.json

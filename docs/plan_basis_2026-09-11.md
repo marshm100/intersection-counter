@@ -1323,6 +1323,123 @@ different vehicle?":
   the double-box class, upstream of recovery; (b) clip 4's theft happened before the guard could
   matter, a lost id under an occluder - the s25 residual the ledger already names next.
 
+### The residual after the guard (2026-09-19, rg1 dumps: research_recovery_guard.py + research_thefts.py)
+
+  recovery census on rg1      recoveries   OTHER (was)   SAME     held>=0.6 still: OTHER/SAME
+  cam4 1600                     19978      289 (417)    15231        12 / 54
+  cam5 1600                     23853      658 (862)    13351        40 / 107
+  FM51 0700                      6316       71  (86)     5228         3 / 31
+  The theft-class recoveries fell by a third to a half; what is left has the same shape as
+  before (taken-box conf ~0.22-0.25, jump ~0.28 widths, angle against the motion for ~60-75%,
+  no held-box overlap): no per-frame handle. THEFT switches on rg1 by the stage that made them:
+  cam4 83 = s1 37 (conf 0.63, IoU(pred,B) 0.66, 13 swaps) + s25 43 (conf 0.25, IoU 0.30, 13 lost,
+  13 swaps) + s2 1; cam5 196 = s1 67 + s2 18 + s25 109 (55 lost, 53 swaps); FM51 18 = s1 7 +
+  s2 2 + s25 9. Two mechanisms remain: (1) recovery onto a neighbour's WEAK box while the own
+  car is momentarily undetected (half; the box barely overlaps the prediction, IoU ~0.27-0.30
+  against the 0.2 gate); (2) stage-1 occlusion swaps on CONFIDENT boxes overlapping the
+  prediction well (the other half). Neither separates from the good matches by geometry; the
+  physical discriminator is what the car looks like, which the tracker does not have (the
+  detection cache carries no pixels, so an appearance check would be a live-pass-only feature
+  and cannot be judged by re-tracking from cache). THEFTS ARE PARKED HERE: the cheap part is
+  taken, the rest waits for appearance.
+
+  WHERE THE YARDSTICK'S NUMBER NOW IS: breaks. rg1 breaks 2918 / 4057 / 766 against thefts
+  83 / 196 / 18. The break census (wb_rg1_*.log, "the next real box at the break"): the
+  tracker's OUTPUT box at the last covered frame overlaps the vehicle's NEXT real box by
+  0.18 / 0.22 / 0.20 (median) where the real box itself overlaps its own next box by
+  0.30 / 0.38 / 0.28 - the tracker's state is a worse predictor of the next detection than the
+  last detection is. Classes: next box weak and IoU < 0.5 with the tracker box 1341 / 1774 /
+  301; next box confident but fused IoU x conf < 0.2 1064 / 1463 / 306; confident and should
+  match but taken by another id 265 / 562 / 119; weak with IoU >= 0.5 (stage 2 should match)
+  248 / 258 / 40. cam4's far field (x >= 550, 17-px boxes at conf 0.17) is 848 of its 2918 and
+  is the detection floor. NEXT (instrument first, the plan's rule): a miss log in the tracker -
+  for every unmatched track at every frame, its PREDICTED box and its LAST OBSERVED box - joined
+  to the break events, to say whether the prediction or the observation would have reached the
+  next real box, and by which stage. Then the fix is declared from that, not before.
+
+## BREAKS — the miss log (2026-09-19; plan ok-plan-it-out-breezy-kernighan.md, operator: "plan it out")
+
+Built: tracker.py `miss_log` (diagnostics only, None = off; one record per track that ends a
+frame without a box after stage 2.5: absolute frame, id, was_lost, age, PREDICTED box, LAST
+OBSERVED box, Kalman vx/vy, observed vx/vy, fate; lost tracks logged while age <= 10; test
+test_miss_log_records_misses_and_changes_nothing, suite 1279 green); research_tracker_break.py
+`label_hits` factored out (timeline_all output byte-identical on the three rg1 dumps);
+scripts/research_breaks.py (the dump's tracker in process with match + miss logs, the input
+after the 0.8 dedup, every break joined: id A's status at f_n x the next real box's fate);
+scripts/viz_break_reel.py. Logs runs/v2_week1/research_breaks_{fm51,cam4,cam5}.log, events
+breaks_<proj>_<cam>_<variant>.json.
+
+  rg1 dump               cam4 1600   cam5 1600   FM51 0700
+  breaks (yardstick)       2918        4057        766
+  id A at f_n:
+    MISSED (in the pool, no box)   1124   1713   376
+    ID_MATCHED_ELSEWHERE           1206   2147   300     the id took a DIFFERENT box that frame
+    NO_RECORD (edge-exit retired)   437     34    24
+    BACKFILL_AT_K (label on a back-filled row)  145  140  63
+    LABEL_ARTEFACT / NOT_IN_INPUT     6/0   22/1   3/0
+  the next real box's fate: free 1533 / 1573 / 286; a NEW id born on it 687 / 805 / 184;
+    another existing id took it 472 / 1265 / 157 (of which twins 81 / 273 / 76).
+  In-process ids == dump ids for every mapped break (stop-fracture relabels aside). The
+  window-end trap (chains keep a hit at f1) fired 0 times on these dumps.
+
+  MISSED, by the first gate that refused the box (gate 1 = the ordinary stage, gate 2 = recovery):
+    cam4: s1_fused<0.2 390, s2_iou<0.5 355, s2_ineligible(lost) 286, s1_assignment_lost 92 /
+          min_iou<0.2 538, size_ratio<0.3 340, held_guard 151, recovery_unexplained 93
+    cam5: s1_fused<0.2 564, s2_iou<0.5 499, s2_ineligible(lost) 437, s1_assignment_lost 197 /
+          min_iou<0.2 673, held_guard 388, size_ratio<0.3 358, recovery_unexplained 292
+    FM51: s1_fused<0.2 171, s2_iou<0.5 84, s2_ineligible(lost) 67, s1_assignment_lost 52 /
+          min_iou<0.2 188, held_guard 84, size_ratio<0.3 82, recovery_unexplained 21
+  (recovery_unexplained = the box went to a NEARER candidate in the greedy recovery: it shows
+  as another id's s25 match - a theft-class event from the box's side; held_guard with
+  s1_assignment_lost = the box was contested and another id won stage 1 - the same class.)
+
+  THE HYPOTHESIS TESTED. "The tracker's state is a worse predictor than the last detection"
+  is NOT what the miss log shows: at a miss the prediction and the last observation are BOTH
+  far from the next box (pred error median 0.64 / 0.45 / 0.71 widths, last-obs error 0.99 /
+  0.69 / 0.79; the observation is closer in only a third to a half of the misses). What it
+  shows instead, on the misses one frame after the last sighting (gap == 1, the clean case):
+    cam4  658 misses: the car moved 1.22 widths/frame, the Kalman velocity said 0.67
+    cam5 1037 misses: the car moved 0.55 widths/frame, the Kalman velocity said 0.31
+    FM51  256 misses: the car moved 0.68 widths/frame, the Kalman velocity said 0.21
+  and on FM51's confident-box misses, split by track life: Kalman / actual speed 0.70 at life
+  <= 3 frames, 0.49 at 4-10, 0.21 at 11-30, 0.22 beyond 30 - the tracks are NOT young; the
+  filter's velocity settles at a fifth of the vehicle's pixel speed on vehicles whose pixel
+  speed keeps growing (approaching the camera: FM51's w 120 px at x 555). The last two
+  observations give 0.64-0.69 of the actual speed. The next box lies along the Kalman heading
+  in 80% of the cases: the DIRECTION is right, the MAGNITUDE lags. supervision's Kalman uses
+  std_weight_velocity = 1/160 of the box height per frame (tuned for 30-fps pedestrians): at
+  10 fps a car whose pixel speed doubles every second cannot be followed. THIS is the
+  measured mechanism behind the "s1_fused<0.2 / min_iou<0.2" class (cam4 176, cam5 164,
+  FM51 95 confident boxes, 31-48 px) and part of the weak-box classes.
+
+  The other large classes, sized:
+    - the far-field detection floor: s2_ineligible(lost)/min_iou (227 / 310 / 60, w 13-16 px,
+      conf 0.13-0.14) and size_ratio<0.3 (340 / 358 / 82, w 7-19 px: the box on a distant car
+      changes width by > 3x between frames). cam4's x >= 550 band holds 326 of its 1124
+      misses. Instrument-limited, as ruled.
+    - contested boxes (s1_assignment_lost + held_guard, recovery_unexplained): 91+47 / 195+119
+      +292 / 52+27+21 - the theft class from the box's side. Parked with the thefts.
+    - ID_MATCHED_ELSEWHERE (1206 / 2147 / 300): the id took a box 0.72 / - / 0.31 widths from
+      the chain's next box (median). Within half a width in 424 / - / 179 of them with a NEW id
+      born on the chain's box in 181 / - / 51: the DOUBLE-BOX TWIN class (two detector boxes on
+      one car; the id keeps one, a newborn takes the other). Beyond half a width: the id on a
+      neighbour (theft class) or the chain linker's own jump.
+    - NO_RECORD = edge exit (437 on cam4): the chain's remaining hits after the break: median 2,
+      travel 0 px, the box touching the left (247) or right (184) edge - the vehicle was
+      leaving; 67 chains had >= 10 hits left, 5 travelled >= 100 px. A yardstick tail, not a
+      tracker fault, except those few.
+
+  BREAK REEL (scripts/viz_break_reel.py, gate min_iou<0.2, 2 per site), page
+  https://claude.ai/artifact/2TzX7VKWYafDJuj9v3ZLki (clips 1-2 cam4, 3-4 cam5, 5-6 FM51;
+  ORANGE = the id, CYAN ring = the missed box, MAGENTA dashes = the prediction, YELLOW dashes =
+  the last observed box, WHITE = the id the vehicle got next). The question: "Is the vehicle
+  under the cyan ring the same vehicle the orange id was on?" Pre-look: 5 (FM51, 717) is the
+  mechanism on film - a dark SUV approaching fast, the prediction barely moves from the last
+  box while the car moves half a width; 6 (FM51, 1568) the same truck already under a new id;
+  2 (cam4, 5938) a car passing behind a box truck, the prediction 1.5 widths behind; 3 (cam5,
+  3624) a lost id whose prediction ballooned 3 widths away; 1 (cam4) and 4 (cam5) bunched far
+  field, his eyes needed.
+
 Phase C instrument drafted (scripts/research_trailers.py, the plan's attached-pair test). First
 run FM51 0700: 44 nose-to-tail pairs >= 1 s, 24 steady, 24 steady through a speed change - the
 speed change is in PIXELS and perspective alone gives 2.75x on FM51's approach, so the test does

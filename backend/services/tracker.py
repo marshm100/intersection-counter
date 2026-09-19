@@ -384,6 +384,14 @@ class _RecoveringByteTrack(sv.ByteTrack):
         self.recovery_reverse_jump = float(recovery_reverse_jump)
         self.n_recovery_refused_held = 0
         self.refusal_log = None      # diagnostics only (viz_refusal_reel.py)
+        # Diagnostics only (research_breaks.py): one 15-tuple per track that
+        # ends a frame WITHOUT a box after stage 2.5 - (absolute frame, id,
+        # was_lost, frames since seen, predicted tlbr x4, last observed tlbr x4
+        # or None, Kalman vx, vy, observed vx, vy (NaN if < 2 observations),
+        # fate: 0 stays lost, 1 goes lost, 2 edge exit, 3 lost past max age).
+        # Lost tracks are logged only while their age <= miss_log_max_age.
+        self.miss_log = None
+        self.miss_log_max_age = 10
         self.n_recovery_refused_reverse = 0
         self.confirm_by_position = bool(confirm_by_position)
         self.confirm_width_ratio = float(confirm_width_ratio)
@@ -592,6 +600,37 @@ class _RecoveringByteTrack(sv.ByteTrack):
                                    if p == 0 and n not in used_d]
                     u_detection_second = [i for n, (p, i) in enumerate(cand_index)
                                           if p == 1 and n not in used_d]
+
+        # ---- diagnostics: the misses (research_breaks.py) ----------------------
+        mlog_miss = getattr(self, "miss_log", None)
+        if mlog_miss is not None:
+            max_age = int(getattr(self, "miss_log_max_age", 10))
+            missed = [(r_tracked_stracks[i], False) for i in u_track_second
+                      if r_tracked_stracks[i].track_id not in recovered_ids]
+            missed += [(t, True) for t in r_lost_stracks if t.track_id not in recovered_ids]
+            for track, lost in missed:
+                age = int(self.frame_id - track.end_frame)
+                if lost and age > max_age:
+                    continue
+                if lost:
+                    fate = 3 if age > self.max_time_lost else 0
+                elif (self.edge_exit and track.state != _TrackState.Lost
+                      and _exited_frame(track, self.frame_w, self.frame_h, self.edge_margin)):
+                    fate = 2
+                else:
+                    fate = 1
+                lo = getattr(track, "last_obs_tlbr", None)
+                oc = getattr(track, "obs_centers", None) or []
+                if len(oc) >= 2 and oc[-1][0] != oc[-2][0]:
+                    df = float(oc[-1][0] - oc[-2][0])
+                    ovx, ovy = (oc[-1][1] - oc[-2][1]) / df, (oc[-1][2] - oc[-2][2]) / df
+                else:
+                    ovx = ovy = float("nan")
+                mlog_miss.append((self._abs(), int(track.track_id), bool(lost), age,
+                                  tuple(float(v) for v in track.tlbr),
+                                  (tuple(float(v) for v in lo) if lo is not None else None),
+                                  float(track.mean[4]), float(track.mean[5]),
+                                  float(ovx), float(ovy), int(fate)))
 
         # ---- L358-362: leftovers of stage 2 go lost (recovered ones skipped) ----
         for it in u_track_second:

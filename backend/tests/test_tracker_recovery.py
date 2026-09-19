@@ -562,3 +562,41 @@ def test_recovery_guard_in_pass1_recipe(monkeypatch):
     assert tp._cfg_recovery_guard() is None
     monkeypatch.setattr(cfg, "TRACKER_RECOVERY_REVERSE_DEG", 90.0)
     assert tp._cfg_recovery_guard() == {"held_iou": 0.0, "reverse_deg": 90.0, "reverse_jump": 0.15}
+
+
+def test_miss_log_records_misses_and_changes_nothing(recovery_on):
+    """The diagnostics-only miss log (research_breaks.py) records every track
+    that ends a frame without a box - its predicted box, last observed box,
+    velocities and fate - at the absolute frame, and switching it on leaves
+    the tracker's output identical."""
+    frames = {}
+    for f in range(1, 31):
+        if 11 <= f <= 13:
+            continue
+        frames[f] = [det(100.0 + 8.0 * (f - 1), 200.0, 20.0, 15.0, 0.6)]
+    plain = {}
+    be = backend()
+    for f in range(1, 31):
+        plain[f] = [(r["track_id"], tuple(r["bbox"])) for r in be.update(frames.get(f, []), 1000 + f)]
+    BaseTrack._count = 0
+    be = backend()
+    be.byte_track.miss_log = []
+    logged = {}
+    for f in range(1, 31):
+        logged[f] = [(r["track_id"], tuple(r["bbox"])) for r in be.update(frames.get(f, []), 1000 + f)]
+    assert logged == plain
+    log = be.byte_track.miss_log
+    assert log and all(len(r) == 11 for r in log)
+    by_frame = {r[0]: r for r in log}
+    # the vehicle vanishes at 1011: a tracked leftover, age 1, goes lost
+    m = by_frame[1011]
+    assert m[1] == 1 and m[2] is False and m[3] == 1 and m[10] == 1
+    assert m[5] is not None and abs(m[5][0] - (100.0 + 8.0 * 9 - 10.0)) < 1.0   # last observed box at f10
+    assert abs(m[6] - 8.0) < 2.0 and abs(m[8] - 8.0) < 1e-6                     # Kalman / observed vx
+    # 1012-1013: lost, age 2 and 3, stays lost
+    assert by_frame[1012][2] is True and by_frame[1012][3] == 2 and by_frame[1012][10] == 0
+    assert by_frame[1013][3] == 3
+    assert 1014 not in by_frame                                                  # re-found (stage 1)
+    # an old pickle without the attribute still runs (stage-off guard)
+    del be.byte_track.miss_log
+    be.update(frames[30], 1031)
