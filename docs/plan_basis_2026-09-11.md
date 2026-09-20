@@ -1572,6 +1572,45 @@ twins_<proj>_<cam>_<variant>.json.
   beside, 1380) born on the TRAILER behind the pickup, then taking the whole rig; 3 (cam5
   beside, 5096) the queue under a passing SUV, his eyes needed.
 
+## ARM vl3-fleet (DECLARED 2026-09-20, BEFORE SCORING): what is the tracker worth on the deliverable?
+
+Operator, 2026-09-20, pulling back from the reels: "I want to know if this is productive or a
+best use of resources." The honest answer was that eight days of tracker engineering has been
+judged only on proxies (one-track-per-vehicle, breaks, thefts) and never against the fleet.
+ONE tracker change was ever fleet-scored: position recovery (d18b, 2026-09-12), 77.97 ->
+80.36, +2.39, PASS on the letter. Everything since — confirmation by position, the motion
+reset, edge exit, the double-box dedup, the stacked-box guard, weak-box births by
+inheritance, THE HELD-BOX GUARD (2026-09-15) and THE KALMAN VELOCITY 1/20 (2026-09-19) — is
+unpriced against the deliverable.
+
+THE ARM. The tracker exactly as it now stands (no env overrides; the vl3 recipe, verified
+equal to the live config on the three dumps that already existed), re-tracked from the
+detection cache into vl3_* variants on the six ByteTrack windows (cam4 x3, cam5 x3), pass 2
+under the shipped default, scored against the live standings. Cameras 1-3 are BoT-SORT
+recipes, untouched by this tracker, and carry their fixed scores into the fleet mean. FM 51
+(0acb12c0 cam 2, vl3_l1_study_0700 / _1600) is the held-out blank-site witness. apply=False
+throughout; production dumps and standings are NOT touched.
+
+THE BAR, declared now. The G-DEF-1 letter against the production 77.97 (fleet mean rises; no
+camera -1.0; no window -3.0) is the SHIP test. But the honest test of the last eight days is
+d18b's 80.36: position recovery alone reached it, so the six components added since must
+clear it to have been worth anything on the deliverable. Three outcomes and what each means:
+  > 80.36 and the letter passes  -> the tracker becomes the production basis (operator's
+      ruling; every standing resets). Tracker engineering has been productive.
+  77.97 < x <= 80.36             -> the proxies gained, the deliverable did not. The six
+      components after position recovery are worth ~0 in TMC terms; stop tracker work and
+      go back to the counting rules / gates.
+  <= 77.97                       -> the tracker work is NEGATIVE on the deliverable. Hold,
+      diagnose which window fell and why, before anything else.
+CARRIED IN, so a rising number is not over-read: d18b's gain was the OVERCOUNTS falling
+(SB_thru, the SB_right / NB_left phantoms) as fragments became single tracks; the northbound
+SHORTFALL was not recovered and is capped by COUNTING (pass 2 drops a long track whose exit
+crossing was observed but whose destination softmax fails on tail motion — G-EX-2, not
+built). If this arm gains the same way, the verdict says so plainly rather than letting the
+fleet number imply the shortfall is solved.
+Logs: runs/v2_week1/arm_vl3fleet_*.log (the re-tracks), fleet_vl3.log, fm51_vl3.log; scores
+runs/v2_week1/score_vl3_*.json.
+
 Phase C instrument drafted (scripts/research_trailers.py, the plan's attached-pair test). First
 run FM51 0700: 44 nose-to-tail pairs >= 1 s, 24 steady, 24 steady through a speed change - the
 speed change is in PIXELS and perspective alone gives 2.75x on FM51's approach, so the test does
