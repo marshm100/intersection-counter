@@ -41,7 +41,9 @@ def test_create_database():
     assert 'review_flags' in tables          # Phase B: two-feeder review flag queue
     assert 'dispositions' in tables          # Phase-1 apply gate: operator judgment as state
     assert 'apply_adjudications' in tables   # Phase-1 apply gate: audit trail
-    assert len(tables) == 18   # +review_log (R0 instrument v2, 2026-08-24)
+    assert 'track_fates' in tables           # the journey fate ledger (2026-09-20)
+    assert len(tables) == 19   # +review_log (R0 instrument v2, 2026-08-24),
+                               # +track_fates (the fate ledger, 2026-09-20)
 
 def test_wal_mode():
     conn = get_connection(TEST_PROJECT)

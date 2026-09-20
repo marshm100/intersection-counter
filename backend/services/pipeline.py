@@ -54,6 +54,8 @@ from backend.config import (
     ORIGIN_POSTERIOR_ENABLED,
     ORIGIN_POSTERIOR_MARGIN_FLOOR,
     DEST_TIE_BAND,
+    GATE_EXIT_ONLY_BINDING,
+    TRACK_FATE_LEDGER,
     USE_JOINT_PARTIAL_FRECHET_SCORER,
 )
 from backend.services.checkpoint import CheckpointManager
@@ -306,6 +308,13 @@ class ProcessingPipeline:
         self.n_origin_ambiguous: int = 0     # origin margin < floor
         self.n_posterior_vetoed: int = 0     # branch-1 pools trimmed by the
                                              # straight-track turn veto
+        # G-EX-2: journeys bound to their OBSERVED exit (exit_only rescue).
+        self.n_exit_only_bound: int = 0
+        # The two silent drops the fate ledger found uncounted (2026-09-20):
+        # an empty trajectory, and a no-origin track too short to even reach
+        # the n_insufficient_data increment at ORIGIN_ASSIGN_MIN_FRAMES.
+        self.n_empty_trajectory: int = 0
+        self.n_no_origin_short: int = 0
         # Inline track stitching (Phase 1.5, calibration_params["track_stitch"]):
         # new tracker IDs remapped onto a coasting prior track (ID-switch repair).
         self._stitch_alias: dict[int, int] = {}
@@ -1564,10 +1573,17 @@ class ProcessingPipeline:
                         "Track %d discarded: no origin assigned (%d points)",
                         track_id, n_pts,
                     )
+                else:
+                    # Shorter than ORIGIN_ASSIGN_MIN_FRAMES: dropped here
+                    # since forever and counted by nothing until the ledger.
+                    self.n_no_origin_short += 1
+                self._fate(track_id, vehicle, "dropped", "no_origin")
                 return
 
         trajectory = vehicle["trajectory"]
         if not trajectory:
+            self.n_empty_trajectory += 1
+            self._fate(track_id, vehicle, "dropped", "empty_trajectory")
             return
 
         # Track-quality gate (Phase 1.1): with a loosened birth threshold the
@@ -1578,6 +1594,7 @@ class ProcessingPipeline:
             ok, _reason = track_quality(trajectory, vehicle.get("confidences") or [])
             if not ok:
                 self.n_quality_filtered += 1
+                self._fate(track_id, vehicle, "dropped", "quality_filtered")
                 return
 
         classification = classify_trajectory(
@@ -1600,6 +1617,8 @@ class ProcessingPipeline:
 
         if classification["movement"] == "insufficient_data":
             self.n_insufficient_data += 1
+            self._fate(track_id, vehicle, "dropped", "classifier_insufficient",
+                       classification=classification)
             return
 
         origin_leg_id = vehicle["origin_leg_id"]
@@ -2020,8 +2039,10 @@ class ProcessingPipeline:
             # tracks stay dropped — no evidence + no geometry = counting by
             # popularity, the named posterior risk.
             rescued = False
-            if (self._posterior_on
-                    and gate_origin is not None and self._paths):
+            if (self._posterior_on and self._paths
+                    and (gate_origin is not None
+                         or (GATE_EXIT_ONLY_BINDING
+                             and gate_tag == "exit_only"))):
                 if gate_tag == "full" and gate_dest is not None:
                     cell_paths = [
                         p for p in self._paths
@@ -2071,10 +2092,73 @@ class ProcessingPipeline:
                             }
                             posterior_source = "rescue_supports"
                             rescued = True
+                # --- G-EX-2: THE OBSERVED EXIT BINDS THE JOURNEY ---------
+                # The third gate case, declared 2026-09-12 and built
+                # 2026-09-20. A track born past its entry gate whose EXIT
+                # was witnessed: origin comes from the heading tier, the
+                # softmax destination is refused for tail motion at the
+                # vanishing point, and the journey drops although the box
+                # side it left over WAS observed. CLAUDE.md: "the box
+                # sides ARE origin/destination gates" — the code covers
+                # 'full' and 'entry_only' and dropped this one.
+                # Movement follows the rescue_full convention verbatim:
+                # the cell's applied path label when one exists, else
+                # derive_movement. Measured population on the vl3 basis:
+                # cam4 0700 466 of 637 exit_only tracks had no event, 445
+                # of them exiting over N against a -360 NB_thru shortfall.
+                elif (GATE_EXIT_ONLY_BINDING and gate_tag == "exit_only"
+                        and gate_dest is not None
+                        and origin_leg_id is not None
+                        # NO U-TURNS FROM THIS BRANCH. classify_pair's
+                        # exit_only path returns at the first outward
+                        # crossing without ever running the u-turn
+                        # admission tests, so a heading-tier origin that
+                        # happens to equal the exit leg would mint exactly
+                        # the phantom u-turns the first-exit ruling killed.
+                        and gate_dest != origin_leg_id):
+                    g_dleg = next((lg for lg in self.legs
+                                   if lg["leg_id"] == gate_dest), None)
+                    cell_paths = [
+                        p for p in self._paths
+                        if p.get("origin_leg_id") == origin_leg_id
+                        and p.get("destination_leg_id") == gate_dest]
+                    mv = None
+                    if cell_paths:
+                        winp = max(cell_paths,
+                                   key=lambda p: p.get("supporting_count") or 0)
+                        mv = winp.get("movement_label")
+                    elif origin_leg and g_dleg:
+                        mv = derive_movement(origin_leg, g_dleg,
+                                             all_legs=self.legs)
+                    if mv and mv != "insufficient_data":
+                        destination_leg_id = gate_dest
+                        destination_leg = g_dleg
+                        movement = mv
+                        dest_result = {
+                            "destination_leg_id": gate_dest, "confidence": 1.0,
+                            "posterior": {gate_dest: 1.0}, "via": "gate_exit",
+                        }
+                        posterior_source = "rescue_exit"
+                        # BIN AT THE START FRAME, never the finalize frame.
+                        # The event is timestamped off vehicle["origin_frame"]
+                        # and falls back to frame_number, which lags the real
+                        # crossing by transit time plus up to the lost-track
+                        # buffer and mis-bins the vehicle into a later 15-min
+                        # period. These tracks have no witnessed entry, so
+                        # their birth IS the best crossing estimate we have,
+                        # and problem 7 is already a per-bin dispersion
+                        # problem that this rule must not deepen.
+                        if vehicle.get("origin_frame") is None:
+                            vehicle["origin_frame"] = vehicle.get("start_frame")
+                        self.n_exit_only_bound += 1
+                        rescued = True
             if rescued:
                 self.n_posterior_rescued += 1
             else:
                 self.n_insufficient_data += 1
+                self._fate(track_id, vehicle, "dropped", "derive_insufficient",
+                           gate_tag=gate_tag, gate_origin=gate_origin,
+                           gate_dest=gate_dest, classification=classification)
                 return
 
         # THE STRAIGHT-FRAGMENT RULE (operator ruling 2026-09-07): runs
@@ -2085,6 +2169,11 @@ class ProcessingPipeline:
             origin_leg, destination_leg_id, movement, polyline_dest,
             posterior_source, gate_dest, dest_result)
         if sfr == "drop":
+            self._fate(track_id, vehicle, "dropped", "straight_fragment_drop",
+                       gate_tag=gate_tag, gate_origin=gate_origin,
+                       gate_dest=gate_dest, classification=classification,
+                       destination_leg_id=destination_leg_id,
+                       movement=movement, posterior_source=posterior_source)
             return
         if sfr is not None:
             (destination_leg_id, destination_leg, movement,
@@ -2203,6 +2292,11 @@ class ProcessingPipeline:
         )
 
         self.vehicle_count += 1
+        self._fate(track_id, vehicle, "counted", "counted",
+                   gate_tag=gate_tag, gate_origin=gate_origin,
+                   gate_dest=gate_dest, classification=classification,
+                   destination_leg_id=destination_leg_id,
+                   movement=movement, posterior_source=posterior_source)
 
         led = getattr(self, "_origin_by_track", None)
         if led is not None and origin_leg_id is not None:
@@ -2225,6 +2319,91 @@ class ProcessingPipeline:
             self._finalize_vehicle(track_id, frame_number)
 
     # -- Database writes ---------------------------------------------------
+
+    def _fate(self, track_id: int, vehicle: dict, disposition: str, reason: str,
+              *, gate_tag=None, gate_origin=None, gate_dest=None,
+              classification=None, destination_leg_id=None, movement=None,
+              posterior_source=None):
+        """THE JOURNEY FATE LEDGER (config TRACK_FATE_LEDGER): one row per
+        finalized track saying what became of it and why.
+
+        DIAGNOSTICS ONLY. Nothing reads these rows back into a count, and no
+        caller may branch on this returning — it is called immediately before
+        each `return` in _finalize_vehicle_data and once on the counted path,
+        so a failure here must never cost a vehicle. Hence the bare except:
+        the standing rule is NEVER stop for single-track errors.
+        """
+        if not TRACK_FATE_LEDGER:
+            return
+        try:
+            traj = vehicle.get("trajectory") or []
+            fx = fy = lx = ly = None
+            if traj:
+                fx, fy = float(traj[0][0]), float(traj[0][1])
+                lx, ly = float(traj[-1][0]), float(traj[-1][1])
+            cls = classification or {}
+            # Three of the six drop sites fire BEFORE the chain asks the
+            # gates anything, so their rows would carry no tag — and the
+            # tag is the one field that makes an undercount diagnosable
+            # ("how many dropped tracks had an observed exit?"). Ask here.
+            # _gate_evidence is pure (its only write is the idempotent
+            # _entry_gates cache) and the evidence COUNTERS stay where they
+            # are, on the counting path, so this cannot move a number.
+            if (gate_tag is None and traj
+                    and getattr(self, "_evidence_mode", "off") != "off"
+                    and self._paths):
+                gate_origin, gate_dest, gate_tag = self._gate_evidence(vehicle)
+            conn = sqlite3.connect(self.db_path)
+            conn.execute("PRAGMA journal_mode=WAL")
+            try:
+                if not getattr(self, "_fates_table_ready", False):
+                    # Pass-2 replay copies project.db with shutil.copy2 and
+                    # never runs the migration pass, so an older DB arrives
+                    # here without the table. Create it once per pipeline.
+                    from backend.database import TRACK_FATES_SCHEMA
+                    conn.executescript(TRACK_FATES_SCHEMA)
+                    self._fates_table_ready = True
+                conn.execute(
+                    """INSERT INTO track_fates
+                       (video_id, camera_id, trim_id, vehicle_track_id,
+                        disposition, reason, start_frame, end_frame, n_points,
+                        first_x, first_y, last_x, last_y,
+                        gate_tag, gate_origin_leg_id, gate_dest_leg_id,
+                        origin_leg_id, destination_leg_id, movement,
+                        posterior_source, net_heading_change,
+                        path_straightness, path_distance, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        self.video_id,
+                        getattr(self, "_v3_camera_id", None),
+                        getattr(self, "_v3_trim_id", None),
+                        int(track_id),
+                        disposition,
+                        reason,
+                        vehicle.get("start_frame"),
+                        vehicle.get("last_seen_frame"),
+                        len(traj),
+                        fx, fy, lx, ly,
+                        gate_tag,
+                        gate_origin,
+                        gate_dest,
+                        vehicle.get("origin_leg_id"),
+                        destination_leg_id,
+                        movement,
+                        posterior_source,
+                        cls.get("net_heading_change"),
+                        cls.get("path_straightness"),
+                        cls.get("path_distance"),
+                        datetime.now().isoformat(timespec="seconds"),
+                    ),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception:                       # noqa: BLE001 — see docstring
+            logger.debug("fate ledger write failed for track %s", track_id,
+                         exc_info=True)
 
     def _write_vehicle_event(self, **kwargs):
         # When the v3 orchestrator drives this pipeline it pre-stashes the

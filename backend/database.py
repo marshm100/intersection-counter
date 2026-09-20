@@ -362,7 +362,64 @@ CREATE TABLE IF NOT EXISTS apply_adjudications (
     created_at      TEXT NOT NULL,
     FOREIGN KEY (camera_id) REFERENCES cameras(camera_id)
 );
+
 """
+
+# THE JOURNEY FATE LEDGER (2026-09-20, backend/config.py TRACK_FATE_LEDGER).
+# Kept OUT of the SCHEMA literal and appended below so the pipeline can
+# self-heal a database that predates it: pass-2 replay scratch DBs are
+# shutil.copy2'd straight off project.db and never run get_connection's
+# migration pass, so a fresh table has to be creatable from the write path.
+TRACK_FATES_SCHEMA = """
+-- One row per FINALIZED TRACK, counted or dropped, with the reason, the
+-- place and the time. vehicle_events explains every journey we counted or
+-- rejected; before this, the ~18% of tracks that produce no event at all
+-- collapsed into a single insufficient_data counter and nothing said which
+-- of the six silent-return sites in _finalize_vehicle_data ate them.
+-- Diagnostics only — nothing reads it back into a count.
+-- Append-only and deliberately WITHOUT FKs, the review_log reasoning: a
+-- re-bank deletes the vehicle_events rows a fate row would point at, and a
+-- fate row outliving its event is the whole point of the instrument.
+CREATE TABLE IF NOT EXISTS track_fates (
+    fate_id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_id            INTEGER,
+    camera_id           INTEGER,
+    trim_id             INTEGER,
+    vehicle_track_id    INTEGER NOT NULL,
+    disposition         TEXT NOT NULL CHECK (disposition IN ('counted', 'dropped')),
+    reason              TEXT NOT NULL,  -- counted | no_origin | empty_trajectory
+                                        -- | quality_filtered | classifier_insufficient
+                                        -- | derive_insufficient | straight_fragment_drop
+    -- time: the track's own frame span, never the finalize frame (which
+    -- lags the crossing by transit time + the lost-track buffer).
+    start_frame         INTEGER,
+    end_frame           INTEGER,
+    n_points            INTEGER,
+    -- place: the bottom-centre ends of the track, plus whatever the gates
+    -- witnessed. gate_tag is full | entry_only | exit_only | no_crossing
+    -- | NULL (evidence not computed for this window).
+    first_x             REAL,
+    first_y             REAL,
+    last_x              REAL,
+    last_y              REAL,
+    gate_tag            TEXT,
+    gate_origin_leg_id  INTEGER,
+    gate_dest_leg_id    INTEGER,
+    -- what the chain decided (NULL on the early drops, by definition)
+    origin_leg_id       INTEGER,
+    destination_leg_id  INTEGER,
+    movement            TEXT,
+    posterior_source    TEXT,
+    -- the classifier's shape factors, so a dropped population can be
+    -- characterised without re-reading the dump
+    net_heading_change  REAL,
+    path_straightness   REAL,
+    path_distance       REAL,
+    created_at          TEXT NOT NULL
+);
+"""
+
+SCHEMA = SCHEMA + TRACK_FATES_SCHEMA
 
 # Indexes are kept out of SCHEMA because they reference columns added by the
 # migration pass below; on legacy DBs the columns don't exist yet at the time
@@ -399,6 +456,10 @@ CREATE INDEX IF NOT EXISTS idx_events_uncertain ON vehicle_events(camera_id, rej
 CREATE INDEX IF NOT EXISTS idx_paths_camera  ON intersection_paths(camera_id);
 CREATE INDEX IF NOT EXISTS idx_flags_isect_status ON review_flags(intersection_id, status);
 CREATE INDEX IF NOT EXISTS idx_flags_event        ON review_flags(event_id);
+-- The fate ledger's two questions: "what dropped on this camera, and why"
+-- (the triage cross-tab) and "what happened to track N" (the reel lookup).
+CREATE INDEX IF NOT EXISTS idx_fates_cam_reason ON track_fates(camera_id, disposition, reason);
+CREATE INDEX IF NOT EXISTS idx_fates_track      ON track_fates(camera_id, vehicle_track_id);
 """
 
 

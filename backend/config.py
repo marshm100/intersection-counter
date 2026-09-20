@@ -394,6 +394,54 @@ STRAIGHT_FRAGMENT_MIN_POINTS = 10
 STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS = _os2.environ.get(
     "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS", "1") in ("1", "true", "on")
 
+# G-EX-2 — THE OBSERVED EXIT BINDS THE JOURNEY (declared 2026-09-12 after
+# the d18 verdict, built 2026-09-20). CLAUDE.md's hard constraint says the
+# box sides ARE origin/destination gates; the code honours that for a FULL
+# journey (GATE_FULL_SUPREMACY) and for an ENTRY-ONLY one (rescue_supports)
+# and drops the third case on the floor. A track born past its entry gate
+# whose EXIT crossing was observed is tagged exit_only, which means
+# gate_origin is None by construction (entry_gates.classify_pair), so the
+# rescue block's `gate_origin is not None` guard skips it: origin comes
+# from the heading tier, the softmax destination is refused for tail
+# motion at the vanishing point, and the whole journey drops as
+# insufficient_data.
+# Measured on the vl3 basis (scripts/research_exit_only.py, 2026-09-20):
+# cam4 study_0700 637 exit_only tracks, 466 (73%) with NO event, 445 of
+# them exiting over N; cam4 study_1600 949 / 511 / 458. Against NB_thru
+# shortfalls of -360 and ~-460 on those windows. On cam5 study_1100, whose
+# cells are already OVER, only 79 of 428 drop and 41 exit over N — the
+# population sits where the undercount is and is near-absent where
+# inflation would hurt. For contrast `full` tracks drop at 1%.
+# When ON, an exit_only track with a non-gate origin binds its destination
+# to the OBSERVED exit leg, movement by the cell's applied path label else
+# derive_movement — the rescue_full convention verbatim. Two guards:
+# never when origin == the exit leg (the exit_only path never runs the
+# u-turn admission tests, and a heading-tier origin that happens to equal
+# the exit leg would mint the phantom u-turns the first-exit ruling
+# killed), and the event bins off start_frame, never the finalize frame
+# (problem 7 is already a per-bin dispersion problem).
+# Inert by construction below EVIDENCE_ACTIVATION_COVERAGE: the gate
+# locals are only bound in evidence mode "on".
+# Default OFF until the G-EX-2 arm passes the G-DEF-1 letter.
+GATE_EXIT_ONLY_BINDING = _os2.environ.get(
+    "GATE_EXIT_ONLY_BINDING", "0") in ("1", "true", "on")
+
+# THE JOURNEY FATE LEDGER (2026-09-20, stage 1 of the triage plan). Every
+# track that ends without a counted event lands in ONE `insufficient_data`
+# counter today (the fleet log's `dropped=`), which is ~18% of all tracks
+# and the reason the UNDERCOUNTS are not diagnosable. vehicle_events
+# explains every journey we COUNTED or REJECTED; nothing explains the ones
+# that never produced a row. This writes one `track_fates` row per
+# finalized track — disposition, reason, place, time — at each of the six
+# silent-return sites in _finalize_vehicle_data plus the counted path. It
+# is the counting analogue of the tracker's miss log and is DIAGNOSTICS
+# ONLY: no vehicle_events column changes and no counter changes meaning,
+# so a run with this off is byte-identical in the counts.
+# Generalises scripts/cam5_sbinsuf_diag.py, which did exactly this for one
+# cell on one camera by monkeypatching the finalize method.
+TRACK_FATE_LEDGER = _os2.environ.get(
+    "TRACK_FATE_LEDGER", "1") in ("1", "true", "on")
+
 EMERGENCE_GUARD = _os2.environ.get("EMERGENCE_GUARD", "0") in ("1", "true", "on")
 CONCEALER_ORIGIN_INHERITANCE = _os2.environ.get(
     "CONCEALER_ORIGIN_INHERITANCE", "0") in ("1", "true", "on")

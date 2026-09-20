@@ -1745,3 +1745,241 @@ under on cam5 and over on cam2), which points at per-site geometry, channels and
 rather than one algorithm. The exceptions are problem 1, which has a named unbuilt fix
 (G-EX-2, the observed-exit binding), and problem 7, which is a distinct dispersion class.
 The tracker is not on this list; FM 51 is the healthiest site in the budget.
+
+## STAGE 0 — THE SHELF INVENTORY (2026-09-20, reading only, no compute)
+
+The question stage 0 asks: of the eight problems, which already have a diagnosed and
+validated fix sitting on the shelf, which are diagnosed with no fix, and which are
+undiagnosed. Sources read: backend/config.py end to end (every off-by-default counting
+mechanism), the counting/attribution plan docs (NOT the tracker ones), the diagnostic
+scripts, and the live per-camera knob values in the two project DBs.
+
+### TWO CORRECTIONS TO THE SHELF AS IT WAS DESCRIBED
+
+**(1) The origin-evidence gate and the partial-evidence posterior are NOT shelved. They
+are the default on every window that has coverage.** ORIGIN_EVIDENCE_GATE_ENABLED and
+ORIGIN_POSTERIOR_ENABLED both read False in config.py, and that reads like two shelved
+mechanisms. They are not the live path. EVIDENCE_ACTIVATION_ENABLED is default ON and
+EVIDENCE_ACTIVATION_COVERAGE is 0.20 since G-BAR-1, and two_pass.py:1619-1642 replays
+every window in PROBE mode, measures the window's own origin-evidenced coverage, and
+re-replays with evidence_mode="on" when it clears the bar. pipeline.py:214-222: an
+explicit evidence_mode="on" sets BOTH _evidence_mode and _posterior_on to True and
+never consults the two config flags. Coverage on the vl3 arm was 0.579-0.819 on all six
+corridor windows and FM 51 sits at 0.24-0.30, so the gate + posterior pair is live
+everywhere today. The two flags are only the non-activation path (env overrides for
+experiments). Anything built on the assumption that the posterior is off is built wrong.
+  Consequence for the 2026-07-15 stage-6 disposition ("blanket five-camera default FAILS;
+  cam2 80% evidenced wins, cam1/4/5 36-60% lose"): that failure was SOLVED, by the
+  activation precondition, and the solution was a per-window measurement taken from the
+  site's own data. It is the precedent that matters for the per-camera ruling below.
+
+**(2) The July shared-exit root cause does NOT map onto problem 2 as stated.** The claim
+was that cam2's SB-thru/EB-right shared-exit confusion (config.py L797-853, root-caused
+2026-07-02) IS problem 2. docs/plan_cam2_rights_2026-09-08.md measured the opposite in
+September: of 1,009 EB_right events in cam2's evening window the ground-anchored gate
+evidence witnesses 880 entering over the W gate and THREE over N. A SB->EB origin rewrite
+would show as N-entries booked EB. It is not happening at the scale of the +505. That doc
+carries five hypotheses, four ruled dead by the operator (misattributed origin, duplicates,
+shape mismatch, reversal-shaped tracks), one real and small (stationary/jitter exit, 15-18%
+of the excess - and the journey state machine that addresses it has since shipped
+default-ON). It also carries an unbiased 5-of-5 sample from the 08:30 bin in which every
+event is a genuine vehicle and four are clean counted right turns, i.e. evidence that the
+REFERENCE is undercounting that bin. Problem 2 is the most-investigated problem on the list
+and the least fixable by anything on the shelf.
+
+### THE EIGHT PROBLEMS, BUCKETED
+
+  #  problem                  bucket  what is actually on the shelf
+  1  cam4 NB through          (b+)    Diagnosed to the line and the fix DECLARED but never
+                                      built: G-EX-2, bind a journey whose exit crossing was
+                                      OBSERVED even when the destination softmax fails on
+                                      tail motion. Measured twice (2026-09-12 d18: 537 long
+                                      NB tracks with no event, 316 tagged "-->N exit_only"
+                                      at a median 26 px/frame, not creep; again in the vl3
+                                      verdict). The "box sides ARE the gates" ruling covers
+                                      the case and finalize has no branch for it. Highest
+                                      prize (+4.16) and the only problem whose fix is named,
+                                      specified and unwritten.
+  2  cam2 right turns         (b-)    Diagnosed hardest, fixed least. Four of five
+                                      hypotheses dead by operator ruling; the fifth shipped.
+                                      The July shared-exit fix does not apply (above). A
+                                      labelled sample points at the reference. The shelf has
+                                      nothing for this; the next honest step is more
+                                      labelled sample, not more mechanism.
+  3  cam5 NB left             (a)     TWO candidates. (i) SPEED_TIEBREAK, shelved, validated
+                                      net-positive on cam5 (NB 9.0->5.3, 2027 fires) and
+                                      cam2 (EB 33.2->28.8, SB 12.3->10.8), inert on cam1/cam3,
+                                      REGRESSED cam4 (NB 4.9->5.8). (ii) "Far-field
+                                      stub-claim discipline", named as a NEW mechanism in
+                                      plan_cam5_eb_bankhole_2026-07-27 with NB-left phantom
+                                      +646 as its target and a hard constraint attached (the
+                                      same stub population correctly carries NB-thru, so the
+                                      discriminator must be segment coverage past the
+                                      divergence, never entry evidence, never stub-ness).
+                                      Never built. The 2026-09-11 reel ruled 4 of 5 sampled
+                                      NB_lefts REAL and put the phantom rate near 1 in 5,
+                                      concentrated in the 116 no-crossing far-field tracks.
+  4  cam5 EB right            (b)     Diagnosed 2026-07-27 and CLASSIFIED: "EB-right journey
+                                      formation -207: 13/21 real-geometry tracks per window;
+                                      the near-field turn rarely survives tracking.
+                                      Capability class (birth/association at the turn)."
+                                      That is a TRACKER problem, written before position
+                                      recovery, weak-box births, the held-box guard and the
+                                      Kalman velocity existed. It has never been re-measured
+                                      on the current tracker. Bank-hole path-fill is retired
+                                      THREE times at this camera and must not be retried.
+  5  cam4 SB through          (c)     Undiagnosed as its own cell. Over by +112 on vl3 0700
+                                      (was +83 live), i.e. it got worse under the better
+                                      tracker, same direction as problems 1 and 6.
+  6  cam4 SB right            (a*)    Diagnosed and THE FIX ALREADY SHIPPED
+                                      (STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS, default ON since
+                                      2026-09-11: 115/125/329 -> 48/24/117 against Mio
+                                      22/16/39). What remains is a residual of the same class
+                                      that the better tracker RE-INFLATED (0700: d18b 31 ->
+                                      vl3 46). Ties to problem 1: both are cam4 far-field
+                                      N-entries, one dropped and one sent into the driveway.
+  7  cam3 NB through          (b)     Diagnosed as a distinct class (per-bin dispersion; the
+                                      window total is +1.2%, inside the bar). Constant-lag
+                                      explanation measured and closed. No fix anywhere.
+  8  the approach bar         (c)     Never targeted by any arm in the ledger. Determined by
+                                      ORIGIN assignment alone, so the stage-1 fate ledger's
+                                      origin fields attribute it directly.
+
+  bucket (a) shelved validated fix: 3, and 6 already harvested.
+  bucket (b) diagnosed, no fix:    1 (fix declared, unbuilt), 2, 4, 7.
+  bucket (c) undiagnosed:          5, 8.
+
+### THE SPEED TIEBREAK, READ IN THE CODE RATHER THAN THE COMMENT
+
+Three facts that change how the open ruling should be decided:
+
+1. **It is inert today for a reason that is one command away.** expected_speed is NULL on
+   every path of every camera in both project DBs (corridor 33 paths, FM 51 9 paths).
+   build_bank_gtfree.py:673-686 already computes it, blind, from each path's own claimed
+   supporting tracks - no ground truth, no reference. scripts/backfill_expected_speed.py
+   exists to write it onto existing banks. So "inert until build_bank supplies
+   expected_speed" is no longer a blocker; it is a backfill.
+2. **The self-limiting guard the ruling would need ALREADY EXISTS in the code.**
+   trajectory_classifier.py:881-882 skips any rival whose signature differs from the top
+   path's by less than SPEED_TIEBREAK_MIN_SEP (1.5 px/step) - i.e. the mechanism already
+   refuses to fire where the two collinear paths' speeds do not separate, which is exactly
+   the stated reason cam4 regressed. cam4 nonetheless fired 1,487 times at that constant, so
+   1.5 px/step was too loose there, not absent. Whether a single GLOBAL constant fitted from
+   the banks' own measured separations makes cam4 inert while cam2 and cam5 keep firing is
+   unmeasured, cheap, and needs no per-camera knob at all.
+3. **The per-camera surface is only cam4.** The tiebreak is mdh-only, so cam3 (pinned
+   dtw_mean) can never fire it; cam1 has no qualifying cluster. cam2 and cam5 are the
+   validated positives. The entire per-camera argument rests on one camera.
+
+### WHAT THE PRODUCTION BASIS ACTUALLY DOES ABOUT PER-CAMERA CONFIGURATION
+
+Measured, not recalled - cameras table, project 97a7849a:
+
+  cam1  pass1_backend botsort+reid
+  cam2  pass1_backend botsort, pre_track_nms_iou 0.85, tracker_match_threshold 0.9
+  cam3  pass1_backend botsort, bbox_buffer_scale 1.3, track_quality_filter 1,
+        new_track_thresh 0.18, cost_metric dtw_mean
+  cam4  (none - pure defaults)
+  cam5  (none - pure defaults)
+
+Ten per-camera knob columns exist; seven are exposed in the operator API
+(routers/intersections.py:229-237, 519). calib_speed_tiebreak exists in the schema and is
+read by pipeline.py:1697, but is NOT exposed in the API or the UI - wiring it is a build item.
+
+FM 51, the blank site, has every knob NULL on all three cameras. That is the fact that
+decides the ruling's stakes: a per-camera knob contributes NOTHING to the deliverable
+unless a brand-new operator can set it correctly from the raw video and their own drawing,
+with no reference to compare against. For the speed tiebreak they cannot - the thing that
+decides it (whether two collinear paths' speed signatures separate) is a number in the
+bank, not something visible on moving video.
+
+Which is why a third option exists and is the one the project has already used once: make
+the decision FROM THE SITE'S OWN DATA at run time, as EVIDENCE_ACTIVATION_COVERAGE does,
+instead of asking the operator for it. Same shape, same precedent, one global default, no
+knob.
+
+## G-EX-2 ARM gx1 (DECLARED 2026-09-20, BEFORE THE FLEET SCORING): the observed exit binds
+
+Stage 0 found this is the only problem on the list whose fix is named, specified and simply
+unwritten. Built today, with the journey fate ledger (stage 1) in the same pass because the
+six silent drops live in the same function.
+
+THE RULE. `_finalize_vehicle_data`'s rescue block covered `full` (gate supremacy) and
+`entry_only` (rescue_supports) and was guarded on `gate_origin is not None`. `exit_only`
+means gate_origin is None BY CONSTRUCTION (entry_gates.classify_pair returns
+`None, dest, ..., "exit_only"`), so a track born past its entry gate whose EXIT crossing was
+witnessed could not reach the block at all: origin by heading, softmax destination refused
+for tail motion at the vanishing point, whole journey dropped. When
+`GATE_EXIT_ONLY_BINDING=1` such a track binds its destination to the OBSERVED exit leg,
+movement by the cell's applied path label else derive_movement - the rescue_full convention
+verbatim. Two guards: never when origin == the exit leg (classify_pair's exit_only path
+never runs the u-turn admission tests, so a heading-tier origin equal to the exit leg would
+mint the phantom u-turns the first-exit ruling killed), and the event bins off start_frame,
+never the finalize frame (problem 7 is already a per-bin dispersion problem).
+Inert below EVIDENCE_ACTIVATION_COVERAGE by construction - the gate locals are only bound in
+evidence mode "on".
+
+NOTED HONESTLY, a guard that does NOT exist: the straight-fragment rule cannot police these
+events. It requires `posterior_source is None` and `destination_leg_id != gate_dest`, and a
+bound journey fails both - evidence outranks the shape rule, exactly as it does for
+gate_full. So nothing downstream checks turn inflation from this branch; the watch cells
+below are the only check. (Measured on the smoke window: 5 of 438 bound events were turns.)
+
+THE POPULATION, re-censused on the vl3 basis before building (the d18-era 537/316 came off
+the `pr` dump, before the held-box guard and the Kalman velocity). classify_pair over the
+dump, cross-referenced against the vl3 arm DBs' counted track ids:
+
+  window                tracks  exit_only  of those NO event  dropped, exiting over N
+  cam4 vl3_study_0700     5451        637        466 (73%)         445
+  cam4 vl3_study_1600     8747        949        511 (54%)         458
+  cam5 vl3_study_1100     4735        428         79 (18%)          41
+  (same windows, for contrast: `full` drops at 1% / 1% / 6%, `no_crossing` at 92% / 84% / 71%)
+
+cam4 0700's NB_thru shortfall is -360 with 445 dropped N-exits sitting there; cam4 1600's is
+about -460 with 458. The sizes match. On cam5, whose cells are already OVER, there are only
+79 candidates - the population sits where the undercount is and is near-absent where
+inflation would hurt. FM 51 was deliberately NOT censused; it is held out and scored once,
+after the corridor.
+
+SMOKE WINDOW, disclosed because it was run before the fleet (cam4 vl3_study_0700, rule on):
+  71.1 -> 86.7 movement, 41.7 -> 70.8 approach; events 4488 -> 4971 (+483 against a censused
+  466); NB_thru 2353 -> 2786 against Miovision 2713 (was -360, now +73, inside the 5% bar);
+  SB_thru unchanged at 2069; SB_right 46 -> 49. Of 438 rescue_exit events, 433 are throughs
+  to leg 33 and 5 are turns. The fate ledger's remaining drops on that window: no_crossing
+  362, no tag 49, full 26, entry_only 25, exit_only 18 (from 466).
+
+THE ARM. Two legs, all 12 windows, same harness, same sitting - gx1 is a PASS-2 rule, so
+unlike the vl3 tracker arm it moves cams 1-3 too and the control must be re-derived here
+rather than carried over. cam4/cam5 on the vl3 dumps, cams 1-3 on production dumps.
+  ctrl  FLEET_STEM=gx0, rule off   (must reproduce vl3's 79.38 / cams 1-3's standings)
+  arm   FLEET_STEM=gx1, GATE_EXIT_ONLY_BINDING=1
+  FM 51 held out, scored last: scripts/fm51_arm.py on vl3_l1_study_0700 / _1600, both legs.
+
+PASS =
+  1. the G-DEF-1 letter against the gx0 control: fleet mean rises, no camera's mean falls
+     more than 1.0, no window falls more than 3.0; AND
+  2. THE HONEST TEST, declared now: the fleet must clear d18b's 80.36. The vl3 arm reached
+     79.38 and failed this by 0.97. The whole purpose of G-EX-2 is to convert eight days of
+     tracker work into counted vehicles, so clearing the number position recovery reached
+     ALONE is the test that means anything. A result between 79.38 and 80.36 is a MISS that
+     still says the mechanism is real and under-firing, and iteration 2 is the exit-only
+     SUPREMACY variant (bind an observed exit that DISAGREES with the softmax), not a
+     constant tweak.
+
+WATCH CELLS, pre-declared:
+  - cam4 NB_thru must rise toward Miovision 2713 / 1546 / 2439. Overshoot is the risk now,
+    not shortfall: the smoke window already crossed Mio by +73.
+  - cam4 SB_thru and SB_right are already OVER (+112, +24) and must not inflate.
+  - cam5 NB_left is already over (+156 at 1100) with only 41 northbound candidates; more
+    than a few events on that cell means the branch fires wider than the census predicts.
+  - cam3 0600 NB_thru per-bin dispersion (problem 7) must not worsen; its window total is
+    +1.2% and inside the bar today.
+  - The approach bar (problem 8, never targeted by any arm) is REPORTED, never decisive -
+    but the smoke window moved it 41.7 -> 70.8 and that wants watching.
+
+THE FATE LEDGER (stage 1, shipped with this, TRACK_FATE_LEDGER default ON). One `track_fates`
+row per finalized track - disposition, reason, place, time - at each of the six silent
+returns plus the counted path. Two of those six were counted by NOTHING before today (an
+empty trajectory, and a no-origin track shorter than ORIGIN_ASSIGN_MIN_FRAMES); they now have
+counters too. Diagnostics only: a run with it off is identical in the counts, held by a test.
+Generalises scripts/cam5_sbinsuf_diag.py from one cell on one camera to every track.

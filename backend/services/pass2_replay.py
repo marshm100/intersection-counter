@@ -292,5 +292,10 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         "posterior_rescued": int(getattr(pipe, "n_posterior_rescued", 0)),
         "origin_ambiguous": int(getattr(pipe, "n_origin_ambiguous", 0)),
         "posterior_vetoed": int(getattr(pipe, "n_posterior_vetoed", 0)),
+        # G-EX-2 (2026-09-20): journeys bound to their OBSERVED exit, plus
+        # the two silent drops the fate ledger found counted by nothing.
+        "exit_only_bound": int(getattr(pipe, "n_exit_only_bound", 0)),
+        "empty_trajectory": int(getattr(pipe, "n_empty_trajectory", 0)),
+        "no_origin_short": int(getattr(pipe, "n_no_origin_short", 0)),
         "out_db": str(out_db),
     }
