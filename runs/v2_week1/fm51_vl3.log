@@ -1,0 +1,34 @@
+loaded 9 operator channels from the channels table
+cam2 GT-free bank — 07:00:00+120min, 1641 usable tracks, agreement rate 17%, bearing-rebinned 1
+cell                          n  share straight bearing_res  status
+L1->L2 through              913     --       --          --  CHANNEL_DIRECT (drawn curve, support 913)
+L1->L3 u_turn                 1     --       --          --  UTURN_HELDOUT (1/1 reverse, frac 1.00)
+L1->L4 right                  2     --       --          --  CHANNEL_DIRECT (drawn curve, support 2)
+L2->L1 through              645     --       --          --  CHANNEL_DIRECT (drawn curve, support 645)
+L2->L3 left                  21     --       --          --  CHANNEL_DIRECT (drawn curve, support 21)
+L2->L4 u_turn                 6     --       --          --  UTURN_HELDOUT (2/6 reverse, frac 0.33)
+L3->L1 left                   0     --       --          --  CHANNEL_DIRECT (drawn curve, support 0)
+L3->L2 right                 47     --       --          --  CHANNEL_DIRECT (drawn curve, support 47)
+L3->L4 through                4     --       --          --  CHANNEL_DIRECT (drawn curve, support 4)
+!! MISSING MOVEMENTS: 1 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L1->L3 right
+
+wrote data\projects\0acb12c0\_replay_scratch\blank_20260911\arm\twopass_bank_cam2_vl3_l1_study_0700.json (7 paths) + data\projects\0acb12c0\_replay_scratch\blank_20260911\arm\twopass_bank_cam2_vl3_l1_study_0700_qa.json
+FM51 vl3 vl3_l1_study_0700: movement 85.7  approach 73.9  cov 0.554 ON  events=1644 dropped=195  (18s)
+loaded 9 operator channels from the channels table
+cam2 GT-free bank — 16:00:00+120min, 2022 usable tracks, agreement rate 14%, bearing-rebinned 1
+cell                          n  share straight bearing_res  status
+L1->L2 through              870     --       --          --  CHANNEL_DIRECT (drawn curve, support 870)
+L1->L3 u_turn                 1     --       --          --  UTURN_HELDOUT (1/1 reverse, frac 1.00)
+L1->L4 right                  0     --       --          --  CHANNEL_DIRECT (drawn curve, support 0)
+L2->L1 through             1092     --       --          --  CHANNEL_DIRECT (drawn curve, support 1092)
+L2->L3 left                  31     --       --          --  CHANNEL_DIRECT (drawn curve, support 31)
+L2->L4 u_turn                 9     --       --          --  UTURN_HELDOUT (0/9 reverse, frac 0.00)
+L3->L1 left                   0     --       --          --  CHANNEL_DIRECT (drawn curve, support 0)
+L3->L2 right                 14     --       --          --  CHANNEL_DIRECT (drawn curve, support 14)
+L3->L4 through                2     --       --          --  CHANNEL_DIRECT (drawn curve, support 2)
+!! MISSING MOVEMENTS: 1 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L1->L3 right
+
+wrote data\projects\0acb12c0\_replay_scratch\blank_20260911\arm\twopass_bank_cam2_vl3_l1_study_1600.json (7 paths) + data\projects\0acb12c0\_replay_scratch\blank_20260911\arm\twopass_bank_cam2_vl3_l1_study_1600_qa.json
+FM51 vl3 vl3_l1_study_1600: movement 89.8  approach 79.2  cov 0.634 ON  events=2031 dropped=198  (22s)

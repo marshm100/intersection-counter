@@ -1611,6 +1611,66 @@ fleet number imply the shortfall is solved.
 Logs: runs/v2_week1/arm_vl3fleet_*.log (the re-tracks), fleet_vl3.log, fm51_vl3.log; scores
 runs/v2_week1/score_vl3_*.json.
 
+## ARM vl3-fleet VERDICT (recorded 2026-09-20): the tracker is worth a lot on the BLANK SITE
+## and is being converted into LOSSES on cam4 by a counting rule that was never built
+
+  window        live    d18b     vl3   vs live   vs d18b     cov
+  cam4 0700     73.3    80.9    71.1     -2.2      -9.8     0.789
+  cam4 1100     78.7    80.9    78.7     +0.0      -2.2     0.819
+  cam4 1600     70.2    71.7    69.8     -0.4      -1.9     0.685
+  cam5 0700     79.0    79.8    78.0     -1.0      -1.8     0.579
+  cam5 1100     73.3    79.0    83.0     +9.7      +4.0     0.640
+  cam5 1600     71.8    82.7    82.7    +10.9      +0.0     0.677
+  camera means: cam4 74.07 -> 73.20 (-0.87);  cam5 74.70 -> 81.23 (+6.53)
+  six-window mean 74.38 -> 77.22 (+2.83)   [d18b was 79.17, +4.78]
+  FLEET of 12 (cams 1-3 unchanged at 85.1 95.3 75.2 76.7 68.5 88.5, mean 81.55):
+      77.97 -> 79.38 (+1.42)               [d18b was 80.36, +2.39]
+  LETTER vs 77.97: fleet rises PASS; no camera -1.0 (cam4 -0.87, margin 0.13) PASS;
+      no window -3.0 (worst cam4 0700 -2.2) PASS.  -> the arm PASSES the ship letter.
+  THE DECLARED HONEST TEST (must clear d18b's 80.36): 79.38, FAIL by 0.97. The six
+      components added after position recovery are NEGATIVE on the corridor.
+
+  FM 51, THE HELD-OUT BLANK SITE (the prime directive's deliverable):
+      window      b7      d18b     vl3        approach: b7    d18b    vl3
+      0700       81.6     80.4    85.7                  54.2    62.5   73.9
+      1600       80.0     80.4    89.8                  50.0    66.7   79.2
+  The best FM 51 numbers on record, by a wide margin: +5.3 / +9.4 movement and
+  +11.4 / +12.5 approach over d18b, on a site whose answers were never used to tune
+  anything. Logs runs/v2_week1/fm51_vl3.log.
+
+  WHY THE CORRIDOR AND THE BLANK SITE DISAGREE — measured, not guessed. The movement cells
+  on the two extreme windows (Miovision | live | d18b | vl3, error against Miovision):
+    cam4 0700  NB_thru   2713 | 2462 | 2412 | 2353     -251  ->  -301  ->  -360
+               SB_thru   1957 | 2040 | 2033 | 2069      +83  ->   +76  ->  +112
+               SB_right    22 |   46 |   31 |   46      +24  ->    +9  ->   +24
+    cam5 1100  SB_thru   1496 | 1654 | 1550 | 1520     +158  ->   +54  ->   +24
+               NB_left    185 |  352 |  312 |  341     +167  ->  +127  ->  +156
+  cam5's gain is the SB_thru OVERCOUNT collapsing toward Miovision as fragments become one
+  track. cam4's loss is the NB_thru SHORTFALL DEEPENING — the better the tracking, the FEWER
+  northbound throughs get counted. That is not a tracking failure. It is the mechanism this
+  ledger predicted on 2026-09-12 and again in the d18b verdict: pass 2 refuses a long track
+  whose exit crossing WAS observed but whose destination softmax fails on tail motion
+  (G-EX-2, the observed-exit binding, DECLARED AND NEVER BUILT), while the fragments that
+  the straight-fragment rule used to complete into throughs no longer exist. The counting
+  default was tuned on a fragmenting tracker; on cam4's northbound approach the two errors
+  were cancelling, and a better tracker breaks the cancellation. CLAUDE.md already carries
+  this for cam4 1600 (the ~366 duplicate NB throughs against an equal far-field deficit).
+
+  DECISION (operator's, 2026-09-20, after "is this productive"): the answer is YES on the
+  deliverable and NO on the corridor, for a reason that is now named and located.
+  - The tracker is NOT the bottleneck any more. Do not ship it as the production basis yet:
+    shipping now banks cam5's +6.5 and eats cam4's -0.87 while the counting rule that would
+    convert the rest is missing.
+  - The next work is G-EX-2 in PASS 2 (bind a journey whose exit crossing was observed even
+    when the destination softmax fails on tail motion), then re-run THIS ARM. That is the
+    change that turns longer tracks into counted northbound throughs.
+  - STOP tracker engineering (twins, trailers, the far-field floor) until that is done. The
+    twin reel (https://claude.ai/artifact/MwSBH41y4kPEe3bqQGu2NF) stays unruled.
+  - Reels: the method stands but the width was wrong. Film only when a ruling changes what
+    gets built next, 2 clips not 6 when the purpose is checking the instrument. The
+    yardstick's own error rate is now measured at about a third (3 of 6 on the theft reel,
+    2 of 6 on the break reel) and can be carried as a discount instead of re-measured.
+
 Phase C instrument drafted (scripts/research_trailers.py, the plan's attached-pair test). First
 run FM51 0700: 44 nose-to-tail pairs >= 1 s, 24 steady, 24 steady through a speed change - the
 speed change is in PIXELS and perspective alone gives 2.75x on FM51's approach, so the test does
