@@ -2057,3 +2057,78 @@ Generalises scripts/cam5_sbinsuf_diag.py from one cell on one camera to every tr
   NOTE for whoever runs iteration 2: cam4's northbound now slightly OVERSHOOTS (0700 +73,
   1100 +29 against Miovision) where it was -360 and -190. The duplicate guard will take some
   of that back, which is the right direction. Watch that it does not reopen the shortfall.
+
+## ARM gx2 (DECLARED 2026-09-20, BEFORE THE FLEET SCORING): the bound-chain conservation guard
+
+Iteration 2 of the G-EX cycle. gx1's failure has one shape: G-EX-2 only ever ADDS, so where
+the tracker leaves a real deficit the additions are real vehicles and where the count is
+already complete they are surplus. The surplus is a vehicle tracked in TWO HALVES - a head
+with a witnessed entry and no exit, already counted, and a tail with a witnessed exit and no
+entry, which G-EX-2 now counts as well.
+
+THE GUARD. A bound journey whose fragment CHAIN already holds another counted event is
+rejected (write-then-reject, rejected=1, reviewable). It runs as a pass-2 post-pass
+immediately after the fracture rule - so that rule stays byte-identical and this one cleans
+only the residue - and before the turn merge, the same reason the two existing dedups are.
+
+IT ADDS NO CONSTANTS, which is the point. track_chains.chain_tracks already encodes exactly
+this pairing and has since 2026-07-08: its tag gate is A_OK (entry_only, no_crossing) ->
+B_OK (exit_only, no_crossing), i.e. a head that never exited followed by a tail that never
+entered; its moving-break window is STITCH_MOVE_GAP_S (-0.48, 3.0) s, commented "occlusion
+break mid-box", within STITCH_MOVE_DIST 70 px; a box-full journey may never chain (the
+dedup-ceiling lesson); and CHAIN_DIR_TOL_DEG vetoes a direction disagreement while waiving a
+dwelling endpoint (the queue-dwell law). The real pairs were measured BEFORE that module was
+read - gap p10 -0.20 / p50 0.85 / p90 4.10 s on cam1 - and the July window and the September
+measurement agree independently. 70 px is 2.56 box lengths on cam1 and 3.63 on cam4, so it is
+not a tight bound either.
+
+ONE CHANGE TO HOW THE CHAIN RULE IS FED. build_chain_map_ev tags with centre-point classify();
+the counting default has used the JOURNEY STATE MACHINE since 2026-09-10 and the two disagree
+- a track the pipeline calls entry_only can read 'full' under centre points, which blocks the
+chain that should have formed. The guard therefore builds the bottom corners from the dump
+and calls classify_pair, exactly as pipeline._gate_evidence does, falling back to classify
+when the machine is off. Measured: 42 -> 66 rejections on cam1 study_0700, cam4 unchanged at 0.
+
+SCOPE, and why this cannot cost a legacy vehicle: the pass may only reject rows whose
+posterior_source is 'rescue_exit'. Its worst case is reverting part of what G-EX-2 added.
+VERIFIED on cam1 study_0700 before the arm: 66 newly rejected, all 66 rescue_exit, 0 events
+un-rejected, and with the guard OFF the window reproduces gx1 exactly (77.0, 5131 events) -
+so the _pinned_gates extraction left the shipped fracture path byte-identical.
+
+DRY RUN over the gx1 arm DBs, read-only, before building (frozen chain rule + state-machine
+tags):
+  window                 bound events   guard rejects
+  cam1 study_0700             219           66 (30%)
+  cam3 study_0600             347          158 (46%)
+  cam2 study_1600              43            2 ( 5%)
+  cam4 vl3_study_1100         219            0 ( 0%)
+It bites on the two cameras that LOST and is silent on the two that gained. Runtime on cam3,
+the largest window: 15 s.
+
+SMOKE WINDOW, disclosed because it was run before the fleet (cam1 study_0700, both flags on):
+  gx1 77.0 -> gx2 83.8 movement (control 85.1, so -1.3, INSIDE the -3.0 window bar);
+  approach 71.0 -> 83.9. 66 events rejected, matching the dry run exactly.
+
+THE ARM: FLEET_STEM=gx2, GATE_EXIT_ONLY_BINDING=1 BOUND_CHAIN_CONSERVE=1, all 12 windows,
+cam4/cam5 on the vl3 dumps. No new control leg - gx0 (79.38) ran this session on this tree and
+reproduced the standing basis window for window; gx1 (82.69) is the second reference. FM 51
+held out, scored last.
+
+PASS = the G-DEF-1 letter against gx0 (fleet rises; no camera mean -1.0; no window -3.0) AND
+the fleet clears d18b's 80.36. Reported against gx1 as well, to price what the guard costs on
+the cameras G-EX-2 helped.
+
+PRE-DECLARED EXPECTATIONS, from the dry run, so the arm can falsify them:
+  - cam4 loses NOTHING (0 of 219 on the sampled window). If cam4 drops, the guard fires wider
+    than measured and the arm is wrong.
+  - cam5 is untouched (almost no bound events at all).
+  - cam2 keeps its +1.90 (2 of 43).
+  - cam1 and cam3 recover most of their loss.
+STATED HONESTLY BEFORE SCORING: cam3's surplus is ~+207 against 158 rejections, so cam3 may
+still sit under its control. I will not widen a constant to buy a pass - that is tuning to the
+answer. If gx2 misses, the two-iteration budget CLOSES the cycle and the deliverable is the
+verdict plus two named successors: the residual complementary pairs the greedy chain refuses
+(95 by a direct pair test vs 66 the chain links on cam1 - a chain-assignment question, not a
+threshold one), and MERGE INSTEAD OF DROP (rewrite the head half's destination to the tail's
+witnessed exit, making one complete gate-evidenced journey; worth 3 of 68 today, but it is the
+variant that honours "the box sides ARE the gates" rather than discarding the witnessed side).

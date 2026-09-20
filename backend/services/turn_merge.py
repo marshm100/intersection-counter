@@ -206,6 +206,133 @@ def twin_track_dedup(db: str | Path, camera_id: int, rows, fps) -> dict:
             "twin_rejected": len(drop)}
 
 
+def bound_chain_recs(rows, fps, gates):
+    """Per-track chain records for the tracks in `rows`, tagged the way the
+    COUNTING DEFAULT tags them.
+
+    track_chains.build_chain_map_ev tags with centre-point classify(); the
+    counting default has used the JOURNEY STATE MACHINE (both bottom corners,
+    exit terminal) since 2026-09-10 and the two disagree — a track the
+    pipeline calls entry_only can read 'full' under centre points, which
+    blocks the chain that should have formed. Measured on the gx1 arm DBs:
+    feeding the state-machine tags took the guard from 42 to 66 rejections on
+    cam1 study_0700 while cam4 stayed at 0. So mirror pipeline._gate_evidence:
+    bottom corners (cx +- w/2, cy + h/2) through classify_pair when the
+    machine is on, centre points through classify when it is off.
+    """
+    import numpy as np
+
+    from backend.config import JOURNEY_STATE_MACHINE
+    from backend.services.entry_gates import classify, classify_pair
+    from backend.services.track_chains import _end_speed, endpoint_bearings
+
+    arr = np.asarray(rows, dtype=float)
+    arr = arr[np.lexsort((arr[:, 1], arr[:, 0]))]
+    uniq, starts = np.unique(arr[:, 0], return_index=True)
+    ends = np.append(starts[1:], len(arr))
+    recs = []
+    for tid, a, b in zip(uniq, starts, ends):
+        sel = arr[a:b]
+        if len(sel) < 5:
+            continue                       # the chain map's own floor
+        pts = [(float(r[1]), float(r[2]), float(r[3])) for r in sel]
+        if JOURNEY_STATE_MACHINE:
+            left = [(float(r[1]), float(r[2]) - float(r[4]) / 2.0,
+                     float(r[3]) + float(r[5]) / 2.0) for r in sel]
+            right = [(float(r[1]), float(r[2]) + float(r[4]) / 2.0,
+                      float(r[3]) + float(r[5]) / 2.0) for r in sel]
+            tag = classify_pair(left, right, gates, fps)[6]
+        else:
+            tag = classify(pts, gates, fps)[6]
+        bs, be = endpoint_bearings(pts, fps)
+        recs.append({"tid": int(tid), "birth": pts[0], "death": pts[-1],
+                     "tag": tag, "v_end": _end_speed(pts) * fps,
+                     "b_start": bs, "b_end": be})
+    return recs
+
+
+def bound_chain_pairs(evs, rows, fps, gates):
+    """THE BOUND-CHAIN CONSERVATION GUARD's selection, side-effect free.
+
+    `evs`: [(event_id, track_id, posterior_source)] of the unrejected events
+    in play. Returns (chain_map, drop) where drop is the set of event ids to
+    reject: the G-EX-2 BOUND events (posterior_source 'rescue_exit') whose
+    fragment chain ALREADY holds another counted event.
+
+    The chaining itself is track_chains.chain_tracks, UNMODIFIED and with
+    every constant untouched. It already encodes exactly this pairing — its
+    tag gate is A_OK = (entry_only, no_crossing) -> B_OK = (exit_only,
+    no_crossing), i.e. a head that never exited followed by a tail that never
+    entered, which is one vehicle in two pieces; its moving-break window is
+    STITCH_MOVE_GAP_S = (-0.48, 3.0) s, commented "occlusion break mid-box",
+    within STITCH_MOVE_DIST = 70 px; and a box-full journey may never chain
+    (the dedup-ceiling lesson). Measured independently before that module was
+    read: cam1's real pairs sit at gap p10 -0.20 / p50 0.85 s. The July
+    constants and the September measurement agree, so this guard adds none.
+    """
+    from backend.services.track_chains import chain_tracks
+
+    bound = {int(t): int(e) for e, t, s in evs if s == "rescue_exit"}
+    counted = {int(t): int(e) for e, t, _s in evs}
+    if not bound:
+        return {}, set()
+    chain_map: dict[int, int] = {}
+    members: dict[int, list] = {}
+    for i, chain in enumerate(chain_tracks(bound_chain_recs(rows, fps, gates),
+                                           fps)):
+        for r in chain:
+            chain_map[r["tid"]] = i
+            if r["tid"] in counted:
+                members.setdefault(i, []).append(r["tid"])
+    drop = set()
+    for tid, eid in bound.items():
+        cid = chain_map.get(tid)
+        if cid is None:
+            continue
+        if any(other != tid for other in members.get(cid, ())):
+            drop.add(eid)
+    return chain_map, drop
+
+
+def bound_chain_dedup(db: str | Path, camera_id: int, rows, fps,
+                      gates) -> dict:
+    """THE BOUND-CHAIN CONSERVATION GUARD (config.BOUND_CHAIN_CONSERVE):
+    one vehicle is one count, applied to the journeys G-EX-2 binds.
+
+    G-EX-2 counts a track whose EXIT was observed. On a fragmenting camera
+    that track is often the tail half of a vehicle whose head half — witnessed
+    entering, never exiting — was already counted, so the vehicle lands twice.
+    Measured on arm gx1: of cam1 study_0700's 219 bound events, 95 have an
+    already-counted entry_only track dying within 1.5 box lengths of their
+    birth; on cam4 study_1100, 4 of 219. cams 1-3 run BoT-SORT recipes with no
+    recovery tracker and fragment; cam4/cam5 hold one track per vehicle.
+
+    SCOPE, and the reason this cannot cost a legacy vehicle: the pass may only
+    ever reject rows whose posterior_source is 'rescue_exit'. Its worst case
+    is reverting part of what G-EX-2 added. Write-then-reject (rejected=1),
+    so every drop stays reviewable in the worklist.
+    """
+    db = str(db)
+    conn = sqlite3.connect(db)
+    try:
+        evs = conn.execute(
+            "SELECT event_id, vehicle_track_id, COALESCE(posterior_source, '') "
+            "FROM vehicle_events "
+            "WHERE camera_id = ? AND COALESCE(rejected, 0) = 0 "
+            "AND vehicle_track_id IS NOT NULL AND vehicle_track_id >= 0",
+            (camera_id,)).fetchall()
+        n_bound = sum(1 for _e, _t, s in evs if s == "rescue_exit")
+        _cm, drop = bound_chain_pairs(evs, rows, fps, gates)
+        with conn:
+            conn.executemany(
+                "UPDATE vehicle_events SET rejected = 1 WHERE event_id = ?",
+                [(int(e),) for e in drop])
+    finally:
+        conn.close()
+    return {"camera_id": camera_id, "bound_events": n_bound,
+            "bound_rejected": len(drop)}
+
+
 def fracture_pairs(evs, rows, fps, gates):
     """The FRACTURE RULE's pairing, side-effect free. evs: [(event_id,
     track_id)] of the events in play. Returns (recs, pairs) with pairs

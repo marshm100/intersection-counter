@@ -564,28 +564,51 @@ def _tracks_from_rows(rows: np.ndarray) -> dict:
     return tracks
 
 
-def fracture_pass(project_id: str, camera_id: int, rows: np.ndarray,
-                  fps: float, out_db: str | Path) -> dict:
-    """THE FRACTURE RULE over a dump: pinned gates from the project
-    geometry (the conserve_pass construction), then
-    turn_merge.fracture_track_dedup."""
+def _pinned_gates(project_id: str, camera_id: int, rows: np.ndarray):
+    """The pinned gates a dump post-pass classifies against (the conserve_pass
+    construction): operator leg mouths + headings + drawn gate lines, with the
+    axes estimated from the window's own tracks. Returns (gates, skip) — skip
+    is a reason dict when the geometry cannot produce gates, else None."""
     from backend.database import (leg_geometry_for_camera,
                                   list_paths_for_camera)
     from backend.services.entry_gates import build_gates
-    from backend.services.turn_merge import fracture_track_dedup
     geom = leg_geometry_for_camera(project_id, camera_id)
     mouths = {lid: g["mouth"] for lid, g in geom.items()}
     heads = {lid: g["heading"] for lid, g in geom.items()}
     drawn = {lid: g["gate"] for lid, g in geom.items() if g["gate"]}
     if not mouths:
-        return {"skipped": "no leg mouths"}
+        return None, {"skipped": "no leg mouths"}
     tracks = _tracks_from_rows(rows)
     gates = build_gates(mouths, list_paths_for_camera(project_id, camera_id),
                         heads, leg_axes=gate_axes_for(mouths, tracks.values()),
                         leg_gates=drawn or None)
     if not gates:
-        return {"skipped": "no gates"}
+        return None, {"skipped": "no gates"}
+    return gates, None
+
+
+def fracture_pass(project_id: str, camera_id: int, rows: np.ndarray,
+                  fps: float, out_db: str | Path) -> dict:
+    """THE FRACTURE RULE over a dump: pinned gates from the project
+    geometry (the conserve_pass construction), then
+    turn_merge.fracture_track_dedup."""
+    from backend.services.turn_merge import fracture_track_dedup
+    gates, skip = _pinned_gates(project_id, camera_id, rows)
+    if skip is not None:
+        return skip
     return fracture_track_dedup(out_db, camera_id, rows, fps, gates)
+
+
+def bound_chain_pass(project_id: str, camera_id: int, rows: np.ndarray,
+                     fps: float, out_db: str | Path) -> dict:
+    """THE BOUND-CHAIN CONSERVATION GUARD over a dump: the same pinned gates,
+    then turn_merge.bound_chain_dedup — one vehicle is one count, applied to
+    the journeys G-EX-2 binds to their observed exit."""
+    from backend.services.turn_merge import bound_chain_dedup
+    gates, skip = _pinned_gates(project_id, camera_id, rows)
+    if skip is not None:
+        return skip
+    return bound_chain_dedup(out_db, camera_id, rows, fps, gates)
 
 
 def conserve_pass(project_id: str, camera_id: int, rows: np.ndarray,
@@ -1804,6 +1827,18 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                                                 fps, out_db)
         logger.info("two-pass cam%s %s: fracture dedup %s", camera_id,
                     variant, stats["fracture_dedup"])
+    # THE BOUND-CHAIN CONSERVATION GUARD (flag-gated, 2026-09-20): a
+    # G-EX-2 bound journey whose fragment chain already holds a counted
+    # event is the TAIL HALF of a vehicle counted from its head. Runs
+    # AFTER the fracture rule so that rule's behaviour is byte-identical
+    # and this one only cleans the residue, and before the merge for the
+    # same reason the two dedups above are.
+    from backend.config import BOUND_CHAIN_CONSERVE as _bc_on
+    if _bc_on:
+        stats["bound_chain"] = bound_chain_pass(project_id, camera_id, rows,
+                                                fps, out_db)
+        logger.info("two-pass cam%s %s: bound-chain guard %s", camera_id,
+                    variant, stats["bound_chain"])
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
                                expected_by_cell=expected)
     # V2 MERGE RESCUE (block-2 item 1, diagnosis 2026-08-06): a merged-away

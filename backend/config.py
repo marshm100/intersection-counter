@@ -426,6 +426,36 @@ STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS = _os2.environ.get(
 GATE_EXIT_ONLY_BINDING = _os2.environ.get(
     "GATE_EXIT_ONLY_BINDING", "0") in ("1", "true", "on")
 
+# THE BOUND-CHAIN CONSERVATION GUARD (2026-09-20, iteration 2 of the G-EX
+# cycle). GATE_EXIT_ONLY_BINDING only ever ADDS events. Where the tracker
+# leaves a real deficit those are real missing vehicles (cam4 1100 NB_thru
+# -190 -> +29 against Miovision); where the count is already complete they
+# are surplus (cam1 0700 SB_thru -41 -> +129, cam3 SB_thru +105 -> +312),
+# and arm gx1 failed the G-DEF-1 letter on cam1 -5.20 / cam3 -1.20 for
+# exactly that reason.
+# The surplus has ONE shape: a vehicle tracked in two halves — a head with a
+# witnessed entry and no exit, already counted, and a tail with a witnessed
+# exit and no entry, which G-EX-2 now counts as well. Measured on gx1: of
+# cam1 study_0700's 219 bound events, 95 have an already-counted entry_only
+# track dying within 1.5 box lengths of their birth; on cam4 study_1100, 4 of
+# 219. cams 1-3 run BoT-SORT recipes with no recovery tracker and fragment;
+# cam4/cam5 hold one track per vehicle. That is why the rule's sign flips by
+# camera.
+# When ON, a bound journey whose fragment chain ALREADY holds another counted
+# event is rejected (write-then-reject, reviewable). The chaining is
+# track_chains.chain_tracks UNMODIFIED — it already encodes this pairing
+# (A_OK entry_only/no_crossing -> B_OK exit_only/no_crossing, a moving-break
+# window of (-0.48, 3.0) s commented "occlusion break mid-box" within 70 px,
+# and no full journey may ever chain). THIS RULE ADDS NO CONSTANTS: the July
+# window and the September measurement of the real pairs (gap p10 -0.20,
+# p50 0.85 s) agree independently.
+# Scope, and why it cannot cost a legacy vehicle: it may only reject rows
+# whose posterior_source is 'rescue_exit', so its worst case is reverting
+# part of what G-EX-2 added. Inert unless GATE_EXIT_ONLY_BINDING is on.
+# Default OFF until the gx2 arm passes the letter.
+BOUND_CHAIN_CONSERVE = _os2.environ.get(
+    "BOUND_CHAIN_CONSERVE", "0") in ("1", "true", "on")
+
 # THE JOURNEY FATE LEDGER (2026-09-20, stage 1 of the triage plan). Every
 # track that ends without a counted event lands in ONE `insufficient_data`
 # counter today (the fleet log's `dropped=`), which is ~18% of all tracks
