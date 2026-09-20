@@ -1676,3 +1676,72 @@ run FM51 0700: 44 nose-to-tail pairs >= 1 s, 24 steady, 24 steady through a spee
 speed change is in PIXELS and perspective alone gives 2.75x on FM51's approach, so the test does
 not separate rigs from followers yet; speed must be measured in box widths per frame. Not run
 further until that is fixed.
+
+## THE ERROR BUDGET AND THE PROBLEM LIST (2026-09-20, operator: "in a triage, what do we work on")
+
+Built from the 5/95 rule rows themselves, with the worst-list cap lifted (the saved score
+JSONs keep only 8 failing rows a window, which biased the first cut). cams 1-3 scored from
+the SHIPPED d17 DBs (= production, 2026-09-12); cam4 / cam5 from the vl3 arm (NOT shipped);
+FM 51 from the vl3 blank-site arm. The rule: per cell per 15-min bin, |ours-ref| <= 5 when
+the reference is <= 100 a bin, else <= 5% (backend/services/rule595.py).
+
+  group                      cell-bins   failing        approach bins   failing
+  cams 1-3 (BoT-SORT, prod)       830    140 (16.9%)              325    91 (28.0%)
+  cam4 + cam5 (vl3 arm)           464     99 (21.3%)              168    90 (53.6%)
+  FLEET OF 12                    1294    239 (18.5%)              493   181 (36.7%)
+  FM 51 (blank site, vl3)          98     12 (12.2%)               47    11 (23.4%)
+
+  failing cell-bins across the fleet of 12, by cell:
+    NB thru   71  |  EB right  45  |  NB left  41  |  SB thru  32  |  SB right  19
+    WB right  11  |  EB left    8  |  EB thru   7  |  NB right  3  |  WB thru   2
+  by movement type: THROUGHS 112, RIGHT TURNS 78, LEFTS 49.
+
+THE PROBLEM LIST, ranked by the fleet points a perfect fix would return (upper bounds; the
+cam4 / cam5 rows are measured against the vl3 arm, the rest against production):
+
+  #  problem                          failing bins   direction        prize
+  1  cam4 northbound through          24 of 24       under (-721 veh)  +4.16
+  2  cam2 RIGHT TURNS (EB/SB/WB)      42 of ~84      over              +3.33
+  3  cam5 northbound left             24 of 24       over (+54%)       +1.88
+  4  cam5 eastbound right             22 of 24       under (-58%)      +1.72
+  5  cam4 southbound through          10             over              +1.72
+  6  cam4 southbound right             5             over              +0.81
+  7  cam3 northbound through          29 of 42       both ways         +0.68
+  Right turns as ONE theme (2 + 4 + 6, and cam5 SB right): ~64 bins, ~+5.9 fleet - the
+  largest single mechanism in the budget if it IS one mechanism.
+
+WHAT THE TWO GAPS TURNED INTO (they were gaps only because they were unsized):
+
+GAP A - half the fleet had never been examined. cams 1-3 are 6 of the 12 windows, run
+BoT-SORT recipes, and were untouched by all the tracker work. Budgeted now: 140 failing
+bins, MORE than cam4+cam5's 99. Two new problems fall out.
+  * cam2 (corridor) is the weakest camera in the fleet: movement 75.2 / 76.7 / 68.5,
+    approach 50.0 / 59.4 / 50.0. Its 84 failures spread over 8 cells - no single mechanism -
+    but HALF of them are RIGHT TURNS (EB right 21, SB right 11, WB right 10), all over.
+    That is problem 2 and the second-biggest prize in the fleet.
+  * cam3 0600 northbound through fails 29 of its 42 bins - the single largest cell-window
+    failure anywhere, bigger than cam4's 24. But its WINDOW TOTAL is 13917 against
+    Miovision's 13756, +1.2%, well inside the 5% bar. The count is right and the BINS are
+    wrong: 23 bins over, 6 under. This is per-bin dispersion, a different failure class from
+    everything else on the list.
+  * A DEAD END, closed cheaply: a constant timestamp offset does NOT explain it. Scored at
+    lags -5..+5 minutes, lag 0 is already optimal on cam3 (75.4% vs 73.4 at -1, 73.4 at +1)
+    and on cam2 1600 (32.6% vs 30.6 / 27.7). Do not re-run this. What remains is VARIABLE
+    delay (our gate line vs Miovision's reference point, the gap growing with queue length)
+    or genuine per-bin misclassification that averages out over the window. Distinguishing
+    them needs the per-bin residual against queue state, not another lag sweep.
+
+GAP B - the approach bar is the customer metric and is twice as bad as the movement one.
+  Fleet of 12: 181 of 493 approach bins fail (36.7%) against 18.5% on movement. cam4 sits
+  at EXACTLY 41.7% on all three windows (10/24 each time - an identical number three times
+  is structural, not noise); cam2 corridor 50.0 / 59.4 / 50.0; cam5 43.8 / 56.2 / 50.0;
+  cam1 90.3 / 86.7 and cam3 76.8 are the healthy ones. By leg across the fleet the approach
+  failures are NB 83, SB 44, EB 44, WB 21. Nothing in the ledger has ever targeted the
+  approach bar directly - every arm has been judged on the movement score.
+
+READING. The list is NOT one global bug. The same cell fails in OPPOSITE directions on
+different cameras (northbound through is under on cam4 and over on cam3; eastbound right is
+under on cam5 and over on cam2), which points at per-site geometry, channels and gates
+rather than one algorithm. The exceptions are problem 1, which has a named unbuilt fix
+(G-EX-2, the observed-exit binding), and problem 7, which is a distinct dispersion class.
+The tracker is not on this list; FM 51 is the healthiest site in the budget.
