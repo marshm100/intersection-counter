@@ -1,0 +1,13 @@
+97a7849a cam4 vl3_study_1600: 351819 dump rows, 6845 tracks, 5516 yardstick vehicles, 18243 back-fill rows
+  twin spans (two ids on one chain >= 5 consecutive hits): 278 on 153 vehicles
+  278 twin events with the newborn's birth row in the dump
+  holder at the newborn's birth: on the vehicle 275, lost 3
+     lost k frames: median 5, <=5: 2, >5: 1
+     holder ON the vehicle: IoU(newborn, holder) at birth: 0.0:120 0.1:44 0.2:33 0.3:36 0.4:22 0.5:20 0.6:0 0.7:0
+        max coverage either way: 0:125 0.3:56 0.5:30 0.7:19 0.9:45;  offset median 0.56 holder widths; width ratio median 0.79; newborn conf median 0.43
+        class: same class 263, cross class 12
+  twin life (frames both on the chain): median 8, >= 20: 35, >= 50: 17
+  survivor: old 168, young 110
+  newborn's whole life median 114 frames; newborn back-filled (weak-box inheritance) 132
+  where (x of the holder's box): 0-128:3  128-256:60  256-384:73  384-512:86  512-640:56
+  -> runs\v2_week1\twins_97a7849a_4_vl3_study_1600.json

@@ -1525,6 +1525,53 @@ breaks at 1/160 and holds one id at 1/20); suite 1280 green.
   filmed misses). Next candidate by size with a mechanism: the double-box twins (measure
   first on the vl3 dumps with research_breaks.py + research_dup_boxes.py).
 
+## TWINS — two ids on one vehicle (2026-09-19, operator: "lets do that"; scripts/research_twins.py on the vl3 dumps)
+
+Every chain hit labelled with ALL dump ids overlapping it >= 0.3; a twin span = two ids on
+one chain >= 5 consecutive hits; the younger id (first non-back-filled row) is the newborn,
+the older the holder. Logs runs/v2_week1/research_twins_{fm51,cam4,cam5}.log, events
+twins_<proj>_<cam>_<variant>.json.
+
+  vl3 dump                cam4 1600   cam5 1600   FM51 0700
+  twin spans (vehicles)   278 (153)   415 (273)    54 (46)
+  holder ON the vehicle at the birth   275   399   54   (lost 3 / 16 / 0: the stacked-box
+                                                          birth guard is not being bypassed
+                                                          by a lost holder)
+  geometry at the birth:
+    NESTED  (one box >= 0.9 inside the other)      46   103   42
+    STACKED (IoU 0.3-0.6, below the 0.6 guard)     35    59    3
+    TOUCHING (IoU 0.1-0.3)                         75    66    2
+    BESIDE  (IoU < 0.1; offset ~1.5 holder widths, newborn width 0.7 of the holder) 122  187  7
+  twin life: median 6-8 frames; >= 20 frames 35 / 48 / 0 (those newborns live 415 / 227 frames:
+    standing vehicles in queues carrying two ids); >= 50 frames 17 / 17 / 0
+  survivor: the OLDER id 168 / 224 / 24, the NEWBORN 110 / 191 / 30 - in 40-55% the newborn
+    takes the vehicle and the holder dies: a twin is also a BREAK
+  newborn born by weak-box inheritance (back-filled start): 132 / 207 / 33 (half)
+  pass-2 twin dedup (turn_merge.twin_track_dedup: common span >= 0.6 of the shorter life,
+    IoU >= 0.2) can reach 20 / 42 / 12 of them: the common span is a tenth to a third of the
+    shorter life (the newborn usually goes on alone), so the rest count twice if both cross
+    the gates.
+
+  READING before the film. Two different things share the name. NESTED twins are the
+  detector's double box (a partial box inside the whole-vehicle box, or the reverse): born
+  under the stacked-box birth guard because the guard tests IoU > 0.6 and a small box inside
+  a big one has low IoU with high coverage; the weak-birth stage already uses coverage 0.6
+  (max_cover) for exactly this reason, the ordinary birth does not. BESIDE twins are born one
+  to two widths away and only later share the chain: the neighbour in a queue, the trailer
+  behind a pickup (FM51 clip 5 - the Phase C case), or a ghost box at an occlusion edge that
+  wanders onto the next car. The film sorts them.
+
+  TWIN REEL (scripts/viz_twin_reel.py, one nested + one beside per site), page
+  https://claude.ai/artifact/MwSBH41y4kPEe3bqQGu2NF (clips 1-2 cam4, 3-4 cam5, 5-6 FM51;
+  ORANGE = the newborn, WHITE = the holder, CYAN ring = the chain's box at the birth). The
+  question: "Is the orange newborn on the same vehicle as the white id, or on a different
+  vehicle?" Pre-look: 2 (cam4 nested, 2440) a weak box born around a standing car as a school
+  bus clears it, then drifting onto the next car; 4 (cam5 nested, 5657) a small box inside a
+  queued car for 7.5 s; 6 (FM51 nested, 1381) a second box on the front of a pickup-and-
+  trailer rig; 1 (cam4 beside, 2346) the next car in a standing row - different; 5 (FM51
+  beside, 1380) born on the TRAILER behind the pickup, then taking the whole rig; 3 (cam5
+  beside, 5096) the queue under a passing SUV, his eyes needed.
+
 Phase C instrument drafted (scripts/research_trailers.py, the plan's attached-pair test). First
 run FM51 0700: 44 nose-to-tail pairs >= 1 s, 24 steady, 24 steady through a speed change - the
 speed change is in PIXELS and perspective alone gives 2.75x on FM51's approach, so the test does
