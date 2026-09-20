@@ -1983,3 +1983,77 @@ returns plus the counted path. Two of those six were counted by NOTHING before t
 empty trajectory, and a no-origin track shorter than ORIGIN_ASSIGN_MIN_FRAMES); they now have
 counters too. Diagnostics only: a run with it off is identical in the counts, held by a test.
 Generalises scripts/cam5_sbinsuf_diag.py from one cell on one camera to every track.
+
+## G-EX-2 ARM gx1 VERDICT (recorded 2026-09-20): the mechanism is real and large, and it
+## MISSES the letter because it only ever ADDS
+
+  window              ctrl(gx0)   arm(gx1)   delta    cov
+  cam1 study_0700        85.1       77.0     -8.1    0.464
+  cam1 study_1600        95.3       93.0     -2.3    0.570
+  cam2 study_0700        75.2       77.1     +1.9    0.579
+  cam2 study_1100        76.7       77.7     +1.0    0.500
+  cam2 study_1600        68.5       71.3     +2.8    0.500
+  cam3 study_0600        88.5       87.3     -1.2    0.585
+  cam4 vl3_study_0700    71.1       86.7    +13.4    0.789
+  cam4 vl3_study_1100    78.7       93.6    +14.9    0.819
+  cam4 vl3_study_1600    69.8       84.9    +14.7    0.685
+  cam5 vl3_study_0700    78.0       78.0     +0.0    0.579
+  cam5 vl3_study_1100    83.0       83.0     +0.0    0.640
+  cam5 vl3_study_1600    82.7       82.7     +0.0    0.677
+  camera means: cam1 90.20 -> 85.00 (-5.20); cam2 73.47 -> 75.37 (+1.90);
+                cam3 88.50 -> 87.30 (-1.20); cam4 73.20 -> 88.40 (+15.20);
+                cam5 81.23 -> 81.23 (0.00)
+  FLEET of 12: 79.38 -> 82.69 (+3.31)
+
+  THE CONTROL IS CLEAN. gx0 reproduced the standing basis window for window - 85.1 95.3
+  75.2 76.7 68.5 88.5 71.1 78.7 69.8 78.0 83.0 82.7, fleet 79.38, identical to the vl3
+  verdict table. So the fate ledger is inert on the counts as designed and every number
+  below is attributable to this rule alone. Logs runs/v2_week1/fleet_gx0.log, fleet_gx1.log.
+
+  THE DECLARED HONEST TEST (must clear d18b's 80.36): 82.69. PASSES, by 2.33. This is the
+  largest single counting-rule gain anywhere in this ledger, and cam4 - the camera that
+  made the vl3 tracker arm fail - moves +15.20, its three windows +13.4 / +14.9 / +14.7.
+
+  THE G-DEF-1 LETTER: FAILS, on two of three clauses.
+      fleet rises                    +3.31   PASS
+      no camera mean falls > 1.0     cam1 -5.20, cam3 -1.20   FAIL
+      no window falls > 3.0          cam1 study_0700 -8.1     FAIL
+  THE ARM DOES NOT SHIP. A default that ruins cam1 is not robust, which is what the clause
+  is for.
+
+  FM 51, THE HELD-OUT BLANK SITE: 85.7 / 89.8 movement, 73.9 / 79.2 approach - IDENTICAL to
+  the control, one extra event across two windows. The rule is inert there, and for a
+  reason that is the blank-site operating rule working as intended: lines drawn where
+  vehicles are TRACKED means entries get witnessed, so exit_only is rare. No regression on
+  the deliverable, and no gain either.
+
+  WHY IT FAILS, measured from the fate ledger rather than guessed. The rule ONLY EVER ADDS.
+  Where the tracker leaves a real deficit the additions land on real missing vehicles; where
+  the count is already complete they are surplus:
+      cam4 1100  NB_thru  1546 | 1356 (-190) | 1575 (+29)    the deficit closes
+      cam1 0700  SB_thru  1756 | 1715 ( -41) | 1885 (+129)   a healthy cell overshoots
+      cam1 1600  SB_thru  2498 | 2516 ( +18) | 2583 (+85)
+      cam3 0600  SB_thru 14385 | 14490 (+105) | 14697 (+312)
+  (Miovision | ctrl | arm.) THE DISCRIMINATOR, from track_fates: of cam1 study_0700's 227
+  bound events, 115 - 51% - are born within 1.5 s and 120 px of an ALREADY-COUNTED track's
+  death. On cam4 study_1100 that figure is 4 of 220, 2%. The bound track is the TAIL HALF OF
+  A FRACTURED VEHICLE whose head half was already counted, and we count it a second time.
+  cams 1-3 run BoT-SORT recipes and have never had the recovery tracker, so they fragment;
+  cam4 and cam5 run it and hold one track per vehicle. That is the whole split, and it is
+  why the rule's sign flips by camera.
+  (This is also the first time the fate ledger paid for itself: the diagnosis is one query
+  over track_fates, with no dump re-read and no new instrument.)
+
+  ITERATION 2, the named fix - HIS OWN FRACTURE RULE, EXTENDED. FRACTURE_DEDUP (shipped
+  2026-09-12 on his ruling) already says a short-gap, same-spot, same-heading death-and-
+  rebirth is ONE vehicle. It admits only the pair whose EARLIER half lacks its exit, because
+  until today nothing counted the later half. G-EX-2 now counts it. So the guard is the same
+  ruling applied to the same geometry: refuse to bind an exit-only track that is the
+  fracture-continuation of a journey already counted. Blind - a time-and-distance test on the
+  dump, measured in box lengths like the shipped rule, no reference anywhere near it.
+  NOT the exit-only SUPREMACY variant named in the plan: that was the iteration for a rule
+  that UNDER-fires, and this one over-fires.
+
+  NOTE for whoever runs iteration 2: cam4's northbound now slightly OVERSHOOTS (0700 +73,
+  1100 +29 against Miovision) where it was -360 and -190. The duplicate guard will take some
+  of that back, which is the right direction. Watch that it does not reopen the shortfall.
