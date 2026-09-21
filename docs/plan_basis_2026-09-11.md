@@ -2132,3 +2132,81 @@ verdict plus two named successors: the residual complementary pairs the greedy c
 threshold one), and MERGE INSTEAD OF DROP (rewrite the head half's destination to the tail's
 witnessed exit, making one complete gate-evidenced journey; worth 3 of 68 today, but it is the
 variant that honours "the box sides ARE the gates" rather than discarding the witnessed side).
+
+## ARM gx2 VERDICT (recorded 2026-09-20): the guard works, and the letter MISSES BY 0.20
+
+  window              gx0 ctrl   gx1      gx2     gx2 vs ctrl
+  cam1 study_0700        85.1    77.0     83.8       -1.3
+  cam1 study_1600        95.3    93.0     94.2       -1.1
+  cam2 study_0700        75.2    77.1     77.1       +1.9
+  cam2 study_1100        76.7    77.7     77.7       +1.0
+  cam2 study_1600        68.5    71.3     71.3       +2.8
+  cam3 study_0600        88.5    87.3     89.0       +0.5
+  cam4 vl3_study_0700    71.1    86.7     86.7      +15.6
+  cam4 vl3_study_1100    78.7    93.6     93.6      +14.9
+  cam4 vl3_study_1600    69.8    84.9     84.9      +15.1
+  cam5 vl3_study_0700    78.0    78.0     78.0       +0.0
+  cam5 vl3_study_1100    83.0    83.0     83.0       +0.0
+  cam5 vl3_study_1600    82.7    82.7     82.7       +0.0
+  camera means vs ctrl: cam1 90.20 -> 89.00 (-1.20); cam2 73.47 -> 75.37 (+1.90);
+      cam3 88.50 -> 89.00 (+0.50); cam4 73.20 -> 88.40 (+15.20); cam5 81.23 (0.00)
+  FLEET of 12: 79.38 -> 83.50 (+4.12)
+
+  THE HONEST TEST (clear d18b's 80.36): 83.50. PASSES by 3.14. The fleet is the highest
+  number in this ledger by a wide margin, and cam4 - the camera whose losses made the vl3
+  tracker arm fail - finishes +15.20 with every window up 15 points.
+
+  THE G-DEF-1 LETTER: MISS, on one clause by 0.20.
+      fleet rises                    +4.12                          PASS
+      no window falls > 3.0          worst cam1 study_0700 -1.3     PASS
+      no camera mean falls > 1.0     cam1 -1.20                     FAIL by 0.20
+  THE ARM DOES NOT SHIP ON THE LETTER. Recorded as a MISS, not argued down.
+
+  EVERY PRE-DECLARED EXPECTATION HELD, including the one I flagged as likely wrong.
+      cam4 loses nothing to the guard:  gx1 and gx2 identical on all three windows.
+      cam5 untouched:                   identical on all three.
+      cam2 keeps its +1.90:             identical on all three.
+      cam1 recovers:                    77.0 -> 83.8 and 93.0 -> 94.2.
+      cam3, which I said might still sit under control: 87.3 -> 89.0, i.e. +0.5 ABOVE its
+      control. The prediction that it would fall short was WRONG, in the good direction.
+  The guard rejected 74 + 22 bound events on cam1 and took cam3 from -1.2 to +0.5, while
+  costing cam2, cam4 and cam5 exactly nothing. The discriminator behaved as measured.
+
+  FM 51, THE HELD-OUT BLANK SITE: 85.7 / 89.8 movement, 73.9 / 79.2 approach - identical to
+  the control to the decimal, one event different across two windows. Both rules are inert
+  on a site drawn by the blank-site operating rule, because lines drawn where vehicles are
+  TRACKED get their entries witnessed and exit_only is rare. No regression on the
+  deliverable across this entire cycle.
+
+  WHAT IS LEFT ON cam1, the 0.20 (Miovision | ctrl | gx2):
+      study_0700  SB_thru  1756 | 1715 (-41) | 1820 (+64)     153 bound events survive
+      study_1600  SB_thru  2498 | 2516 (+18) | 2569 (+71)      99 bound events survive
+      study_0700  NB_thru  2141 | 2030 (-111) | 2044 (-97)    <- this one IMPROVED
+  cam1's whole residual is southbound-through surplus from bound events with no counted
+  chain partner. Two populations are in there and they are not separable from the score:
+  vehicles whose head half was DROPPED rather than counted (so there is no partner to find,
+  and binding the tail is CORRECT), and duplicates whose pair the greedy chain refused. A
+  direct pair test found 95 complementary partners on study_0700 where the chain links 74,
+  so ~21 of the residual are known-refused pairs; the rest are unclassified.
+
+  NOT DONE, deliberately: no constant was widened to buy 0.20. That is tuning to the answer
+  and the prime directive forbids it.
+
+  THE CYCLE CLOSES HERE on the declared two-iteration budget. The deliverable is this verdict
+  plus two named successors, neither a threshold tweak:
+  1. THE GREEDY CHAIN'S REFUSALS. chain_tracks allows each track at most one predecessor and
+     one successor and resolves by a (dist + 0.5*gap) score. On a dense arterial the right
+     partner can lose that contest to a nearer wrong one. 95 direct vs 74 linked on cam1
+     study_0700 is the size of it. A chain-assignment question, not a threshold question.
+  2. MERGE INSTEAD OF DROP. Rewrite the head half's destination to the tail's WITNESSED exit
+     instead of discarding the tail, making one complete gate-evidenced journey out of two
+     halves. Worth only 3 of 68 on today's agreement measurement, but it is the variant that
+     honours "the box sides ARE the gates" rather than throwing the witnessed side away.
+
+  THE SHIP DECISION IS THE OPERATOR'S, and it is a real one rather than a formality: the
+  letter fails by 0.20 on ONE test-footage camera, against +4.12 on the fleet, +15.20 on
+  cam4, +1.90 on cam2, +0.50 on cam3, zero on cam5 and zero change on the held-out blank
+  site. cam1 ends at 89.00, still the second-best camera in the fleet. Recommendation
+  recorded: this is worth shipping and the letter's camera clause is worth him ruling on,
+  because it was written to stop a default that RUINS a window (the -3.0 clause did that job
+  here) and a 1.2-point camera mean against a 15-point gain is not that failure mode.
