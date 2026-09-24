@@ -2210,3 +2210,68 @@ variant that honours "the box sides ARE the gates" rather than discarding the wi
   recorded: this is worth shipping and the letter's camera clause is worth him ruling on,
   because it was written to stop a default that RUINS a window (the -3.0 clause did that job
   here) and a 1.2-point camera mean against a 15-point gain is not that failure mode.
+
+## SHIPPED — G-EX-2 + THE BOUND-CHAIN GUARD (operator go 2026-09-24: "ship it")
+
+backend/config.py GATE_EXIT_ONLY_BINDING and BOUND_CHAIN_CONSERVE default "1" (commit
+80ae8e9); test_default_off -> test_default_on for both; 1307 green, no env flags set.
+The default is now EIGHT rules. scripts/reprocess_default.py guards all eight and compares
+against the gx2 arm (with an ARM_VARIANT map, since cam4/cam5 ran that arm under the vl3_
+variant name).
+
+BASIS PROMOTED WITH IT. cam4/cam5 study_* dumps are now the RECOVERY TRACKER — the vl3 dumps
+renamed into place, the old library-tracker basis kept aside as pre_gx2_study_*. This is the
+tracker ship the operator deferred on 09-20 pending G-EX-2; the 83.50 was measured on it, so
+shipping the rules without it would have left production in a third, unmeasured configuration.
+
+Backup data/projects/97a7849a/backups/ (the apply gate takes its own per-window backup too).
+All 12 windows reprocessed (force_once, apply through the gate; ~62 min, cam3 25 of them).
+PRODUCTION == ARM ON 12 OF 12, row-for-row hash over
+(track_id, movement, origin, dest, rejected, posterior_source) scoped to each window's
+timestamp range. Log runs/v2_week1/reprocess_gx2_20260924.log.
+
+  window       was     now    delta   health
+  cam1 0700    85.1    83.8   -1.3    amber
+  cam1 1600    95.3    94.2   -1.1    green
+  cam2 0700    75.2    77.1   +1.9    green
+  cam2 1100    76.7    77.7   +1.0    green
+  cam2 1600    68.5    71.3   +2.8    green
+  cam3 0600    88.5    89.0   +0.5    amber
+  cam4 0700    73.3    86.7  +13.4    green
+  cam4 1100    78.7    93.6  +14.9    green
+  cam4 1600    70.2    84.9  +14.7    green    (supersedes the 70.2-by-ruling note)
+  cam5 0700    79.0    78.0   -1.0    red
+  cam5 1100    73.3    83.0   +9.7    red
+  cam5 1600    71.8    82.7  +10.9    red
+  FLEET        77.97   83.50  +5.53
+
+FM51 stays the held-out witness and is UNCHANGED by this ship (85.7 / 89.8 movement,
+73.9 / 79.2 approach, one event different across two windows); its counts are not shipped.
+
+### WHAT THE SHIP SURFACED: cam5's health went RED on all three windows
+
+Not caused by the counting rules. Attributed by direct measurement on cam5 study_0700, cell
+counts for the two cells the health instrument flags:
+
+  basis / rules                                  N_right (39->36)   N_left (39->38)   bound
+  old production (library tracker, six rules)           18               418            0
+  vl3 basis, the two new rules OFF                      34               456            0
+  vl3 basis, the two new rules ON  (= shipped)          35               456            4
+
+The whole move is the TRACKER BASIS PROMOTION. The new rules contributed 1 event to N_right
+and 0 to N_left, and only 4 bound events exist on that window at all. The health verdict is
+reading two real signals: N_left now counts 1.93x its historical flow (456 vs ~236), which is
+problem 3 on the old list and is now LARGER in absolute terms under the better tracker; and
+N_right shows 35 counts with NO history and 86% gate-override, flagged phantom_suspect.
+
+So the recovery tracker bought cam5 +9.7 and +10.9 on two windows while making its NORTHBOUND
+TURN cells worse. That trade was already visible in the vl3 verdict (NB_left 167 -> 156 over
+Miovision at 1100) and is now the clearest open item on cam5. It is NOT a regression caused by
+this ship and it does not argue against it — cam5's camera mean went 74.70 -> 81.23 — but the
+red verdicts are honest and should not be cleared without an arm.
+
+NEXT, unchanged by the ship: rebuild the error budget from these reprocessed DBs with
+rule595.compliance's worst_n cap lifted. Problem 1 (cam4 northbound through, the old +4.16)
+is SOLVED. cam5's NB_left / EB_right pair is the biggest thing the budget will now find, and
+the July record classifies EB_right as a TRACKING capability problem written before the
+recovery tracker existed — re-measure it on the current basis before treating it as counting.
