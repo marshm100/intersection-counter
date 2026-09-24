@@ -108,9 +108,10 @@ def _run(env, monkeypatch, gate, *, binding, paths=(P_THRU, P_LEFT), origin=1):
 
 
 class TestExitOnlyBinding:
-    def test_off_by_default_the_journey_still_drops(self, env, monkeypatch):
-        """The behaviour this rule exists to change: an observed exit, a
-        refused destination, and the whole journey on the floor."""
+    def test_off_the_journey_still_drops(self, env, monkeypatch):
+        """The behaviour this rule exists to change, reproduced with the flag
+        forced off: an observed exit, a refused destination, and the whole
+        journey on the floor. SHIPPED default-ON 2026-09-24 (arm gx2)."""
         p, evs = _run(env, monkeypatch, gate=(None, 2, "exit_only"),
                       binding=False)
         assert evs == []
@@ -186,3 +187,11 @@ class TestExitOnlyBinding:
         assert len(evs) == 1
         assert evs[0]["movement"] == "left"
         assert getattr(p, "n_straight_dropped", 0) == 0
+
+
+class TestShipped:
+    def test_default_on(self):
+        """SHIPPED 2026-09-24 (operator go after arm gx2: fleet 79.38 ->
+        83.50, cam4 +15.20)."""
+        import backend.config as cfg
+        assert cfg.GATE_EXIT_ONLY_BINDING is True

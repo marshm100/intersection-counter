@@ -422,9 +422,17 @@ STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS = _os2.environ.get(
 # (problem 7 is already a per-bin dispersion problem).
 # Inert by construction below EVIDENCE_ACTIVATION_COVERAGE: the gate
 # locals are only bound in evidence mode "on".
-# Default OFF until the G-EX-2 arm passes the G-DEF-1 letter.
+# SHIPPED default-ON 2026-09-24 (operator go after arm gx2: "ship it").
+# Arm gx2 = this rule + BOUND_CHAIN_CONSERVE on all 12 windows: fleet
+# 79.38 -> 83.50 (+4.12), clearing d18b's 80.36 honest test by 3.14; cam4
+# +15.20 with every window up ~15; cam2 +1.90; cam3 +0.50; cam5 0.00; FM 51
+# held out and identical to control. The G-DEF-1 letter MISSED by 0.20 on one
+# clause (cam1 -1.20 against the -1.0 camera bar, no window worse than -1.3
+# against the -3.0 bar), shipped on the operator's ruling that a 1.2-point
+# camera mean against a 15-point gain is not the failure mode that clause was
+# written to stop. Env override X=0 for experiments.
 GATE_EXIT_ONLY_BINDING = _os2.environ.get(
-    "GATE_EXIT_ONLY_BINDING", "0") in ("1", "true", "on")
+    "GATE_EXIT_ONLY_BINDING", "1") in ("1", "true", "on")
 
 # THE BOUND-CHAIN CONSERVATION GUARD (2026-09-20, iteration 2 of the G-EX
 # cycle). GATE_EXIT_ONLY_BINDING only ever ADDS events. Where the tracker
@@ -452,9 +460,11 @@ GATE_EXIT_ONLY_BINDING = _os2.environ.get(
 # Scope, and why it cannot cost a legacy vehicle: it may only reject rows
 # whose posterior_source is 'rescue_exit', so its worst case is reverting
 # part of what G-EX-2 added. Inert unless GATE_EXIT_ONLY_BINDING is on.
-# Default OFF until the gx2 arm passes the letter.
+# SHIPPED default-ON 2026-09-24 with GATE_EXIT_ONLY_BINDING (arm gx2). It
+# took cam1 77.0 -> 83.8 / 93.0 -> 94.2 and cam3 87.3 -> 89.0 while costing
+# cam2, cam4 and cam5 exactly nothing (bit-identical to the unguarded arm).
 BOUND_CHAIN_CONSERVE = _os2.environ.get(
-    "BOUND_CHAIN_CONSERVE", "0") in ("1", "true", "on")
+    "BOUND_CHAIN_CONSERVE", "1") in ("1", "true", "on")
 
 # THE JOURNEY FATE LEDGER (2026-09-20, stage 1 of the triage plan). Every
 # track that ends without a counted event lands in ONE `insufficient_data`

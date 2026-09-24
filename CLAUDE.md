@@ -17,16 +17,24 @@ intersection. The unit of shipping is a DEFAULT: one configuration, all 12 corri
 scored as a fleet against the all-off baseline (69.43) — never a per-window winner.
 G-DEF-1 PASS: GATE_GROUND_ANCHOR, STRAIGHT_FRAGMENT_RULE, GATE_EVIDENCE_EITHER_CORNER and
 JOURNEY_STATE_MACHINE default ON; G-DEF-4 PASS: STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS default ON;
-THE FRACTURE RULE FRACTURE_DEDUP default ON (2026-09-12, operator ruling after arm d17)
-(fleet 77.97 after the fracture rule on 2026-09-12; 76.97 after G-BAR-1 on 09-11; 77.08 before it; 75.86 after the heading rulings; 75.70 on 09-10). Env vars are overrides for experiments
-(X=0 turns a rule off); nothing in production needs them set. Older plan docs' "operating
+THE FRACTURE RULE FRACTURE_DEDUP default ON (2026-09-12, operator ruling after arm d17);
+G-EX-2 GATE_EXIT_ONLY_BINDING + BOUND_CHAIN_CONSERVE default ON (2026-09-24, operator go
+after arm gx2: "ship it"). EIGHT rules.
+(fleet 83.50 after G-EX-2 + the guard on 2026-09-24; 77.97 after the fracture rule on
+2026-09-12; 76.97 after G-BAR-1 on 09-11; 77.08 before it; 75.86 after the heading rulings;
+75.70 on 09-10). Env vars are overrides for experiments
+(X=0 turns a rule off); nothing in production needs them set.
+NOTE on the gx2 ship: it MISSED the G-DEF-1 letter by 0.20 on one clause (cam1's camera mean
+-1.20 against the -1.0 bar) and was shipped by operator ruling anyway — fleet +4.12, cam4
++15.20, no window worse than -1.3 against the -3.0 bar, FM 51 unchanged. The letter's camera
+clause was written to stop a default that RUINS a window; that is not this. Do not treat the
+miss as precedent for arguing a letter down without a ruling. Older plan docs' "operating
 notes" that require env flags are superseded. To improve the default: change it, run all
-12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 77.97, ship on a
+12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 83.50, ship on a
 fleet PASS (docs/plan_default_2026-09-10.md). The four windows shipped by hand on 09-09
-and the fleet reprocess on 09-10 are the last per-window applies. cam4 1600 stands at 70.2
-by ruling: its old 75.4 was ~366 duplicate NB throughs cancelling an equal far-field detection
-deficit that is not in the dump (instrument-limited), so a future drop there is read against
-70.2, not 75.4.
+and the fleet reprocess on 09-10 are the last per-window applies. (cam4 1600's 70.2-by-ruling
+note is SUPERSEDED: the recovery tracker plus G-EX-2 took that window to 84.9, and the
+far-field NB deficit the ruling was about is what the observed-exit binding recovered.)
 
 ## The tracker (2026-09-12, operator: "improving the engineering of the tracker")
 The default recipe's tracker (cam4, cam5, every blank site) is now the recovery tracker:
@@ -43,8 +51,10 @@ become its track's back-filled start; pass 1 merges them from a backfill.npy sid
 (docs/plan_basis_2026-09-11.md "Tracker engineering", "Phase A"). It is judged by
 the tracking evidence — one track per vehicle against the detection chains
 (scripts/research_tracker_break.py) — not by switching it on and off against fleet scores.
-PRODUCTION DUMPS WERE BUILT BY THE LIBRARY TRACKER: any pass-1 run now (re-track, new
-study, live) uses the new one, so a re-tracked window is a new basis.
+PRODUCTION DUMPS: cam4 and cam5's study_* dumps ARE the recovery tracker since 2026-09-24
+(the vl3 dumps promoted at the gx2 ship; the old library-tracker basis is renamed aside as
+pre_gx2_study_*). cams 1-3 run BoT-SORT recipes and are unaffected. Any pass-1 run (re-track,
+new study, live) uses the recovery tracker, so a re-tracked cam1-3 window is a new basis.
 
 ## Calibrating a blank site (operator ruling 2026-09-11, docs/plan_blank_site_2026-09-11.md)
 Draw each gate LINE where vehicles are reliably TRACKED, inside the physical mouth — never at
@@ -60,6 +70,13 @@ Project → Intersection-Day (one card per intersection × date) → Camera (1+ 
 Legs are per-camera (each camera sees the intersection from its own angle). Trims are wall-clock processing
 windows scoped to an intersection-day. Cross-camera dedup collapses parallel-overlap duplicates.
 See docs/Implementation_Plan_v3.md.
+
+## Instruments (read before building a new one)
+- `track_fates` (backend/database.py, config TRACK_FATE_LEDGER, default ON) — THE JOURNEY
+  FATE LEDGER: one row per finalized track, counted or dropped, with reason, place and time,
+  written at all six silent-return sites in pipeline._finalize_vehicle_data plus the counted
+  path. Diagnostics only. It is the counting analogue of the tracker's miss log and it is how
+  the gx1 failure was diagnosed in one query with no dump re-read.
 
 ## Docs
 - docs/PRD_v2.md — Requirements and business rules
@@ -108,7 +125,7 @@ a ctrl/arm comparison against it.
 
 ## Testing
 .venv\Scripts\python.exe -m pytest backend/tests/ -q
-# 1280 passing as of 2026-09-19
+# 1307 passing as of 2026-09-24
 
 ## Git
 git commit -m "Step X.X — [title]"

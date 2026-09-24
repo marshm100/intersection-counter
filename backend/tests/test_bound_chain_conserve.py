@@ -170,6 +170,6 @@ class TestNoNewConstants:
         assert track_chains.STITCH_MOVE_DIST == 70.0
         assert track_chains.CHAIN_DIR_TOL_DEG == 55.0
 
-    def test_default_off(self):
-        """Built as a knob; ships only on a fleet PASS."""
-        assert cfg.BOUND_CHAIN_CONSERVE is False
+    def test_default_on(self):
+        """SHIPPED 2026-09-24 with GATE_EXIT_ONLY_BINDING (arm gx2)."""
+        assert cfg.BOUND_CHAIN_CONSERVE is True
