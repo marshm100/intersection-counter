@@ -2401,3 +2401,33 @@ exit-lacking fragments of all origins, the rule samples dense queues at the mout
 0.9-box circle around a moving prediction still catches the next car ~1 time in 3.
 THE CODE STAYS, default OFF (config.CONTINUATION_DEDUP, turn_merge.continuation_pairs, 12 tests).
 Nothing in production changed.
+
+## cam5 EASTBOUND RIGHT, re-measured on the current tracker (2026-09-25): NOT a tracking problem
+
+The July record called it tracking capability ("the near-field turn rarely survives tracking").
+On the recovery tracker the ledger says otherwise. Tracks WITNESSED entering over W and exiting
+over S (gate_tag 'full', W->S) that are DROPPED as classifier_insufficient: 99 / 100 / 146 a
+window (0700/1100/1600), against an EB-right shortfall of 335 over the three windows. The
+tracker forms the journeys; counting throws them away.
+
+THE MECHANISM (trajectory_classifier.classify_trajectory): a right turn from the near-field W
+leg into the far-field S leg reads as a ~142 deg heading change under perspective, which lands
+in the U-TURN branch (>= TRAJECTORY_UTURN_MIN_ANGLE 135); the u-turn branch demands 90 px of net
+displacement (TRAJECTORY_UTURN_MIN_NET_DISPLACEMENT_PX) that a turn into the compressed far field
+does not have, and returns insufficient_data. pipeline._finalize_vehicle_data drops it at line
+~1620, BEFORE the gate evidence is computed, so GATE_FULL_SUPREMACY (operator ruling 2026-08-24:
+a full journey's crossings ARE the class) never sees it.
+
+FLEET-WIDE: 1,613 full journeys are dropped this way on the 12 windows (cam2 200-281 a window,
+cam3 307, cam5 122-186, cam1/cam4 15-37).
+
+PRICED, by re-adding every dropped full journey (origin != dest) at its gate cell's label:
+  cam5 +6.27 movement, +13.54 approach (EB right 76 -> ~175 at 0700; the deficit closes)
+  cam2 -4.69 / -7.29   cam1 -2.03 / -1.61   cam3 -1.69 / -3.57   cam4 0.00
+  FLEET 83.50 -> 83.42 movement (-0.08), approach +1.00. A blanket bypass FAILS the letter.
+THE TWO POPULATIONS DIFFER: cam5's dropped journeys run ~9.5 s at ~7 px/s net with 6-10% of them
+overlapping a counted twin; cam2's run 23-26 s at 2-3 px/s net with 24-28% twins (cam3 15 s,
+3.9 px/s, 16%). cam2's are queue dwellers crossing gate lines slowly, the operator's queue-creep
+ruling (2026-08-24: "queue creep across a gate line is not a journey"), which already has a
+frozen test: MOTION_QUALIFIED_EVIDENCE's crossing_speed against STITCH_STAT_SPEED_PXS. Not yet
+measured on these tracks.
