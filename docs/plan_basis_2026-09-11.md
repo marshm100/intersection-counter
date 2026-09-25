@@ -2471,3 +2471,22 @@ test on up to 200 COUNTED full journeys per cell is the control.
 VERDICT: the bank is not a usable judge of in-box shape on the cameras that need it. The only
 separator measured so far is straightness (turns ~0.4, doubling-back IDs ~0.04), and no frozen
 constant draws that line.
+
+## Arm fr1 DECLARED before scoring (2026-09-25): THE FULL-JOURNEY RESCUE (operator: "yes")
+
+THE RULE (config.FULL_JOURNEY_RESCUE, default OFF). In _finalize_vehicle_data, a track the
+classifier returns insufficient_data for is NOT dropped when, in evidence mode "on", its gate
+evidence is 'full' with origin != exit AND its path straightness >= FULL_RESCUE_MIN_STRAIGHTNESS.
+It continues to the existing gate-supremacy / rescue_full labelling (the cell's path label, else
+derive_movement). Everything downstream (fracture, twin, bound-chain dedups, the merge) runs as
+normal.
+ONE NEW CONSTANT, FULL_RESCUE_MIN_STRAIGHTNESS = 0.25, declared here and not tuned on the arm.
+Basis: the dropped full journeys are bimodal: real turns 0.41-0.51 (counted journeys of the same
+cells 0.44-0.56), doubling-back IDs 0.03-0.07. No frozen module draws this line (searched: the only
+straightness constants are 0.95 / 0.97).
+EXPECTED: cam5 up strongly (EB right); cam3 and cam4 ~0 (their drops are doubling-back or have no
+cell path); cam1 and cam2 are the risk (the scratch price had cam1 -2.03, cam2 -1.79 BEFORE the
+dedup passes; 24-28% of their drops coexist with a counted twin, so the real run may differ).
+PASS = the G-DEF-1 letter against 83.50: fleet rises; no camera mean worse than -1.0; no window
+worse than -3.0; FM 51 not worse. Approach bar reported alongside. If cam5 gains and cam1/cam2
+break the camera clause, it is reported as it stands.

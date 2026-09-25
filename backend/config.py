@@ -487,6 +487,29 @@ BOUND_CHAIN_CONSERVE = _os2.environ.get(
 CONTINUATION_DEDUP = _os2.environ.get(
     "CONTINUATION_DEDUP", "0") in ("1", "true", "on")
 
+# THE FULL-JOURNEY RESCUE (2026-09-25, arm fr1, declared in
+# docs/plan_basis_2026-09-11.md before scoring). classify_trajectory reads
+# a near-field-to-far-field right turn as a ~142 deg heading change under
+# perspective, sends it down the U-TURN branch (>= 135), and the u-turn
+# branch's 90 px net-displacement test returns insufficient_data - so
+# _finalize_vehicle_data drops a track WITNESSED entering one gate and
+# exiting another before gate supremacy (operator ruling 2026-08-24) can
+# label it. Measured on the gx2 basis: cam5 W->S (EB right) 99/100/146 a
+# window against a 335 shortfall; 1,613 full journeys fleet-wide.
+# When ON (and in evidence mode "on"), such a journey with origin != exit
+# continues to the gate-supremacy / rescue_full labelling instead of being
+# dropped, UNLESS the track doubles back.
+FULL_JOURNEY_RESCUE = _os2.environ.get(
+    "FULL_JOURNEY_RESCUE", "0") in ("1", "true", "on")
+# THE ONE NEW CONSTANT of the rescue (no frozen module draws this line;
+# searched 2026-09-25). Dropped full journeys are bimodal in path
+# straightness: real turns ~0.41-0.51 (matching the counted journeys of the
+# same gate cell, 0.44-0.56), doubling-back ID corruption 0.03-0.07 (the
+# through cells, whose counted journeys run 0.98-0.99). 0.25 sits in the
+# empty middle. Declared before the arm, not tuned on it.
+FULL_RESCUE_MIN_STRAIGHTNESS = float(_os2.environ.get(
+    "FULL_RESCUE_MIN_STRAIGHTNESS", "0.25"))
+
 # THE JOURNEY FATE LEDGER (2026-09-20, stage 1 of the triage plan). Every
 # track that ends without a counted event lands in ONE `insufficient_data`
 # counter today (the fleet log's `dropped=`), which is ~18% of all tracks

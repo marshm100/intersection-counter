@@ -55,6 +55,8 @@ from backend.config import (
     ORIGIN_POSTERIOR_MARGIN_FLOOR,
     DEST_TIE_BAND,
     GATE_EXIT_ONLY_BINDING,
+    FULL_JOURNEY_RESCUE,
+    FULL_RESCUE_MIN_STRAIGHTNESS,
     TRACK_FATE_LEDGER,
     USE_JOINT_PARTIAL_FRECHET_SCORER,
 )
@@ -1615,7 +1617,28 @@ class ProcessingPipeline:
             vehicle.get("reference_heading", 0) or 0,
         )
 
-        if classification["movement"] == "insufficient_data":
+        # THE FULL-JOURNEY RESCUE (config.FULL_JOURNEY_RESCUE, arm fr1): a
+        # track WITNESSED entering one gate and exiting another is not
+        # insufficient data. Perspective bends a near-field-to-far-field turn
+        # past the u-turn angle and the u-turn displacement test drops it
+        # here, before gate supremacy can see it. Such a journey continues
+        # to the gate-supremacy / rescue_full labelling below — unless the
+        # track DOUBLES BACK (straightness below FULL_RESCUE_MIN_STRAIGHTNESS,
+        # the ID-corruption class), which stays dropped.
+        full_rescue = False
+        if (classification["movement"] == "insufficient_data"
+                and FULL_JOURNEY_RESCUE and self._evidence_mode == "on"
+                and self._paths
+                and classification["path_straightness"]
+                >= FULL_RESCUE_MIN_STRAIGHTNESS):
+            g_o, g_d, g_t = self._gate_evidence(vehicle)
+            if g_t == "full" and g_o is not None and g_d is not None \
+                    and g_o != g_d:
+                full_rescue = True
+                self.n_full_journey_rescued = getattr(
+                    self, "n_full_journey_rescued", 0) + 1
+
+        if classification["movement"] == "insufficient_data" and not full_rescue:
             self.n_insufficient_data += 1
             self._fate(track_id, vehicle, "dropped", "classifier_insufficient",
                        classification=classification)
