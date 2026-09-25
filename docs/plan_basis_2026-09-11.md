@@ -2275,3 +2275,110 @@ rule595.compliance's worst_n cap lifted. Problem 1 (cam4 northbound through, the
 is SOLVED. cam5's NB_left / EB_right pair is the biggest thing the budget will now find, and
 the July record classifies EB_right as a TRACKING capability problem written before the
 recovery tracker existed — re-measure it on the current basis before treating it as counting.
+
+## THE ERROR BUDGET, REBUILT AFTER THE gx2 SHIP (2026-09-24)
+
+Same method as the 09-20 budget (5/95 rule rows, worst_n cap lifted), now over the reprocessed
+PRODUCTION project.db for all 12 windows. Cross-checks: the 09-20 basis (d17 cams 1-3, vl3
+cams 4/5) re-scores at 79.39, production at 83.50, both matching the recorded fleet numbers.
+
+  basis           fleet mv   fleet ap   cell-bins failing     approach bins failing
+  09-20 basis       79.39      57.35    239 / 1294 (18.5%)    181 / 493 (36.7%)
+  production        83.50      63.35    211 / 1295 (16.3%)    168 / 493 (34.1%)
+
+  per window (movement, approach):  cam1 83.8/83.9  94.2/80.0 | cam2 77.1/53.1  77.7/59.4
+  71.3/46.9 | cam3 89.0/74.4 | cam4 86.7/70.8  93.6/70.8  84.9/70.8 | cam5 78.0/43.8
+  83.0/56.2  82.7/50.0.  cam4's approach is again IDENTICAL on all three windows (17/24),
+  moved from 41.7 -> 70.8; what is left of it is the SB approach.
+
+THE PROBLEM LIST, rebuilt (prize = fleet points a perfect fix of the cell's failing bins returns):
+
+  #  problem              fail/bins  dir     ours / ref      err     prize mv   approach prize
+  1  cam5 NB left          24/24     over    1171 / 760     +54%      1.88     cam5 NB 6.25
+  2  cam5 EB right         22/24     under    259 / 594     -56%      1.72     cam5 EB 5.47
+  3  cam4 SB thru          10/24     over    6886 / 6578    +4.7%     1.72     cam4 SB 5.56
+  4  cam2 EB right         21/24     over    1582 / 1217    +30%      1.66     cam2 EB 4.69
+  5  cam2 SB right         11/24     under   1019 / 1108    -8%       0.87     cam2 SB 2.60
+  6  cam4 SB right          5/24     over     216 / 77     +181%      0.81     (in cam4 SB)
+  7  cam2 WB right         10/24     over     832 / 693     +20%      0.79     cam2 WB 4.17
+  8  cam3 NB thru          29/56     both   13918 / 13756   +1.2%     0.68     cam3 NB 1.44
+  9  cam1 NB left           6/16     over     667 / 611     +9%       0.66
+  -- cam4 NB thru (old #1)  24 -> 2 failing bins, prize 4.16 -> 0.36: SOLVED.
+
+WHAT MOVED: only cam4 NB thru (solved), cam2's NB left / SB thru / EB thru / EB left (each 1-3
+bins better) and cam1 (worse: SB thru 1 -> 3 failing bins, SB approach 1 -> 4, EB approach
+3 -> 4; cam1's approach bar fell 90.3 -> 83.9 and 86.7 -> 80.0 — the G-EX-2 residual). Every
+other cell on the old list is unchanged to the bin, including all of cam5 (production cam5 ==
+the vl3 arm on the movement and approach bars).
+
+cam5 NB left + EB right is now the top of BOTH bars (3.60 movement, 11.72 approach). The EB
+right deficit (-56%) is measured ON the recovery tracker: the tracker work did not reach it.
+
+THE no_crossing POPULATION, sized from the gx2 arm DBs' track_fates (== production): 25,442
+dropped no_crossing tracks fleet-wide, 71-85% of all drops on every window. By first->last
+displacement: 17,802 (70%) move < 20 px, 6,855 move 20-60 px, 727 move 60-150 px, 58 move
+>= 150 px. It is overwhelmingly stationary / jitter stubs, and the budget's top items are
+mostly OVERcounts, which no drop can repair. The only undercount it could feed at scale is
+cam5 EB right (-335 over three windows) against 134 cam5 no_crossing drops moving >= 60 px —
+at most a partial answer, and only if they sit at the W/S corner. (path_distance is NULL on
+most no_crossing rows; use the first/last points.)
+
+## cam5 NORTHBOUND LEFT, measured on the shipped basis (2026-09-24, operator: "do left first")
+
+Basis: the gx2 arm DBs (== production), surviving events only (the ledger's 'counted' rows
+include events later rejected by dedup; join to vehicle_events.rejected).
+
+1. WHERE THE EXCESS LIVES. Counted NB lefts by gate tag (0700 / 1100 / 1600): full 206/109/138,
+   exit_only 65/54/62, entry_only 27/21/29, no_crossing 158/157/145. no_crossing is 40-47% of
+   NB lefts but only 6-12% of NB throughs. The witnessed lefts alone (full + exit_only,
+   271/163/200) sit BELOW Miovision (335/185/240); the excess is the unwitnessed stubs.
+2. THE STUBS NEVER REACH THE DIVERGENCE. Full lefts leave the full-through corridor (15 px) at
+   x ~ 360; the no_crossing lefts run x 546 -> 467 with 24-px boxes. 458 of 460 no_crossing
+   lefts and 72 of 77 entry_only lefts stay inside BOTH corridors: nothing in their geometry
+   says left. Their profile is identical to the no_crossing THROUGHS (same start, end,
+   heading, straightness, box size). They are labelled left at ~1:1 against through where
+   the approach's real split is ~1:8. (The ruling constraint holds: the discriminator here is
+   segment coverage past the divergence, not stub-ness or entry evidence.)
+3. THE LABEL'S SOURCE IS NOT YET REPRODUCED. The stubs lie upstream of every bank path's start
+   (x ~ 441), so score_path_joint admits nothing; replaying score_destination_by_polyline on
+   the stored trajectory does not reproduce the left either. Something else assigns it.
+4. RELABELLING IS WRONG; SOME ARE DUPLICATES. Priced on cam5 (5/95, all three windows):
+   all undetermined stubs -> through: mv -0.92 (NB thru overshoots). Dropping them all: mv
+   +4.42, ap +20.8. So they are not missing throughs; the NB APPROACH is itself +10% over.
+   A plain 0-3 s / 70 px partner test is NOT evidence: at time shifts of +-10/20 s it still
+   finds a partner for 26-49% of stubs (dense queue, the follower trap). The stub's own
+   velocity DOES separate: a counted NB track born within the tracker's frozen recovery reach
+   (0.9 box, tracker._recovery_cost) of the stub's predicted position: 56/42/47 real vs
+   ~5/4/5 at chance, ~90% precise. About a quarter of the stubs are provably the far-field
+   head of a vehicle already counted from its later track. That explains roughly half the NB
+   left excess; the other ~130 stubs a window are unexplained (distinct vehicles or
+   duplicates the prediction misses).
+
+## Arm pc1 DECLARED before scoring (2026-09-25): THE PREDICTED-CONTINUATION RULE
+
+THE RULE (config.CONTINUATION_DEDUP, default OFF until a ruling). Movement-agnostic, one vehicle
+is one count. Reject the event of track A when:
+  1. A carries an unrejected event and lacks its exit (entry_only / no_crossing, pinned gates);
+  2. track B carries an unrejected event, is born within STITCH_MOVE_GAP_S (-0.48, 3.0 s) of A's
+     death, and outlives A;
+  3. B's birth lies within TRACKER_RECOVERY_REACH (0.9) box widths of A's PREDICTED position
+     (A's death + A's end velocity over its last CHAIN_BEARING_END_S x gap); box = max(A's width
+     at death, B's width at birth), the tracker's _recovery_cost semantics;
+  4. endpoint bearings agree within CHAIN_DIR_TOL_DEG when both exist;
+  5. both events name the same ORIGIN leg (an entry_only A never loses a witnessed origin).
+Greedy by residual/box + 0.5 * gap, each track in at most one pair, write-then-reject. It runs
+AFTER the fracture rule and the bound-chain guard, so both stay byte-identical and this one only
+cleans their residue. FRACTURE_DEDUP's 1.0 s / 1.0 box window is NOT widened. NO NEW CONSTANTS.
+
+WHY: fracture measures from A's DEATH point; at the ~1 s median gap a moving far-field car has
+left that box. Prediction is what separated real continuations from chance on cam5 (56/42/47 vs
+~5 a window, the section above).
+
+GATED DRY RUN FIRST: continuation_pairs over the 12 gx2 DBs + dumps, precision by the +-10/20 s
+time-shift null. If chance exceeds ~20% of the real pairs on any camera, stop before the arm.
+
+PASS = the G-DEF-1 letter against 83.50: fleet rises; no camera mean -1.0; no window -3.0; FM 51
+not worse (85.7 / 89.8 movement, 73.9 / 79.2 approach). Approach bar reported alongside.
+EXPECTED SIGN: cam5 up (NB left, NB approach); cam4 small; cams 1-3 UNKNOWN (BoT-SORT fragments
+differently, more pairs will fire); cam1 is closest to the letter's edge. If cam5 gains and
+cams 1-3 lose, it is reported as it stands.
