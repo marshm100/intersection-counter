@@ -1,0 +1,197 @@
+{
+ "v2": {
+  "cells_scored": 47,
+  "compliant": 44,
+  "pct": 93.6,
+  "worst": [
+   {
+    "bin": "12:30",
+    "cell": "SB thru",
+    "ours": 223,
+    "ref": 202
+   },
+   {
+    "bin": "12:00",
+    "cell": "SB thru",
+    "ours": 208,
+    "ref": 189
+   },
+   {
+    "bin": "11:00",
+    "cell": "NB thru",
+    "ours": 172,
+    "ref": 161
+   }
+  ]
+ },
+ "production": {
+  "cells_scored": 47,
+  "compliant": 44,
+  "pct": 93.6,
+  "worst": [
+   {
+    "bin": "12:30",
+    "cell": "SB thru",
+    "ours": 223,
+    "ref": 202
+   },
+   {
+    "bin": "12:00",
+    "cell": "SB thru",
+    "ours": 208,
+    "ref": 189
+   },
+   {
+    "bin": "11:00",
+    "cell": "NB thru",
+    "ours": 172,
+    "ref": 161
+   }
+  ]
+ },
+ "v2_approach": {
+  "cells_scored": 24,
+  "compliant": 17,
+  "pct": 70.8,
+  "worst": [
+   {
+    "bin": "12:30",
+    "cell": "SB",
+    "ours": 226,
+    "ref": 204
+   },
+   {
+    "bin": "12:00",
+    "cell": "SB",
+    "ours": 210,
+    "ref": 191
+   },
+   {
+    "bin": "11:00",
+    "cell": "SB",
+    "ours": 211,
+    "ref": 197
+   },
+   {
+    "bin": "11:30",
+    "cell": "SB",
+    "ours": 221,
+    "ref": 207
+   },
+   {
+    "bin": "12:15",
+    "cell": "SB",
+    "ours": 230,
+    "ref": 219
+   },
+   {
+    "bin": "11:00",
+    "cell": "NB",
+    "ours": 173,
+    "ref": 164
+   },
+   {
+    "bin": "11:00",
+    "cell": "EB",
+    "ours": 1,
+    "ref": 7
+   }
+  ]
+ },
+ "production_approach": {
+  "cells_scored": 24,
+  "compliant": 17,
+  "pct": 70.8,
+  "worst": [
+   {
+    "bin": "12:30",
+    "cell": "SB",
+    "ours": 226,
+    "ref": 204
+   },
+   {
+    "bin": "12:00",
+    "cell": "SB",
+    "ours": 210,
+    "ref": 191
+   },
+   {
+    "bin": "11:00",
+    "cell": "SB",
+    "ours": 211,
+    "ref": 197
+   },
+   {
+    "bin": "11:30",
+    "cell": "SB",
+    "ours": 221,
+    "ref": 207
+   },
+   {
+    "bin": "12:15",
+    "cell": "SB",
+    "ours": 230,
+    "ref": 219
+   },
+   {
+    "bin": "11:00",
+    "cell": "NB",
+    "ours": 173,
+    "ref": 164
+   },
+   {
+    "bin": "11:00",
+    "cell": "EB",
+    "ours": 1,
+    "ref": 7
+   }
+  ]
+ },
+ "totals": {
+  "EB_left": [
+   20,
+   5,
+   5
+  ],
+  "EB_right": [
+   6,
+   1,
+   1
+  ],
+  "EB_uturn": [
+   0,
+   0,
+   0
+  ],
+  "NB_left": [
+   17,
+   7,
+   7
+  ],
+  "NB_thru": [
+   1546,
+   1575,
+   1575
+  ],
+  "NB_uturn": [
+   4,
+   0,
+   0
+  ],
+  "SB_right": [
+   16,
+   32,
+   32
+  ],
+  "SB_thru": [
+   1640,
+   1724,
+   1724
+  ],
+  "SB_uturn": [
+   2,
+   1,
+   1
+  ]
+ }
+}

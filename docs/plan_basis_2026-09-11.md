@@ -2490,3 +2490,28 @@ dedup passes; 24-28% of their drops coexist with a counted twin, so the real run
 PASS = the G-DEF-1 letter against 83.50: fleet rises; no camera mean worse than -1.0; no window
 worse than -3.0; FM 51 not worse. Approach bar reported alongside. If cam5 gains and cam1/cam2
 break the camera clause, it is reported as it stands.
+
+### Arm fr1 VERDICT (2026-09-25): LETTER FAIL. Fleet +0.73, cam5 +6.24, cam1 -4.25
+
+    window          gx2    fr1   delta        window          gx2    fr1   delta
+    cam1 0700      83.8   81.1   -2.7         cam4 0700      86.7   86.7    0.0
+    cam1 1600      94.2   88.4   -5.8         cam4 1100      93.6   93.6    0.0
+    cam2 0700      77.1   78.1   +1.0         cam4 1600      84.9   84.9    0.0
+    cam2 1100      77.7   79.8   +2.1         cam5 0700      78.0   85.3   +7.3
+    cam2 1600      71.3   66.7   -4.6         cam5 1100      83.0   87.7   +4.7
+    cam3 0600      89.0   89.0    0.0         cam5 1600      82.7   89.4   +6.7
+    FLEET 83.50 -> 84.23 (+0.73).  camera means: cam1 -4.25, cam2 -0.50, cam3 0, cam4 0, cam5 +6.24
+Fails the camera clause (cam1 -4.25) and the window clause (cam1 1600 -5.8, cam2 1600 -4.6).
+FM 51 not run: the letter had already failed.
+
+THE RESCUE WORKS WHERE IT WAS AIMED: cam5 EB right 93 -> 238 against Miovision's 244 at 1600.
+
+THE TWO LOSSES ARE DIFFERENT MECHANISMS:
+  * cam1 1600, EB right 497 -> 397 (Mio 497) while the rescue ADDED ~20. Rejected W-origin rights
+    14 -> 134; the turn merge merged away 119. The rescued events pushed the cell across the
+    volume gate (merge_replay_turns, expected_by_cell) and the merge then cut real vehicles:
+    a CLIFF in the merge, not a bad rescue.
+  * cam2 1600, SB right 370 -> 436 (Mio 341): the rescued N->W journeys are surplus there, the
+    ambiguous class (heading 150 vs 85 for the counted ones) that the straightness cut does not
+    separate.
+FLAG STAYS OFF. Nothing in production changed.
