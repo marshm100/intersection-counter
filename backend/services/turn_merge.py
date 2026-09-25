@@ -49,22 +49,36 @@ MERGE_MAX_OVERLAP_FRAMES = 12.0
 
 
 def merge_turn_fragments(turns, merge_px, merge_gap, expected_by_cell=None,
-                         vol_factor=1.3, queue_aware=False):
+                         vol_factor=1.3, queue_aware=False, excess_only=False,
+                         pairs_out=None):
     """Ported verbatim from scripts/hybrid_ocbot.py (see its docstring for the
     A2 volume-gate rationale). `turns` = dicts with id/ol/dl/mv/s/e/start.
     queue_aware adds the span-overlap discriminator (see
-    MERGE_MAX_OVERLAP_FRAMES). Returns the kept event ids."""
+    MERGE_MAX_OVERLAP_FRAMES). Returns the kept event ids.
+
+    excess_only (config.MERGE_EXCESS_ONLY): a cell over its gate gives up
+    only its EXCESS over the gate — the predicate loop runs unchanged, its
+    absorptions are ranked by strength (start_dist / merge_px + gap /
+    merge_gap, normalised by the frozen constants) and only the strongest
+    (len(cell) - floor(gate)) are applied. Removes the all-or-nothing cliff.
+    pairs_out, when a list, receives every absorption as a dict (root,
+    absorbed, strength, applied) — diagnostics only."""
     by = defaultdict(list)
     for ev in turns:
         by[(ev["ol"], ev["dl"], ev["mv"])].append(ev)
     keep = []
     for cell, evs in by.items():
         evs.sort(key=lambda e: e["s"])
+        excess = None
         if expected_by_cell is not None:
             exp = expected_by_cell.get((cell[0], cell[1]), 0)
-            if len(evs) <= vol_factor * max(exp, 1):
+            gate = vol_factor * max(exp, 1)
+            if len(evs) <= gate:
                 keep.extend(e["id"] for e in evs)
                 continue
+            if excess_only:
+                excess = len(evs) - math.floor(gate)
+        absorbed = []
         used = [False] * len(evs)
         for i, ei in enumerate(evs):
             if used[i]:
@@ -86,6 +100,22 @@ def merge_turn_fragments(turns, merge_px, merge_gap, expected_by_cell=None,
                         if overlap > MERGE_MAX_OVERLAP_FRAMES:
                             continue   # coexisting = two vehicles, keep
                     used[j] = True   # fragment of the same turning vehicle
+                    dist = math.hypot(ei["start"][0] - ej["start"][0],
+                                      ei["start"][1] - ej["start"][1])
+                    gap = max(ej["s"] - ei["e"], 0.0)
+                    absorbed.append((dist / merge_px + gap / merge_gap,
+                                     ei["id"], ej["id"]))
+        applied = absorbed
+        if excess is not None and len(absorbed) > excess:
+            ranked = sorted(absorbed, key=lambda a: a[0])
+            applied = ranked[:max(excess, 0)]
+            done = {a[2] for a in applied}
+            keep.extend(a[2] for a in absorbed if a[2] not in done)
+        if pairs_out is not None:
+            done = {a[2] for a in applied}
+            pairs_out.extend({"cell": list(cell), "root": a[1],
+                              "absorbed": a[2], "strength": round(a[0], 4),
+                              "applied": a[2] in done} for a in absorbed)
     return set(keep)
 
 
@@ -613,11 +643,22 @@ def merge_replay_turns(db: str | Path, camera_id: int, *,
         turns = _load_turns(conn, camera_id)
         expected = (expected_by_cell if expected_by_cell is not None
                     else bank_expecteds(conn, camera_id, window_seconds))
-        from backend.config import QUEUE_AWARE_MERGE
+        from backend.config import MERGE_EXCESS_ONLY, QUEUE_AWARE_MERGE
+        pairs: list[dict] = []
         keep = merge_turn_fragments(turns, MERGE_PX, MERGE_GAP,
                                     expected_by_cell=expected,
                                     vol_factor=VOL_FACTOR,
-                                    queue_aware=QUEUE_AWARE_MERGE)
+                                    queue_aware=QUEUE_AWARE_MERGE,
+                                    excess_only=MERGE_EXCESS_ONLY,
+                                    pairs_out=pairs)
+        # diagnostics sidecar: every absorption the merge made or declined
+        try:
+            Path(db).with_suffix(".merge_pairs.json").write_text(
+                json.dumps({"camera_id": camera_id,
+                            "excess_only": MERGE_EXCESS_ONLY,
+                            "pairs": pairs}))
+        except OSError:                              # pragma: no cover
+            logger.warning("merge-pair sidecar not written for %s", db)
         drop = [ev["id"] for ev in turns if ev["id"] not in keep]
         with conn:
             conn.executemany(

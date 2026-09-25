@@ -224,3 +224,62 @@ class TestTwinTrackDedup:
         res = twin_track_dedup(db, 2, self._rows(tr), 25.0)
         assert res["twin_rejected"] == 0
 
+
+
+class TestMergeExcessOnly:
+    """MERGE ONLY THE EXCESS (config.MERGE_EXCESS_ONLY, 2026-09-25): the
+    volume gate stops being a cliff — a cell over its gate gives up only
+    its overshoot, strongest absorptions first."""
+
+    # root 1 absorbs four later same-cell turns; strengths (start_dist/30 +
+    # gap/40): A 0.125, C 0.917, D 0.95, B 1.083
+    CELL = [_ev(1, s=0, e=10), _ev(2, s=15, e=20),                  # A
+            _ev(3, s=20, e=25, start=(120.0, 100.0)),              # C
+            _ev(4, s=40, e=45, start=(110.0, 100.0)),              # B
+            _ev(5, s=48, e=53)]                                    # D
+
+    def test_just_over_the_gate_merges_only_the_excess(self):
+        # expected 3 -> gate 3.9 -> keep floor 3 of 5: the two strongest go
+        keep = merge_turn_fragments(self.CELL, 30.0, 40.0,
+                                    expected_by_cell={(1, 2): 3},
+                                    vol_factor=1.3, excess_only=True)
+        assert keep == {1, 4, 5}
+        # the cliff it removes: the same cell today collapses to one
+        keep_off = merge_turn_fragments(self.CELL, 30.0, 40.0,
+                                        expected_by_cell={(1, 2): 3},
+                                        vol_factor=1.3)
+        assert keep_off == {1}
+
+    def test_far_over_the_gate_is_todays_merge(self):
+        keep = merge_turn_fragments(self.CELL, 30.0, 40.0,
+                                    expected_by_cell={(1, 2): 1},
+                                    vol_factor=1.3, excess_only=True)
+        assert keep == {1}
+
+    def test_under_the_gate_unchanged(self):
+        keep = merge_turn_fragments(self.CELL, 30.0, 40.0,
+                                    expected_by_cell={(1, 2): 4},
+                                    vol_factor=1.3, excess_only=True)
+        assert keep == {1, 2, 3, 4, 5}
+
+    def test_pairs_out_records_every_absorption(self):
+        pairs = []
+        keep = merge_turn_fragments(self.CELL, 30.0, 40.0,
+                                    expected_by_cell={(1, 2): 3},
+                                    vol_factor=1.3, excess_only=True,
+                                    pairs_out=pairs)
+        assert len(pairs) == 4 and all(p["root"] == 1 for p in pairs)
+        applied = {p["absorbed"] for p in pairs if p["applied"]}
+        assert applied == {2, 3}
+        assert applied.isdisjoint(keep)
+
+    def test_pairs_out_leaves_the_result_unchanged(self):
+        turns = [_ev(1, s=0, e=10), _ev(2, s=20, e=30), _ev(3, s=45, e=55)]
+        a = merge_turn_fragments(turns, 30.0, 40.0, expected_by_cell={(1, 2): 1})
+        b = merge_turn_fragments(turns, 30.0, 40.0, expected_by_cell={(1, 2): 1},
+                                 pairs_out=[])
+        assert a == b == {1}
+
+    def test_default_off(self):
+        import backend.config as cfg
+        assert cfg.MERGE_EXCESS_ONLY is False

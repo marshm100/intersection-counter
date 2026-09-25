@@ -558,6 +558,20 @@ MOTION_QUALIFIED_EVIDENCE = _os2.environ.get(
 # 141-vehicle deficit at 0700).
 QUEUE_AWARE_MERGE = _os2.environ.get(
     "QUEUE_AWARE_MERGE", "1") in ("1", "true", "on")
+# MERGE ONLY THE EXCESS (2026-09-25, arms mg0/mg1/fr2, declared in
+# docs/plan_basis_2026-09-11.md before scoring). The turn merge's volume
+# gate is ALL-OR-NOTHING: at or under VOL_FACTOR x expected every event is
+# kept, above it the fragment merge runs over the whole cell. On cam1
+# study_1600 W->S right (expected 393, gate 511) production sits at ~497
+# (Miovision 497); arm fr1 added ~20 real turns, the gate tripped and 119
+# were merged away (-> 397). When ON, a cell over its gate gives up only
+# its excess: the predicate loop is unchanged, its absorptions are ranked
+# by strength (start distance / MERGE_PX + gap / MERGE_GAP) and only the
+# strongest (count - floor(gate)) apply. NO NEW CONSTANTS. (The MERGE_GAP
+# "units" suspicion is RETRACTED: 40 frames was validated on cam1 at its
+# native 10 fps.) Default OFF pending the arms.
+MERGE_EXCESS_ONLY = _os2.environ.get(
+    "MERGE_EXCESS_ONLY", "0") in ("1", "true", "on")
 # B — flow-informed origin inference: entry-less tracks (born past
 # the gate: occlusion/faint far band; 41% of the deficit corridor)
 # get their origin inferred from birth position + the dominant-flow
