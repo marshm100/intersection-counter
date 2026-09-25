@@ -2431,3 +2431,27 @@ overlapping a counted twin; cam2's run 23-26 s at 2-3 px/s net with 24-28% twins
 ruling (2026-08-24: "queue creep across a gate line is not a journey"), which already has a
 frozen test: MOTION_QUALIFIED_EVIDENCE's crossing_speed against STITCH_STAT_SPEED_PXS. Not yet
 measured on these tracks.
+
+### The dropped full journeys, split (2026-09-25)
+
+MOTION TEST REFUTED. crossing_speed at both gate crossings vs STITCH_STAT_SPEED_PXS/fps: 1,543 of
+~1,570 dropped full journeys cross IN MOTION, cam2's included (creep: cam2 23 over three windows,
+cam3 1). Adding back only the moving ones: fleet 83.57 (+0.07), cam2 still -4.07. Not queue creep.
+
+THE SPLIT IS SHAPE. Dropped vs counted full journeys of the SAME gate cell (|heading|, straightness):
+  cam5 W->S (EB right)   dropped 142 deg, 0.43   counted 130 deg, 0.45   -> the same turn
+  cam1 W->S              dropped 156, 0.41       counted 118, 0.44
+  cam2 N->W (SB right)   dropped 150, 0.51       counted 85, 0.56        -> ambiguous
+  through cells, cam2/3/5 N->S and S->N: dropped ~170 deg, straightness 0.03-0.07 against
+  counted ~16 deg, 0.99 -> tracks that DOUBLE BACK (ID corruption); the classifier is right
+  to drop them.
+PRICED, adding back only drops with straightness >= 0.25 (a scratch cut, NOT a frozen constant):
+  fleet 83.50 -> 84.28 movement (+0.78), approach 63.35 -> 66.46 (+3.12)
+  cam5 +6.26 / +15.62   cam2 -1.79 / -2.08   cam1 -2.03 / -1.61   cam3, cam4 0.00
+  Fails the -1.0 camera clause on cam1 and cam2. Caveat: this adds events AFTER the dedup
+  passes; a real pass 2 would run fracture / twin dedup over them (24-28% of cam1/cam2's drops
+  coexist with a counted twin), so only an arm prices it honestly.
+NO FROZEN CONSTANT separates a loop from a turn (the only straightness constants are 0.95 and
+0.97, for straight fragments). The frozen instrument that does judge in-box shape is the joint
+scorer's admission against the bank path of the journey's own gate cell (CLAUDE.md: "the in-box
+shape matched to operator channels").
