@@ -2557,3 +2557,30 @@ FM 51 not worse. Approach bar reported.
 EXPECTED: mg1 near-identical to 83.50 (only cells just over their gate move; none is known to sit
 there today except by upper-bound census). fr2: cam5 +~6 as in fr1; cam1's -4.25 largely gone if
 the cliff was the cause; cam2 1600's SB-right surplus (+66) remains.
+
+### Arms mg0 / mg1 / fr2 VERDICTS (2026-09-25)
+
+mg0 (control, instrumented): 83.50, IDENTICAL to production on all 12 windows. The pair sidecars
+change nothing.
+THE PAIR CENSUS (scripts/research_merge_pairs.py mg0): production's merge makes 407 absorptions
+across the fleet, 398 of them FOLLOWERS: the absorbed track is born back near the root's START
+after the root had moved > 30 px away (a turning car cannot return to where it began: a different
+track, the next vehicle at that spot). 4 continuations, 5 other. Where: cam5 S->W left (NB left)
+120 / 50 / 69, cam2 W->N left 9 / 4 / 53 and N->W right 21 / 26 / 22, cam4 N->W right 1 / 1 / 11,
+cam1 0700 W->S right 7. The merge no longer joins fragments of one vehicle (the fracture / chain
+dedups upstream catch those now); it removes the next vehicle from the same spot within 4 s, i.e.
+a volume cap keyed to the bank's expectation. On cam5 NB left (over Miovision) that cap happens to
+push the right way; on cam2's under-counted cells it deletes real vehicles.
+mg1 (MERGE_EXCESS_ONLY alone): 83.50, identical on all 12. As declared: no production cell sits
+just over its gate, so the rule changes nothing today; it only changes what happens when a
+cell is pushed across.
+fr2 (MERGE_EXCESS_ONLY + FULL_JOURNEY_RESCUE): FLEET 84.71 (+1.21)
+    cam1 0700 -2.7   cam1 1600 0.0 (fr1: -5.8)   cam2 0700 +1.0   cam2 1100 +2.1   cam2 1600 -4.6
+    cam3 0.0   cam4 0.0 x3   cam5 +7.3 / +4.7 / +6.7
+    camera means: cam1 -1.35, cam2 -0.50, cam3 0, cam4 0, cam5 +6.24
+  THE CLIFF IS GONE: cam1 1600 EB right 497 -> 510 (Mio 497) instead of fr1's 397; the window
+  holds 94.2.
+  LETTER FAIL, narrower than fr1: camera clause cam1 -1.35 (cam1 0700 EB right 203 -> 218 vs Mio
+  191, a cell already over), window clause cam2 1600 -4.6 (SB right 370 -> 436 vs Mio 341). cam2's
+  SB right rescue is RIGHT on 0700 (318 -> 390, Mio 379) and 1100 (331 -> 408, Mio 388) and
+  over on 1600. FM 51 not run (letter failed). Both flags stay OFF.
