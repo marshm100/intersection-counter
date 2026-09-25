@@ -466,6 +466,27 @@ GATE_EXIT_ONLY_BINDING = _os2.environ.get(
 BOUND_CHAIN_CONSERVE = _os2.environ.get(
     "BOUND_CHAIN_CONSERVE", "1") in ("1", "true", "on")
 
+# THE PREDICTED-CONTINUATION RULE (2026-09-25, arm pc1, declared in
+# docs/plan_basis_2026-09-11.md before scoring). cam5's northbound-left
+# excess is far-field fragments that never reach the left/through
+# divergence (458 of 460 no_crossing lefts stay inside both corridors) and
+# the whole NB approach runs +10% over: some fragments are the head of a
+# vehicle already counted from a later track. The fracture rule measures
+# from the fragment's DEATH point (1.0 s / 1.0 box, NOT widened); at the
+# ~1 s median gap a moving car has left that box. Measured on the gx2
+# basis: a counted NB track born within the tracker's recovery reach of
+# the fragment's PREDICTED position (death + end velocity x gap) pairs
+# 56/42/47 a window against ~5 at chance (+-10/20 s time shifts); a plain
+# gap/distance test finds a "partner" for 26-49% of fragments at chance.
+# When ON, the fragment's event (entry_only / no_crossing, pinned gates)
+# is rejected when a counted track of the SAME ORIGIN is born inside
+# STITCH_MOVE_GAP_S within TRACKER_RECOVERY_REACH box widths of the
+# prediction, bearings agreeing within CHAIN_DIR_TOL_DEG. ADDS NO
+# CONSTANTS. Runs after the fracture rule and the bound-chain guard.
+# Default OFF pending the arm and a ruling; CONTINUATION_DEDUP=1 to arm it.
+CONTINUATION_DEDUP = _os2.environ.get(
+    "CONTINUATION_DEDUP", "0") in ("1", "true", "on")
+
 # THE JOURNEY FATE LEDGER (2026-09-20, stage 1 of the triage plan). Every
 # track that ends without a counted event lands in ONE `insufficient_data`
 # counter today (the fleet log's `dropped=`), which is ~18% of all tracks

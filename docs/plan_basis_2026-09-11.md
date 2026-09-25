@@ -2382,3 +2382,22 @@ not worse (85.7 / 89.8 movement, 73.9 / 79.2 approach). Approach bar reported al
 EXPECTED SIGN: cam5 up (NB left, NB approach); cam4 small; cams 1-3 UNKNOWN (BoT-SORT fragments
 differently, more pairs will fire); cam1 is closest to the letter's edge. If cam5 gains and
 cams 1-3 lose, it is reported as it stands.
+
+### Arm pc1 dry run VERDICT (2026-09-25): GATE FAILED, the fleet arm was NOT run
+
+scripts/research_continuation.py over the 12 gx2 windows (== production), no pass 2. The rule as
+declared would reject 113/58 (cam1), 68/40/102 (cam2), 818 (cam3), 34/28/108 (cam4), 184/93/137
+(cam5). Chance, measured by moving each fragment's death +-10/20 s at the same position and
+velocity, as a share of the real pairs:
+    cam1 31.2%   cam2 42.9%   cam3 18.4%   cam4 30.7%   cam5 36.6%    (declared bar: 20%)
+Split by whether the fragment ENDED MOVING (the chain rule's frozen STITCH_STAT_SPEED_PXS):
+    moving   cam1 27.0  cam2 32.2  cam3 17.3  cam4 29.2  cam5 29.2 %
+    stopped  cam1 108   cam2 65.5  cam3 52.8  cam4 58.3  cam5 83.8 %
+Stopped fragments are pure follower trap (prediction = death point = the next car's spot). But
+moving fragments alone still fail on four cameras, so the fix is not a speed filter.
+WHY THE cam5 MEASUREMENT DID NOT GENERALISE: the ~9% chance figure was on one population, the
+undetermined NB-left stubs that never reach the divergence, sparse at x ~ 467. Over all
+exit-lacking fragments of all origins, the rule samples dense queues at the mouths, where a
+0.9-box circle around a moving prediction still catches the next car ~1 time in 3.
+THE CODE STAYS, default OFF (config.CONTINUATION_DEDUP, turn_merge.continuation_pairs, 12 tests).
+Nothing in production changed.

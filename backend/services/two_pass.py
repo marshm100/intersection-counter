@@ -611,6 +611,17 @@ def bound_chain_pass(project_id: str, camera_id: int, rows: np.ndarray,
     return bound_chain_dedup(out_db, camera_id, rows, fps, gates)
 
 
+def continuation_pass(project_id: str, camera_id: int, rows: np.ndarray,
+                      fps: float, out_db: str | Path) -> dict:
+    """THE PREDICTED-CONTINUATION RULE over a dump: the same pinned gates,
+    then turn_merge.continuation_dedup."""
+    from backend.services.turn_merge import continuation_dedup
+    gates, skip = _pinned_gates(project_id, camera_id, rows)
+    if skip is not None:
+        return skip
+    return continuation_dedup(out_db, camera_id, rows, fps, gates)
+
+
 def conserve_pass(project_id: str, camera_id: int, rows: np.ndarray,
                   fps: float, out_db: str | Path) -> dict:
     """Convenience wrapper for run_pass2 + the ablation harness: build the
@@ -1839,6 +1850,16 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                                                 fps, out_db)
         logger.info("two-pass cam%s %s: bound-chain guard %s", camera_id,
                     variant, stats["bound_chain"])
+    # THE PREDICTED-CONTINUATION RULE (flag-gated, 2026-09-25): a fragment
+    # lacking its exit whose counted continuation is born where the fragment
+    # would be by then. AFTER the fracture rule and the bound-chain guard so
+    # both stay byte-identical; before the merge for the same reason.
+    from backend.config import CONTINUATION_DEDUP as _cont_on
+    if _cont_on:
+        stats["continuation"] = continuation_pass(project_id, camera_id,
+                                                  rows, fps, out_db)
+        logger.info("two-pass cam%s %s: continuation rule %s", camera_id,
+                    variant, stats["continuation"])
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
                                expected_by_cell=expected)
     # V2 MERGE RESCUE (block-2 item 1, diagnosis 2026-08-06): a merged-away

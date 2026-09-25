@@ -442,6 +442,122 @@ def fracture_track_dedup(db: str | Path, camera_id: int, rows, fps,
             "fracture_rejected": len(drop)}
 
 
+def continuation_pairs(evs, rows, fps, gates):
+    """THE PREDICTED-CONTINUATION RULE's pairing, side-effect free.
+    evs: [(event_id, track_id, origin_leg_id)] of the events in play.
+    Returns (recs, pairs) with pairs = [(a_rec, b_rec, gap_s,
+    residual_over_box)]; a_rec is always the fragment that yields.
+
+    The fracture rule measured from A's DEATH point; this one measures
+    from where A would BE: A's death + its end velocity x the gap. Every
+    threshold is an existing frozen constant — the chain rule's moving-
+    break window (STITCH_MOVE_GAP_S), the tracker's position-recovery
+    reach in box widths (TRACKER_RECOVERY_REACH, box = the wider of the
+    two boxes, tracker._recovery_cost), the bearing window
+    (CHAIN_BEARING_END_S) for the end velocity and the direction gate
+    (CHAIN_DIR_TOL_DEG)."""
+    import numpy as np
+
+    from backend.config import TRACKER_RECOVERY_REACH
+    from backend.services.entry_gates import classify
+    from backend.services.track_chains import (CHAIN_BEARING_END_S,
+                                               CHAIN_DIR_TOL_DEG,
+                                               STITCH_MOVE_GAP_S,
+                                               endpoint_bearings)
+    from backend.services.track_cut import _bdiff
+
+    arr = np.asarray(rows, dtype=float)
+    recs = []
+    for eid, tid, origin in evs:
+        sel = arr[arr[:, 0] == float(tid)]
+        if len(sel) < 5:
+            continue
+        sel = sel[np.argsort(sel[:, 1])]
+        pts = [(float(r[1]), float(r[2]), float(r[3])) for r in sel]
+        *_o, tag = classify(pts, gates, fps)
+        bs, be = endpoint_bearings(pts, fps)
+        fd = pts[-1][0]
+        k = int(np.searchsorted(sel[:, 1], fd - CHAIN_BEARING_END_S * fps))
+        df = fd - float(sel[k, 1])
+        vel = ((float(sel[-1, 2] - sel[k, 2]) / df,
+                float(sel[-1, 3] - sel[k, 3]) / df) if df > 0 else (0.0, 0.0))
+        recs.append({"eid": eid, "tid": int(tid), "origin": origin,
+                     "pts": pts, "birth": pts[0], "death": pts[-1],
+                     "tag": tag, "vel": vel,
+                     "w_birth": float(sel[0, 4]), "w_death": float(sel[-1, 4]),
+                     "b_start": bs, "b_end": be})
+    recs.sort(key=lambda r: r["birth"][0])
+    births = np.array([r["birth"][0] for r in recs], dtype=float)
+    cands = []
+    for ai, a in enumerate(recs):
+        if a["tag"] not in ("entry_only", "no_crossing"):
+            continue                       # A already owns its exit
+        fa, xa, ya = a["death"]
+        lo = int(np.searchsorted(births, fa + STITCH_MOVE_GAP_S[0] * fps,
+                                 side="left"))
+        hi = int(np.searchsorted(births, fa + STITCH_MOVE_GAP_S[1] * fps,
+                                 side="right"))
+        for bi in range(lo, hi):
+            b = recs[bi]
+            if b["tid"] == a["tid"] or b["death"][0] <= fa:
+                continue
+            if a["origin"] is None or b["origin"] != a["origin"]:
+                continue                   # never trade a witnessed origin
+            gap_f = b["birth"][0] - fa
+            px, py = xa + a["vel"][0] * gap_f, ya + a["vel"][1] * gap_f
+            box = max(a["w_death"], b["w_birth"])
+            if box <= 0:
+                continue
+            rel = math.hypot(b["birth"][1] - px, b["birth"][2] - py) / box
+            if rel >= TRACKER_RECOVERY_REACH:
+                continue
+            ba, bb = a.get("b_end"), b.get("b_start")
+            if (ba is not None and bb is not None
+                    and _bdiff(ba, bb) > CHAIN_DIR_TOL_DEG):
+                continue
+            gap_s = gap_f / fps
+            cands.append((rel + 0.5 * max(gap_s, 0.0), ai, bi, gap_s, rel))
+    cands.sort(key=lambda c: c[0])
+    used = set()
+    pairs = []
+    for _s, ai, bi, gap_s, rel in cands:
+        if ai in used or bi in used:
+            continue
+        used.add(ai); used.add(bi)
+        pairs.append((recs[ai], recs[bi], gap_s, rel))
+    return recs, pairs
+
+
+def continuation_dedup(db: str | Path, camera_id: int, rows, fps,
+                       gates) -> dict:
+    """THE PREDICTED-CONTINUATION RULE (config.CONTINUATION_DEDUP): reject
+    the event of a fragment that lacks its exit when a counted track of the
+    same origin is born, within the chain rule's moving-break window, inside
+    the tracker's recovery reach of where the fragment would be by then.
+    Runs after the fracture rule and the bound-chain guard and cleans only
+    their residue. Write-then-reject (rejected=1), movement-agnostic: one
+    vehicle is one count."""
+    db = str(db)
+    conn = sqlite3.connect(db)
+    try:
+        evs = conn.execute(
+            "SELECT event_id, vehicle_track_id, origin_leg_id "
+            "FROM vehicle_events "
+            "WHERE camera_id = ? AND COALESCE(rejected, 0) = 0 "
+            "AND vehicle_track_id IS NOT NULL AND vehicle_track_id >= 0",
+            (camera_id,)).fetchall()
+        _recs, pairs = continuation_pairs(evs, rows, fps, gates)
+        drop = {a["eid"] for a, _b, _g, _r in pairs}
+        with conn:
+            conn.executemany(
+                "UPDATE vehicle_events SET rejected = 1 WHERE event_id = ?",
+                [(int(e),) for e in drop])
+    finally:
+        conn.close()
+    return {"camera_id": camera_id, "continuation_pairs": len(pairs),
+            "continuation_rejected": len(drop)}
+
+
 def _load_turns(conn: sqlite3.Connection, camera_id: int) -> list[dict]:
     rows = conn.execute(
         "SELECT event_id, movement, origin_leg_id, destination_leg_id, "
