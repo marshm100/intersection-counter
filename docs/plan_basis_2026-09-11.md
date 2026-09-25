@@ -2455,3 +2455,19 @@ NO FROZEN CONSTANT separates a loop from a turn (the only straightness constants
 0.97, for straight fragments). The frozen instrument that does judge in-box shape is the joint
 scorer's admission against the bank path of the journey's own gate cell (CLAUDE.md: "the in-box
 shape matched to operator channels").
+
+### The path-match rescue, dry run (2026-09-25): FAILS ITS CONTROL, not buildable as tested
+
+scripts/research_full_rescue.py: each dropped full journey scored by score_path_joint against ONLY
+its own gate cell's bank path (frozen JOINT_SCORER_* admission, per-camera cost metric); the same
+test on up to 200 COUNTED full journeys per cell is the control.
+  CONTROL: the admission refuses most journeys we already count: cam2 707/846, 374/455, 939/1209
+  refused; cam5 330/456, 346/445, 368/476; cam1 58/612 and cam3 130/661 are fine. Counted full
+  journeys on cam2/cam5 are labelled by their gates (GATE_FULL_SUPREMACY), not by the bank.
+  The input is the pipeline's own (stored trajectory == dump track, checked).
+  RESCUE: cam5 W->S admitted 37/99, 13/100, 39/147 (89 of 346); cam2 N->S 0 (all refused, right:
+  those double back); cam4 S->W has no bank path at all.
+  PRICE: fleet 83.50 -> 83.35 (-0.15), approach +1.29; cam1 -1.35, cam5 +0.31.
+VERDICT: the bank is not a usable judge of in-box shape on the cameras that need it. The only
+separator measured so far is straightness (turns ~0.4, doubling-back IDs ~0.04), and no frozen
+constant draws that line.
