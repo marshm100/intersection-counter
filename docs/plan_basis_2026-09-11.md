@@ -2532,3 +2532,28 @@ CELLS OVER THEIR GATE IN PRODUCTION (merge active; raw is an upper bound incl. d
   cam1 0700 W->S right, W->N left | cam2 all windows N->W right, W->N left (+ E->S left 1100) |
   cam3 W->N left | cam4 N->W right on all three | cam5 S->W left (NB left) on all three, N->E left.
   Note cam5 NB left: the merge is ALREADY active on the cell this cycle started with.
+
+## Arms mg0 / mg1 / fr2 DECLARED before scoring (2026-09-25): MERGE ONLY THE EXCESS
+
+RETRACTION FIRST: the "units bug" in MERGE_GAP (section above) is WRONG. cam1 is natively 10 fps
+and the 40-frame window was validated THERE on 2026-06-01 (hybrid_ocbot.py, CAMERA = 1; sweep over
+20/40/60 frames, gross 27.2-27.6% throughout). 4 s is the validated window. Only the later
+queue-aware overlap limit (12 frames, measured on cam2 at 25 fps) is plausibly in 25-fps units,
+and it is not shown to matter. The cliff is the ALL-OR-NOTHING volume gate.
+
+THE RULE (config.MERGE_EXCESS_ONLY, default OFF). For a turn cell over its gate, run the existing
+predicate loop unchanged, record each absorption with strength = start_dist / MERGE_PX +
+max(gap, 0) / MERGE_GAP, and apply only the (len(cell) - floor(VOL_FACTOR x max(exp, 1)))
+strongest. A cell far over its gate merges exactly as today; a cell just over loses only its
+overshoot; under the gate, unchanged. NO NEW CONSTANTS. Flag off byte-identical.
+
+  mg0 = control, flag OFF, instrumented (merge-pair sidecars). MUST reproduce 83.50 window for
+        window. Its pair census answers: what does production's merge remove, continuations
+        (born after the root died, near its END) or followers (born near its START)?
+  mg1 = MERGE_EXCESS_ONLY=1 alone.
+  fr2 = MERGE_EXCESS_ONLY=1 + FULL_JOURNEY_RESCUE=1. Question: does cam1's fr1 loss disappear?
+PASS (each) = the G-DEF-1 letter against 83.50: fleet rises; no camera -1.0; no window -3.0;
+FM 51 not worse. Approach bar reported.
+EXPECTED: mg1 near-identical to 83.50 (only cells just over their gate move; none is known to sit
+there today except by upper-bound census). fr2: cam5 +~6 as in fr1; cam1's -4.25 largely gone if
+the cliff was the cause; cam2 1600's SB-right surplus (+66) remains.
