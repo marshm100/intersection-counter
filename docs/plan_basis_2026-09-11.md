@@ -2515,3 +2515,20 @@ THE TWO LOSSES ARE DIFFERENT MECHANISMS:
     ambiguous class (heading 150 vs 85 for the counted ones) that the straightness cut does not
     separate.
 FLAG STAYS OFF. Nothing in production changed.
+
+## THE TURN-MERGE CLIFF (2026-09-25, from the fr1 verdict)
+
+turn_merge.merge_turn_fragments' VOLUME GATE is binary per turn cell: raw <= VOL_FACTOR (1.3) x
+expected keeps every event; above it, the fragment merge runs over the WHOLE cell and collapses
+any two same-cell turns starting within MERGE_PX (30 px) and MERGE_GAP (40 frames).
+  cam1 study_1600 W->S right: expected 393, gate 511. Production (gx2) pre-merge ~497 -> no merge,
+  497 counted (Mio 497). fr1 added ~20 real rescued turns -> over the gate -> 119 merged away ->
+  397. Production sits ~14 vehicles below a trip point that costs ~100.
+UNITS: MERGE_GAP and MERGE_MAX_OVERLAP_FRAMES are in FRAMES, written against 25 fps (the
+constants' own comment: "~0.5 s at 25 fps"; cam2, where they were validated, runs 25 fps). cams
+1, 3, 4, 5 run 10 fps: 40 frames is 1.6 s on cam2 and 4.0 s everywhere else, 2.5x the validated
+window, wide enough to fold consecutive right-turners in a platoon into one.
+CELLS OVER THEIR GATE IN PRODUCTION (merge active; raw is an upper bound incl. dedup rejects):
+  cam1 0700 W->S right, W->N left | cam2 all windows N->W right, W->N left (+ E->S left 1100) |
+  cam3 W->N left | cam4 N->W right on all three | cam5 S->W left (NB left) on all three, N->E left.
+  Note cam5 NB left: the merge is ALREADY active on the cell this cycle started with.
