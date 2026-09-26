@@ -591,6 +591,15 @@ TURN_MERGE = _os2.environ.get("TURN_MERGE", "1") in ("1", "true", "on")
 # and drops, the rescue block's own rule. NO NEW CONSTANTS. Default OFF.
 NOCROSS_NO_FALLBACK = _os2.environ.get(
     "NOCROSS_NO_FALLBACK", "0") in ("1", "true", "on")
+# arm nf2 (2026-09-26): instead of closing the side door, the fallback may
+# only compare path lines over the stretch of the track that lies alongside
+# ALL of them (trajectory_classifier.score_destination_by_polyline_extent).
+# A stub upstream of where one candidate line begins has no such stretch and
+# drops; a far-field track past its turn (cam2's SB rights at the W exit)
+# keeps its label. Arm nf1 (the blanket refusal) failed on cam2 (-6.64).
+# No new constants. Default OFF.
+NOCROSS_EXTENT_FALLBACK = _os2.environ.get(
+    "NOCROSS_EXTENT_FALLBACK", "0") in ("1", "true", "on")
 # B — flow-informed origin inference: entry-less tracks (born past
 # the gate: occlusion/faint far band; 41% of the deficit corridor)
 # get their origin inferred from birth position + the dominant-flow

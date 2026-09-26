@@ -17,6 +17,9 @@ import pytest
 import backend.config as cfg
 from backend.database import SCHEMA
 from backend.services.pipeline import ProcessingPipeline
+from backend.services.trajectory_classifier import (
+    score_destination_by_polyline as plain,
+    score_destination_by_polyline_extent as extent)
 
 _LEGS = {1: ("N", "N", 180.0), 2: ("E", "E", 270.0), 3: ("S", "S", 0.0)}
 P_LEFT = {"path_id": 3, "origin_leg_id": 1, "destination_leg_id": 2,
@@ -88,3 +91,54 @@ class TestNoCrossNoFallback:
 
     def test_default_off(self):
         assert cfg.NOCROSS_NO_FALLBACK is False
+
+
+class TestExtentAwareFallback:
+    """arm nf2: a path line only votes where it runs alongside the track."""
+    # cam5's shape: the left line begins ~28 px further upstream than the through
+    THRU = {"path_id": 1, "origin_leg_id": 9, "destination_leg_id": 7,
+            "movement_label": "through", "supporting_count": 100,
+            "polyline": [[508, 183], [300, 190], [13, 242]]}
+    LEFT = {"path_id": 2, "origin_leg_id": 9, "destination_leg_id": 8,
+            "movement_label": "left", "supporting_count": 20,
+            "polyline": [[536, 184], [460, 190], [500, 300], [599, 375]]}
+    STUB = [(568.0 - 4.0 * i, 182.0) for i in range(14)]   # x 568 -> 516
+
+    def test_plain_fallback_calls_the_upstream_stub_left(self):
+        r = plain(self.STUB, 9, [self.THRU, self.LEFT])
+        assert r["movement_label"] == "left"          # the defect
+
+    def test_extent_fallback_gives_the_upstream_stub_nothing(self):
+        r = extent(self.STUB, 9, [self.THRU, self.LEFT])
+        assert r["destination_leg_id"] is None
+
+    def test_extent_fallback_keeps_a_track_on_the_turn(self):
+        turn = [(470.0 + 3.0 * i, 215.0 + 10.0 * i) for i in range(8)]
+        r = extent(turn, 9, [self.THRU, self.LEFT])
+        assert r["movement_label"] == "left"
+
+    def test_default_off(self):
+        assert cfg.NOCROSS_EXTENT_FALLBACK is False
+
+
+class TestExtentWiring:
+    def _go(self, env, monkeypatch, verdict):
+        import backend.services.pipeline as plmod
+        monkeypatch.setattr(plmod, "NOCROSS_EXTENT_FALLBACK", True)
+        monkeypatch.setattr(plmod, "score_destination_by_polyline_extent",
+                            lambda traj, o, paths, **kw: verdict)
+        return _run(env, monkeypatch, (None, None, "no_crossing"), rule=False)
+
+    def test_no_shared_stretch_drops(self, env, monkeypatch):
+        p, evs = self._go(env, monkeypatch, {"destination_leg_id": None,
+                                             "movement_label": None,
+                                             "distance": float("inf"),
+                                             "path_id": None, "considered": 1})
+        assert evs == [] and p.n_nocross_refused == 1
+
+    def test_a_decision_on_the_shared_stretch_counts(self, env, monkeypatch):
+        p, evs = self._go(env, monkeypatch, {"destination_leg_id": 2,
+                                             "movement_label": "left",
+                                             "distance": 5.0, "path_id": 3,
+                                             "considered": 1})
+        assert len(evs) == 1

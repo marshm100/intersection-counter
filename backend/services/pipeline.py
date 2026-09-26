@@ -57,6 +57,7 @@ from backend.config import (
     GATE_EXIT_ONLY_BINDING,
     FULL_JOURNEY_RESCUE,
     NOCROSS_NO_FALLBACK,
+    NOCROSS_EXTENT_FALLBACK,
     FULL_RESCUE_MIN_STRAIGHTNESS,
     TRACK_FATE_LEDGER,
     USE_JOINT_PARTIAL_FRECHET_SCORER,
@@ -75,6 +76,7 @@ from backend.services.track_filter import track_quality
 from backend.services.tracker import VehicleTracker
 from backend.services.trajectory_classifier import (
     classify_trajectory, derive_movement, score_destination_by_polyline,
+    score_destination_by_polyline_extent,
     score_destination_leg, score_path_joint,
 )
 
@@ -1976,9 +1978,19 @@ class ProcessingPipeline:
         # of where a fitted line begins. When ON, it gets no destination and
         # drops, the rescue block's own rule ("no evidence + no geometry =
         # counting by popularity").
-        nocross_refused = (NOCROSS_NO_FALLBACK and self._evidence_mode == "on"
-                           and gate_tag == "no_crossing"
-                           and polyline_dest is None)
+        nocross_side = (self._evidence_mode == "on"
+                        and gate_tag == "no_crossing"
+                        and polyline_dest is None)
+        nocross_refused = NOCROSS_NO_FALLBACK and nocross_side
+        # arm nf2 (config.NOCROSS_EXTENT_FALLBACK): the side door stays open
+        # only where a line actually runs alongside the track.
+        if (NOCROSS_EXTENT_FALLBACK and nocross_side and not nocross_refused
+                and self._paths):
+            polyline_dest = score_destination_by_polyline_extent(
+                trajectory, origin_leg_id, self._paths)
+            if polyline_dest.get("destination_leg_id") is None:
+                polyline_dest = None
+                nocross_refused = True
         if nocross_refused:
             self.n_nocross_refused = getattr(self, "n_nocross_refused", 0) + 1
         if self._paths and polyline_dest is None and not nocross_refused:

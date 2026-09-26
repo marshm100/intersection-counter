@@ -2642,3 +2642,15 @@ ENTRY gate, before lefts and throughs split: where they are says nothing. "No cr
 NEXT (arm nf2): the fallback measures distance to lines even where a line does not exist (cam5's
 through line starts at x ~ 508; a stub upstream of it is measured to that start point, so the left
 line wins by default). nf2 lets a line vote only where it actually runs alongside the track.
+
+## Arm nf2 DECLARED before scoring (2026-09-26): A LINE ONLY VOTES WHERE IT EXISTS
+
+THE RULE (config.NOCROSS_EXTENT_FALLBACK, default OFF): in evidence mode "on", a no_crossing track
+that the joint scorer refused goes to trajectory_classifier.score_destination_by_polyline_extent
+instead of the plain fallback: only the track points whose nearest point on EVERY candidate line
+is not clamped to that line's first or last vertex are compared (same mean distance, same 20 px
+threshold, same tie-break). Fewer than two such points -> no destination -> drop. No new constants.
+EXPECTED: cam5 close to nf1 (its stubs sit upstream of the through line's start: no shared
+stretch); cam2 close to 83.50 (its no-crossing SB rights sit alongside both lines at the W exit
+and keep their label); cam1 / cam4 somewhere between their nf1 gains and 0.
+PASS = G-DEF-1 vs 83.50; FM 51 witness if the corridor letter passes.
