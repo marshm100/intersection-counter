@@ -2669,3 +2669,10 @@ THE OPEN QUESTION IS cam2: nf1 (drop every no-crossing, joint-refused track) is 
 (median 14 px) without both box corners crossing it. If cam2's lines are not drawn where its
 vehicles are reliably tracked (the operating rule, plan_blank_site_2026-09-11), cam2 is the
 calibration exception, not the rule.
+DENSITY MAPS (scripts/viz_track_density.py, screenshots/density_cam{2,5}_study_1600.png): cam5's S
+line and cam2's S and W lines are drawn ALONG the far-field arterial band, with births and deaths
+clustered ON the lines, which the blank-site operating rule forbids ("never at the far mouth where
+boxes are first born"). Vehicles there run along the line, not across it, so "crossed / did not
+cross" is jitter. That is the common cause of the no-crossing population on both cameras; which
+movements live on that band (cam5: surplus stubs; cam2: real SB rights) decides the sign of any
+rule that acts on it.
