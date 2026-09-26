@@ -572,6 +572,14 @@ QUEUE_AWARE_MERGE = _os2.environ.get(
 # native 10 fps.) Default OFF pending the arms.
 MERGE_EXCESS_ONLY = _os2.environ.get(
     "MERGE_EXCESS_ONLY", "0") in ("1", "true", "on")
+# THE TURN MERGE ITSELF (switch added 2026-09-26 for arm mo1). Default ON =
+# production unchanged. The mg0 pair census found 398 of production's 407
+# merge absorptions are FOLLOWERS (a different track born back at the root's
+# start after the root moved > 30 px: the next car), 4 continuations. The
+# merge was built (2026-06-01) to join BoT-SORT fragments of one turning car;
+# the fracture / chain / bound-chain dedups upstream now catch those.
+# TURN_MERGE=0 skips it (every turn kept); S5 borderline flags unchanged.
+TURN_MERGE = _os2.environ.get("TURN_MERGE", "1") in ("1", "true", "on")
 # B — flow-informed origin inference: entry-less tracks (born past
 # the gate: occlusion/faint far band; 41% of the deficit corridor)
 # get their origin inferred from birth position + the dominant-flow

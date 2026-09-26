@@ -2584,3 +2584,17 @@ fr2 (MERGE_EXCESS_ONLY + FULL_JOURNEY_RESCUE): FLEET 84.71 (+1.21)
   191, a cell already over), window clause cam2 1600 -4.6 (SB right 370 -> 436 vs Mio 341). cam2's
   SB right rescue is RIGHT on 0700 (318 -> 390, Mio 379) and 1100 (331 -> 408, Mio 388) and
   over on 1600. FM 51 not run (letter failed). Both flags stay OFF.
+
+## Arm mo1 DECLARED before scoring (2026-09-26, operator: "Take that on"): THE MERGE OFF
+
+THE QUESTION: the turn merge was built to join fragments of ONE turning car; the mg0 census says
+398 of its 407 removals are the next car. What does the count look like without it?
+THE CHANGE: config.TURN_MERGE (default ON = production). mo1 runs TURN_MERGE=0 on all 12 windows:
+every turn event the upstream passes kept is counted. Uniform, no per-site anything, no constant.
+EXPECTED, from the census (removals per window that come back): cam5 S->W left +120 / +50 / +69
+(a cell ALREADY over Miovision: this exposes the far-field duplicate problem the merge was hiding
+by accident, and cam5 is expected to FALL); cam2 W->N left and N->W right +20-75 a window (cells
+under or near Miovision: expected to rise); cam4 N->W right +1 / +1 / +11; cam1 0700 W->S right +7;
+cam1 1600 and cam3 unchanged (no merges).
+PASS = the G-DEF-1 letter against 83.50. EXPECTED TO FAIL on cam5; the arm is a MEASUREMENT of
+what the merge is holding up, not a ship candidate on its own.

@@ -283,3 +283,33 @@ class TestMergeExcessOnly:
     def test_default_off(self):
         import backend.config as cfg
         assert cfg.MERGE_EXCESS_ONLY is False
+
+
+class TestTurnMergeSwitch:
+    def test_default_on(self):
+        import backend.config as cfg
+        assert cfg.TURN_MERGE is True
+
+    def test_off_keeps_every_turn(self, tmp_path, monkeypatch):
+        import backend.config as cfg
+        from backend.database import SCHEMA
+        db = str(tmp_path / "p.db")
+        conn = sqlite3.connect(db)
+        conn.executescript(SCHEMA)
+        for i in range(3):   # three same-cell fragments that would merge
+            conn.execute(
+                "INSERT INTO vehicle_events (camera_id, vehicle_track_id, "
+                "origin_leg_id, destination_leg_id, movement, trajectory_data, "
+                "trajectory_confidence, vehicle_class, detection_confidence, "
+                "timestamp_video, frame_number, start_frame, rejected) VALUES "
+                "(1, ?, 1, 2, 'left', '[[100,100],[110,110]]', 0.9, 'car', 0.9, "
+                "1.0, ?, ?, 0)", (i, 10 + 20 * i, 20 * i))
+        conn.commit(); conn.close()
+        monkeypatch.setattr(cfg, "TURN_MERGE", False)
+        st = merge_replay_turns(db, 1, window_seconds=60.0,
+                                expected_by_cell={(1, 2): 1})
+        assert st["merged_away"] == 0 and st["kept"] == 3
+        monkeypatch.setattr(cfg, "TURN_MERGE", True)
+        st = merge_replay_turns(db, 1, window_seconds=60.0,
+                                expected_by_cell={(1, 2): 1})
+        assert st["merged_away"] == 2

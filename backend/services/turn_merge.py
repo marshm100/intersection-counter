@@ -643,14 +643,18 @@ def merge_replay_turns(db: str | Path, camera_id: int, *,
         turns = _load_turns(conn, camera_id)
         expected = (expected_by_cell if expected_by_cell is not None
                     else bank_expecteds(conn, camera_id, window_seconds))
-        from backend.config import MERGE_EXCESS_ONLY, QUEUE_AWARE_MERGE
+        from backend.config import (MERGE_EXCESS_ONLY, QUEUE_AWARE_MERGE,
+                                    TURN_MERGE)
         pairs: list[dict] = []
-        keep = merge_turn_fragments(turns, MERGE_PX, MERGE_GAP,
-                                    expected_by_cell=expected,
-                                    vol_factor=VOL_FACTOR,
-                                    queue_aware=QUEUE_AWARE_MERGE,
-                                    excess_only=MERGE_EXCESS_ONLY,
-                                    pairs_out=pairs)
+        if TURN_MERGE:
+            keep = merge_turn_fragments(turns, MERGE_PX, MERGE_GAP,
+                                        expected_by_cell=expected,
+                                        vol_factor=VOL_FACTOR,
+                                        queue_aware=QUEUE_AWARE_MERGE,
+                                        excess_only=MERGE_EXCESS_ONLY,
+                                        pairs_out=pairs)
+        else:
+            keep = {ev["id"] for ev in turns}        # arm mo1: merge off
         # diagnostics sidecar: every absorption the merge made or declined
         try:
             Path(db).with_suffix(".merge_pairs.json").write_text(
