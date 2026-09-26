@@ -2654,3 +2654,18 @@ EXPECTED: cam5 close to nf1 (its stubs sit upstream of the through line's start:
 stretch); cam2 close to 83.50 (its no-crossing SB rights sit alongside both lines at the W exit
 and keep their label); cam1 / cam4 somewhere between their nf1 gains and 0.
 PASS = G-DEF-1 vs 83.50; FM 51 witness if the corridor letter passes.
+
+### Arm nf2 VERDICT (2026-09-26): FAIL. Fleet 83.34 (-0.16), approach 62.06 (-1.28)
+
+    cam1 -0.2 / 0.0 | cam2 -0.2 / +1.9 / -6.5 | cam3 +1.1 | cam4 -2.6 / 0.0 / +1.9 |
+    cam5 +1.2 / -0.3 / +1.8.  camera means: cam1 -0.10, cam2 -1.60, cam3 +1.10, cam4 -0.23, cam5 +0.90
+cam5 NB left lands ON Miovision (335 / 207 / 263 vs 335 / 185 / 240), but NB THRU rises 2501 ->
+2686, 1413 -> 1579, 2256 -> 2405: most stubs reach a little past x ~ 508, so a shared stretch exists
+and the through line wins it. THE STUBS ARE SURPLUS, NOT MISLABELLED: called left, the left cell is
+over; called through, the through cell is over; the NB approach runs +10% over Miovision. The only
+arm that helped cam5 was nf1, which DROPS them.
+THE OPEN QUESTION IS cam2: nf1 (drop every no-crossing, joint-refused track) is +7.90 cam5, +2.43 cam4,
++1.25 cam1, +0.20 cam3, and -6.64 cam2 alone. cam2's no-crossing SB rights run along its W exit gate
+(median 14 px) without both box corners crossing it. If cam2's lines are not drawn where its
+vehicles are reliably tracked (the operating rule, plan_blank_site_2026-09-11), cam2 is the
+calibration exception, not the rule.
