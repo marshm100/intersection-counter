@@ -580,6 +580,17 @@ MERGE_EXCESS_ONLY = _os2.environ.get(
 # the fracture / chain / bound-chain dedups upstream now catch those.
 # TURN_MERGE=0 skips it (every turn kept); S5 borderline flags unchanged.
 TURN_MERGE = _os2.environ.get("TURN_MERGE", "1") in ("1", "true", "on")
+# THE NO-CROSSING SIDE DOOR (2026-09-26, arm nf1, declared in
+# docs/plan_basis_2026-09-11.md before scoring). A track that crossed no
+# gate and that the joint shape scorer refused is still given a destination
+# by the nearest-line fallbacks (score_destination_by_polyline, then the
+# softmax scorer). Traced on cam5 study_1600: 12 of 12 far-field NB stubs
+# get "left" from the polyline fallback because the applied left path starts
+# at x ~ 536 and the through path at x ~ 508, and the stubs live upstream of
+# 508. When ON (evidence mode "on" only), such a track gets no destination
+# and drops, the rescue block's own rule. NO NEW CONSTANTS. Default OFF.
+NOCROSS_NO_FALLBACK = _os2.environ.get(
+    "NOCROSS_NO_FALLBACK", "0") in ("1", "true", "on")
 # B — flow-informed origin inference: entry-less tracks (born past
 # the gate: occlusion/faint far band; 41% of the deficit corridor)
 # get their origin inferred from birth position + the dominant-flow

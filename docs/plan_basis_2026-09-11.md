@@ -2612,3 +2612,20 @@ READING: outside cam5 the merge deletes real next cars and real duplicates about
 it is an accidental patch over the far-field NB-left stubs. Switching it off before those stubs
 are dealt with at their source would hold the score while making the counts worse. TURN_MERGE
 stays ON (production unchanged). Order: fix the stubs' source, then re-arm merge-off.
+
+## THE NO-CROSSING SIDE DOOR, and arm nf1 DECLARED before scoring (2026-09-26, operator: "go for it")
+
+SOURCE OF cam5's NB-LEFT STUB LABEL, traced through the real pipeline (12 of 12 stubs reproduced):
+the joint scorer refuses them, then score_destination_by_polyline, the fallback, picks the nearest
+APPLIED path line. Pass 2 replays against list_paths_for_camera (project.db), NOT the corpus bank
+file (the earlier replays that "did not reproduce" used the bank file, the wrong input). cam5's
+applied NB left path starts at x ~ 536, the through path at x ~ 508; the stubs live at x 568 -> 466,
+upstream of where the through line begins, so the nearest line is the left one (4-14 px vs > 20).
+DRY RUN (scripts/research_nocross_fallback.py gx2): almost every counted no_crossing track comes
+through this fallback (joint admits almost none): cam1 90/53, cam2 298/250/454, cam3 474, cam4
+11/16/70, cam5 391/295/280. Removing them prices at fleet +0.42 movement / +3.48 approach; cam5
++6.35 / +18.75, cam4 +1.79, cam1 +1.26, cam3 -0.06 (approach +4.76), cam2 -7.29 / -11.46 (1600
+-13.9: 159 SB rights from a cell already under). On cam2, no-crossing tracks are mostly real.
+ARM nf1: NOCROSS_NO_FALLBACK=1 (default OFF): in evidence mode "on", a no_crossing track that the
+joint scorer refused gets no destination and drops. No new constants. PASS = G-DEF-1 vs 83.50.
+EXPECTED: FAIL on cam2 (the dry run's -7.29). Run as the honest price.

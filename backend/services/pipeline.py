@@ -56,6 +56,7 @@ from backend.config import (
     DEST_TIE_BAND,
     GATE_EXIT_ONLY_BINDING,
     FULL_JOURNEY_RESCUE,
+    NOCROSS_NO_FALLBACK,
     FULL_RESCUE_MIN_STRAIGHTNESS,
     TRACK_FATE_LEDGER,
     USE_JOINT_PARTIAL_FRECHET_SCORER,
@@ -1966,7 +1967,21 @@ class ProcessingPipeline:
                     # path label (not classification), so counts are unaffected;
                     # only the diagnostic columns are stale. Acceptable for v1.
 
-        if self._paths and polyline_dest is None:
+        # THE NO-CROSSING SIDE DOOR (config.NOCROSS_NO_FALLBACK, arm nf1): a
+        # track that crossed NO gate and that the joint shape scorer refused
+        # has neither gate evidence nor a matched shape. The nearest-line
+        # fallbacks below would still name a destination (cam5's far-field
+        # NB stubs get "left" because the applied left path starts ~28 px
+        # further upstream than the through path) — counting by an accident
+        # of where a fitted line begins. When ON, it gets no destination and
+        # drops, the rescue block's own rule ("no evidence + no geometry =
+        # counting by popularity").
+        nocross_refused = (NOCROSS_NO_FALLBACK and self._evidence_mode == "on"
+                           and gate_tag == "no_crossing"
+                           and polyline_dest is None)
+        if nocross_refused:
+            self.n_nocross_refused = getattr(self, "n_nocross_refused", 0) + 1
+        if self._paths and polyline_dest is None and not nocross_refused:
             polyline_dest = score_destination_by_polyline(
                 trajectory, origin_leg_id, self._paths,
             )
@@ -1991,6 +2006,12 @@ class ProcessingPipeline:
                 "via": ("polyline+tie_posterior" if dest_tie_marg else "polyline"),
                 "polyline_path_id": polyline_dest.get("path_id"),
             }
+        elif nocross_refused:
+            dest_result = {"destination_leg_id": None, "confidence": 0.0,
+                           "posterior": {}, "via": "nocross_refused"}
+            destination_leg_id = None
+            destination_leg = None
+            movement = "insufficient_data"
         else:
             # --- Fallback: softmax destination scorer + derive_movement ---
             # The bug #5 (Phase B) fix used at cameras without polyline
