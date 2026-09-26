@@ -1,0 +1,283 @@
+flags ON: APPLY_GATE_ENABLED, BOUND_CHAIN_CONSERVE, COEXISTING_TWIN_DEDUP, EVIDENCE_ACTIVATION_ENABLED, FLOW_ORIGIN_INFERENCE, FRACTURE_DEDUP, GATE_EVIDENCE_EITHER_CORNER, GATE_EXIT_ONLY_BINDING, GATE_FULL_SUPREMACY, GATE_GROUND_ANCHOR, JOURNEY_STATE_MACHINE, MOTION_QUALIFIED_EVIDENCE, MOUTH_FROM_GATE_HEADING, ORIGIN_REWRITE_GATE_ENABLED, QUEUE_AWARE_MERGE, STOP_FRACTURE_COLLAPSE, STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS, STRAIGHT_FRAGMENT_RULE, TRACKER_CONFIRM_BY_POSITION, TRACKER_EDGE_EXIT, TRACKER_FUSE_SCORE, TRACKER_POSITION_RECOVERY, TRACKER_WEAK_BIRTH, TRACK_FATE_LEDGER, TWO_PASS_ENABLED, USE_JOINT_PARTIAL_FRECHET_SCORER
+flags ON: APPLY_GATE_ENABLED, BOUND_CHAIN_CONSERVE, COEXISTING_TWIN_DEDUP, EVIDENCE_ACTIVATION_ENABLED, FLOW_ORIGIN_INFERENCE, FRACTURE_DEDUP, GATE_EVIDENCE_EITHER_CORNER, GATE_EXIT_ONLY_BINDING, GATE_FULL_SUPREMACY, GATE_GROUND_ANCHOR, JOURNEY_STATE_MACHINE, MOTION_QUALIFIED_EVIDENCE, MOUTH_FROM_GATE_HEADING, ORIGIN_REWRITE_GATE_ENABLED, QUEUE_AWARE_MERGE, STOP_FRACTURE_COLLAPSE, STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS, STRAIGHT_FRAGMENT_RULE, TRACKER_CONFIRM_BY_POSITION, TRACKER_EDGE_EXIT, TRACKER_FUSE_SCORE, TRACKER_POSITION_RECOVERY, TRACKER_WEAK_BIRTH, TRACK_FATE_LEDGER, TWO_PASS_ENABLED, USE_JOINT_PARTIAL_FRECHET_SCORER
+flags ON: APPLY_GATE_ENABLED, BOUND_CHAIN_CONSERVE, COEXISTING_TWIN_DEDUP, EVIDENCE_ACTIVATION_ENABLED, FLOW_ORIGIN_INFERENCE, FRACTURE_DEDUP, GATE_EVIDENCE_EITHER_CORNER, GATE_EXIT_ONLY_BINDING, GATE_FULL_SUPREMACY, GATE_GROUND_ANCHOR, JOURNEY_STATE_MACHINE, MOTION_QUALIFIED_EVIDENCE, MOUTH_FROM_GATE_HEADING, ORIGIN_REWRITE_GATE_ENABLED, QUEUE_AWARE_MERGE, STOP_FRACTURE_COLLAPSE, STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS, STRAIGHT_FRAGMENT_RULE, TRACKER_CONFIRM_BY_POSITION, TRACKER_EDGE_EXIT, TRACKER_FUSE_SCORE, TRACKER_POSITION_RECOVERY, TRACKER_WEAK_BIRTH, TRACK_FATE_LEDGER, TWO_PASS_ENABLED, USE_JOINT_PARTIAL_FRECHET_SCORER
+flags ON: APPLY_GATE_ENABLED, BOUND_CHAIN_CONSERVE, COEXISTING_TWIN_DEDUP, EVIDENCE_ACTIVATION_ENABLED, FLOW_ORIGIN_INFERENCE, FRACTURE_DEDUP, GATE_EVIDENCE_EITHER_CORNER, GATE_EXIT_ONLY_BINDING, GATE_FULL_SUPREMACY, GATE_GROUND_ANCHOR, JOURNEY_STATE_MACHINE, MOTION_QUALIFIED_EVIDENCE, MOUTH_FROM_GATE_HEADING, ORIGIN_REWRITE_GATE_ENABLED, QUEUE_AWARE_MERGE, STOP_FRACTURE_COLLAPSE, STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS, STRAIGHT_FRAGMENT_RULE, TRACKER_CONFIRM_BY_POSITION, TRACKER_EDGE_EXIT, TRACKER_FUSE_SCORE, TRACKER_POSITION_RECOVERY, TRACKER_WEAK_BIRTH, TRACK_FATE_LEDGER, TWO_PASS_ENABLED, USE_JOINT_PARTIAL_FRECHET_SCORER
+flags ON: APPLY_GATE_ENABLED, BOUND_CHAIN_CONSERVE, COEXISTING_TWIN_DEDUP, EVIDENCE_ACTIVATION_ENABLED, FLOW_ORIGIN_INFERENCE, FRACTURE_DEDUP, GATE_EVIDENCE_EITHER_CORNER, GATE_EXIT_ONLY_BINDING, GATE_FULL_SUPREMACY, GATE_GROUND_ANCHOR, JOURNEY_STATE_MACHINE, MOTION_QUALIFIED_EVIDENCE, MOUTH_FROM_GATE_HEADING, ORIGIN_REWRITE_GATE_ENABLED, QUEUE_AWARE_MERGE, STOP_FRACTURE_COLLAPSE, STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS, STRAIGHT_FRAGMENT_RULE, TRACKER_CONFIRM_BY_POSITION, TRACKER_EDGE_EXIT, TRACKER_FUSE_SCORE, TRACKER_POSITION_RECOVERY, TRACKER_WEAK_BIRTH, TRACK_FATE_LEDGER, TWO_PASS_ENABLED, USE_JOINT_PARTIAL_FRECHET_SCORER
+flags ON: APPLY_GATE_ENABLED, BOUND_CHAIN_CONSERVE, COEXISTING_TWIN_DEDUP, EVIDENCE_ACTIVATION_ENABLED, FLOW_ORIGIN_INFERENCE, FRACTURE_DEDUP, GATE_EVIDENCE_EITHER_CORNER, GATE_EXIT_ONLY_BINDING, GATE_FULL_SUPREMACY, GATE_GROUND_ANCHOR, JOURNEY_STATE_MACHINE, MOTION_QUALIFIED_EVIDENCE, MOUTH_FROM_GATE_HEADING, ORIGIN_REWRITE_GATE_ENABLED, QUEUE_AWARE_MERGE, STOP_FRACTURE_COLLAPSE, STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS, STRAIGHT_FRAGMENT_RULE, TRACKER_CONFIRM_BY_POSITION, TRACKER_EDGE_EXIT, TRACKER_FUSE_SCORE, TRACKER_POSITION_RECOVERY, TRACKER_WEAK_BIRTH, TRACK_FATE_LEDGER, TWO_PASS_ENABLED, USE_JOINT_PARTIAL_FRECHET_SCORER
+flags ON: APPLY_GATE_ENABLED, BOUND_CHAIN_CONSERVE, COEXISTING_TWIN_DEDUP, EVIDENCE_ACTIVATION_ENABLED, FLOW_ORIGIN_INFERENCE, FRACTURE_DEDUP, GATE_EVIDENCE_EITHER_CORNER, GATE_EXIT_ONLY_BINDING, GATE_FULL_SUPREMACY, GATE_GROUND_ANCHOR, JOURNEY_STATE_MACHINE, MOTION_QUALIFIED_EVIDENCE, MOUTH_FROM_GATE_HEADING, ORIGIN_REWRITE_GATE_ENABLED, QUEUE_AWARE_MERGE, STOP_FRACTURE_COLLAPSE, STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS, STRAIGHT_FRAGMENT_RULE, TRACKER_CONFIRM_BY_POSITION, TRACKER_EDGE_EXIT, TRACKER_FUSE_SCORE, TRACKER_POSITION_RECOVERY, TRACKER_WEAK_BIRTH, TRACK_FATE_LEDGER, TWO_PASS_ENABLED, USE_JOINT_PARTIAL_FRECHET_SCORER
+cam1 GT-free bank — 07:00:00+120min, 5090 usable tracks, agreement rate 56%, bearing-rebinned 796
+cell                          n  share straight bearing_res  status
+L22->L23 through           1676  34.4%    1.000  [0.1, 0.4]  ok
+L23->L22 through           1344  27.6%    0.999  [0.3, 1.6]  ok
+L25->L22 left               604  12.4%    1.000  [3.4, 1.4]  ok  [WARN straight turn]
+L22->L25 right              451   9.3%    1.000  [0.5, 1.1]  ok  [WARN straight turn]
+L22->L24 left               391   8.0%    0.491  [1.8, 3.2]  ok
+L23->L24 right              136   2.8%    1.000  [9.0, 7.7]  ok  [WARN straight turn]
+L24->L22 right              118   2.4%    0.511  [0.6, 6.6]  ok
+L24->L23 left                73   1.5%    0.997  [8.7, 0.8]  ok  [WARN straight turn]
+L23->L25 left                43   0.9%    0.999 [1.0, 80.8]  BEARING_REJECTED
+L25->L24 through             19   0.4%    0.972 [37.4, 1.2]  MINOR_REJECTED (member spread 43px)
+L25->L23 right                9   0.2%    0.706  [3.1, 2.1]  MINOR_REJECTED (member spread 132px)
+L24->L25 through              5   0.1%    0.996  [7.1, 4.8]  MINOR_REJECTED (member spread 97px)
+!! LEG SANITY: leg 25 calibrated 172.79999999999995deg but traffic enters at 73.5deg — check label/heading
+!! MISSING MOVEMENTS: 4 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L23->L25 left
+     L24->L25 through
+     L25->L23 right
+     L25->L24 through
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam1_study_0700.json (8 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam1_study_0700_qa.json
+cam1 study_0700: live 83.8 -> 83.8  (app 83.9)  cov 0.464 ON  events=5131 dropped=1632  (274s)
+cam1 GT-free bank — 16:00:00+120min, 5936 usable tracks, agreement rate 73%, bearing-rebinned 510
+cell                          n  share straight bearing_res  status
+L23->L22 through           2592  44.8%    0.999  [0.5, 1.8]  ok
+L22->L23 through           1893  32.7%    1.000  [0.4, 0.7]  ok
+L24->L22 right              393   6.8%    0.478  [3.0, 1.8]  ok
+L25->L23 right              245   4.2%    1.000  [0.5, 0.7]  ok  [WARN straight turn]
+L22->L24 left               215   3.7%    0.531  [1.4, 4.8]  ok
+L23->L24 right              187   3.2%    1.000  [9.3, 7.1]  ok  [WARN straight turn]
+L24->L23 left               115   2.0%    0.997  [9.8, 1.1]  ok  [WARN straight turn]
+L25->L22 left                52   0.9%    0.950 [44.9, 0.3]  MINOR_REJECTED (member spread 101px)
+L22->L25 right               47   0.8%    0.981[19.8, 43.2]  ok  [WARN straight turn]
+L23->L25 left                27   0.5%    0.998 [1.1, 86.8]  BEARING_REJECTED
+L24->L25 through             20   0.3%    0.801 [2.0, 30.7]  ok
+L25->L24 through              5   0.1%    0.889 [44.7, 4.6]  MINOR_REJECTED (member spread 102px)
+L24->L25 through: DEDUP_DROPPED (coincides with better-supported L24->L22)
+!! AMBIGUITY: 1 polyline pairs closer than 30.0px mean — see QA report
+!! MISSING MOVEMENTS: 4 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L23->L25 left
+     L24->L25 through
+     L25->L22 left
+     L25->L24 through
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam1_study_1600.json (8 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam1_study_1600_qa.json
+cam1 study_1600: live 94.2 -> 94.2  (app 80.0)  cov 0.57 ON  events=5967 dropped=1436  (322s)
+cam4 GT-free bank — 11:00:00+120min, 3406 usable tracks, agreement rate 88%, bearing-rebinned 201
+cell                          n  share straight bearing_res  status
+L33->L35 through           1703  50.5%    0.999  [1.3, 1.3]  ok
+L35->L33 through           1525  45.2%    0.989  [0.4, 5.0]  ok
+L34->L35 right               69   2.0%    0.999  [1.4, 0.3]  ok  [WARN straight turn]
+L35->L34 left                57   1.7%    0.989[0.1, 122.8]  BEARING_REJECTED
+L33->L34 right               19   0.6%    0.997  [1.4, 4.8]  MINOR_REJECTED (member spread 69px)
+!! LEG SANITY: leg 34 calibrated 119.4deg but traffic enters at 267.5deg — check label/heading
+!! MISSING MOVEMENTS: 3 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L33->L34 right
+     L34->L33 left
+     L35->L34 left
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam4_study_1100.json (3 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam4_study_1100_qa.json
+cam4 study_1100: live 93.6 -> 93.6  (app 70.8)  cov 0.819 ON  events=3385 dropped=282  (173s)
+cam4 GT-free bank — 07:00:00+120min, 5000 usable tracks, agreement rate 85%, bearing-rebinned 323
+cell                          n  share straight bearing_res  status
+L35->L33 through           2576  54.3%    0.990  [0.0, 9.6]  ok
+L33->L35 through           2009  42.4%    0.999  [0.8, 1.2]  ok
+L34->L35 right              112   2.4%    1.000  [2.7, 0.8]  ok  [WARN straight turn]
+L33->L34 right               21   0.4%    0.996  [0.4, 7.5]  MINOR_REJECTED (member spread 56px)
+L35->L34 left                13   0.3%    0.995[0.9, 139.6]  BEARING_REJECTED
+L34->L33 left                 9   0.2%    0.860 [17.6, 0.7]  MINOR_REJECTED (member spread 96px)
+!! LEG SANITY: leg 34 calibrated 119.4deg but traffic enters at 269.6deg — check label/heading
+!! MISSING MOVEMENTS: 3 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L33->L34 right
+     L34->L33 left
+     L35->L34 left
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam4_study_0700.json (3 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam4_study_0700_qa.json
+cam4 study_0700: live 86.7 -> 86.7  (app 66.7)  cov 0.789 ON  events=4971 dropped=431  (223s)
+cam4 GT-free bank — 16:00:00+120min, 5842 usable tracks, agreement rate 78%, bearing-rebinned 589
+cell                          n  share straight bearing_res  status
+L33->L35 through           2893  53.1%    0.999  [2.2, 1.6]  ok
+L35->L33 through           2215  40.6%    0.989  [0.6, 9.4]  ok
+L34->L35 right              300   5.5%    1.000  [1.5, 0.9]  ok  [WARN straight turn]
+L35->L34 left                18   0.3%    0.985[1.9, 129.6]  BEARING_REJECTED
+L33->L34 right               17   0.3%    0.962 [0.7, 20.4]  MINOR_REJECTED (member spread 71px)
+L34->L33 left                 8   0.1%    0.703[14.3, 11.8]  MINOR_REJECTED (member spread 79px)
+!! LEG SANITY: leg 34 calibrated 119.4deg but traffic enters at 264.4deg — check label/heading
+!! MISSING MOVEMENTS: 3 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L33->L34 right
+     L34->L33 left
+     L35->L34 left
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam4_study_1600.json (3 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam4_study_1600_qa.json
+cam4 study_1600: live 84.9 -> 84.9  (app 70.8)  cov 0.685 ON  events=5816 dropped=931  (216s)
+loaded 16 operator channels from the channels table
+cam2 GT-free bank — 07:00:00+120min, 6358 usable tracks, agreement rate 48%, bearing-rebinned 53
+cell                          n  share straight bearing_res  status
+L26->L26 u_turn              86     --       --          --  UTURN_HELDOUT (41/86 reverse, frac 0.48)
+L26->L27 right              357     --       --          --  CHANNEL_DIRECT (drawn curve, support 357)
+L26->L28 through            397     --       --          --  CHANNEL_DIRECT (drawn curve, support 397)
+L26->L29 left                55     --       --          --  CHANNEL_DIRECT (drawn curve, support 55)
+L27->L26 left               638     --       --          --  CHANNEL_DIRECT (drawn curve, support 638)
+L27->L27 u_turn              50     --       --          --  UTURN_HELDOUT (21/50 reverse, frac 0.42)
+L27->L28 right              119     --       --          --  CHANNEL_DIRECT (drawn curve, support 119)
+L27->L29 through            730     --       --          --  CHANNEL_DIRECT (drawn curve, support 730)
+L28->L26 through            173     --       --          --  CHANNEL_DIRECT (drawn curve, support 173)
+L28->L27 left                96     --       --          --  CHANNEL_DIRECT (drawn curve, support 96)
+    (u-turn L28->L28 u_turn ADMITTED: 87/139 reverse, frac 0.63)
+L28->L28 u_turn             139     --       --          --  CHANNEL_DIRECT (drawn curve, support 139)
+L28->L29 right              369     --       --          --  CHANNEL_DIRECT (drawn curve, support 369)
+L29->L26 right               54     --       --          --  CHANNEL_DIRECT (drawn curve, support 54)
+L29->L27 through           1590     --       --          --  CHANNEL_DIRECT (drawn curve, support 1590)
+L29->L28 left              1424     --       --          --  CHANNEL_DIRECT (drawn curve, support 1424)
+L29->L29 u_turn              81     --       --          --  UTURN_HELDOUT (36/81 reverse, frac 0.44)
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam2_study_0700.json (13 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam2_study_0700_qa.json
+cam2 study_0700: live 77.1 -> 78.1  (app 53.1)  cov 0.579 ON  events=5978 dropped=2614  (717s)
+loaded 16 operator channels from the channels table
+cam5 GT-free bank — 07:00:00+120min, 5537 usable tracks, agreement rate 42%, bearing-rebinned 153
+cell                          n  share straight bearing_res  status
+L36->L36 u_turn               8     --       --          --  UTURN_HELDOUT (2/8 reverse, frac 0.25)
+L36->L37 right               83     --       --          --  CHANNEL_DIRECT (drawn curve, support 83)
+L36->L38 through             45     --       --          --  CHANNEL_DIRECT (drawn curve, support 45)
+L36->L39 left              1253     --       --          --  CHANNEL_DIRECT (drawn curve, support 1253)
+L37->L36 left                11     --       --          --  CHANNEL_DIRECT (drawn curve, support 11)
+    (u-turn L37->L37 u_turn ADMITTED: 17/22 reverse, frac 0.77)
+L37->L37 u_turn              22     --       --          --  CHANNEL_DIRECT (drawn curve, support 22)
+L37->L38 right               73     --       --          --  CHANNEL_DIRECT (drawn curve, support 73)
+L37->L39 through            583     --       --          --  CHANNEL_DIRECT (drawn curve, support 583)
+L38->L36 through             33     --       --          --  CHANNEL_DIRECT (drawn curve, support 33)
+L38->L37 left               176     --       --          --  CHANNEL_DIRECT (drawn curve, support 176)
+L38->L38 u_turn              37     --       --          --  UTURN_HELDOUT (12/37 reverse, frac 0.32)
+L38->L39 right              168     --       --          --  CHANNEL_DIRECT (drawn curve, support 168)
+L39->L36 right              274     --       --          --  CHANNEL_DIRECT (drawn curve, support 274)
+L39->L37 through           2278     --       --          --  CHANNEL_DIRECT (drawn curve, support 2278)
+L39->L38 left               124     --       --          --  CHANNEL_DIRECT (drawn curve, support 124)
+    (u-turn L39->L39 u_turn ADMITTED: 251/369 reverse, frac 0.68)
+L39->L39 u_turn             369     --       --          --  CHANNEL_DIRECT (drawn curve, support 369)
+!! LEG SANITY: leg 36 calibrated 118.9deg but traffic enters at 229.5deg — check label/heading
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam5_study_0700.json (14 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam5_study_0700_qa.json
+cam5 study_0700: live 78.0 -> 78.0  (app 43.8)  cov 0.579 ON  events=5574 dropped=1633  (254s)
+loaded 16 operator channels from the channels table
+cam2 GT-free bank — 11:00:00+120min, 5069 usable tracks, agreement rate 42%, bearing-rebinned 81
+cell                          n  share straight bearing_res  status
+L26->L26 u_turn             110     --       --          --  UTURN_HELDOUT (31/110 reverse, frac 0.28)
+L26->L27 right              188     --       --          --  CHANNEL_DIRECT (drawn curve, support 188)
+L26->L28 through            367     --       --          --  CHANNEL_DIRECT (drawn curve, support 367)
+L26->L29 left                33     --       --          --  CHANNEL_DIRECT (drawn curve, support 33)
+L27->L26 left               563     --       --          --  CHANNEL_DIRECT (drawn curve, support 563)
+    (u-turn L27->L27 u_turn ADMITTED: 22/34 reverse, frac 0.65)
+L27->L27 u_turn              34     --       --          --  CHANNEL_DIRECT (drawn curve, support 34)
+L27->L28 right              142     --       --          --  CHANNEL_DIRECT (drawn curve, support 142)
+L27->L29 through            600     --       --          --  CHANNEL_DIRECT (drawn curve, support 600)
+L28->L26 through            313     --       --          --  CHANNEL_DIRECT (drawn curve, support 313)
+L28->L27 left               147     --       --          --  CHANNEL_DIRECT (drawn curve, support 147)
+    (u-turn L28->L28 u_turn ADMITTED: 122/176 reverse, frac 0.69)
+L28->L28 u_turn             176     --       --          --  CHANNEL_DIRECT (drawn curve, support 176)
+L28->L29 right              408     --       --          --  CHANNEL_DIRECT (drawn curve, support 408)
+L29->L26 right               75     --       --          --  CHANNEL_DIRECT (drawn curve, support 75)
+L29->L27 through           1015     --       --          --  CHANNEL_DIRECT (drawn curve, support 1015)
+L29->L28 left               811     --       --          --  CHANNEL_DIRECT (drawn curve, support 811)
+    (u-turn L29->L29 u_turn ADMITTED: 47/87 reverse, frac 0.54)
+L29->L29 u_turn              87     --       --          --  CHANNEL_DIRECT (drawn curve, support 87)
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam2_study_1100.json (15 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam2_study_1100_qa.json
+cam2 study_1100: live 77.7 -> 78.6  (app 59.4)  cov 0.5 ON  events=4690 dropped=3005  (762s)
+loaded 16 operator channels from the channels table
+cam5 GT-free bank — 11:00:00+120min, 3936 usable tracks, agreement rate 49%, bearing-rebinned 267
+cell                          n  share straight bearing_res  status
+L36->L36 u_turn               3     --       --          --  UTURN_HELDOUT (0/3 reverse, frac 0.00)
+L36->L37 right               65     --       --          --  CHANNEL_DIRECT (drawn curve, support 65)
+L36->L38 through             34     --       --          --  CHANNEL_DIRECT (drawn curve, support 34)
+L36->L39 left               954     --       --          --  CHANNEL_DIRECT (drawn curve, support 954)
+L37->L36 left                 9     --       --          --  CHANNEL_DIRECT (drawn curve, support 9)
+    (u-turn L37->L37 u_turn ADMITTED: 21/22 reverse, frac 0.95)
+L37->L37 u_turn              22     --       --          --  CHANNEL_DIRECT (drawn curve, support 22)
+L37->L38 right               95     --       --          --  CHANNEL_DIRECT (drawn curve, support 95)
+L37->L39 through            535     --       --          --  CHANNEL_DIRECT (drawn curve, support 535)
+L38->L36 through             21     --       --          --  CHANNEL_DIRECT (drawn curve, support 21)
+L38->L37 left               134     --       --          --  CHANNEL_DIRECT (drawn curve, support 134)
+L38->L38 u_turn              25     --       --          --  UTURN_HELDOUT (4/25 reverse, frac 0.16)
+L38->L39 right              153     --       --          --  CHANNEL_DIRECT (drawn curve, support 153)
+L39->L36 right               97     --       --          --  CHANNEL_DIRECT (drawn curve, support 97)
+L39->L37 through           1487     --       --          --  CHANNEL_DIRECT (drawn curve, support 1487)
+L39->L38 left                53     --       --          --  CHANNEL_DIRECT (drawn curve, support 53)
+    (u-turn L39->L39 u_turn ADMITTED: 163/249 reverse, frac 0.65)
+L39->L39 u_turn             249     --       --          --  CHANNEL_DIRECT (drawn curve, support 249)
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam5_study_1100.json (14 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam5_study_1100_qa.json
+cam5 study_1100: live 83.0 -> 83.0  (app 56.2)  cov 0.64 ON  events=3865 dropped=870  (154s)
+loaded 16 operator channels from the channels table
+cam2 GT-free bank — 16:00:00+120min, 8037 usable tracks, agreement rate 37%, bearing-rebinned 89
+cell                          n  share straight bearing_res  status
+L26->L26 u_turn             125     --       --          --  UTURN_HELDOUT (40/125 reverse, frac 0.32)
+L26->L27 right              293     --       --          --  CHANNEL_DIRECT (drawn curve, support 293)
+L26->L28 through            311     --       --          --  CHANNEL_DIRECT (drawn curve, support 311)
+L26->L29 left                54     --       --          --  CHANNEL_DIRECT (drawn curve, support 54)
+L27->L26 left               848     --       --          --  CHANNEL_DIRECT (drawn curve, support 848)
+L27->L27 u_turn              51     --       --          --  UTURN_HELDOUT (24/51 reverse, frac 0.47)
+L27->L28 right               56     --       --          --  CHANNEL_DIRECT (drawn curve, support 56)
+L27->L29 through           1187     --       --          --  CHANNEL_DIRECT (drawn curve, support 1187)
+L28->L26 through            539     --       --          --  CHANNEL_DIRECT (drawn curve, support 539)
+L28->L27 left               225     --       --          --  CHANNEL_DIRECT (drawn curve, support 225)
+    (u-turn L28->L28 u_turn ADMITTED: 171/302 reverse, frac 0.57)
+L28->L28 u_turn             302     --       --          --  CHANNEL_DIRECT (drawn curve, support 302)
+L28->L29 right             1084     --       --          --  CHANNEL_DIRECT (drawn curve, support 1084)
+L29->L26 right               80     --       --          --  CHANNEL_DIRECT (drawn curve, support 80)
+L29->L27 through           1371     --       --          --  CHANNEL_DIRECT (drawn curve, support 1371)
+L29->L28 left              1390     --       --          --  CHANNEL_DIRECT (drawn curve, support 1390)
+L29->L29 u_turn             121     --       --          --  UTURN_HELDOUT (56/121 reverse, frac 0.46)
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam2_study_1600.json (13 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam2_study_1600_qa.json
+cam2 study_1600: live 71.3 -> 70.4  (app 43.8)  cov 0.5 ON  events=7566 dropped=4052  (930s)
+loaded 16 operator channels from the channels table
+cam5 GT-free bank — 16:00:00+120min, 6458 usable tracks, agreement rate 48%, bearing-rebinned 130
+cell                          n  share straight bearing_res  status
+    (u-turn L36->L36 u_turn ADMITTED: 5/6 reverse, frac 0.83)
+L36->L36 u_turn               6     --       --          --  CHANNEL_DIRECT (drawn curve, support 6)
+L36->L37 right              125     --       --          --  CHANNEL_DIRECT (drawn curve, support 125)
+L36->L38 through             58     --       --          --  CHANNEL_DIRECT (drawn curve, support 58)
+L36->L39 left              1822     --       --          --  CHANNEL_DIRECT (drawn curve, support 1822)
+L37->L36 left                 3     --       --          --  CHANNEL_DIRECT (drawn curve, support 3)
+    (u-turn L37->L37 u_turn ADMITTED: 15/16 reverse, frac 0.94)
+L37->L37 u_turn              16     --       --          --  CHANNEL_DIRECT (drawn curve, support 16)
+L37->L38 right              148     --       --          --  CHANNEL_DIRECT (drawn curve, support 148)
+L37->L39 through            889     --       --          --  CHANNEL_DIRECT (drawn curve, support 889)
+L38->L36 through             51     --       --          --  CHANNEL_DIRECT (drawn curve, support 51)
+L38->L37 left               212     --       --          --  CHANNEL_DIRECT (drawn curve, support 212)
+L38->L38 u_turn              33     --       --          --  UTURN_HELDOUT (11/33 reverse, frac 0.33)
+L38->L39 right              235     --       --          --  CHANNEL_DIRECT (drawn curve, support 235)
+L39->L36 right              150     --       --          --  CHANNEL_DIRECT (drawn curve, support 150)
+L39->L37 through           2281     --       --          --  CHANNEL_DIRECT (drawn curve, support 2281)
+L39->L38 left               123     --       --          --  CHANNEL_DIRECT (drawn curve, support 123)
+    (u-turn L39->L39 u_turn ADMITTED: 175/306 reverse, frac 0.57)
+L39->L39 u_turn             306     --       --          --  CHANNEL_DIRECT (drawn curve, support 306)
+!! LEG SANITY: leg 36 calibrated 118.9deg but traffic enters at 254.4deg — check label/heading
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam5_study_1600.json (15 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam5_study_1600_qa.json
+cam5 study_1600: live 82.7 -> 82.7  (app 50.0)  cov 0.677 ON  events=6302 dropped=1356  (234s)
+cam3 GT-free bank — 06:00:00+840min, 33124 usable tracks, agreement rate 71%, bearing-rebinned 3335
+cell                          n  share straight bearing_res  status
+L30->L31 through          15082  50.9%    0.994  [0.8, 6.1]  ok
+L31->L30 through          13611  45.9%    0.998  [3.0, 0.9]  ok
+L30->L32 right              325   1.1%    0.982  [7.3, 1.7]  ok  [WARN straight turn]
+L32->L30 left               258   0.9%    0.987 [11.8, 4.7]  MINOR_REJECTED (member spread 64px)
+L32->L31 right              246   0.8%    0.817 [8.0, 31.1]  MINOR_REJECTED (member spread 52px)
+L31->L32 left               116   0.4%    0.529  [2.2, 0.8]  MINOR_REJECTED (member spread 70px)
+!! MISSING MOVEMENTS: 3 cardinal-legal movement(s) have NO path — DRAW A CHANNEL for the ones that exist:
+     L31->L32 left
+     L32->L30 left
+     L32->L31 right
+
+wrote data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam3_study_0600.json (3 paths) + data\projects\97a7849a\_replay_scratch\fleet_20260908\arm\twopass_bank_cam3_study_0600_qa.json
+cam3 study_0600: live 89.0 -> 89.0  (app 74.4)  cov 0.585 ON  events=32914 dropped=11417  (2018s)
+
+FLEET mean over 12 windows: live 83.50 -> arm 83.58 (+0.08)
+  cam1 mean: live 89.00 -> 89.00
+  cam2 mean: live 75.37 -> 75.70
+  cam3 mean: live 89.00 -> 89.00
+  cam4 mean: live 88.40 -> 88.40
+  cam5 mean: live 81.23 -> 81.23
+
+window             live    new   delta    cov  chan
+cam1 study_0700    83.8   83.8    +0.0  0.464    ON
+cam1 study_1600    94.2   94.2    +0.0   0.57    ON
+cam2 study_0700    77.1   78.1    +1.0  0.579    ON
+cam2 study_1100    77.7   78.6    +0.9    0.5    ON
+cam2 study_1600    71.3   70.4    -0.9    0.5    ON
+cam3 study_0600    89.0   89.0    +0.0  0.585    ON
+cam4 study_0700    86.7   86.7    +0.0  0.789    ON
+cam4 study_1100    93.6   93.6    +0.0  0.819    ON
+cam4 study_1600    84.9   84.9    +0.0  0.685    ON
+cam5 study_0700    78.0   78.0    +0.0  0.579    ON
+cam5 study_1100    83.0   83.0    +0.0   0.64    ON
+cam5 study_1600    82.7   82.7    +0.0  0.677    ON

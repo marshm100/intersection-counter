@@ -2598,3 +2598,17 @@ under or near Miovision: expected to rise); cam4 N->W right +1 / +1 / +11; cam1 
 cam1 1600 and cam3 unchanged (no merges).
 PASS = the G-DEF-1 letter against 83.50. EXPECTED TO FAIL on cam5; the arm is a MEASUREMENT of
 what the merge is holding up, not a ship candidate on its own.
+
+### Arm mo1 VERDICT (2026-09-26): the score passes, the counts get worse; NOT a ship candidate
+
+FLEET 83.50 -> 83.58 (+0.08); cam2 +0.33 (0700 +1.0, 1100 +0.9, 1600 -0.9), every other camera
+0.00. The corridor letter technically passes (FM 51 not run).
+IN VEHICLES (|ours - Mio| over the moved cells): cam5 NB left 456 -> 576 (Mio 335), 341 -> 391
+(185), 374 -> 445 (240): +241 vehicles of error, invisible to the score because all 24 of its bins
+were already failing. cam2 SB right 318 -> 340 (Mio 379) and 331 -> 357 (388) closer, 370 -> 392
+(341) further; cam2 EB left and cam4 SB right slightly further. Outside cam5: ~60 vehicles closer,
+~58 further, a wash.
+READING: outside cam5 the merge deletes real next cars and real duplicates about equally. On cam5
+it is an accidental patch over the far-field NB-left stubs. Switching it off before those stubs
+are dealt with at their source would hold the score while making the counts worse. TURN_MERGE
+stays ON (production unchanged). Order: fix the stubs' source, then re-arm merge-off.
