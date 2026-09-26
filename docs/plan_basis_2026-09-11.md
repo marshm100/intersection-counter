@@ -2629,3 +2629,16 @@ through this fallback (joint admits almost none): cam1 90/53, cam2 298/250/454, 
 ARM nf1: NOCROSS_NO_FALLBACK=1 (default OFF): in evidence mode "on", a no_crossing track that the
 joint scorer refused gets no destination and drops. No new constants. PASS = G-DEF-1 vs 83.50.
 EXPECTED: FAIL on cam2 (the dry run's -7.29). Run as the honest price.
+
+### Arm nf1 VERDICT (2026-09-26): LETTER FAIL on cam2. Fleet +1.15, cam5 +7.90
+
+    cam1 0700 +2.5, 1600 0.0 | cam2 0700 -1.1, 1100 -4.9, 1600 -13.9 | cam3 +0.2 |
+    cam4 0700 -0.3, 1100 0.0, 1600 +7.6 | cam5 0700 +7.8, 1100 +6.4, 1600 +9.5
+    FLEET 83.50 -> 84.65 (+1.15). camera means: cam1 +1.25, cam2 -6.64, cam3 +0.20, cam4 +2.43,
+    cam5 +7.90. The dry run's sign on every camera held.
+WHY cam2 LOSES: its no_crossing SB rights run in the far field along the W EXIT gate (median 14 px
+from it), past their turn: where they are DOES say what they did. cam5's stubs run beside the S
+ENTRY gate, before lefts and throughs split: where they are says nothing. "No crossing" lumps both.
+NEXT (arm nf2): the fallback measures distance to lines even where a line does not exist (cam5's
+through line starts at x ~ 508; a stub upstream of it is measured to that start point, so the left
+line wins by default). nf2 lets a line vote only where it actually runs alongside the track.
