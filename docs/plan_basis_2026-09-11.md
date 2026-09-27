@@ -2676,3 +2676,15 @@ boxes are first born"). Vehicles there run along the line, not across it, so "cr
 cross" is jitter. That is the common cause of the no-crossing population on both cameras; which
 movements live on that band (cam5: surplus stubs; cam2: real SB rights) decides the sign of any
 rule that acts on it.
+
+## PAUSED (2026-09-27, operator): the cam5 corner chain
+
+Chain: budget -> cam5 NB left / EB right -> full-journey rescue (fr1/fr2) -> the merge cliff
+(mg0/mg1) -> the merge deletes next cars (mo1) -> the no-crossing side door (nf1/nf2) -> far-side
+gate lines on the far traffic band. Best candidates, both failing only on cam2: nf1 +1.15, fr2
++1.21. All flags default OFF, production untouched. Resume point: a design question — where the
+software decides a car crossed in or out (a derived per-leg counting line from the operator's leg
+lines + the tracks, kept outside the turning area). The operator's line = where the leg IS; where
+tracking is reliable comes from the tracks, not from the engineer. Constraint he raised: the
+mouth/exit system exists to stop post-exit thefts; FIRST STEP ON RESUME is a dry run of candidate
+inset lines against the theft census and the fate ledger, before anything is built.
