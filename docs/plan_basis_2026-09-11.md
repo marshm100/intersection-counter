@@ -2794,3 +2794,23 @@ WHAT IS DIFFERENT:
     6.0 s everywhere else.
 READING: every rule that reasons about pieces of a vehicle (partials, chains, gate witnesses) meets a
 different piece structure on cam2, produced by a tracker configuration no new site will ever run.
+
+### cam2 re-tracked with the NEW-SITE tracker (2026-09-28): much WORSE, and that is the finding
+
+scripts/retrack_default_tracker.py -> rt_study_{0700,1100,1600} (recovery tracker, every per-camera
+tracker knob blanked). Arms rt0 (default rules) and rtcg1 (+ CHAIN_GUARD_ALL_PARTIALS), run
+SEQUENTIALLY (a first attempt ran the two arms concurrently, they collided on the shared scratch
+working DBs, "database disk image is malformed"; discarded and re-run).
+    window   production   rt0 (new-site tracker)   rtcg1
+    07:00       77.1            65.1                70.8     approach 53.1 -> 18.8 -> 25.0
+    11:00       77.7            74.5                75.5     approach 59.4 -> 34.4 -> 43.8
+    16:00       71.3            53.6                58.2     approach 46.9 -> 18.8 -> 37.5
+    cam2 mean   75.37           64.40 (-10.97)      68.17
+IN VEHICLES the new tracker OVERcounts: 07:00 SB thru 1501 vs Mio 1384, NB thru 2364 vs 2198; 16:00 SB
+right 523 vs 341. 9,933 tracks vs 8,053 on the old recipe: more pieces, more of them counted.
+READING: what a new site LIKE cam2 would get today is clearly worse than cam2's one-off recipe. The
+one physical difference is 25 fps; the recovery tracker was tuned only on 10 fps cameras (cam4,
+cam5, FM 51) and several of its settings are per FRAME (Kalman velocity noise per frame, lost-track
+memory in frames). A default gap for 25 / 30 fps sites, not a cam2 quirk.
+NEXT CANDIDATE: re-track cam2 feeding the tracker every 2nd (12.5 fps) or 3rd (8.3 fps) frame (the
+pipeline already has frame skip, DEFAULT_FRAME_SKIP = 3 live) and re-run the control.
