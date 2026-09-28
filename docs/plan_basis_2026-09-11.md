@@ -2710,3 +2710,22 @@ exit-only class is a CORRECT count (a car re-acquired after its first track was 
 surplus. Do not build a rule against it. The identifiable surplus is the chain-paired share (the
 frozen tail-pairing rule: 17 / 19 / 100 a window); the rest of the 07:00 / 11:00 excess is
 unexplained by anything measured so far.
+
+## Arm cg1 DECLARED before scoring (2026-09-27, operator: "Ok sounds good"): THE CHAIN GUARD FOR ALL PARTIALS
+
+THE RULE (config.CHAIN_GUARD_ALL_PARTIALS, default OFF). In turn_merge.bound_chain_pairs, a counted
+event is IN SCOPE if its posterior_source is 'rescue_exit' (as today) OR its track's chain-record
+tag (bound_chain_recs, the journey state machine) is exit_only or no_crossing. Every chain holding
+two or more counted events keeps exactly ONE: the first out-of-scope member (a full / entry_only
+journey, the witnessed head) if any, else the earliest in-scope member; every other in-scope member
+is rejected; out-of-scope members are never rejected. chain_tracks and every constant untouched.
+NO NEW CONSTANTS. Flag off byte-identical.
+THE KEEP-ONE FIX: the dry run (fleet +1.68 / approach +4.04; cam1 +3.11, cam2 -2.20, cam3 +1.30, cam4
++4.00, cam5 +2.41) used today's drop criterion, which rejects EVERY bound event with another counted
+chain member; with all partials bound, a chain of two partials would lose both and the vehicle with
+them. The arm uses keep-one; the dry run is re-priced with it.
+THE OPERATOR RULING STANDS: a LONE exit-only track (no chain partner) is never touched.
+PASS = G-DEF-1 vs 83.50; FM 51 witness if the corridor letter passes. EXPECTED: cams 1, 3, 4, 5 up;
+cam2 at risk (its drops fall on SB through / SB right, cells already under). If cam2 alone fails,
+it is the THIRD rule blocked only by cam2 (after nf1, fr2), which is the case for resuming the
+paused gate-line question.
