@@ -300,10 +300,13 @@ def bound_chain_pairs(evs, rows, fps, gates):
     read: cam1's real pairs sit at gap p10 -0.20 / p50 0.85 s. The July
     constants and the September measurement agree, so this guard adds none.
     """
+    from backend import config as _cfg
     from backend.services.track_chains import chain_tracks
 
     bound = {int(t): int(e) for e, t, s in evs if s == "rescue_exit"}
     counted = {int(t): int(e) for e, t, _s in evs}
+    if getattr(_cfg, "CHAIN_GUARD_ALL_PARTIALS", False):
+        return _all_partials_pairs(bound, counted, rows, fps, gates)
     if not bound:
         return {}, set()
     chain_map: dict[int, int] = {}
@@ -321,6 +324,40 @@ def bound_chain_pairs(evs, rows, fps, gates):
             continue
         if any(other != tid for other in members.get(cid, ())):
             drop.add(eid)
+    return chain_map, drop
+
+
+def _all_partials_pairs(bound, counted, rows, fps, gates):
+    """config.CHAIN_GUARD_ALL_PARTIALS (arm cg1): the same frozen chains, with
+    every PARTIAL counted event in scope (a track tagged exit_only or
+    no_crossing by the journey state machine, plus G-EX-2's rescue_exit).
+    Each chain holding two or more counted events keeps exactly ONE: the
+    first out-of-scope member (a full / entry_only journey, the witnessed
+    head) if any, else the earliest in-scope member. Out-of-scope members
+    are never rejected, and a lone partial (no chain partner) is never
+    touched (operator ruling 2026-09-27: lone exit-only tracks are real cars
+    counted once). Keep-one is what makes the wider scope safe: under the
+    rescue_exit-only criterion a chain of two partials would lose both."""
+    from backend.services.track_chains import chain_tracks
+
+    def in_scope(r):
+        return (r["tid"] in bound
+                or r.get("tag") in ("exit_only", "no_crossing"))
+
+    chain_map: dict[int, int] = {}
+    drop = set()
+    for i, chain in enumerate(chain_tracks(bound_chain_recs(rows, fps, gates),
+                                           fps)):
+        for r in chain:
+            chain_map[r["tid"]] = i
+        members = [r for r in chain if r["tid"] in counted]   # time-ordered
+        if len(members) < 2:
+            continue
+        heads = [r for r in members if not in_scope(r)]
+        keeper = heads[0] if heads else members[0]
+        for r in members:
+            if r is not keeper and in_scope(r):
+                drop.add(counted[r["tid"]])
     return chain_map, drop
 
 
@@ -359,8 +396,10 @@ def bound_chain_dedup(db: str | Path, camera_id: int, rows, fps,
                 [(int(e),) for e in drop])
     finally:
         conn.close()
+    bound_ids = {int(e) for e, _t, s in evs if s == "rescue_exit"}
     return {"camera_id": camera_id, "bound_events": n_bound,
-            "bound_rejected": len(drop)}
+            "bound_rejected": len(drop),
+            "partial_rejected": len(drop - bound_ids)}
 
 
 def fracture_pairs(evs, rows, fps, gates):

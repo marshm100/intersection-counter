@@ -465,6 +465,18 @@ GATE_EXIT_ONLY_BINDING = _os2.environ.get(
 # cam2, cam4 and cam5 exactly nothing (bit-identical to the unguarded arm).
 BOUND_CHAIN_CONSERVE = _os2.environ.get(
     "BOUND_CHAIN_CONSERVE", "1") in ("1", "true", "on")
+# THE CHAIN GUARD FOR ALL PARTIALS (2026-09-27, arm cg1, declared in
+# docs/plan_basis_2026-09-11.md before scoring). cam4 SB through runs ~5%
+# over Miovision while its FULL journeys alone sit under it: the excess is
+# partial tracks on top. Operator ruling (2 of 2): a LONE exit-only track is a
+# real car counted once. The identifiable surplus is a partial track that the
+# frozen chain rule (chain_tracks, unmodified) links to a car already counted.
+# When ON, every exit_only / no_crossing counted event is in the guard's
+# scope, and each chain keeps exactly one counted event (the witnessed head
+# if any). Dry run (pre keep-one): fleet +1.68 / approach +4.04, cam2 -2.20.
+# NO NEW CONSTANTS. Default OFF pending the arm.
+CHAIN_GUARD_ALL_PARTIALS = _os2.environ.get(
+    "CHAIN_GUARD_ALL_PARTIALS", "0") in ("1", "true", "on")
 
 # THE PREDICTED-CONTINUATION RULE (2026-09-25, arm pc1, declared in
 # docs/plan_basis_2026-09-11.md before scoring). cam5's northbound-left

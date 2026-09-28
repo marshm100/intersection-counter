@@ -173,3 +173,54 @@ class TestNoNewConstants:
     def test_default_on(self):
         """SHIPPED 2026-09-24 with GATE_EXIT_ONLY_BINDING (arm gx2)."""
         assert cfg.BOUND_CHAIN_CONSERVE is True
+
+
+# a head born INSIDE the box (never crosses gate 1) that dies mid-box: no_crossing
+NOCROSS_HEAD_PTS = [(float(f), 50.0, 6.0 + 4.3 * f) for f in range(10)]
+# a FULL journey: in over gate 1, out over gate 3
+FULL_PTS = [(float(f), 50.0, -5.0 + 6.0 * f) for f in range(20)]
+# born right behind the full journey's exit, carrying on south: exit_only
+AFTER_FULL_PTS = [(21.0 + f, 50.0, 105.0 + 6.0 * f) for f in range(8)]
+
+
+class TestChainGuardAllPartials:
+    """arm cg1 (config.CHAIN_GUARD_ALL_PARTIALS): every partial counted event
+    in scope, exactly one count kept per chain."""
+
+    @pytest.fixture(autouse=True)
+    def _on(self, monkeypatch):
+        monkeypatch.setattr(cfg, "CHAIN_GUARD_ALL_PARTIALS", True)
+
+    def test_a_counted_tail_behind_a_counted_head_yields(self, gates):
+        # no posterior_source on either: out of scope for today's guard
+        db = _mk_db()
+        head, tail = _ev(db, 1), _ev(db, 2)
+        st = bound_chain_dedup(db, 2, _rows(1, HEAD_PTS) + _rows(2, TAIL_PTS),
+                               FPS, gates)
+        assert _kept(db) == {head}
+        assert st["partial_rejected"] == 1
+
+    def test_two_partials_in_one_chain_keep_exactly_one(self, gates):
+        db = _mk_db()
+        head, tail = _ev(db, 1), _ev(db, 2)
+        bound_chain_dedup(db, 2, _rows(1, NOCROSS_HEAD_PTS) + _rows(2, TAIL_PTS),
+                          FPS, gates)
+        assert len(_kept(db)) == 1          # the vehicle is never lost
+
+    def test_a_lone_exit_only_track_is_never_touched(self, gates):
+        # operator ruling 2026-09-27: a real car counted once
+        db = _mk_db()
+        lone = _ev(db, 2)
+        st = bound_chain_dedup(db, 2, _rows(2, LONE_PTS), FPS, gates)
+        assert _kept(db) == {lone} and st["partial_rejected"] == 0
+
+    def test_a_full_journey_is_never_rejected(self, gates):
+        db = _mk_db()
+        full, after = _ev(db, 1), _ev(db, 2)
+        bound_chain_dedup(db, 2, _rows(1, FULL_PTS) + _rows(2, AFTER_FULL_PTS),
+                          FPS, gates)
+        assert full in _kept(db)
+
+
+def test_chain_guard_all_partials_default_off():
+    assert cfg.CHAIN_GUARD_ALL_PARTIALS is False
