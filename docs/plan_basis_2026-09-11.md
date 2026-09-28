@@ -2729,3 +2729,18 @@ PASS = G-DEF-1 vs 83.50; FM 51 witness if the corridor letter passes. EXPECTED: 
 cam2 at risk (its drops fall on SB through / SB right, cells already under). If cam2 alone fails,
 it is the THIRD rule blocked only by cam2 (after nf1, fr2), which is the case for resuming the
 paused gate-line question.
+
+### Arm cg1 VERDICT (2026-09-27): LETTER FAIL on cam2 only. Fleet +1.01, approach +3.95
+
+    cam1 +2.5 / +2.3 | cam2 -4.7 / +0.9 / -2.8 | cam3 +1.3 | cam4 +4.4 / 0.0 / +3.8 | cam5 +0.7 / +1.9 / +1.8
+    FLEET 83.50 -> 84.51 (+1.01); approach 63.34 -> 67.29 (+3.95). camera means: cam1 +2.40,
+    cam2 -2.20, cam3 +1.30, cam4 +2.73, cam5 +1.47. The keep-one re-price (dry run +1.09) matched.
+IN VEHICLES (sum |ours - Mio| over all cells): 4203 -> 3880 fleet-wide. cam4 16:00 256 -> 182,
+cam5 448 -> 325 / 385 -> 324 / 415 -> 342, cam1 285 -> 260 / 177 -> 140. BUT cam3 490 -> 567: its SB
+and NB through were slightly over and are now further under (SB 14541 -> 14101 vs 14385), so on cam3
+the rule removes more than the true duplicates; the 5/95 bins hide it. cam2 396 -> 399, 385 -> 360,
+567 -> 608 (SB thru already under loses more).
+FM 51 not run (letter failed). Flag stays OFF.
+cam2 IS NOW THE ONLY BLOCKER ON THREE RULES (nf1 +1.15, fr2 +1.21, cg1 +1.01): each trusts which
+gate a track crossed, and cam2's far-side lines sit on the far traffic band. Evidence for resuming
+the paused gate-line question.
