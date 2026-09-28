@@ -2688,3 +2688,18 @@ lines + the tracks, kept outside the turning area). The operator's line = where 
 tracking is reliable comes from the tracks, not from the engineer. Constraint he raised: the
 mouth/exit system exists to stop post-exit thefts; FIRST STEP ON RESUME is a dry run of candidate
 inset lines against the theft census and the fate ledger, before anything is built.
+
+## cam4 SOUTHBOUND THROUGH, first diagnosis (2026-09-27, operator: switch to cam4)
+
+The cell is over Miovision by ~5% on every window (2069 / 1957, 1724 / 1640, 3093 / 2981), small
+positive residuals in most bins (10 of 24 failing). FULL journeys alone sit UNDER Miovision (1885,
+1601, 2423); the excess is partial journeys on top, chiefly EXIT-ONLY throughs with a posterior
+origin (branch1): 131 / 77 / 380, born mid-box (x ~ 320-400) on the SB line, not at a driveway.
+  * The frozen chain rule (bound_chain_pairs, the bound-chain guard's selection, applied to every
+    partial event instead of only rescue_exit) pairs 17 / 19 / 100 partials with an already-counted
+    head: most of the 16:00 excess, little of 07:00 / 11:00.
+  * "Twin at birth" is NOT the answer: 26 / 11 / 46 exit-only tracks are born within 0.5 box of a
+    counted full SB-thru track, but over their common life they sit 50-100 px apart with IoU ~0
+    (two cars side by side at that instant); the coexisting-twin dedup is right to leave them.
+  * 97 / 62 / 301 exit-only SB throughs are ALONE at birth. Real cars whose first track was lost
+    (legitimate counts) or surplus of some other kind: the data alone cannot say which.
