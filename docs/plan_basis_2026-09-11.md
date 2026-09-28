@@ -2778,3 +2778,19 @@ thefts inside journeys do not rise. Anything else stops the idea before it is bu
     (cam1 07:00 full 2363 -> 3352, cam3 22306 -> 23985) with (origin, dest) stable (<= 1.4%).
 READING: stop. Moving the lines inward is not a uniform fix: on cam2 there is no room between the
 leg line and the turning area. cam2's blocker is not line placement alone.
+
+## cam2 ON ITS OWN TERMS (2026-09-27, operator: "Yes go for it")
+
+REFUTED (cam2 is ordinary on each): partial-track share (SB 21-33%, vs cam1 35%, cam5 S 30%);
+frame-edge births (cam2 SB partials born a median 93-106 px from the edge, 6-17% within 20 px);
+box size (median 30 px vs 24-32) and speed (54 px/s vs 41-87), so the 70 px chain distance spans
+~2.4 box widths on cam2 as on every camera.
+WHAT IS DIFFERENT:
+  * cam2's TRACKER RECIPE IS A ONE-OFF: BoT-SORT with calib_tracker_match_threshold 0.9 (cam1:
+    botsort+reid; cam3: botsort, new_track 0.18; cam4 / cam5 / every new site: the recovery tracker).
+  * cam2's tracks are GAPPY: 20,444 within-track gaps > 1 frame at 07:00, p90 32 frames (1.3 s),
+    against cam4 p90 4 and cam5 p90 5 (cam1, also BoT-SORT: p90 19).
+  * cam2 is the only 25 fps camera, and TRACK_FINALIZE_GAP_FRAMES is 60 FRAMES: 2.4 s on cam2,
+    6.0 s everywhere else.
+READING: every rule that reasons about pieces of a vehicle (partials, chains, gate witnesses) meets a
+different piece structure on cam2, produced by a tracker configuration no new site will ever run.
