@@ -2703,3 +2703,10 @@ origin (branch1): 131 / 77 / 380, born mid-box (x ~ 320-400) on the SB line, not
     (two cars side by side at that instant); the coexisting-twin dedup is right to leave them.
   * 97 / 62 / 301 exit-only SB throughs are ALONE at birth. Real cars whose first track was lost
     (legitimate counts) or surplus of some other kind: the data alone cannot say which.
+OPERATOR RULING (2026-09-27, reel https://claude.ai/artifact/U2NajSPnxcymvkrAoEwxRR,
+scripts/viz_exit_only_reel.py): cam4 07:00 lone exit-only SB throughs, track 2200 (first seen right
+after a near-field pickup passed in front) and track 4324: BOTH "real car, counted once". The lone
+exit-only class is a CORRECT count (a car re-acquired after its first track was lost), not the
+surplus. Do not build a rule against it. The identifiable surplus is the chain-paired share (the
+frozen tail-pairing rule: 17 / 19 / 100 a window); the rest of the 07:00 / 11:00 excess is
+unexplained by anything measured so far.
