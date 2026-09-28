@@ -1,0 +1,86 @@
+
+cam1 study_0700: tracks 6763, counted 4751
+   lines: S: s*=0.35 (67px) turnover 0.13 -> 0.07 | N: s*=0.35 (66px) turnover 0.12 -> 0.03 | W: s*=0.35 (48px) turnover 0.15 -> 0.07 | E: s*=0.20 (28px) turnover 0.04 -> 0.02
+   counted-event tag changes: [(('exit_only', 'full'), 650), (('entry_only', 'full'), 421), (('exit_only', 'no_crossing'), 200), (('entry_only', 'no_crossing'), 120), (('no_crossing', 'full'), 96), (('full', 'entry_only'), 87)]
+   counted tags old {'full': 2363, 'exit_only': 1369, 'entry_only': 766, 'no_crossing': 253}
+   counted tags new {'full': 3352, 'exit_only': 623, 'no_crossing': 369, 'entry_only': 407}
+   full under both: 2204, (origin, dest) changed: 31 (1.4%)
+
+cam1 study_1600: tracks 7403, counted 5725
+   lines: S: s*=0.15 (29px) turnover 0.08 -> 0.05 | N: s*=0.25 (47px) turnover 0.01 -> 0.01 | W: s*=0.35 (48px) turnover 0.10 -> 0.04 | E: s*=0.30 (42px) turnover 0.02 -> 0.01
+   counted-event tag changes: [(('exit_only', 'full'), 899), (('entry_only', 'full'), 224), (('full', 'exit_only'), 186), (('exit_only', 'no_crossing'), 65), (('entry_only', 'no_crossing'), 63), (('no_crossing', 'entry_only'), 36)]
+   counted tags old {'exit_only': 1441, 'full': 3696, 'entry_only': 487, 'no_crossing': 101}
+   counted tags new {'full': 4635, 'exit_only': 669, 'no_crossing': 175, 'entry_only': 246}
+   full under both: 3538, (origin, dest) changed: 36 (1.0%)
+
+cam2 study_0700: tracks 7981, counted 5669
+   lines: E: s*=0.30 (35px) turnover 0.05 -> 0.01 | N: s*=0.20 (44px) turnover 0.23 -> 0.02 | W: s*=0.30 (34px) turnover 0.02 -> 0.01 | S: s*=0.35 (76px) turnover 0.03 -> 0.01
+   counted-event tag changes: [(('full', 'entry_only'), 978), (('exit_only', 'no_crossing'), 201), (('full', 'no_crossing'), 183), (('full', 'exit_only'), 125), (('exit_only', 'full'), 105), (('exit_only', 'entry_only'), 97)]
+   counted tags old {'exit_only': 465, 'no_crossing': 307, 'full': 4709, 'entry_only': 188}
+   counted tags new {'exit_only': 217, 'no_crossing': 729, 'full': 3592, 'entry_only': 1131}
+   full under both: 3618, (origin, dest) changed: 1161 (32.1%)
+
+cam2 study_1100: tracks 6969, counted 4466
+   lines: E: s*=0.25 (29px) turnover 0.05 -> 0.01 | N: s*=0.15 (33px) turnover 0.33 -> 0.01 | W: s*=0.35 (40px) turnover 0.03 -> 0.01 | S: s*=0.20 (44px) turnover 0.11 -> 0.01
+   counted-event tag changes: [(('full', 'exit_only'), 423), (('full', 'entry_only'), 221), (('exit_only', 'no_crossing'), 127), (('exit_only', 'full'), 101), (('full', 'no_crossing'), 74), (('no_crossing', 'entry_only'), 45)]
+   counted tags old {'full': 3639, 'exit_only': 415, 'no_crossing': 278, 'entry_only': 134}
+   counted tags new {'full': 3067, 'exit_only': 625, 'no_crossing': 456, 'entry_only': 318}
+   full under both: 3029, (origin, dest) changed: 1105 (36.5%)
+
+cam2 study_1600: tracks 10397, counted 7128
+   lines: E: s*=0.35 (41px) turnover 0.08 -> 0.01 | N: s*=0.20 (44px) turnover 0.24 -> 0.04 | W: s*=0.35 (40px) turnover 0.05 -> 0.03 | S: s*=0.20 (44px) turnover 0.03 -> 0.01
+   counted-event tag changes: [(('full', 'exit_only'), 850), (('exit_only', 'full'), 300), (('exit_only', 'no_crossing'), 271), (('full', 'no_crossing'), 166), (('no_crossing', 'entry_only'), 99), (('full', 'entry_only'), 97)]
+   counted tags old {'full': 5383, 'exit_only': 989, 'no_crossing': 464, 'entry_only': 292}
+   counted tags new {'full': 4676, 'exit_only': 1305, 'no_crossing': 854, 'entry_only': 293}
+   full under both: 4551, (origin, dest) changed: 1435 (31.5%)
+
+cam3 study_0600: tracks 44859, counted 29309
+   lines: N: s*=0.30 (43px) turnover 0.03 -> 0.02 | S: s*=0.20 (22px) turnover 0.04 -> 0.02 | W: s*=0.05 (5px) turnover 0.13 -> 0.07
+   counted-event tag changes: [(('exit_only', 'full'), 1073), (('entry_only', 'full'), 813), (('entry_only', 'no_crossing'), 393), (('exit_only', 'no_crossing'), 384), (('full', 'entry_only'), 207), (('no_crossing', 'entry_only'), 53)]
+   counted tags old {'full': 22306, 'entry_only': 2776, 'exit_only': 3623, 'no_crossing': 604}
+   counted tags new {'full': 23985, 'exit_only': 2197, 'entry_only': 1867, 'no_crossing': 1260}
+   full under both: 23755, (origin, dest) changed: 7 (0.0%)
+
+cam4 study_0700: tracks 5402, counted 4926
+   lines: N: s*=0.30 (58px) turnover 0.05 -> 0.04 | W: s*=0.05 (2px) turnover 0.02 -> 0.00 | S: s*=0.30 (50px) turnover 0.02 -> 0.00
+   counted-event tag changes: [(('exit_only', 'full'), 70), (('full', 'exit_only'), 43), (('entry_only', 'no_crossing'), 21), (('entry_only', 'full'), 18), (('exit_only', 'no_crossing'), 14), (('no_crossing', 'entry_only'), 3)]
+   counted tags old {'full': 4202, 'exit_only': 609, 'entry_only': 82, 'no_crossing': 33}
+   counted tags new {'full': 4246, 'exit_only': 572, 'no_crossing': 62, 'entry_only': 46}
+   full under both: 4194, (origin, dest) changed: 9 (0.2%)
+
+cam4 study_1100: tracks 3667, counted 3345
+   lines: N: s*=0.35 (67px) turnover 0.03 -> 0.01 | W: s*=0.00 (0px) turnover 0.00 -> 0.00 | S: s*=0.35 (59px) turnover 0.01 -> 0.00
+   counted-event tag changes: [(('full', 'exit_only'), 52), (('exit_only', 'full'), 32), (('entry_only', 'no_crossing'), 20), (('exit_only', 'no_crossing'), 10), (('entry_only', 'full'), 10), (('full', 'entry_only'), 2)]
+   counted tags old {'exit_only': 304, 'full': 2966, 'no_crossing': 35, 'entry_only': 40}
+   counted tags new {'no_crossing': 66, 'full': 2953, 'exit_only': 314, 'entry_only': 12}
+   full under both: 2939, (origin, dest) changed: 4 (0.1%)
+
+cam4 study_1600: tracks 6747, counted 5700
+   lines: N: s*=0.35 (67px) turnover 0.04 -> 0.03 | W: s*=0.15 (7px) turnover 0.02 -> 0.01 | S: s*=0.15 (25px) turnover 0.02 -> 0.01
+   counted-event tag changes: [(('exit_only', 'full'), 186), (('exit_only', 'no_crossing'), 160), (('entry_only', 'no_crossing'), 59), (('entry_only', 'full'), 43), (('no_crossing', 'entry_only'), 27), (('full', 'exit_only'), 21)]
+   counted tags old {'no_crossing': 156, 'full': 4422, 'exit_only': 887, 'entry_only': 235}
+   counted tags new {'no_crossing': 348, 'full': 4614, 'exit_only': 565, 'entry_only': 173}
+   full under both: 4435, (origin, dest) changed: 20 (0.5%)
+   thefts 73: inside a journey old 28 -> new 23
+
+cam5 study_0700: tracks 7207, counted 5216
+   lines: E: s*=0.35 (47px) turnover 0.04 -> 0.01 | N: s*=0.35 (76px) turnover 0.10 -> 0.02 | W: s*=0.25 (43px) turnover 0.14 -> 0.07 | S: s*=0.35 (61px) turnover 0.09 -> 0.04
+   counted-event tag changes: [(('exit_only', 'full'), 458), (('entry_only', 'no_crossing'), 132), (('entry_only', 'full'), 110), (('full', 'exit_only'), 82), (('full', 'entry_only'), 71), (('exit_only', 'no_crossing'), 32)]
+   counted tags old {'no_crossing': 408, 'full': 3746, 'entry_only': 390, 'exit_only': 672}
+   counted tags new {'no_crossing': 542, 'full': 4154, 'entry_only': 258, 'exit_only': 262}
+   full under both: 3705, (origin, dest) changed: 151 (4.1%)
+
+cam5 study_1100: tracks 4735, counted 3695
+   lines: E: s*=0.05 (7px) turnover 0.01 -> 0.00 | N: s*=0.35 (76px) turnover 0.03 -> 0.00 | W: s*=0.25 (43px) turnover 0.05 -> 0.03 | S: s*=0.35 (61px) turnover 0.05 -> 0.02
+   counted-event tag changes: [(('exit_only', 'full'), 276), (('entry_only', 'no_crossing'), 81), (('full', 'exit_only'), 72), (('entry_only', 'full'), 45), (('full', 'entry_only'), 34), (('exit_only', 'no_crossing'), 20)]
+   counted tags old {'full': 2875, 'exit_only': 359, 'entry_only': 166, 'no_crossing': 295}
+   counted tags new {'full': 3082, 'no_crossing': 395, 'exit_only': 140, 'entry_only': 78}
+   full under both: 2836, (origin, dest) changed: 26 (0.9%)
+
+cam5 study_1600: tracks 7658, counted 6031
+   lines: E: s*=0.30 (40px) turnover 0.02 -> 0.01 | N: s*=0.20 (43px) turnover 0.03 -> 0.01 | W: s*=0.25 (43px) turnover 0.09 -> 0.05 | S: s*=0.35 (61px) turnover 0.07 -> 0.02
+   counted-event tag changes: [(('full', 'exit_only'), 360), (('exit_only', 'full'), 313), (('entry_only', 'no_crossing'), 123), (('full', 'entry_only'), 89), (('entry_only', 'full'), 71), (('full', 'no_crossing'), 45)]
+   counted tags old {'entry_only': 258, 'full': 4915, 'exit_only': 554, 'no_crossing': 304}
+   counted tags new {'no_crossing': 486, 'full': 4814, 'entry_only': 166, 'exit_only': 565}
+   full under both: 4521, (origin, dest) changed: 93 (2.1%)
+   thefts 149: inside a journey old 38 -> new 10

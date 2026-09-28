@@ -2761,3 +2761,20 @@ thefts_97a7849a_{4,5}_vl3_study_1600.json, kind THEFT) how many thefts fall INSI
 its entry, before its exit) under the old lines vs the candidates.
 READING: good if no_crossing -> full dominates on cam2 and cam5, (origin, dest) rarely changes, and
 thefts inside journeys do not rise. Anything else stops the idea before it is built.
+
+### Counting-line dry run VERDICT (2026-09-27): STOPPED by its own declared reading
+
+(scripts/research_counting_lines.py, runs/v2_week1/research_counting_lines.log)
+  * cam2, the target, is the worst: full journeys whose (origin, dest) CHANGES under the candidate
+    lines 32.1% / 36.5% / 31.5%, and full -> entry_only 978 at 07:00: on cam2 an inset of 30-44 px
+    lands in the turning area. Counted no_crossing RISES 307 -> 729, 278 -> 456, 464 -> 854.
+  * cam5: counted no_crossing RISES 408 -> 542, 295 -> 395, 304 -> 486 (the opposite of the hope);
+    (origin, dest) changes 0.9-4.1%.
+  * THE ARGMIN IS NOT DATA-DRIVEN: turnover keeps falling inward, so s* sits at the 0.35 cap on
+    most legs; the cap placed the line, not the tracks.
+  * What did go the right way: thefts inside a journey FALL (cam4 16:00 28 -> 23, cam5 16:00 38 ->
+    10), which settles the operator's worry in principle (an inset exit closes the journey before
+    the far lanes); and on the fragmenting BoT-SORT cameras partials become full journeys
+    (cam1 07:00 full 2363 -> 3352, cam3 22306 -> 23985) with (origin, dest) stable (<= 1.4%).
+READING: stop. Moving the lines inward is not a uniform fix: on cam2 there is no room between the
+leg line and the turning area. cam2's blocker is not line placement alone.
