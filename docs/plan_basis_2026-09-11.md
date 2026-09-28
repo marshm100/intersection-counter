@@ -2744,3 +2744,20 @@ FM 51 not run (letter failed). Flag stays OFF.
 cam2 IS NOW THE ONLY BLOCKER ON THREE RULES (nf1 +1.15, fr2 +1.21, cg1 +1.01): each trusts which
 gate a track crossed, and cam2's far-side lines sit on the far traffic band. Evidence for resuming
 the paused gate-line question.
+
+## RESUMED (2026-09-27, operator: "go for it"): the counting-line dry run, DECLARED before running
+
+No production change; reports numbers only (scripts/research_counting_lines.py).
+CANDIDATE LINE PER LEG, derived from the operator's leg line + the window's own tracks: translate
+the line toward the box centroid (mean of the four line midpoints) by s x (midpoint-to-centroid
+distance), s in {0, 0.05, ..., 0.35}; for each s, TURNOVER = (births + deaths inside the strip
+s +- 0.025) / (distinct tracks with a point in that strip); pick s* = the argmin. The 0.35 cap keeps
+every line in the outer third of the way to the centre (outside the turning area); the cap, the
+step and the strip half-width are dry-run choices, fixed here before any output.
+REPORTED per window: s* per leg with its turnover vs s = 0; gate-tag transitions of COUNTED events
+(no_crossing -> full etc.); for tracks full under both, how often (origin, dest) changes (a proxy
+for lines landing in the turning area); and on cam4 / cam5 study_1600 (the theft census,
+thefts_97a7849a_{4,5}_vl3_study_1600.json, kind THEFT) how many thefts fall INSIDE a journey (after
+its entry, before its exit) under the old lines vs the candidates.
+READING: good if no_crossing -> full dominates on cam2 and cam5, (origin, dest) rarely changes, and
+thefts inside journeys do not rise. Anything else stops the idea before it is built.
