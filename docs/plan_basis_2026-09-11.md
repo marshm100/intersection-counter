@@ -2814,3 +2814,21 @@ cam5, FM 51) and several of its settings are per FRAME (Kalman velocity noise pe
 memory in frames). A default gap for 25 / 30 fps sites, not a cam2 quirk.
 NEXT CANDIDATE: re-track cam2 feeding the tracker every 2nd (12.5 fps) or 3rd (8.3 fps) frame (the
 pipeline already has frame skip, DEFAULT_FRAME_SKIP = 3 live) and re-run the control.
+
+## FRAME-RATE AWARENESS: the cam2 test DECLARED before running (2026-09-29, operator: "go ahead and test it")
+
+Operator: the software should auto-tune to the film's frame rate (10 / 25 / 30 fps), keeping the
+native frames (at 25 fps a car moves ~2 px a frame instead of ~5, easier to match).
+INVENTORY: already real-time (unchanged): the library's lost-track memory (it rescales by
+frame_rate / 30: 5 s at any rate), position-recovery patience 0.5 s, weak-birth timings, the chain /
+fracture / gate rules (seconds). PER-FRAME, converted when config.FPS_AWARE is on (identity at 10 fps
+by construction): TRACK_FINALIZE_GAP_FRAMES 60 (6 s), MERGE_GAP 40 (4 s), MERGE_MAX_OVERLAP_FRAMES 12
+(1.2 s; it was measured on cam2 at 25 fps, where it meant 0.48 s; converting keeps the 10 fps cameras
+identical and is flagged), and the Kalman velocity noise TRACKER_KF_VEL_STD, a per-STEP quantity,
+x (10 / fps) ** FPS_KF_POWER. Not converted in this test: TRAJECTORY_MIN_POINTS (5 points).
+THE TEST: re-track cam2's three windows at NATIVE 25 fps with the new-site tracker, per-camera knobs
+blanked (scripts/retrack_default_tracker.py), once with FPS_KF_POWER = 1 (prefix f1) and once with 2
+(prefix f2); control arm on each with FPS_AWARE on. Baselines: old recipe 75.37, new-site tracker
+unconverted (rt0) 64.40.
+SUCCESS = cam2 mean >= 75.37. The better power is chosen by the evidence; within 0.5 of each other
+-> power 1 (the simpler). Neither near 75 -> frame rate was not the main cause; reported as such.

@@ -62,6 +62,7 @@ from backend.config import (
     TRACK_FATE_LEDGER,
     USE_JOINT_PARTIAL_FRECHET_SCORER,
 )
+from backend.config import fps_frames as _fps_frames
 from backend.services.checkpoint import CheckpointManager
 from backend.services.classifier import classify_vehicle
 from backend.services.detector import VehicleDetector
@@ -643,7 +644,7 @@ class ProcessingPipeline:
                 # First frame absence after creation — start the grace timer.
                 self.active_vehicles[track_id]["last_seen_frame"] = frame_number
                 continue
-            if frame_number - last > TRACK_FINALIZE_GAP_FRAMES:
+            if frame_number - last > _fps_frames(TRACK_FINALIZE_GAP_FRAMES, self.fps):
                 self._finalize_vehicle(track_id, frame_number)
 
     # Stitching gates (Phase 1.5). A candidate prior track must have been
@@ -679,7 +680,7 @@ class ProcessingPipeline:
                 if last is None or len(traj) < 3:
                     continue
                 gap = frame_number - last
-                if not (self._STITCH_MIN_GAP <= gap <= TRACK_FINALIZE_GAP_FRAMES):
+                if not (self._STITCH_MIN_GAP <= gap <= _fps_frames(TRACK_FINALIZE_GAP_FRAMES, self.fps)):
                     continue
                 # velocity from the last few points (px/frame, assumes ~1 pt/frame)
                 k = min(5, len(traj) - 1)

@@ -830,6 +830,30 @@ TRACKER_RECOVERY_HELD_IOU = float(_os.environ.get("TRACKER_RECOVERY_HELD_IOU", "
 # 2547/3637/624, thefts 83/196/18 -> 73/149/13 (a prediction that keeps up
 # with its own car overlaps the neighbour's box less). Env override for
 # experiments; 1/160 reproduces the library.
+# FRAME-RATE AWARENESS (2026-09-29, operator: "The software should be auto tuned
+# based on the frame rate of the film"). Every per-FRAME constant in the tracker
+# and pass 2 was validated on 10 fps cameras (cam1, cam3, cam4, cam5, FM 51);
+# cam2 is 25 fps, and on the new-site tracker it scored 64.40 against its old
+# recipe's 75.37. When ON, those constants are converted to the video's own frame
+# rate: frame counts become (frames at FPS_REFERENCE) x fps / FPS_REFERENCE, and
+# the Kalman velocity noise (a per-STEP quantity) is multiplied by
+# (FPS_REFERENCE / fps) ** FPS_KF_POWER. At 10 fps every factor is exactly 1, so
+# the validated cameras are byte-identical by construction. FPS_KF_POWER is the
+# open modelling question (1 = linear in the step, 2 = quadratic), settled by
+# the cam2 test, not by argument. Default OFF.
+FPS_AWARE = _os.environ.get("FPS_AWARE", "0") in ("1", "true", "on")
+FPS_REFERENCE = 10.0
+FPS_KF_POWER = float(_os.environ.get("FPS_KF_POWER", "1"))
+
+
+def fps_frames(frames_at_reference: float, fps: float) -> int:
+    """A frame count validated at FPS_REFERENCE, expressed at `fps` (same real
+    time). Identity when FPS_AWARE is off or fps == FPS_REFERENCE."""
+    if not FPS_AWARE or not fps:
+        return int(frames_at_reference)
+    return int(round(float(frames_at_reference) * float(fps) / FPS_REFERENCE))
+
+
 TRACKER_KF_VEL_STD = float(_os.environ.get("TRACKER_KF_VEL_STD", str(1.0 / 20)))
 TRACKER_RECOVERY_REVERSE_DEG = float(_os.environ.get("TRACKER_RECOVERY_REVERSE_DEG", "0"))
 TRACKER_RECOVERY_REVERSE_JUMP = float(_os.environ.get("TRACKER_RECOVERY_REVERSE_JUMP", "0.15"))

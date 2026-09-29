@@ -50,7 +50,7 @@ MERGE_MAX_OVERLAP_FRAMES = 12.0
 
 def merge_turn_fragments(turns, merge_px, merge_gap, expected_by_cell=None,
                          vol_factor=1.3, queue_aware=False, excess_only=False,
-                         pairs_out=None):
+                         pairs_out=None, max_overlap=MERGE_MAX_OVERLAP_FRAMES):
     """Ported verbatim from scripts/hybrid_ocbot.py (see its docstring for the
     A2 volume-gate rationale). `turns` = dicts with id/ol/dl/mv/s/e/start.
     queue_aware adds the span-overlap discriminator (see
@@ -97,7 +97,7 @@ def merge_turn_fragments(turns, merge_px, merge_gap, expected_by_cell=None,
                     if queue_aware:
                         overlap = (min(ei["e"], ej["e"])
                                    - max(ei["s"], ej["s"]))
-                        if overlap > MERGE_MAX_OVERLAP_FRAMES:
+                        if overlap > max_overlap:
                             continue   # coexisting = two vehicles, keep
                     used[j] = True   # fragment of the same turning vehicle
                     dist = math.hypot(ei["start"][0] - ej["start"][0],
@@ -667,7 +667,8 @@ def bank_expecteds(conn: sqlite3.Connection, camera_id: int,
 
 def merge_replay_turns(db: str | Path, camera_id: int, *,
                        window_seconds: float,
-                       expected_by_cell: dict | None = None) -> dict:
+                       expected_by_cell: dict | None = None,
+                       fps: float | None = None) -> dict:
     """A4a post-pass on a pass-2 replay DB: volume-gated same-cell turn-fragment
     merge. Merged-away fragments are marked rejected=1 (non-destructive,
     reviewable in the worklist) — never deleted. THROUGH events are untouched
@@ -686,12 +687,16 @@ def merge_replay_turns(db: str | Path, camera_id: int, *,
                                     TURN_MERGE)
         pairs: list[dict] = []
         if TURN_MERGE:
-            keep = merge_turn_fragments(turns, MERGE_PX, MERGE_GAP,
+            from backend.config import fps_frames
+            keep = merge_turn_fragments(turns, MERGE_PX,
+                                        fps_frames(MERGE_GAP, fps) if fps else MERGE_GAP,
                                         expected_by_cell=expected,
                                         vol_factor=VOL_FACTOR,
                                         queue_aware=QUEUE_AWARE_MERGE,
                                         excess_only=MERGE_EXCESS_ONLY,
-                                        pairs_out=pairs)
+                                        pairs_out=pairs,
+                                        max_overlap=(fps_frames(MERGE_MAX_OVERLAP_FRAMES, fps)
+                                                     if fps else MERGE_MAX_OVERLAP_FRAMES))
         else:
             keep = {ev["id"] for ev in turns}        # arm mo1: merge off
         # diagnostics sidecar: every absorption the merge made or declined

@@ -1861,7 +1861,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         logger.info("two-pass cam%s %s: continuation rule %s", camera_id,
                     variant, stats["continuation"])
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
-                               expected_by_cell=expected)
+                               expected_by_cell=expected, fps=fps)
     # V2 MERGE RESCUE (block-2 item 1, diagnosis 2026-08-06): a merged-away
     # turn whose track is a GATE-VERIFIED FULL JOURNEY in a DIFFERENT cell
     # was a misclassified real vehicle (35 gate-verified SB-thrus deleted as

@@ -232,6 +232,8 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
     i = 0
     f_first = int(rows[0, 1]) if n else 0
     f_last = int(rows[n - 1, 1]) if n else -1
+    from backend.config import fps_frames
+    _gap = fps_frames(TRACK_FINALIZE_GAP_FRAMES, float(video["fps"]))
     for frame in range(f_first, f_last + 1):
         if should_cancel is not None and should_cancel():
             raise JobCancelled(f"replay cancelled at frame {frame} "
@@ -252,7 +254,7 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
             if last is None:
                 pipe.active_vehicles[track_id]["last_seen_frame"] = frame
                 continue
-            if frame - last > TRACK_FINALIZE_GAP_FRAMES:
+            if frame - last > _gap:
                 pipe._finalize_vehicle(track_id, frame)
     if n:
         pipe._finalize_all_active(f_last + 1)

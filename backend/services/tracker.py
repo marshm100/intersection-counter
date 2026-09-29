@@ -983,7 +983,10 @@ class ByteTrackBackend:
             "recovery_held_iou": float(getattr(_cfg, "TRACKER_RECOVERY_HELD_IOU", 0.6)),
             "recovery_reverse_deg": float(getattr(_cfg, "TRACKER_RECOVERY_REVERSE_DEG", 0.0)),
             "recovery_reverse_jump": float(getattr(_cfg, "TRACKER_RECOVERY_REVERSE_JUMP", 0.15)),
-            "kf_vel_std": float(getattr(_cfg, "TRACKER_KF_VEL_STD", 1.0 / 20)),
+            "kf_vel_std": float(getattr(_cfg, "TRACKER_KF_VEL_STD", 1.0 / 20))
+            * ((float(getattr(_cfg, "FPS_REFERENCE", 10.0)) / float(frame_rate or 30))
+               ** float(getattr(_cfg, "FPS_KF_POWER", 1.0))
+               if getattr(_cfg, "FPS_AWARE", False) else 1.0),
             "confirm_by_position": bool(getattr(_cfg, "TRACKER_CONFIRM_BY_POSITION", True)),
             "confirm_width_ratio": float(getattr(_cfg, "TRACKER_CONFIRM_WIDTH_RATIO", 0.5)),
             "reinit_width_jump": float(getattr(_cfg, "TRACKER_REINIT_WIDTH_JUMP", 1.5)),
