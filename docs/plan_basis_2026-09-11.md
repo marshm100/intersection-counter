@@ -2852,3 +2852,17 @@ cam1 0.27 / 0.32 px, cam2 0.30 / 0.33, cam3 0.56 / 0.77, cam4 0.14 / 0.24, cam5 
 cam2 p99 0.35, max 0.48; no sample over 1 px on any camera. BoT-SORT's motion compensation is not
 what cam2's old recipe buys. Remaining difference: cam2's looser association (match threshold 0.9)
 and BoT-SORT's own matching / Kalman design.
+
+## OPERATOR RULING (2026-09-29): ONE DEFAULT, EVERY CAMERA JUDGED ON IT
+
+"Of course it should we ship one default to all intersections and if it cant handle it we need to
+make the default better."
+CONSEQUENCES:
+  * cams 1-3's one-off pass-1 recipes (cam1 botsort+reid; cam2 botsort, match 0.9; cam3 botsort,
+    new_track 0.18) no longer stand in for the default. The honest basis is every camera re-tracked
+    with the new-site tracker, per-camera knobs blanked (scripts/retrack_default_tracker.py).
+  * The standing 83.50 overstates the default. cam2 alone on the default tracker (arm rt0: 65.1 /
+    74.5 / 53.6) takes the fleet to ~80.76. cam1 and cam3 are re-tracked next to get the true
+    default fleet score; that number becomes the control every future rule is judged against.
+  * A camera the default handles badly (cam2 today) is a DEFAULT problem to fix, never a
+    per-camera recipe to keep.
