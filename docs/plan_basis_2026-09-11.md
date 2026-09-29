@@ -2886,3 +2886,17 @@ The default is BETTER than the one-off recipe on cam3 (err 490 -> 190) and cam1 
 (all three windows) and cam1 16:00. Those two are the default's weak spots to fix.
 FIRST NEXT STEP: re-run the three rules cam2 was blocking (cg1, nf1, fr2) against THIS control; on the
 cam2 default basis cg1 already went 64.40 -> 68.17.
+
+## OPERATOR RULING (2026-09-29): NO INFERENCE BEYOND WHAT IS SEEN ON SCREEN
+
+"No we cannot use any inferences beyond what data we are able to collect on screen." (in reply to a
+proposal to give far-field stubs their approach's learned left/through split)
+CONSEQUENCES:
+  * A vehicle's origin, destination and movement come only from what the video shows for THAT
+    vehicle (gate crossings, its own path). Never from how common a movement is among other cars.
+  * The learned-split idea is dead. Rule 2 (NOCROSS_NO_FALLBACK: no nearest-line guess for a track
+    with no crossing and no shape match) is consistent with the ruling.
+  * THE CURRENT DEFAULT ALREADY INFERS in at least two places, now in conflict with the ruling:
+    the branch-1 origin posterior (origin picked with corpus-support proportions when the entry was
+    not seen) and the entry-only rescue (destination picked from the approach's observed movement
+    mix, rescue_supports). Both need an audit and an arm against the 80.81 control.
