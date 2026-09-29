@@ -2866,3 +2866,23 @@ CONSEQUENCES:
     default fleet score; that number becomes the control every future rule is judged against.
   * A camera the default handles badly (cam2 today) is a DEFAULT problem to fix, never a
     per-camera recipe to keep.
+
+## THE TRUE DEFAULT CONTROL (2026-09-29): every camera on the new-site tracker = 80.81
+
+cam1 and cam3 re-tracked with scripts/retrack_default_tracker.py (rt_ dumps; cam1 89 s / 103 s,
+cam3 1930 s) and scored (arm rt0, runs/v2_week1/fleet_rt0_cam13.log).
+    window       one-off recipe (prod)      DEFAULT tracker        vehicle |err|
+    cam1 07:00      83.8 / 83.9              88.7 / 85.7            285 -> 190
+    cam1 16:00      94.2 / 80.0              86.2 / 77.4            177 -> 242
+    cam2 07:00      77.1 / 53.1              65.1 / 18.8            396 -> 641
+    cam2 11:00      77.7 / 59.4              74.5 / 34.4            385 -> 446
+    cam2 16:00      71.3 / 46.9              53.6 / 18.8            567 -> 869
+    cam3 06-20      89.0 / 74.4              92.7 / 84.4            490 -> 190
+    cam4, cam5      unchanged (already the default)
+    FLEET           83.50 / 63.34            80.81 / 56.83          4203 -> 4481
+THIS IS THE CONTROL from here on (movement 80.81, approach 56.83; windows: cam1 rt_study_0700 /
+rt_study_1600, cam2 rt_study_0700 / 1100 / 1600, cam3 rt_study_0600, cam4 / cam5 study_*).
+The default is BETTER than the one-off recipe on cam3 (err 490 -> 190) and cam1 07:00; worse on cam2
+(all three windows) and cam1 16:00. Those two are the default's weak spots to fix.
+FIRST NEXT STEP: re-run the three rules cam2 was blocking (cg1, nf1, fr2) against THIS control; on the
+cam2 default basis cg1 already went 64.40 -> 68.17.
