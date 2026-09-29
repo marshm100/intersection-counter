@@ -2846,3 +2846,9 @@ WHAT ELSE DIFFERS between the two recipes on cam2: BoT-SORT carries GLOBAL MOTIO
 (it corrects for the camera itself moving: sway, shake) and cam2's recipe loosens association
 (match threshold 0.9). A pole-mounted camera that sways would break a tracker without motion
 compensation in exactly this way (more tracks, more fragments, overcounts). Not yet measured.
+CAMERA MOTION: REFUTED (scripts/research_camera_motion.py, 150 samples per camera through 07:00,
+phase correlation of the whole grey frame): every camera is steady. Frame-to-frame shift p99 / max:
+cam1 0.27 / 0.32 px, cam2 0.30 / 0.33, cam3 0.56 / 0.77, cam4 0.14 / 0.24, cam5 0.26 / 0.59; over 1 s
+cam2 p99 0.35, max 0.48; no sample over 1 px on any camera. BoT-SORT's motion compensation is not
+what cam2's old recipe buys. Remaining difference: cam2's looser association (match threshold 0.9)
+and BoT-SORT's own matching / Kalman design.
