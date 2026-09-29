@@ -2832,3 +2832,17 @@ blanked (scripts/retrack_default_tracker.py), once with FPS_KF_POWER = 1 (prefix
 unconverted (rt0) 64.40.
 SUCCESS = cam2 mean >= 75.37. The better power is chosen by the evidence; within 0.5 of each other
 -> power 1 (the simpler). Neither near 75 -> frame rate was not the main cause; reported as such.
+
+### Frame-rate test VERDICT (2026-09-29): frame rate is NOT the main cause on cam2
+
+    cam2 mean   old recipe 75.37 | new-site tracker 64.40 | FPS_AWARE power 1: 64.57 | power 2: 64.43
+    07:00  77.1 | 65.1 | 65.1 | 64.7     11:00  77.7 | 74.5 | 72.6 | 72.6     16:00  71.3 | 53.6 | 56.0 | 56.0
+    approach 07:00 53.1 | 18.8 | 31.2 | 25.0; 16:00 46.9 | 18.8 | 21.9 | 31.2; vehicle error 16:00 567 | 869 | 820 | 743
+Both conversions land within 0.2 of the unconverted re-track. By the declared reading, frame rate is
+not the main cause of the 11-point gap between cam2's old BoT-SORT recipe and the new-site tracker.
+FPS_AWARE stays OFF (it is harmless at 10 fps, and the right design for 25 / 30 fps on principle,
+but it has not earned a ship on evidence).
+WHAT ELSE DIFFERS between the two recipes on cam2: BoT-SORT carries GLOBAL MOTION COMPENSATION
+(it corrects for the camera itself moving: sway, shake) and cam2's recipe loosens association
+(match threshold 0.9). A pole-mounted camera that sways would break a tracker without motion
+compensation in exactly this way (more tracks, more fragments, overcounts). Not yet measured.
