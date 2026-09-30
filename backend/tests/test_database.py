@@ -42,8 +42,11 @@ def test_create_database():
     assert 'dispositions' in tables          # Phase-1 apply gate: operator judgment as state
     assert 'apply_adjudications' in tables   # Phase-1 apply gate: audit trail
     assert 'track_fates' in tables           # the journey fate ledger (2026-09-20)
-    assert len(tables) == 19   # +review_log (R0 instrument v2, 2026-08-24),
-                               # +track_fates (the fate ledger, 2026-09-20)
+    assert 'journey_clips' in tables         # journey-label ground truth (2026-09-30)
+    assert 'journey_labels' in tables
+    assert len(tables) == 21   # +review_log (R0 instrument v2, 2026-08-24),
+                               # +track_fates (the fate ledger, 2026-09-20),
+                               # +journey_clips / journey_labels (2026-09-30)
 
 def test_wal_mode():
     conn = get_connection(TEST_PROJECT)

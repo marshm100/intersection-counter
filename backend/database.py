@@ -421,6 +421,48 @@ CREATE TABLE IF NOT EXISTS track_fates (
 
 SCHEMA = SCHEMA + TRACK_FATES_SCHEMA
 
+# JOURNEY LABELS (2026-09-30, docs/research_tracking_2026-09-29.md phase 0):
+# hand-labelled vehicle journeys on short clips — the tracking ground truth
+# every tracker / linker idea is scored against in minutes. Dev-validation
+# only, never a runtime input (prime directive). Append-only, no FKs, and the
+# leg LABEL is snapshotted because PUT calibration/legs recreates leg rows.
+# A NULL entry (or exit) side = the vehicle was already inside at the clip
+# start (or still inside / lost at the clip end).
+JOURNEY_SCHEMA = """
+CREATE TABLE IF NOT EXISTS journey_clips (
+    clip_id        TEXT PRIMARY KEY,
+    camera_id      INTEGER NOT NULL,
+    video_id       INTEGER NOT NULL,
+    start_frame    INTEGER NOT NULL,
+    end_frame      INTEGER NOT NULL,
+    fps            REAL    NOT NULL,
+    label          TEXT    NOT NULL DEFAULT '',
+    created_at     TEXT    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS journey_labels (
+    label_id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    clip_id          TEXT    NOT NULL,
+    camera_id        INTEGER NOT NULL,
+    video_id         INTEGER NOT NULL,
+    entry_leg_id     INTEGER,
+    entry_leg_label  TEXT,
+    entry_frame      INTEGER,
+    entry_x          REAL,
+    entry_y          REAL,
+    exit_leg_id      INTEGER,
+    exit_leg_label   TEXT,
+    exit_frame       INTEGER,
+    exit_x           REAL,
+    exit_y           REAL,
+    vehicle_class    TEXT    NOT NULL DEFAULT 'car',
+    note             TEXT    NOT NULL DEFAULT '',
+    created_at       TEXT    NOT NULL
+);
+"""
+
+SCHEMA = SCHEMA + JOURNEY_SCHEMA
+
 # Indexes are kept out of SCHEMA because they reference columns added by the
 # migration pass below; on legacy DBs the columns don't exist yet at the time
 # SCHEMA runs, so the indexes have to be created AFTER migrations.
