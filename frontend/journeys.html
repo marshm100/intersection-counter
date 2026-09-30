@@ -49,6 +49,12 @@
            padding: 6px 12px; border-radius: 5px; opacity: 0; transition: opacity .3s; pointer-events: none; }
   #toast.err { background: #7f1d1d; }
   .muted { color: var(--muted); }
+  #clipBtns { display: grid; grid-template-columns: 1fr; gap: 6px; }
+  #clipBtns button { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px;
+    text-align: left; cursor: pointer; border-radius: 6px; }
+  #clipBtns button[aria-pressed="true"] { border-color: var(--accent); outline: 2px solid var(--accent); }
+  #clipBtns .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+  #clipBtns .done { color: #34d399; }
 </style>
 </head>
 <body>
@@ -59,8 +65,9 @@
   </div>
 
   <div>
-    <h2>Clip</h2>
-    <select id="clipSel" aria-label="Clip"></select>
+    <h2>Camera — pick one to label</h2>
+    <div id="clipBtns" role="group" aria-label="Clip"></div>
+    <select id="clipSel" aria-label="Clip" hidden></select>
     <div class="muted" id="clipInfo" style="margin-top:6px"></div>
   </div>
 
@@ -296,6 +303,7 @@
   async function loadLabels() {
     labels = (await api(`/api/projects/${pid}/journey-clips/${encodeURIComponent(clip.clip_id)}/labels`)).labels;
     $('count').textContent = labels.length;
+    clip.n_labels = labels.length; renderClipBtns();
     const rel = f => f == null ? '—' : fmt(f / clip.fps - t0());
     $('list').innerHTML = labels.map((lb, i) => `
       <div class="item">
@@ -319,6 +327,7 @@
   // ---- clip loading ------------------------------------------------------------
   async function loadClip(id) {
     clip = clips.find(c => c.clip_id === id); if (!clip) return;
+    renderClipBtns();
     try { localStorage.setItem('journeys-clip', id); } catch (e) {}
     const cal = await api(`/api/projects/${pid}/cameras/${clip.camera_id}/calibration`);
     legs = cal.legs || [];
@@ -355,6 +364,19 @@
     requestAnimationFrame(tick);
   }
   $('clipSel').addEventListener('change', e => loadClip(e.target.value));
+  function renderClipBtns() {
+    $('clipBtns').innerHTML = clips.map(c => {
+      const on = clip && clip.clip_id === c.clip_id;
+      const n = c.n_labels || 0;
+      return `<button type="button" data-clip="${esc(c.clip_id)}" aria-pressed="${on}">` +
+        `<span>${esc(c.label || c.clip_id)}</span>` +
+        `<span class="n ${n ? 'done' : ''}">${n ? n + ' labelled' : 'not started'}</span></button>`;
+    }).join('');
+  }
+  $('clipBtns').addEventListener('click', async e => {
+    const b = e.target.closest('button[data-clip]'); if (!b) return;
+    $('clipSel').value = b.dataset.clip; await loadClip(b.dataset.clip); b.blur();
+  });
 
   // ---- controls ------------------------------------------------------------------
   const togglePlay = () => { if (vid.paused) { if (vid.currentTime >= t1()) seek(t0()); vid.play().catch(() => {}); } else vid.pause(); };
