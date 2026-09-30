@@ -616,8 +616,12 @@ ON_SCREEN_ONLY = _os2.environ.get("ON_SCREEN_ONLY", "0") in ("1", "true", "on")
 # level (<= 0.5 s, <= 3 s, stopped <= 60 s) with gates in seconds and box
 # units, a follower test (a continuation is born where the leader WOULD BE,
 # the next car where it WAS), and birth / death costs from the operator's gate
-# lines. Default OFF pending arms lk0 / lk1.
-TRACKLET_LINKER = _os2.environ.get("TRACKLET_LINKER", "0") in ("1", "true", "on")
+# lines. SHIPPED default-ON 2026-09-30 (operator go "Yes, continue" after arm
+# lk2): fleet 80.81 -> 82.68 against the true default control, approach
+# 56.83 -> 65.28, vehicle error 4,481 -> 3,995, no camera below -0.05, worst
+# window -1.4, FM 51 identical. Shipped EXCLUSIVE and with the stopped level
+# OFF (arm lk1 with it on broke cam3: -11.2).
+TRACKLET_LINKER = _os2.environ.get("TRACKLET_LINKER", "1") in ("1", "true", "on")
 # With the linker on, the fragment rules it replaces (fracture, bound-chain
 # guard, continuation, turn merge) are switched off unless this is 0 (arm lk0
 # keeps them on to isolate the linker's own effect).
@@ -629,7 +633,7 @@ LINKER_MOVE_GAP_MAX_S = 3.0      # moving breaks up to 3 s (the occlusion scale)
 LINKER_STOP_GAP_S = 60.0         # a stopped car's break, up to about a red light
 # The stopped level can be switched off (arm lk2): on cam3's long queues it
 # joined distinct queued cars (lk1: 5,052 stopped links, SB/NB through -930/-590).
-LINKER_STOPPED_LEVEL = _os2.environ.get("LINKER_STOPPED_LEVEL", "1") in ("1", "true", "on")
+LINKER_STOPPED_LEVEL = _os2.environ.get("LINKER_STOPPED_LEVEL", "0") in ("1", "true", "on")
 LINKER_OVERLAP_MAX_S = 0.5       # coexisting pieces are two vehicles beyond this
 LINKER_OVERLAP_MAX_FRAC = 0.2    # ... or beyond 20% of the shorter piece
 LINKER_RESID_BASE = 1.0          # box units: prediction residual gate at gap 0
