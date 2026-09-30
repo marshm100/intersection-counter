@@ -494,9 +494,26 @@ def _cfg_recovery_min_iou():
     return TRACKER_RECOVERY_MIN_IOU
 
 
-def _cfg_kf_vel_std():
+def _cfg_kf_vel_std(fps: float | None = None):
+    """The Kalman velocity noise the tracker ACTUALLY runs with: the config
+    value, scaled to the video's frame rate when FPS_AWARE is on (identity at
+    10 fps), so the recipe records what the tracker used, not the knob."""
     from backend import config as c
-    return float(getattr(c, "TRACKER_KF_VEL_STD", 1.0 / 20))
+    v = float(getattr(c, "TRACKER_KF_VEL_STD", 1.0 / 20))
+    if fps and getattr(c, "FPS_AWARE", False):
+        v *= (float(getattr(c, "FPS_REFERENCE", 10.0)) / float(fps))             ** float(getattr(c, "FPS_KF_POWER", 1.0))
+    return v
+
+
+def _cfg_recovery_geom():
+    """Position-recovery geometry and timing (2026-09-30 recipe hygiene): these
+    shape which box a lost track may take, and were not recorded before."""
+    from backend import config as c
+    return {"reach": float(getattr(c, "TRACKER_RECOVERY_REACH", 0.9)),
+            "size_ratio": float(getattr(c, "TRACKER_RECOVERY_SIZE_RATIO", 0.3)),
+            "reinit_width_jump": float(getattr(c, "TRACKER_REINIT_WIDTH_JUMP", 1.5)),
+            "lost_patience_s": float(getattr(c, "TRACKER_RECOVERY_LOST_PATIENCE_S", 0.5)),
+            "confirm_width_ratio": float(getattr(c, "TRACKER_CONFIRM_WIDTH_RATIO", 0.5))}
 
 
 def _cfg_recovery_guard():
@@ -551,7 +568,11 @@ PASS1_RESUME_KEYS = ("format", "frames", "backend", "nms_iou",
                      "lost_buffer", "emergence_guard",
                      "fuse_score", "position_recovery", "recovery_min_iou",
                      "recovery_guard", "kf_vel_std", "confirm_by_position", "edge_exit",
-                     "dup_box_iou", "stack_iou", "weak_birth")
+                     "dup_box_iou", "stack_iou", "weak_birth", "recovery_geom")
+# Keys added after dumps already existed on disk. A dump written before a key
+# existed was built at the then-defaults, so its ABSENCE is not a mismatch;
+# a present-but-different value still is.
+PASS1_RESUME_KEYS_ADDED = ("recovery_geom",)
 
 
 def _tracks_from_rows(rows: np.ndarray) -> dict:
@@ -1125,12 +1146,15 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         "position_recovery": bool(_cfg_position_recovery()),
         "recovery_min_iou": (float(_cfg_recovery_min_iou()) if _cfg_position_recovery() else None),
         "recovery_guard": (_cfg_recovery_guard() if _cfg_position_recovery() else None),
-        "kf_vel_std": (float(_cfg_kf_vel_std()) if tracker_backend == "bytetrack" else None),
+        "kf_vel_std": (float(_cfg_kf_vel_std(fps)) if tracker_backend == "bytetrack" else None),
         "confirm_by_position": (bool(_cfg_confirm_by_position()) if _cfg_position_recovery() else None),
         "edge_exit": (bool(_cfg_edge_exit()) if _cfg_position_recovery() else None),
         "dup_box_iou": (float(_cfg_dup_box_iou()) if _cfg_position_recovery() else None),
         "stack_iou": (float(_cfg_stack_iou()) if _cfg_position_recovery() else None),
         "weak_birth": (_cfg_weak_birth() if tracker_backend == "bytetrack" else None),
+        "recovery_geom": (_cfg_recovery_geom()
+                          if tracker_backend == "bytetrack" and _cfg_position_recovery()
+                          else None),
     }
     out.mkdir(parents=True, exist_ok=True)
     warm_frames = int(PASS1_SEAM_WARMUP_SECONDS * fps)
@@ -1138,7 +1162,8 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
     def _check_resume_meta():
         old_meta = json.loads((out / "meta.json").read_text())
         mismatches = [k for k in PASS1_RESUME_KEYS
-                      if old_meta.get(k) != meta.get(k)]
+                      if old_meta.get(k) != meta.get(k)
+                      and not (k in PASS1_RESUME_KEYS_ADDED and k not in old_meta)]
         if mismatches:
             raise ValueError(
                 f"pass-1 resume: existing dump differs on {mismatches} — "

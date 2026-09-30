@@ -46,3 +46,19 @@ def test_merge_overlap_limit_is_a_parameter():
     kept30 = merge_turn_fragments(turns, 30.0, 40.0, expected_by_cell=exp,
                                   queue_aware=True, max_overlap=30)
     assert kept12 == {1, 2} and kept30 == {1}
+
+
+def test_recipe_records_the_effective_kalman_noise_and_recovery_geometry(monkeypatch):
+    # recipe hygiene (2026-09-30): what the tracker ACTUALLY ran with
+    import backend.services.two_pass as tp
+    base = cfg.TRACKER_KF_VEL_STD
+    assert tp._cfg_kf_vel_std(25.0) == base               # FPS_AWARE off: the knob
+    monkeypatch.setattr(cfg, "FPS_AWARE", True)
+    monkeypatch.setattr(cfg, "FPS_KF_POWER", 1.0)
+    assert abs(tp._cfg_kf_vel_std(25.0) - base * 0.4) < 1e-12
+    assert abs(tp._cfg_kf_vel_std(10.0) - base) < 1e-12
+    geom = tp._cfg_recovery_geom()
+    assert set(geom) == {"reach", "size_ratio", "reinit_width_jump",
+                         "lost_patience_s", "confirm_width_ratio"}
+    assert "recovery_geom" in tp.PASS1_RESUME_KEYS
+    assert "recovery_geom" in tp.PASS1_RESUME_KEYS_ADDED  # old dumps grandfathered
