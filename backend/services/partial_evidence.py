@@ -22,8 +22,11 @@ def _weight(cand: dict) -> float:
     """(support + 1) x shape_term. shape_term is the joint scorer's own cost
     squash (1/(1+cost/10)) so shape influence here matches its influence in
     the composite — one squash, one semantics."""
-    support = float(cand["path"].get("supporting_count") or 0)
     shape = 1.0 / (1.0 + float(cand["cost"]) / 10.0)
+    from backend.config import ON_SCREEN_ONLY
+    if ON_SCREEN_ONLY:
+        return shape       # the vehicle's own path only (ruling 2026-09-29)
+    support = float(cand["path"].get("supporting_count") or 0)
     return (support + 1.0) * shape
 
 
@@ -76,7 +79,12 @@ def supports_posterior(paths: list[dict]) -> tuple[dict, dict]:
     posterior over the evidenced origin's cells from corpus supports alone —
     no shape signal exists, so the margin is honest about that and Feeder-1
     queues it. Input = the origin-filtered bank paths (not scorer candidates).
-    Returns ({destination_leg: prob}, {destination_leg: path})."""
+    Returns ({destination_leg: prob}, {destination_leg: path}).
+    ON_SCREEN_ONLY: this is pure popularity with no evidence about the vehicle
+    itself, so it returns nothing and the track is not given a destination."""
+    from backend.config import ON_SCREEN_ONLY
+    if ON_SCREEN_ONLY:
+        return {}, {}
     totals: dict = {}
     best: dict = {}
     for p in paths:

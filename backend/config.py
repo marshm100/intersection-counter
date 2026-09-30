@@ -592,6 +592,16 @@ MERGE_EXCESS_ONLY = _os2.environ.get(
 # the fracture / chain / bound-chain dedups upstream now catch those.
 # TURN_MERGE=0 skips it (every turn kept); S5 borderline flags unchanged.
 TURN_MERGE = _os2.environ.get("TURN_MERGE", "1") in ("1", "true", "on")
+# ON-SCREEN ONLY (2026-09-30, docs/research_tracking_2026-09-29.md phase 3;
+# operator rulings 2026-09-29 / 09-30): a vehicle's origin, destination and
+# movement may come only from what the video shows for THAT vehicle, including
+# its own path matched against fitted path templates (allowed), never from how
+# common a movement is among other vehicles. When ON: the branch-1 origin and
+# dest-tie posteriors weigh candidates by the vehicle's own path shape only
+# (no supporting_count); the entry-only rescue by corpus supports is removed;
+# a gate-witnessed cell's movement label is the paths' shared label, else the
+# legs' geometry, never "the most-supported path". Default OFF pending an arm.
+ON_SCREEN_ONLY = _os2.environ.get("ON_SCREEN_ONLY", "0") in ("1", "true", "on")
 # THE GLOBAL TRACKLET LINKER (2026-09-30, docs/research_tracking_2026-09-29.md
 # phase 2; backend/services/tracklet_linker.py). Joins the pieces a vehicle's
 # track broke into BEFORE the journey logic, by one global assignment per

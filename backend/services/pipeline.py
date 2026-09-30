@@ -1413,6 +1413,21 @@ class ProcessingPipeline:
                 leg_gates=drawn or None) if mouths else {}
         return self._entry_gates
 
+    def _cell_movement_label(self, cell_paths: list) -> str | None:
+        """The movement label for a gate-witnessed (origin, dest) cell. Legacy:
+        the label of the cell's most-supported path. ON_SCREEN_ONLY (operator
+        ruling 2026-09-29, no inference from other vehicles' counts): the
+        paths' label when they all agree, else None so the caller derives the
+        movement from the legs' geometry."""
+        from backend.config import ON_SCREEN_ONLY
+        if not cell_paths:
+            return None
+        if ON_SCREEN_ONLY:
+            labels = {p.get("movement_label") for p in cell_paths}
+            return labels.pop() if len(labels) == 1 else None
+        return max(cell_paths,
+                   key=lambda p: p.get("supporting_count") or 0).get("movement_label")
+
     def _gate_evidence(self, vehicle: dict) -> tuple[int | None, int | None, str | None]:
         """Entry-gate evidence for a finalized track: (origin, dest, tag).
         origin = the leg whose gate the track crossed INWARD (None when
@@ -2061,12 +2076,8 @@ class ProcessingPipeline:
             cell_paths = [p for p in (self._paths or [])
                           if p.get("origin_leg_id") == gate_origin
                           and p.get("destination_leg_id") == gate_dest]
-            mv = None
-            if cell_paths:
-                winp = max(cell_paths,
-                           key=lambda p: p.get("supporting_count") or 0)
-                mv = winp.get("movement_label")
-            elif g_oleg and g_dleg:
+            mv = self._cell_movement_label(cell_paths)
+            if mv is None and g_oleg and g_dleg:
                 mv = derive_movement(g_oleg, g_dleg, all_legs=self.legs)
             if mv and mv != "insufficient_data":
                 if gate_origin != origin_leg_id:
@@ -2105,12 +2116,8 @@ class ProcessingPipeline:
                         p for p in self._paths
                         if p.get("origin_leg_id") == gate_origin
                         and p.get("destination_leg_id") == gate_dest]
-                    mv = None
-                    if cell_paths:
-                        winp = max(cell_paths,
-                                   key=lambda p: p.get("supporting_count") or 0)
-                        mv = winp.get("movement_label")
-                    else:
+                    mv = self._cell_movement_label(cell_paths)
+                    if mv is None:
                         dleg = next((lg for lg in self.legs
                                      if lg["leg_id"] == gate_dest), None)
                         if origin_leg and dleg:
@@ -2179,12 +2186,8 @@ class ProcessingPipeline:
                         p for p in self._paths
                         if p.get("origin_leg_id") == origin_leg_id
                         and p.get("destination_leg_id") == gate_dest]
-                    mv = None
-                    if cell_paths:
-                        winp = max(cell_paths,
-                                   key=lambda p: p.get("supporting_count") or 0)
-                        mv = winp.get("movement_label")
-                    elif origin_leg and g_dleg:
+                    mv = self._cell_movement_label(cell_paths)
+                    if mv is None and origin_leg and g_dleg:
                         mv = derive_movement(origin_leg, g_dleg,
                                              all_legs=self.legs)
                     if mv and mv != "insufficient_data":
