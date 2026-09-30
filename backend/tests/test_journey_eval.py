@@ -69,3 +69,26 @@ def test_mcnemar_counts_discordant_vehicles():
     m = mcnemar(a, b)
     assert m["a_only_correct"] == 4 and m["b_only_correct"] == 0
     assert abs(m["p_value"] - 0.125) < 1e-9
+
+
+def test_exit_click_just_after_the_track_ends_at_the_edge_is_the_same_car():
+    # tracked to y 100 at frame 20; the operator clicks the exit 3 frames
+    # later, 12 px further on (the car leaving the screen)
+    labels = [_label(1, 0, 100, 0, 23, 100, 112)]
+    r = score_clip(labels, ROWS, [_ev(1)], CLIP, fps=10.0)
+    assert r["outcomes"] == {"correct": 1}
+
+
+def test_a_track_that_died_well_before_the_exit_is_still_no_track():
+    labels = [_label(1, 0, 100, 0, 35, 100, 300)]           # 1.5 s later, far on
+    r = score_clip(labels, ROWS, [_ev(1)], CLIP, fps=10.0)
+    assert r["outcomes"] == {"no_track": 1}
+
+
+def test_a_neighbour_in_a_platoon_is_not_charged_to_this_car():
+    # cars 1 and 2 leave side by side; car 1's exit click lands on car 2's box
+    rows = np.array(_track(1, 0, 20, 100, 0) + _track(2, 0, 20, 118, 0), dtype=float)
+    labels = [_label(1, 0, 100, 0, 20, 116, 100),
+              _label(2, 0, 118, 0, 20, 118, 100)]
+    r = score_clip(labels, rows, [_ev(1), _ev(2)], CLIP)
+    assert r["outcomes"] == {"correct": 2}

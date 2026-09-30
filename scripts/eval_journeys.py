@@ -79,8 +79,8 @@ def run_arm(stem: str, prefixes: dict) -> dict:
             continue
         cam = clip["camera_id"]
         window = "study_" + clip["clip_id"].split("_")[1]
-        chash, = con.execute("SELECT content_hash FROM videos WHERE video_id=?",
-                             (clip["video_id"],)).fetchone()
+        chash, fps = con.execute("SELECT content_hash, fps FROM videos WHERE video_id=?",
+                                  (clip["video_id"],)).fetchone()
         db = rows = None
         for st in stem.split("|"):           # "rt0|gx2": first arm that has this window
             db, rows = locate(st, prefixes, cam, window, chash)
@@ -95,7 +95,7 @@ def run_arm(stem: str, prefixes: dict) -> dict:
             "SELECT vehicle_track_id, origin_leg_id, destination_leg_id, "
             "COALESCE(start_frame, frame_number) FROM vehicle_events "
             "WHERE camera_id=? AND COALESCE(rejected,0)=0", (cam,))]
-        results[clip["clip_id"]] = score_clip(labels, rows, events, clip)
+        results[clip["clip_id"]] = score_clip(labels, rows, events, clip, fps=float(fps))
     return results
 
 

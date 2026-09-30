@@ -26,6 +26,13 @@ import numpy as np
 
 SEARCH_FRAMES = 2          # look this many frames either side of a click
 BOX_PAD = 0.25             # a click may sit this fraction of the box outside it
+# A car is tracked to the image edge and the operator clicks its exit as it
+# LEAVES the screen, a moment after the track ended (cam1 labels, 2026-09-30:
+# 9 of 11 "no_track" exits were the entry track ending 1-5 frames earlier,
+# within 1.4 boxes of the click). The entry track stands in for the exit when
+# it ended this close before the exit click.
+END_TOL_S = 0.5
+END_TOL_BOXES = 1.5
 
 
 def track_at(rows_by_frame: dict, frame: int, x: float, y: float):
@@ -54,8 +61,23 @@ def index_rows(rows: np.ndarray, f_lo: int, f_hi: int) -> dict:
     return out
 
 
+def _ended_at(rows_by_tid: dict, tid, frame: int, x: float, y: float,
+              fps: float) -> bool:
+    """Did track `tid` end within END_TOL_S before `frame` and within
+    END_TOL_BOXES box widths of (x, y)?"""
+    tr = rows_by_tid.get(tid)
+    if tr is None:
+        return False
+    last = tr[np.argmax(tr[:, 1])]
+    gap = frame - float(last[1])
+    if not (-SEARCH_FRAMES <= gap <= END_TOL_S * fps):
+        return False
+    return (np.hypot(x - last[2], y - last[3])
+            <= END_TOL_BOXES * max(float(last[4]), 1.0))
+
+
 def score_clip(labels: list[dict], rows: np.ndarray, events: list[dict],
-               clip: dict) -> dict:
+               clip: dict, fps: float = 10.0) -> dict:
     """labels: journey_labels rows for the clip. rows: the replayed dump's
     rows. events: counted vehicle_events for the camera as dicts with
     vehicle_track_id, origin_leg_id, destination_leg_id, start_frame."""
@@ -65,17 +87,36 @@ def score_clip(labels: list[dict], rows: np.ndarray, events: list[dict],
     for e in events:
         ev_by_tid[int(e["vehicle_track_id"])].append(e)
     per_vehicle, claimed = [], set()
+    rows_by_tid: dict = {}
+    # A track under some vehicle's ENTRY click is that vehicle's. In a platoon
+    # an exit click can land on the car alongside; its track then belongs to
+    # the car it entered with, not to this one (cam1 labels 2026-09-30: three
+    # cars leaving together were each charged a neighbour's count).
+    entry_owner: dict = {}
+    for lb in labels:
+        if lb.get("entry_frame") is not None:
+            t = track_at(byf, lb["entry_frame"], lb["entry_x"], lb["entry_y"])
+            if t is not None:
+                entry_owner.setdefault(t, lb["label_id"])
     for lb in labels:
         tin = (track_at(byf, lb["entry_frame"], lb["entry_x"], lb["entry_y"])
                if lb.get("entry_frame") is not None else None)
         tout = (track_at(byf, lb["exit_frame"], lb["exit_x"], lb["exit_y"])
                 if lb.get("exit_frame") is not None else None)
+        if (tout is None and tin is not None and lb.get("exit_frame") is not None):
+            if tin not in rows_by_tid:
+                rows_by_tid[tin] = rows[rows[:, 0] == tin]
+            if _ended_at(rows_by_tid, tin, lb["exit_frame"], lb["exit_x"],
+                         lb["exit_y"], fps):
+                tout = tin
         tids = {t for t in (tin, tout) if t is not None}
         claimed |= tids
         full = lb.get("entry_frame") is not None and lb.get("exit_frame") is not None
         if not full:
             continue
-        evs = [e for t in tids for e in ev_by_tid.get(t, ())]
+        mine = {t for t in tids
+                if entry_owner.get(t, lb["label_id"]) == lb["label_id"]}
+        evs = [e for t in mine for e in ev_by_tid.get(t, ())]
         truth = (lb["entry_leg_id"], lb["exit_leg_id"])
         if tin is None or tout is None:
             outcome = "no_track"
