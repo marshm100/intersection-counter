@@ -80,7 +80,9 @@ def _run_window(cam: int, variant: str, live: float, wd: Path):
     rep = res.get("replay") or {}
     act = res.get("evidence_activation") or {}
     stem = BASE / f"{_STEM}_cam{cam}_{variant}.db"
-    src = wd / f"twopass_cam{cam}_{variant}.db"
+    # pass 2 reports the working DB it wrote (a derived dump such as the
+    # linker's lk_ variant renames it)
+    src = Path(res.get("out_db") or wd / f"twopass_cam{cam}_{variant}.db")
     if src.exists():
         shutil.copy2(src, stem)
         subprocess.run([sys.executable, "-X", "utf8",

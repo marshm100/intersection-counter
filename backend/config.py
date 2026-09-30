@@ -592,6 +592,33 @@ MERGE_EXCESS_ONLY = _os2.environ.get(
 # the fracture / chain / bound-chain dedups upstream now catch those.
 # TURN_MERGE=0 skips it (every turn kept); S5 borderline flags unchanged.
 TURN_MERGE = _os2.environ.get("TURN_MERGE", "1") in ("1", "true", "on")
+# THE GLOBAL TRACKLET LINKER (2026-09-30, docs/research_tracking_2026-09-29.md
+# phase 2; backend/services/tracklet_linker.py). Joins the pieces a vehicle's
+# track broke into BEFORE the journey logic, by one global assignment per
+# level (<= 0.5 s, <= 3 s, stopped <= 60 s) with gates in seconds and box
+# units, a follower test (a continuation is born where the leader WOULD BE,
+# the next car where it WAS), and birth / death costs from the operator's gate
+# lines. Default OFF pending arms lk0 / lk1.
+TRACKLET_LINKER = _os2.environ.get("TRACKLET_LINKER", "0") in ("1", "true", "on")
+# With the linker on, the fragment rules it replaces (fracture, bound-chain
+# guard, continuation, turn merge) are switched off unless this is 0 (arm lk0
+# keeps them on to isolate the linker's own effect).
+TRACKLET_LINKER_EXCLUSIVE = _os2.environ.get(
+    "TRACKLET_LINKER_EXCLUSIVE", "1") in ("1", "true", "on")
+LINKER_LEVEL1_GAP_S = 0.5        # first pass: short breaks only
+LINKER_MOVE_GAP_MIN_S = -0.5     # a head may start up to 0.5 s before the tail ends
+LINKER_MOVE_GAP_MAX_S = 3.0      # moving breaks up to 3 s (the occlusion scale)
+LINKER_STOP_GAP_S = 60.0         # a stopped car's break, up to about a red light
+LINKER_OVERLAP_MAX_S = 0.5       # coexisting pieces are two vehicles beyond this
+LINKER_OVERLAP_MAX_FRAC = 0.2    # ... or beyond 20% of the shorter piece
+LINKER_RESID_BASE = 1.0          # box units: prediction residual gate at gap 0
+LINKER_RESID_PER_S = 1.5         # box units per second of gap
+LINKER_SIGMA_BASE = 0.5          # box units: residual scale in the link cost
+LINKER_SIGMA_PER_S = 0.5
+LINKER_FOLLOWER_RATIO = 0.5      # head nearer the leader's death point than half its
+                                 # prediction residual (leader moved >= 1 box) = follower
+LINKER_STOP_DIST_BOXES = 1.0     # stopped: re-born within 1 box of the same spot
+LINKER_MIDBOX_COST = 6.0         # cost of a piece ending / starting mid-box
 # THE NO-CROSSING SIDE DOOR (2026-09-26, arm nf1, declared in
 # docs/plan_basis_2026-09-11.md before scoring). A track that crossed no
 # gate and that the joint shape scorer refused is still given a destination

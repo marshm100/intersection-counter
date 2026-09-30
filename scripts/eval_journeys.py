@@ -42,15 +42,31 @@ def parse(spec: str):
 
 
 def locate(stem: str, prefixes: dict, cam: int, window: str, chash: str):
-    """(working DB, dump rows) for this arm, camera and window."""
+    """(working DB, dump rows) for this arm, camera and window. The dump is
+    the one whose track ids cover the arm's counted events: a linker arm
+    replayed the lk_ dump (linked ids), every other arm the plain one."""
     for pre in ([prefixes[cam]] if cam in prefixes else ["", "vl3_"]):
         db = BASE / f"{stem}_cam{cam}_{pre}{window}.db"
-        if db.exists():
-            dump_variant = f"{pre}{window}" if pre != "vl3_" else window
-            for v in (dump_variant, f"{pre}{window}"):
-                td = tracks_dir(parquet_path(PROJ, cam, chash, v))
-                if (td / "count.txt").exists():
-                    return db, np.asarray(load_dump(td))
+        if not db.exists():
+            continue
+        d = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+        ev_tids = {int(t) for (t,) in d.execute(
+            "SELECT DISTINCT vehicle_track_id FROM vehicle_events WHERE camera_id=? "
+            "AND COALESCE(rejected,0)=0", (cam,))}
+        d.close()
+        base = f"{pre}{window}" if pre != "vl3_" else window
+        best, best_cov = None, -1.0
+        for v in (f"lk_{base}", base, f"{pre}{window}"):
+            td = tracks_dir(parquet_path(PROJ, cam, chash, v))
+            if not (td / "count.txt").exists():
+                continue
+            rows = np.asarray(load_dump(td))
+            cov = (len(ev_tids & set(np.unique(rows[:, 0]).astype(int).tolist()))
+                   / max(len(ev_tids), 1))
+            if cov > best_cov:
+                best, best_cov = rows, cov
+        if best is not None:
+            return db, best
     return None, None
 
 

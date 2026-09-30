@@ -2911,3 +2911,22 @@ movement label is what the no-inference audit removes; template shape matching s
 IMPLEMENTATION PLAN APPROVED the same day: docs/research_tracking_2026-09-29.md, phases 0-5
 (evaluation instrument first, then tracker hygiene / cam2 ablations, the global tracklet linker,
 the no-inference audit, detector FP16 + duplicate-box fix, appearance veto).
+
+## Arms lk1 / lk0 DECLARED before scoring (2026-09-30): THE GLOBAL TRACKLET LINKER
+
+Code: backend/services/tracklet_linker.py (config.TRACKLET_LINKER, default OFF), wired into
+run_pass2 after the A3 block via a derived dump lk_{variant}.tracks. One global assignment per
+level (<= 0.5 s, <= 3 s, stopped <= 60 s); gates in seconds and box units; the follower test (born
+where the leader WAS, not where it WOULD BE, is refused); birth / death costs from the gate lines;
+stopped links longer than the finalize grace bridged with held rows. New constants LINKER_* in
+config.py, declared here: level-1 gap 0.5 s, moving gap -0.5..3 s, stopped gap 60 s, overlap <= 0.5 s
+and <= 20%, residual gate 1 + 1.5 x gap box units, sigma 0.5 + 0.5 x gap, follower ratio 0.5,
+stopped distance 1 box, mid-box birth / death cost 6.
+Dry look (link_rows on real dumps): cam5 07:00 7,322 -> 5,800 tracks (1,522 absorbed: 334 / 454 /
+734 by level), cam2 rt 07:00 9,933 -> 7,011 (2,922; 548 / 821 / 1,553). 6 s and 17 s.
+  lk1 = TRACKLET_LINKER=1, exclusive (fracture, bound-chain, continuation, turn merge OFF)
+  lk0 = TRACKLET_LINKER=1, TRACKLET_LINKER_EXCLUSIVE=0 (old rules still on; isolates the linker)
+BASIS: the true default control, every camera on the new-site tracker (cams 1-3 rt_study_*, cams
+4-5 study_*): 80.81 movement / 56.83 approach. PASS = the G-DEF-1 letter against it; FM 51 witness
+before any ship. RISK NAMED IN ADVANCE: the stopped level (the largest) may merge queued cars.
+The journey labels judge that per vehicle once labelled.

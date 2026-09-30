@@ -148,8 +148,11 @@ def flags_fingerprint() -> str:
     # what pass 2 obeys, so its digest is part of the fingerprint. A
     # spurious recompute after an unrelated edit is the safe failure.
     law = Path(__file__).with_name("entry_gates.py").read_bytes()
+    # the tracklet linker's source is part of what pass 2 obeys too
+    linker = Path(__file__).with_name("tracklet_linker.py").read_bytes()
     blob = json.dumps({"flags": flags,
-                       "entry_gates_sha": hashlib.sha256(law).hexdigest()},
+                       "entry_gates_sha": hashlib.sha256(law).hexdigest(),
+                       "tracklet_linker_sha": hashlib.sha256(linker).hexdigest()},
                       sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()
 
@@ -606,6 +609,35 @@ def _pinned_gates(project_id: str, camera_id: int, rows: np.ndarray):
     if not gates:
         return None, {"skipped": "no gates"}
     return gates, None
+
+
+def _record_linked_fates(out_db, camera_id: int, families: dict) -> int:
+    """Fate-ledger rows for the pieces the tracklet linker absorbed: each gets
+    disposition 'dropped', reason 'linked_into', and linked_to_tid = the
+    vehicle's surviving id, so the ledger still accounts for every piece."""
+    import sqlite3 as _sq
+    from datetime import datetime as _dt, timezone as _tz
+    rows_out = [(camera_id, int(m), int(root))
+                for root, members in families.items()
+                for m in members if int(m) != int(root)]
+    if not rows_out:
+        return 0
+    conn = _sq.connect(str(out_db))
+    try:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(track_fates)")}
+        if not cols:
+            return 0
+        if "linked_to_tid" not in cols:
+            conn.execute("ALTER TABLE track_fates ADD COLUMN linked_to_tid INTEGER")
+        now = _dt.now(_tz.utc).isoformat()
+        with conn:
+            conn.executemany(
+                "INSERT INTO track_fates (camera_id, vehicle_track_id, disposition, "
+                "reason, linked_to_tid, created_at) VALUES (?, ?, 'dropped', "
+                "'linked_into', ?, ?)", [(c, m, r, now) for c, m, r in rows_out])
+    finally:
+        conn.close()
+    return len(rows_out)
 
 
 def fracture_pass(project_id: str, camera_id: int, rows: np.ndarray,
@@ -1629,6 +1661,33 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                            "— falling back to the base dump",
                            camera_id, variant, e)
 
+    # THE GLOBAL TRACKLET LINKER (flag-gated, 2026-09-30,
+    # docs/research_tracking_2026-09-29.md phase 2): join the pieces a
+    # vehicle's track broke into BEFORE the bank, the replays and every
+    # post-pass read `rows`, via a derived dump lk_{variant}.tracks (the
+    # ensure_cut_dump pattern). Fail-safe: any error falls back to the
+    # unlinked dump (processing never breaks on the linker).
+    from backend.config import TRACKLET_LINKER as _lk_on
+    _lk_families = None
+    if _lk_on:
+        try:
+            from backend.services.tracklet_linker import ensure_linked_dump
+            _fs = ((int(video["width"]), int(video["height"]))
+                   if video["width"] and video["height"] else None)
+            variant, tdir, meta, rows = ensure_linked_dump(
+                project_id, camera_id, variant, fps, tdir, rows, meta,
+                frame_size=_fs)
+            _fam_p = Path(tdir) / "families.json"
+            if _fam_p.exists():
+                _lk_families = json.loads(_fam_p.read_text())
+            logger.info("two-pass cam%s %s: linker %s", camera_id, variant,
+                        {k: v for k, v in (meta.get("linker") or {}).items()
+                         if isinstance(v, int)})
+        except Exception as e:                      # pragma: no cover
+            logger.warning("tracklet linker failed for cam%s %s: %s — "
+                           "falling back to the unlinked dump",
+                           camera_id, variant, e)
+
     # --- 0. reuse: a prior compute of THIS dump is still valid ----------------
     # (apply=True used to recompute the whole pass-2 — 2x wall time for
     # nothing when the working DB was just measured. The stats sidecar records
@@ -1857,8 +1916,16 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                     stats["twin_dedup"])
     # THE FRACTURE RULE (flag-gated, 2026-09-11): drop-and-recapture pairs
     # de-duplicated BEFORE the merge, same reason as the twin dedup.
+    # With the linker on (and exclusive), the fragment rules it replaces
+    # are skipped: fracture, bound-chain guard, continuation, turn merge.
+    from backend.config import TRACKLET_LINKER_EXCLUSIVE as _lk_excl
+    _lk_replaces = bool(_lk_families is not None and _lk_excl)
+    if _lk_families is not None:
+        stats["linker"] = {k: v for k, v in (meta.get("linker") or {}).items()
+                           if isinstance(v, int)}
+        _record_linked_fates(out_db, camera_id, _lk_families)
     from backend.config import FRACTURE_DEDUP as _frac_on
-    if _frac_on:
+    if _frac_on and not _lk_replaces:
         stats["fracture_dedup"] = fracture_pass(project_id, camera_id, rows,
                                                 fps, out_db)
         logger.info("two-pass cam%s %s: fracture dedup %s", camera_id,
@@ -1870,7 +1937,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     # and this one only cleans the residue, and before the merge for the
     # same reason the two dedups above are.
     from backend.config import BOUND_CHAIN_CONSERVE as _bc_on
-    if _bc_on:
+    if _bc_on and not _lk_replaces:
         stats["bound_chain"] = bound_chain_pass(project_id, camera_id, rows,
                                                 fps, out_db)
         logger.info("two-pass cam%s %s: bound-chain guard %s", camera_id,
@@ -1880,13 +1947,14 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     # would be by then. AFTER the fracture rule and the bound-chain guard so
     # both stay byte-identical; before the merge for the same reason.
     from backend.config import CONTINUATION_DEDUP as _cont_on
-    if _cont_on:
+    if _cont_on and not _lk_replaces:
         stats["continuation"] = continuation_pass(project_id, camera_id,
                                                   rows, fps, out_db)
         logger.info("two-pass cam%s %s: continuation rule %s", camera_id,
                     variant, stats["continuation"])
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
-                               expected_by_cell=expected, fps=fps)
+                               expected_by_cell=expected, fps=fps,
+                               enabled=(False if _lk_replaces else None))
     # V2 MERGE RESCUE (block-2 item 1, diagnosis 2026-08-06): a merged-away
     # turn whose track is a GATE-VERIFIED FULL JOURNEY in a DIFFERENT cell
     # was a misclassified real vehicle (35 gate-verified SB-thrus deleted as

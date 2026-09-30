@@ -668,7 +668,8 @@ def bank_expecteds(conn: sqlite3.Connection, camera_id: int,
 def merge_replay_turns(db: str | Path, camera_id: int, *,
                        window_seconds: float,
                        expected_by_cell: dict | None = None,
-                       fps: float | None = None) -> dict:
+                       fps: float | None = None,
+                       enabled: bool | None = None) -> dict:
     """A4a post-pass on a pass-2 replay DB: volume-gated same-cell turn-fragment
     merge. Merged-away fragments are marked rejected=1 (non-destructive,
     reviewable in the worklist) — never deleted. THROUGH events are untouched
@@ -686,7 +687,7 @@ def merge_replay_turns(db: str | Path, camera_id: int, *,
         from backend.config import (MERGE_EXCESS_ONLY, QUEUE_AWARE_MERGE,
                                     TURN_MERGE)
         pairs: list[dict] = []
-        if TURN_MERGE:
+        if (TURN_MERGE if enabled is None else enabled):
             from backend.config import fps_frames
             keep = merge_turn_fragments(turns, MERGE_PX,
                                         fps_frames(MERGE_GAP, fps) if fps else MERGE_GAP,
