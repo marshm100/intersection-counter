@@ -2900,3 +2900,14 @@ CONSEQUENCES:
     the branch-1 origin posterior (origin picked with corpus-support proportions when the entry was
     not seen) and the entry-only rescue (destination picked from the approach's observed movement
     mix, rescue_supports). Both need an audit and an arm against the 80.81 control.
+
+## OPERATOR RULING (2026-09-30): fitted path templates are allowed
+
+Asked whether matching a vehicle's own path against path templates FITTED from other vehicles'
+tracks (the applied bank, list_paths_for_camera) counts as inference: "Allow fitted templates".
+Only counts, odds and proportions of other vehicles are banned. The support-count WEIGHTING in the
+branch-1 origin posterior, the dest-tie posterior, the entry-only rescue and the gate-rescue
+movement label is what the no-inference audit removes; template shape matching stays.
+IMPLEMENTATION PLAN APPROVED the same day: docs/research_tracking_2026-09-29.md, phases 0-5
+(evaluation instrument first, then tracker hygiene / cam2 ablations, the global tracklet linker,
+the no-inference audit, detector FP16 + duplicate-box fix, appearance veto).
