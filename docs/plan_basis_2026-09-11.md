@@ -2930,3 +2930,21 @@ BASIS: the true default control, every camera on the new-site tracker (cams 1-3 
 4-5 study_*): 80.81 movement / 56.83 approach. PASS = the G-DEF-1 letter against it; FM 51 witness
 before any ship. RISK NAMED IN ADVANCE: the stopped level (the largest) may merge queued cars.
 The journey labels judge that per vehicle once labelled.
+
+### Arms lk1 / lk0 VERDICTS (2026-09-30): big approach gains, cam3 broken by the stopped level
+
+Against the true default control (80.81 / 56.83, vehicle error 4,481):
+  lk1 (exclusive)  movement 81.95 (+1.14)  approach 69.25 (+12.42)  vehicle error 5,149
+  lk0 (rules on)   movement 82.29 (+1.48)  approach 68.33 (+11.51)  vehicle error 5,219
+  camera means lk1: cam1 -2.45, cam2 +5.50, cam3 -11.20, cam4 +1.97, cam5 +2.47
+    cam2 07:00 65.1 -> 75.5 (approach 18.8 -> 50.0, err 641 -> 419); cam4 16:00 84.9 -> 89.1
+    (approach 70.8 -> 87.5); cam5 16:00 82.7 -> 87.1.
+  The largest approach gain ever measured. LETTER FAIL: cam3 -11.2 and cam1 07:00 -5.1.
+CAUSE OF cam3 (named in advance): the STOPPED level joined distinct queued cars. cam3 linker
+stats: stopped level 38,192 candidates, 5,052 links (vs 1,104 / 1,086 on the moving levels); SB thru
+14,338 -> 13,408 and NB thru 13,778 -> 13,185 against Miovision 14,385 / 13,756. cam1 07:00: NB left
+340 -> 312 (Mio 382).
+NEXT: arm lk2 DECLARED here before scoring = lk1 with the stopped level OFF
+(LINKER_STOPPED_LEVEL=0): only moving breaks, where the follower test separates the same car
+from the next one. PASS = the G-DEF-1 letter against 80.81; expected: cam3 back near control, the
+moving-level gains on cam2 / cam4 / cam5 kept, cam1 unclear.

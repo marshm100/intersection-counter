@@ -184,8 +184,9 @@ def link_rows(rows: np.ndarray, fps: float, gates, frame_size=None):
     stats = defaultdict(int)
     bridges = []
     levels = [("move", c.LINKER_MOVE_GAP_MIN_S, c.LINKER_LEVEL1_GAP_S, True),
-              ("move", c.LINKER_MOVE_GAP_MIN_S, c.LINKER_MOVE_GAP_MAX_S, True),
-              ("stop", 0.0, c.LINKER_STOP_GAP_S, False)]
+              ("move", c.LINKER_MOVE_GAP_MIN_S, c.LINKER_MOVE_GAP_MAX_S, True)]
+    if c.LINKER_STOPPED_LEVEL:
+        levels.append(("stop", 0.0, c.LINKER_STOP_GAP_S, False))
     tags = _tags(pieces, fps, gates)
     for lvl, (_name, g_lo, g_hi, moving) in enumerate(levels, 1):
         live = {t: p for t, p in pieces.items() if root(t) == t and len(p) >= 2}
@@ -351,4 +352,5 @@ def linker_signature() -> dict:
         "LINKER_OVERLAP_MAX_S", "LINKER_OVERLAP_MAX_FRAC", "LINKER_RESID_BASE",
         "LINKER_RESID_PER_S", "LINKER_SIGMA_BASE", "LINKER_SIGMA_PER_S",
         "LINKER_FOLLOWER_RATIO", "LINKER_STOP_DIST_BOXES", "LINKER_MIDBOX_COST",
+        "LINKER_STOPPED_LEVEL",
         "STITCH_STAT_SPEED_PXS", "CHAIN_DIR_TOL_DEG", "CHAIN_BEARING_END_S")}

@@ -627,6 +627,9 @@ LINKER_LEVEL1_GAP_S = 0.5        # first pass: short breaks only
 LINKER_MOVE_GAP_MIN_S = -0.5     # a head may start up to 0.5 s before the tail ends
 LINKER_MOVE_GAP_MAX_S = 3.0      # moving breaks up to 3 s (the occlusion scale)
 LINKER_STOP_GAP_S = 60.0         # a stopped car's break, up to about a red light
+# The stopped level can be switched off (arm lk2): on cam3's long queues it
+# joined distinct queued cars (lk1: 5,052 stopped links, SB/NB through -930/-590).
+LINKER_STOPPED_LEVEL = _os2.environ.get("LINKER_STOPPED_LEVEL", "1") in ("1", "true", "on")
 LINKER_OVERLAP_MAX_S = 0.5       # coexisting pieces are two vehicles beyond this
 LINKER_OVERLAP_MAX_FRAC = 0.2    # ... or beyond 20% of the shorter piece
 LINKER_RESID_BASE = 1.0          # box units: prediction residual gate at gap 0
