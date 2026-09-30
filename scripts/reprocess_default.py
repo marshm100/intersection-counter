@@ -31,10 +31,12 @@ import backend.config as cfg  # noqa: E402
 RULES = ("GATE_GROUND_ANCHOR", "STRAIGHT_FRAGMENT_RULE",
          "GATE_EVIDENCE_EITHER_CORNER", "JOURNEY_STATE_MACHINE",
          "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS", "FRACTURE_DEDUP",
-         "GATE_EXIT_ONLY_BINDING", "BOUND_CHAIN_CONSERVE")
+         "GATE_EXIT_ONLY_BINDING", "BOUND_CHAIN_CONSERVE",
+         "TRACKLET_LINKER", "TRACKLET_LINKER_EXCLUSIVE")
 assert all(getattr(cfg, r) for r in RULES), "the default is not ON in config"
+assert not cfg.LINKER_STOPPED_LEVEL, "the linker ships with the stopped level OFF"
 import os  # noqa: E402
-assert not any(os.environ.get(r) for r in RULES), \
+assert not any(os.environ.get(r) for r in RULES + ("LINKER_STOPPED_LEVEL",)), \
     "env overrides set — the reprocess must run on the DEFAULT alone"
 
 from backend.config import PROJECTS_DIR  # noqa: E402
@@ -48,14 +50,14 @@ WINDOWS = [(1, "study_0700"), (1, "study_1600"),
            (3, "study_0600"),
            (4, "study_0700"), (4, "study_1100"), (4, "study_1600"),
            (5, "study_0700"), (5, "study_1100"), (5, "study_1600")]
-NOTE = ("operator go 2026-09-24: reprocess under THE DEFAULT "
-        "(G-EX-2 + the bound-chain guard ON, cam4/cam5 on the promoted "
-        "recovery-tracker dumps)")
+NOTE = ("operator go 2026-09-30: reprocess under THE DEFAULT "
+        "(the global tracklet linker ON, moving levels only; cams 1-3 on the "
+        "promoted default-tracker dumps)")
 ARM = Path("data/projects/97a7849a/_replay_scratch/fleet_20260908")
-ARM_STEM = "gx2"   # the arm this reprocess must reproduce
-# cam4/cam5 ran that arm on the vl3 (recovery-tracker) dumps, which are now
+ARM_STEM = "lk2"   # the arm this reprocess must reproduce
+# cams 1-3 ran that arm on the rt_ (default-tracker) dumps, which are now
 # PROMOTED to study_*. Same rows, different variant name in the arm DBs.
-ARM_VARIANT = {4: "vl3_{}", 5: "vl3_{}"}
+ARM_VARIANT = {1: "rt_{}", 2: "rt_{}", 3: "rt_{}"}
 
 
 def main() -> int:
@@ -64,7 +66,7 @@ def main() -> int:
     con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     con.close()
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
-    backup = proj_db.parent / "backups" / f"project_{ts}_pre_default_reprocess_fracture.db"
+    backup = proj_db.parent / "backups" / f"project_{ts}_pre_default_reprocess_lk2.db"
     shutil.copy2(proj_db, backup)
     print(f"pre-reprocess backup: {backup} ({backup.stat().st_size // 2**20} MB)",
           flush=True)
