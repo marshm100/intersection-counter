@@ -2948,3 +2948,23 @@ NEXT: arm lk2 DECLARED here before scoring = lk1 with the stopped level OFF
 (LINKER_STOPPED_LEVEL=0): only moving breaks, where the follower test separates the same car
 from the next one. PASS = the G-DEF-1 letter against 80.81; expected: cam3 back near control, the
 moving-level gains on cam2 / cam4 / cam5 kept, cam1 unclear.
+
+### Arm lk2 VERDICT (2026-09-30): PASS, every clause of the G-DEF-1 letter
+
+lk2 = the global tracklet linker, exclusive (fracture, bound-chain, continuation, turn merge off),
+moving levels only (LINKER_STOPPED_LEVEL=0). Against the true default control:
+    cam1 0700 88.7 -> 89.9 (+1.2)   1600 86.2 -> 84.9 (-1.3)
+    cam2 0700 65.1 -> 69.5 (+4.4)   1100 74.5 -> 78.1 (+3.6)   1600 53.6 -> 60.6 (+7.0)
+    cam3 0600 92.7 -> 92.9 (+0.2)
+    cam4 0700 86.7 -> 88.6 (+1.9)   1100 93.6 -> 93.6 (0.0)    1600 84.9 -> 88.7 (+3.8)
+    cam5 0700 78.0 -> 79.2 (+1.2)   1100 83.0 -> 81.6 (-1.4)   1600 82.7 -> 84.5 (+1.8)
+    FLEET movement 80.81 -> 82.68 (+1.87); approach 56.83 -> 65.28 (+8.45);
+    vehicle error 4,481 -> 3,995 (-486).
+    camera means: cam1 -0.05, cam2 +5.00, cam3 +0.20, cam4 +1.90, cam5 +0.53 (none worse than -1.0);
+    worst window -1.4 (cam5 1100; bar -3.0).
+    FM 51 (held out): 85.7 / 73.9 and 89.8 / 79.2, IDENTICAL to control; events 1,645 -> 1,609 and
+    2,031 -> 1,968 (duplicates removed without moving either bar).
+    Caveat: cam3's vehicle error rose 190 -> 420 while its score held (+0.2).
+SHIP NEEDS THE OPERATOR'S GO, and it ships TOGETHER with moving production cams 1-3 onto the
+default (new-site) tracker, the basis lk2 was measured on. The reported fleet then reads 82.68
+(it reads 83.50 today only because cams 1-3 run one-off recipes).
