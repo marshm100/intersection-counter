@@ -1650,6 +1650,11 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     f_lo, f_hi = meta["frames"]
     window_seconds = (f_hi - f_lo) / fps
     rows = load_dump(tdir)
+    # The operator's WINDOW name. The derived-dump stages below (a3 cut,
+    # tracklet linker) rename `variant` to their own dumps; the apply gate,
+    # its dispositions and its trail belong to the window (2026-09-30: a
+    # force_once set on study_0700 was never seen under lk_study_0700).
+    window = variant
 
     # --- Track Repair Stage 1 (operator ruling 2026-08-24): resolve base
     # study_* windows to the a3_-CUT derived dump before anything reads the
@@ -1721,7 +1726,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
             if not apply:
                 return result
             return _gated_finish_apply(project_id, camera_id, intersection_id,
-                                       variant, out_db, f_lo, f_hi, fps,
+                                       window, out_db, f_lo, f_hi, fps,
                                        result, chash)
 
     # --- 1. corpus bank: discovery over the dump's own tracks ---------------
@@ -2041,7 +2046,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     if not apply:
         return result
     return _gated_finish_apply(project_id, camera_id, intersection_id,
-                               variant, out_db, f_lo, f_hi, fps, result,
+                               window, out_db, f_lo, f_hi, fps, result,
                                chash)
 
 

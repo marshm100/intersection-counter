@@ -179,3 +179,56 @@ class TestStopFractureCollapse:
         _collapse_stop_fractures(a2, [], 25.0)
         assert np.array_equal(a1, a2)
 
+
+
+class TestApplyUnderWindowName:
+    def test_linked_window_is_adjudicated_under_its_own_name(self, proj, tmp_path,
+                                                             monkeypatch):
+        """The linker renames the dump to lk_study_0700; the apply gate, its
+        dispositions and trail must still see study_0700 (2026-09-30: a
+        force_once on the window was never seen and the reprocess stood down)."""
+        import json
+        from pathlib import Path
+        import numpy as np
+        import backend.config as cfg
+        import backend.services.tracklet_linker as tl
+        import backend.services.two_pass as tp
+        pid, cid = proj
+        conn = get_connection(pid)
+        with conn:
+            conn.execute(
+                "INSERT INTO videos (camera_id, sort_order, path, filename, fps, width, "
+                "height, total_frames, duration_seconds, file_size_bytes, "
+                "recording_start_datetime, added_at) VALUES "
+                "(?, 0, 'v.mp4', 'v.mp4', 10, 640, 480, 100, 10, 1, "
+                "'2026-07-10T07:00:00', '2026-07-10')", (cid,))
+        conn.close()
+        tdir = tmp_path / "study_0700.tracks"
+        tdir.mkdir()
+        (tdir / "count.txt").write_text("0")
+        (tdir / "meta.json").write_text(json.dumps({"frames": [0, 100]}))
+        monkeypatch.setattr(tp, "resolve_content_hash", lambda *a, **k: ("h", "m"))
+        monkeypatch.setattr(tp, "tracks_dir", lambda p: tdir)
+        monkeypatch.setattr(tp, "load_dump", lambda d: np.zeros((0, 8)))
+        monkeypatch.setattr(cfg, "TRACKLET_LINKER", True)
+        monkeypatch.setattr(cfg, "A3_CUT_DUMPS", False)
+        monkeypatch.setattr(
+            tl, "ensure_linked_dump",
+            lambda pid_, cid_, v, fps, td, rows, meta, frame_size=None:
+                (f"lk_{v}", td, meta, rows))
+        # reuse path: a prior compute of the (renamed) dump is valid
+        wd = tmp_path / "wd"
+        wd.mkdir()
+        (wd / f"twopass_cam{cid}_lk_study_0700.db").write_bytes(b"")
+        (wd / f"twopass_cam{cid}_lk_study_0700.stats.json").write_text(
+            json.dumps({"result": {"events": 0}}))
+        monkeypatch.setattr(tp, "sidecar_reusable", lambda *a, **k: True)
+        seen = {}
+
+        def fake_gate(project_id, camera_id, intersection_id, variant, out_db, *a):
+            seen["variant"], seen["out_db"] = variant, Path(out_db).name
+            return {"applied": True}
+        monkeypatch.setattr(tp, "_gated_finish_apply", fake_gate)
+        tp.run_pass2(pid, cid, variant="study_0700", workdir=wd, apply=True)
+        assert seen["variant"] == "study_0700"
+        assert seen["out_db"] == f"twopass_cam{cid}_lk_study_0700.db"
