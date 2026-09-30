@@ -2983,3 +2983,24 @@ Health: cams 1, 2, 4 green; cam3 amber; cam5 red on all three windows — N_righ
 32-44 counts per window with no history (phantom suspect), plus N_left 2.09x at 0700. NOT new:
 production N_right 114 -> 117 and N_left 1171 -> 1203 across the ship. Open item for cam5.
 Backups: project_20260930T112049_pre_lk2_ship.db, project_20260930T113044_pre_default_reprocess_lk2.db.
+
+## ARM d2 declared 2026-09-30 (Phase 4a, the detector fix) — BEFORE scoring
+
+Basis: d2_study_* — all 12 windows re-detected with DETECT_DEDUP_HEAD=1 (end2end off, agnostic
+NMS, iou 0.6) and DETECT_HALF=1 (recorded in each cache meta as detector_head), tracked by the
+default tracker (scripts/regen_detections.py). Counting: THE DEFAULT as shipped today (linker on).
+Control: the shipped default, fleet 82.68 / approach 65.28 (arm lk2). The only difference is the
+detector head. Letter: G-DEF-1 (fleet rises, no camera mean falls > 1.0, no window > 3.0, FM 51
+not worse). New basis, so check evidence-activation coverage per window. Expected mechanism:
+fewer duplicate car/truck boxes -> fewer twin tracks and thefts; watch cam3 (dawn) for lost
+weak boxes.
+
+### ARM d2 VERDICT 2026-09-30: FAIL
+Fleet 82.67 -> 81.54 (-1.13); approach 65.28 -> 63.85. Camera means: cam1 +0.5, cam2 -3.4,
+cam3 -3.4, cam4 -1.0, cam5 +0.6. Windows: cam2 1100 -3.6, cam2 1600 -5.5, cam3 0600 -3.4 (three
+breaches of the -3.0 bar). Gains where the scene is sparse (cam1, cam5 1100 +3.7, cam4 0700);
+losses in the densest queues (cam2, cam3). cam3 dropped tracks 7139 -> 2254 on similar events
+(29431 -> 29763): the basis changed a lot there. The arm changes three things at once (one2many
+head + NMS, class-AGNOSTIC NMS at iou 0.6, FP16); dense queued vehicles overlap > 0.6 and
+agnostic NMS can merge two real vehicles. Not shipped. Next, if pursued: split the arm —
+class-aware NMS only (keeps car-vs-truck duplicates to a later twin dedup) vs half only.
