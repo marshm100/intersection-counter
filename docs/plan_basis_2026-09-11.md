@@ -2968,3 +2968,18 @@ moving levels only (LINKER_STOPPED_LEVEL=0). Against the true default control:
 SHIP NEEDS THE OPERATOR'S GO, and it ships TOGETHER with moving production cams 1-3 onto the
 default (new-site) tracker, the basis lk2 was measured on. The reported fleet then reads 82.68
 (it reads 83.50 today only because cams 1-3 run one-off recipes).
+
+## SHIPPED 2026-09-30 — the global tracklet linker (arm lk2) + cams 1-3 on the default tracker
+
+Operator go: "Yes, continue". scripts/reprocess_default.py applied all 12 windows through the
+apply gate (force_once); every window's event total/kept matches arm lk2 exactly (cam1 4729/5645,
+cam2 6177/4740/7904, cam3 29431, cam4 4939/3350/5672, cam5 5272/3675/6055). Fleet 82.68 against
+the honest control 80.81 (every camera on the default tracker); the old 83.50 had cams 1-3 on
+one-off BoT-SORT recipes, retired by the one-default ruling of 2026-09-29.
+Fix needed on the way (Step 9.30): the linker renames the dump to lk_{window}, and the apply gate
+looked up the disposition under that name, so the first attempt stood down with no apply. The
+gate now adjudicates under the window name.
+Health: cams 1, 2, 4 green; cam3 amber; cam5 red on all three windows — N_right (leg 39 -> 36)
+32-44 counts per window with no history (phantom suspect), plus N_left 2.09x at 0700. NOT new:
+production N_right 114 -> 117 and N_left 1171 -> 1203 across the ship. Open item for cam5.
+Backups: project_20260930T112049_pre_lk2_ship.db, project_20260930T113044_pre_default_reprocess_lk2.db.

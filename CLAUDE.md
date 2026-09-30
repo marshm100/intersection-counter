@@ -19,8 +19,14 @@ G-DEF-1 PASS: GATE_GROUND_ANCHOR, STRAIGHT_FRAGMENT_RULE, GATE_EVIDENCE_EITHER_C
 JOURNEY_STATE_MACHINE default ON; G-DEF-4 PASS: STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS default ON;
 THE FRACTURE RULE FRACTURE_DEDUP default ON (2026-09-12, operator ruling after arm d17);
 G-EX-2 GATE_EXIT_ONLY_BINDING + BOUND_CHAIN_CONSERVE default ON (2026-09-24, operator go
-after arm gx2: "ship it"). EIGHT rules.
-(fleet 83.50 after G-EX-2 + the guard on 2026-09-24; 77.97 after the fracture rule on
+after arm gx2: "ship it"); THE GLOBAL TRACKLET LINKER TRACKLET_LINKER + TRACKLET_LINKER_EXCLUSIVE
+default ON, moving levels only (LINKER_STOPPED_LEVEL off — it broke cam3) (2026-09-30, operator go
+after arm lk2; it replaces the fracture rule, the bound-chain guard, the continuation rule and
+the turn merge on the linked path). TEN rules.
+(fleet 82.68 after the linker on 2026-09-30 — against the HONEST control 80.81, every camera on
+the default tracker; the 83.50 below had cams 1-3 on one-off BoT-SORT recipes, which the
+one-default ruling of 2026-09-29 retired: "we ship one default to all intersections and if it
+cant handle it we need to make the default better". Fleet 83.50 after G-EX-2 + the guard on 2026-09-24; 77.97 after the fracture rule on
 2026-09-12; 76.97 after G-BAR-1 on 09-11; 77.08 before it; 75.86 after the heading rulings;
 75.70 on 09-10). Env vars are overrides for experiments
 (X=0 turns a rule off); nothing in production needs them set.
@@ -30,7 +36,7 @@ NOTE on the gx2 ship: it MISSED the G-DEF-1 letter by 0.20 on one clause (cam1's
 clause was written to stop a default that RUINS a window; that is not this. Do not treat the
 miss as precedent for arguing a letter down without a ruling. Older plan docs' "operating
 notes" that require env flags are superseded. To improve the default: change it, run all
-12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 83.50, ship on a
+12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 82.68, ship on a
 fleet PASS (docs/plan_default_2026-09-10.md). The four windows shipped by hand on 09-09
 and the fleet reprocess on 09-10 are the last per-window applies. (cam4 1600's 70.2-by-ruling
 note is SUPERSEDED: the recovery tracker plus G-EX-2 took that window to 84.9, and the
@@ -53,8 +59,10 @@ the tracking evidence — one track per vehicle against the detection chains
 (scripts/research_tracker_break.py) — not by switching it on and off against fleet scores.
 PRODUCTION DUMPS: cam4 and cam5's study_* dumps ARE the recovery tracker since 2026-09-24
 (the vl3 dumps promoted at the gx2 ship; the old library-tracker basis is renamed aside as
-pre_gx2_study_*). cams 1-3 run BoT-SORT recipes and are unaffected. Any pass-1 run (re-track,
-new study, live) uses the recovery tracker, so a re-tracked cam1-3 window is a new basis.
+pre_gx2_study_*). Since 2026-09-30 cams 1-3 are on it too: their per-camera tracker knobs were
+cleared and the default-tracker rt_study_* dumps promoted to study_* (old basis renamed aside as
+pre_lk2_study_*). cam3 still carries two one-off COUNTING knobs (track_quality_filter, dtw_mean)
+to be tested out under the one-default ruling. Any pass-1 run uses the recovery tracker.
 
 ## Calibrating a blank site (operator ruling 2026-09-11, docs/plan_blank_site_2026-09-11.md)
 Draw each gate LINE where vehicles are reliably TRACKED, inside the physical mouth — never at
@@ -125,7 +133,7 @@ a ctrl/arm comparison against it.
 
 ## Testing
 .venv\Scripts\python.exe -m pytest backend/tests/ -q
-# 1307 passing as of 2026-09-24
+# 1379 passing as of 2026-09-30
 
 ## Git
 git commit -m "Step X.X — [title]"
