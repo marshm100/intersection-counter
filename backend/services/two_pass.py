@@ -611,6 +611,15 @@ def _pinned_gates(project_id: str, camera_id: int, rows: np.ndarray):
     return gates, None
 
 
+def _detector_head_recipe() -> dict:
+    """What the detector head ran with (phase 4a), recorded in the cache meta
+    so a cache's provenance is never a guess."""
+    from backend import config as c
+    return {"dedup_head": bool(getattr(c, "DETECT_DEDUP_HEAD", False)),
+            "dedup_iou": float(getattr(c, "DETECT_DEDUP_IOU", 0.6)),
+            "half": bool(getattr(c, "DETECT_HALF", False))}
+
+
 def _record_linked_fates(out_db, camera_id: int, families: dict) -> int:
     """Fate-ledger rows for the pieces the tracklet linker absorbed: each gets
     disposition 'dropped', reason 'linked_into', and linked_to_tid = the
@@ -1556,6 +1565,7 @@ def _pass1_ingest(project_id, video, chash, hash_method, pq, out, meta, fps,
         "camera_id": int(video["camera_id"]), "content_hash": chash,
         "method": hash_method, "model": cfg["yolo_model"],
         "imgsz": cfg["yolo_imgsz"], "confidence": cfg["yolo_confidence"],
+        "detector_head": _detector_head_recipe(),
         "detection_skip": skip,
         "windows": [[start_frame, end_frame]]})
     for k in range(n_chunks):

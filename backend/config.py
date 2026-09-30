@@ -592,6 +592,14 @@ MERGE_EXCESS_ONLY = _os2.environ.get(
 # the fracture / chain / bound-chain dedups upstream now catch those.
 # TURN_MERGE=0 skips it (every turn kept); S5 borderline flags unchanged.
 TURN_MERGE = _os2.environ.get("TURN_MERGE", "1") in ("1", "true", "on")
+# DETECTOR HEAD (2026-09-30, docs/research_tracking_2026-09-29.md phase 4a).
+# DETECT_DEDUP_HEAD: one-to-many head + class-agnostic NMS at DETECT_DEDUP_IOU
+# instead of YOLO26's one-to-one head (which ignores iou= and emits car+truck
+# duplicates, 2.40 pairs a frame measured). DETECT_HALF: FP16 on CUDA. Both
+# default OFF; a cache built with either is a NEW basis (new variant name).
+DETECT_DEDUP_HEAD = _os2.environ.get("DETECT_DEDUP_HEAD", "0") in ("1", "true", "on")
+DETECT_DEDUP_IOU = 0.6
+DETECT_HALF = _os2.environ.get("DETECT_HALF", "0") in ("1", "true", "on")
 # ON-SCREEN ONLY (2026-09-30, docs/research_tracking_2026-09-29.md phase 3;
 # operator rulings 2026-09-29 / 09-30): a vehicle's origin, destination and
 # movement may come only from what the video shows for THAT vehicle, including

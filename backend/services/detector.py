@@ -179,6 +179,22 @@ class VehicleDetector:
             })
         return detections
 
+    def _head_kwargs(self) -> dict:
+        """Detector-head settings (2026-09-30, docs/research_tracking_2026-09-29.md
+        phase 4a). DETECT_DEDUP_HEAD: the installed ultralytics runs YOLO26's
+        one-to-one head, which ignores iou= and can emit a car AND a truck box
+        from one anchor (measured 2.40 duplicate pairs a frame); the one-to-many
+        head with class-agnostic NMS at IoU 0.6 measured 0.00 with no small-box
+        loss. DETECT_HALF: FP16 on CUDA (~1.5x faster). Both default OFF."""
+        from backend import config as c
+        kw: dict = {}
+        if getattr(c, "DETECT_DEDUP_HEAD", False):
+            kw.update(end2end=False, agnostic_nms=True,
+                      iou=float(getattr(c, "DETECT_DEDUP_IOU", 0.6)))
+        if getattr(c, "DETECT_HALF", False) and str(self._device).startswith("cuda"):
+            kw["half"] = True
+        return kw
+
     def detect(self, frame: np.ndarray) -> list[dict]:
         """Run detection on a single frame.
 
@@ -191,12 +207,13 @@ class VehicleDetector:
         results = self.model(
             frame,
             conf=self.confidence,
-            iou=YOLO_IOU_THRESHOLD,
+            **({} if "iou" in self._head_kwargs() else {"iou": YOLO_IOU_THRESHOLD}),
             imgsz=self.imgsz,
             classes=(list(ft_map) if ft_map is not None
                      else self.RELEVANT_CLASSES),
             device=self._device,
             verbose=False,
+            **self._head_kwargs(),
         )
         return self._parse_results(results[0])
 
@@ -217,11 +234,12 @@ class VehicleDetector:
         results = self.model(
             frames,
             conf=self.confidence,
-            iou=YOLO_IOU_THRESHOLD,
+            **({} if "iou" in self._head_kwargs() else {"iou": YOLO_IOU_THRESHOLD}),
             imgsz=self.imgsz,
             classes=(list(ft_map) if ft_map is not None
                      else self.RELEVANT_CLASSES),
             device=self._device,
             verbose=False,
+            **self._head_kwargs(),
         )
         return [self._parse_results(r) for r in results]
