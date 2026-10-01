@@ -89,6 +89,12 @@ windows scoped to an intersection-day. Cross-camera dedup collapses parallel-ove
 See docs/Implementation_Plan_v3.md.
 
 ## Instruments (read before building a new one)
+- EVENT AUDIT (2026-10-01): /static/audit.html. The reverse of the journey labels: a stratified
+  sample of COUNTED events (scripts/audit_sample.py BATCH [STEM]; strata = gate tag x posterior
+  source), each judged on the video - correct / wrong movement / not a vehicle in the
+  intersection / double / unsure (tables audit_items, audit_answers; backend/services/
+  event_audit.py). scripts/audit_report.py BATCH = precision per decision path per camera: which
+  rules misfire, and how. Dev-validation only.
 - JOURNEY LABELS (2026-09-30): frontend/journeys.html (operator clicks each vehicle's way in and
   out, at the BACK TYRE crossing), tables journey_clips / journey_labels, scored by
   scripts/eval_journeys.py STEM[:prefixes] [STEM2] (backend/services/journey_eval.py: one-to-one
@@ -149,7 +155,7 @@ a ctrl/arm comparison against it.
 
 ## Testing
 .venv\Scripts\python.exe -m pytest backend/tests/ -q
-# 1392 passing as of 2026-10-01
+# 1396 passing as of 2026-10-01
 
 ## Git
 git commit -m "Step X.X — [title]"

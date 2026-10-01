@@ -33,6 +33,7 @@ def isolate_projects_dir(tmp_path_factory):
     import backend.services.bank_builder  # writes data/projects/<pid>/banks/
     import backend.routers.two_pass       # stage-3 two-pass endpoints
     import backend.routers.journeys       # journey-label ground truth (2026-09-30)
+    import backend.routers.audit          # event audit (2026-10-01)
 
     backend.database.PROJECTS_DIR = tmp
     backend.routers.projects.PROJECTS_DIR = tmp
@@ -42,6 +43,7 @@ def isolate_projects_dir(tmp_path_factory):
     backend.routers.calibration.PROJECTS_DIR = tmp
     backend.routers.two_pass.PROJECTS_DIR = tmp
     backend.routers.journeys.PROJECTS_DIR = tmp
+    backend.routers.audit.PROJECTS_DIR = tmp
     backend.routers.intersections.PROJECTS_DIR = tmp
     backend.routers.qa.PROJECTS_DIR = tmp
     backend.routers.flags.PROJECTS_DIR = tmp
@@ -64,3 +66,4 @@ def isolate_projects_dir(tmp_path_factory):
     backend.routers.bank.PROJECTS_DIR = original
     backend.services.bank_builder.PROJECTS_DIR = original
     backend.routers.journeys.PROJECTS_DIR = original
+    backend.routers.audit.PROJECTS_DIR = original

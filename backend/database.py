@@ -463,6 +463,45 @@ CREATE TABLE IF NOT EXISTS journey_labels (
 
 SCHEMA = SCHEMA + JOURNEY_SCHEMA
 
+# THE EVENT AUDIT (2026-10-01): the reverse of the journey labels. A sample of
+# COUNTED events, stratified by how the software decided them (gate evidence
+# x posterior source), each judged by the operator on the video: correct,
+# wrong movement (with the true one), not a vehicle in the intersection, or
+# double-counted. Per-stratum precision says which decision paths misfire.
+# Dev-validation only; never read by the counting pipeline.
+AUDIT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS audit_items (
+    item_id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch                TEXT    NOT NULL,
+    camera_id            INTEGER NOT NULL,
+    video_id             INTEGER NOT NULL,
+    window               TEXT    NOT NULL,
+    vehicle_track_id     INTEGER NOT NULL,
+    stratum              TEXT    NOT NULL,
+    claimed_origin_leg_id INTEGER,
+    claimed_dest_leg_id   INTEGER,
+    claimed_movement     TEXT,
+    claim_detail         TEXT    NOT NULL DEFAULT '',
+    start_frame          INTEGER NOT NULL,
+    end_frame            INTEGER NOT NULL,
+    fps                  REAL    NOT NULL,
+    track_json           TEXT    NOT NULL,
+    created_at           TEXT    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS audit_answers (
+    answer_id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id              INTEGER NOT NULL,
+    verdict              TEXT    NOT NULL,
+    true_origin_leg_id   INTEGER,
+    true_dest_leg_id     INTEGER,
+    note                 TEXT    NOT NULL DEFAULT '',
+    created_at           TEXT    NOT NULL
+);
+"""
+
+SCHEMA = SCHEMA + AUDIT_SCHEMA
+
 # Indexes are kept out of SCHEMA because they reference columns added by the
 # migration pass below; on legacy DBs the columns don't exist yet at the time
 # SCHEMA runs, so the indexes have to be created AFTER migrations.

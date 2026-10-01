@@ -44,9 +44,12 @@ def test_create_database():
     assert 'track_fates' in tables           # the journey fate ledger (2026-09-20)
     assert 'journey_clips' in tables         # journey-label ground truth (2026-09-30)
     assert 'journey_labels' in tables
-    assert len(tables) == 21   # +review_log (R0 instrument v2, 2026-08-24),
+    assert 'audit_items' in tables           # the event audit (2026-10-01)
+    assert 'audit_answers' in tables
+    assert len(tables) == 23   # +review_log (R0 instrument v2, 2026-08-24),
                                # +track_fates (the fate ledger, 2026-09-20),
-                               # +journey_clips / journey_labels (2026-09-30)
+                               # +journey_clips / journey_labels (2026-09-30),
+                               # +audit_items / audit_answers (2026-10-01)
 
 def test_wal_mode():
     conn = get_connection(TEST_PROJECT)
