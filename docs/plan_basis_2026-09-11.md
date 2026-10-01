@@ -3075,3 +3075,9 @@ ruling is paying, and the operator decides.
     READING: what the ruling costs is vehicles whose ENTRY is not on screen. The on-screen fix is
     seeing the entry (earlier births: weak-box births, the detector head / dawn model work, item 4),
     not a better guess. Shipping os1 is the OPERATOR's call (compliance vs -0.72 / -2 cars in 512).
+
+## ARM ts1 DECLARED 2026-10-01 (item 5, the theft split) — BEFORE scoring
+THEFT_SPLIT=1 on the shipped default (nf1b): before linking, cut a track where it runs one way,
+slows at a box clearly smaller than both runs, and runs back the other way (the far-field
+hand-off the labels showed: cam2 t831 / t818, cam5 t393). 8-143 cuts a window. Control 86.87 /
+74.29. Letter + FM 51 + labels (no_track and wrong should fall; correct must not).
