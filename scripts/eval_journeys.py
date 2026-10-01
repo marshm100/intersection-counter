@@ -11,6 +11,7 @@ Usage:
               the window (the true default control: rt0 for cams 1-3, gx2 for 4-5)
     PREFIXES  dump prefixes per camera, e.g. 1=rt_,2=rt_,3=rt_ (default: none; cams
               4 / 5 fall back to the vl3_ names the gx2 arm used)
+  --heldout   score the held-out (minute-50) clips instead of the development set
   e.g.  eval_journeys.py rt0:1=rt_,2=rt_,3=rt_
         eval_journeys.py rt0:1=rt_,2=rt_,3=rt_ lk1:1=rt_,2=rt_,3=rt_     (paired comparison)
 """
@@ -72,10 +73,23 @@ def locate(stem: str, prefixes: dict, cam: int, window: str, chash: str):
     return None, None
 
 
-def run_arm(stem: str, prefixes: dict) -> dict:
+HELDOUT = "--heldout" in sys.argv
+
+
+def is_heldout(clip_id: str) -> bool:
+    """The minute-50 clips (scripts/journey_clips.py) are the held-out set."""
+    return clip_id.endswith("_m50")
+
+
+def run_arm(stem: str, prefixes: dict, heldout: bool | None = None) -> dict:
+    """Score one arm on the DEVELOPMENT clips (default) or, with heldout=True
+    (--heldout on the command line), on the held-out clips only."""
+    heldout = HELDOUT if heldout is None else heldout
     con = sqlite3.connect(f"file:data/projects/{PROJ}/project.db?mode=ro", uri=True)
     results = {}
     for clip in list_clips(PROJ):
+        if is_heldout(clip["clip_id"]) != heldout:
+            continue
         labels = list_labels(PROJ, clip["clip_id"])
         if not labels:
             continue
@@ -125,7 +139,7 @@ def report(stem: str, res: dict) -> None:
 
 
 def main() -> int:
-    specs = [parse(s) for s in sys.argv[1:]] or [("rt0|gx2", {1: "rt_", 2: "rt_", 3: "rt_"})]
+    specs = [parse(s) for s in sys.argv[1:] if not s.startswith("--")] or [("rt0|gx2", {1: "rt_", 2: "rt_", 3: "rt_"})]
     arms = []
     for stem, pre in specs:
         res = run_arm(stem, pre)

@@ -8,6 +8,11 @@ and windows are chosen to span the known difficulties: cam2 (the camera the
 default tracker handles worst), cam4 16:00 (far-field northbound), cam5 07:00
 (far-field stubs), cam1 07:00, and cam3 at dawn.
 
+HELD-OUT SET (2026-10-01): a second clip per camera by the same rule at minute 50
+(clip ids *_m50). The minute-5 clips are the DEVELOPMENT set; the minute-50 clips are
+scored only for ship candidates (scripts/eval_journeys.py --heldout), so tuning cannot
+drift onto the clips it is judged by.
+
 Usage: .venv\\Scripts\\python.exe -X utf8 scripts/journey_clips.py [PROJ]
 Idempotent: re-running updates the clip frames and keeps any labels.
 """
@@ -30,24 +35,28 @@ CLIPS = [  # (camera, window variant, label)
     (1, "study_0700", "cam1 07:05"),
     (3, "study_0600", "cam3 06:05 (dawn)"),
 ]
-OFFSET_S, LENGTH_S = 5 * 60, 3 * 60
+OFFSETS_MIN = (5, 50)          # development set, held-out set
+LENGTH_S = 3 * 60
 
 
 def main() -> int:
     con = sqlite3.connect(f"file:data/projects/{PROJ}/project.db?mode=ro", uri=True)
-    for cam, variant, label in CLIPS:
+    for (cam, variant, label), off in ((c, o) for o in OFFSETS_MIN for c in CLIPS):
         vid, chash, fps = con.execute(
             "SELECT video_id, content_hash, fps FROM videos WHERE camera_id=? "
             "ORDER BY sort_order LIMIT 1", (cam,)).fetchone()
         meta = json.loads(parquet_path(PROJ, cam, chash, variant)
                           .with_suffix(".meta.json").read_text())
         f0 = (meta["windows"][0] if "windows" in meta else meta["frames"])[0]
-        start = int(f0 + OFFSET_S * fps)
+        start = int(f0 + off * 60 * fps)
         end = int(start + LENGTH_S * fps)
-        clip_id = f"cam{cam}_{variant.split('_')[-1]}_m5"
-        c = upsert_clip(PROJ, clip_id, cam, vid, start, end, float(fps), label)
+        clip_id = f"cam{cam}_{variant.split('_')[-1]}_m{off}"
+        hh, mm = int(variant.split("_")[-1][:2]), off
+        lab = (label if off == 5 else
+               f"cam{cam} {hh:02d}:{mm:02d} (held out){' (dawn)' if cam == 3 else ''}")
+        c = upsert_clip(PROJ, clip_id, cam, vid, start, end, float(fps), lab)
         print(f"{clip_id}: video {vid}, frames {c['start_frame']}-{c['end_frame']} "
-              f"({fps:g} fps) - {label}")
+              f"({fps:g} fps) - {lab}")
     return 0
 
 
