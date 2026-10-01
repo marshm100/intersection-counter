@@ -161,6 +161,48 @@ def _assign_clicks(labels: list[dict], rows: np.ndarray, byf: dict,
     return result[0], result[1]
 
 
+# Two labels with the same movement whose entry AND exit clicks coincide are
+# one vehicle labelled twice (2026-10-01, item 1: video frames show one car
+# under both clicks on cam2, cam3 and cam5; 15 such pairs in 521). The cam4
+# pair that is two real cars, one hidden behind the other, sits outside
+# these bounds (26 px / 22 px).
+DUP_ENTRY_S, DUP_ENTRY_PX = 0.3, 20.0
+DUP_EXIT_S, DUP_EXIT_PX = 0.5, 25.0
+
+
+def duplicate_labels(labels: list[dict], fps: float, byf: dict | None = None) -> set:
+    """label_ids to set aside: of each duplicate pair, the one saved later.
+    With the dump's rows (byf), a pair is a duplicate only when both clicks
+    land on the SAME best box at entry or at exit (in a packed queue the
+    other end can sit on a neighbour's box): two real cars side by side give
+    two boxes at both ends."""
+    full = [lb for lb in labels if lb.get("entry_frame") is not None
+            and lb.get("exit_frame") is not None]
+    drop: set = set()
+    for i, a in enumerate(full):
+        for b in full[i + 1:]:
+            if (a["entry_leg_id"], a["exit_leg_id"]) != (b["entry_leg_id"], b["exit_leg_id"]):
+                continue
+            if (abs(a["entry_frame"] - b["entry_frame"]) <= DUP_ENTRY_S * fps
+                    and np.hypot(a["entry_x"] - b["entry_x"], a["entry_y"] - b["entry_y"]) <= DUP_ENTRY_PX
+                    and abs(a["exit_frame"] - b["exit_frame"]) <= DUP_EXIT_S * fps
+                    and np.hypot(a["exit_x"] - b["exit_x"], a["exit_y"] - b["exit_y"]) <= DUP_EXIT_PX):
+                if byf is not None:
+                    same = False
+                    for side, sd in (("entry", "in"), ("exit", "out")):
+                        ca = _candidates(byf, {}, int(a[f"{side}_frame"]), a[f"{side}_x"],
+                                         a[f"{side}_y"], fps, sd)
+                        cb = _candidates(byf, {}, int(b[f"{side}_frame"]), b[f"{side}_x"],
+                                         b[f"{side}_y"], fps, sd)
+                        if ca and cb and min(ca, key=ca.get) == min(cb, key=cb.get):
+                            same = True
+                    if not same:
+                        continue
+                later = max((a, b), key=lambda lb: (str(lb.get("created_at") or ""), lb["label_id"]))
+                drop.add(later["label_id"])
+    return drop
+
+
 def score_clip(labels: list[dict], rows: np.ndarray, events: list[dict],
                clip: dict, fps: float = 10.0) -> dict:
     """labels: journey_labels rows for the clip. rows: the replayed dump's
@@ -168,6 +210,8 @@ def score_clip(labels: list[dict], rows: np.ndarray, events: list[dict],
     vehicle_track_id, origin_leg_id, destination_leg_id, start_frame."""
     f_lo, f_hi = int(clip["start_frame"]), int(clip["end_frame"])
     byf = index_rows(rows, f_lo - SEARCH_FRAMES, f_hi + SEARCH_FRAMES)
+    dups = duplicate_labels(labels, fps, byf)
+    labels = [lb for lb in labels if lb["label_id"] not in dups]
     ev_by_tid = defaultdict(list)
     for e in events:
         ev_by_tid[int(e["vehicle_track_id"])].append(e)
@@ -211,7 +255,7 @@ def score_clip(labels: list[dict], rows: np.ndarray, events: list[dict],
                          if f_lo <= int(e.get("start_frame") or -1) <= f_hi)
     outcomes = Counter(v["outcome"] for v in per_vehicle)
     n = len(per_vehicle)
-    return {"n_full": n, "outcomes": dict(outcomes),
+    return {"n_full": n, "outcomes": dict(outcomes), "duplicates": sorted(dups),
             "correct_rate": (outcomes["correct"] / n) if n else None,
             "broken": sum(v["broken"] for v in per_vehicle),
             "phantoms": len(phantoms),

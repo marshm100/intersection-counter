@@ -108,7 +108,7 @@ def report(stem: str, res: dict) -> None:
               f" ({100 * (r['correct_rate'] or 0):5.1f}%)  wrong {o.get('wrong', 0):3}"
               f"  double {o.get('double', 0):3}  missed {o.get('missed', 0):3}"
               f"  no_track {o.get('no_track', 0):3}  | broken {r['broken']:3}"
-              f"  phantoms {r['phantoms']:3}")
+              f"  phantoms {r['phantoms']:3}  dup labels {len(r.get('duplicates', []))}")
         tot["n"] += r["n_full"]
         tot["correct"] += o.get("correct", 0)
         tot["broken"] += r["broken"]

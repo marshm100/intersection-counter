@@ -3038,3 +3038,17 @@ override, "no history". The N_left 2.09x flag cleared. Labels: N_right truth 1 v
 cam5 clip (one is labelled through 455, track 408, counted right by its gate crossings). NEXT
 cam5 item: the gate geometry that makes NB throughs read as rights.
 Backup: project_20261001T000345_pre_default_reprocess_nf1b.db.
+
+## ITEM 1 (2026-10-01): ARE THE LABELS' no_track VEHICLES REAL? (scripts/research_no_track.py)
+Of 43 no_track on the shipped default, almost every side had a TRACK box under the click: the
+one-to-one assignment had given that track to another label. Two causes:
+  * THE SAME CAR LABELLED TWICE (video frames: one car under both clicks on cam2, cam3, cam5).
+    journey_eval.duplicate_labels sets the later-saved one aside: same movement, entry within
+    0.3 s / 20 px, exit within 0.5 s / 25 px, and the same best box at entry or exit (two real
+    cars a lane apart give two boxes; the cam4 two-car pair, one hidden behind the other, stays).
+    9 set aside (512 scored). Shipped default: 432 / 512 correct (84.4%).
+  * IDENTITY THEFT: one track carries two cars, often seconds apart and in opposite directions
+    (cam2 track 831: an SB->NB car, then an NB->EB car 14 s later). ~18 vehicles.
+  Plus ~10 sides with NO detection at all (cam4 / cam5 exits): detector misses.
+CONSEQUENCE: no_track is real and splits into THEFT (plan phase 2 step 8, the split step; phase 5
+appearance veto) and DETECTOR MISS (phase 4). The tracker items stay on the list, aimed at those.

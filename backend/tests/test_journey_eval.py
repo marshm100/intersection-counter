@@ -86,10 +86,12 @@ def test_a_track_that_died_well_before_the_exit_is_still_no_track():
 
 
 def test_a_neighbour_in_a_platoon_is_not_charged_to_this_car():
-    # cars 1 and 2 leave side by side; car 1's exit click lands on car 2's box
-    rows = np.array(_track(1, 0, 20, 100, 0) + _track(2, 0, 20, 118, 0), dtype=float)
+    # cars 1 and 2 leave side by side a lane apart (30 px, overlapping 40-px
+    # boxes); car 1's exit click lands inside car 2's box too
+    rows = np.array(_track(1, 0, 20, 100, 0, w=40.0) + _track(2, 0, 20, 130, 0, w=40.0),
+                    dtype=float)
     labels = [_label(1, 0, 100, 0, 20, 116, 100),
-              _label(2, 0, 118, 0, 20, 118, 100)]
+              _label(2, 0, 130, 0, 20, 130, 100)]
     r = score_clip(labels, rows, [_ev(1), _ev(2)], CLIP)
     assert r["outcomes"] == {"correct": 2}
 
@@ -102,10 +104,18 @@ def test_entry_click_just_before_the_track_is_born_is_the_same_car():
 
 
 def test_a_packed_queue_is_matched_one_car_to_one_track():
-    # two queued cars 12 px apart; car 2's entry click sits nearer car 1's centre
-    rows = np.array(_track(1, 0, 20, 100, 50, dy=5.0) + _track(2, 0, 20, 100, 62, dy=5.0),
-                    dtype=float)
+    # two queued cars 30 px apart (40-px boxes); car 2's entry click sits
+    # nearer car 1's centre
+    rows = np.array(_track(1, 0, 20, 100, 50, dy=5.0, h=40.0)
+                    + _track(2, 0, 20, 100, 80, dy=5.0, h=40.0), dtype=float)
     labels = [_label(1, 0, 100, 50, 20, 100, 150),
-              _label(2, 0, 100, 55, 20, 100, 162)]
+              _label(2, 0, 100, 64, 20, 100, 180)]
     r = score_clip(labels, rows, [_ev(1), _ev(2)], CLIP)
     assert r["outcomes"] == {"correct": 2}
+
+
+def test_a_vehicle_labelled_twice_is_scored_once():
+    a = dict(_label(1, 0, 100, 0, 20, 100, 100), created_at="t1")
+    b = dict(_label(2, 0, 104, 3, 20, 98, 104), created_at="t2")      # the replay
+    r = score_clip([a, b], ROWS, [_ev(1)], CLIP)
+    assert r["duplicates"] == [2] and r["outcomes"] == {"correct": 1}
