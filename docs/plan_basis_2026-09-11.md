@@ -3185,3 +3185,17 @@ PROPOSAL FOR THE OPERATOR (the operating rule: lines are his, drawn where vehicl
 redraw S ACROSS the band where NB traffic enters (near the right edge), and E across the east
 approach's own lanes, off the through band. Then re-score cam5 (3 windows) and re-run os1.
 No code change.
+
+## STEP 3 (2026-10-01): pseudo-labelled detector pl1 - GATE 1 PASSES
+scripts/prep_pseudo_labels.py -> data/finetune_pl1: 2,500 frames (cams 1-4; cam5, every label clip
++-60 s and FM 51 held out; cam3 dawn weighted), 20,422 boxes kept, 6,300 dropped as unsupported by a
+track. scripts/finetune_detector.py: base yolo26s_ft2.pt, 1280 px, 30 epochs, freeze 0, lr0 0.002,
+RTX 3500 Ada (~2.3 min an epoch); weights models/yolo26s_pl1.pt (val mAP50 0.79).
+GATE 1 (probe, head fix, clicked frames: clicks with a box / at conf >= 0.35):
+  cam3 dawn 127 / 114  (ft2 640: 99 / 87; l 1280 + head: 100 / 58)
+  cam1      183 / 172  (l 1280 + head: 182)
+  cam5      196 / 184  (HELD-OUT camera; ft2 640 + head 199 / 190; l 1280 191)
+  cam2      295 / 295;  cam4 224 / 224.  Duplicate pairs 0.00 everywhere.
+ARM p1 DECLARED (before scoring): models/yolo26s_pl1.pt @ 1280 + the head fix on every camera
+(REGEN_MODEL / REGEN_IMGSZ / REGEN_CLASS_SCHEME=finetune_v2), on the shipped default (ts1).
+Control: fleet 87.01. Letter + FM 51 + the dev labels; held-out labels if it is a ship candidate.

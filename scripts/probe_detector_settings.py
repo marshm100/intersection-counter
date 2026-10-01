@@ -27,6 +27,9 @@ SETTINGS = {
                               "_classes": [0, 1, 2, 3]},           # finetune_v2 class map
     "ft2-s 640 o2m+agn 0.6": {"end2end": False, "agnostic_nms": True, "iou": 0.6,
                               "_model": "yolo26s_ft2.pt", "imgsz": 640, "_classes": [0, 1, 2, 3]},
+    "pl1 1280 o2m+agn 0.6":  {"end2end": False, "agnostic_nms": True, "iou": 0.6,
+                              "_model": "models/yolo26s_pl1.pt", "imgsz": 1280,
+                              "_classes": [0, 1, 2, 3]},       # step 3, pseudo-labelled
     "s 960 (cam4/5 prod)":   {"iou": YOLO_IOU_THRESHOLD, "_model": "yolo26s.pt", "imgsz": 960},
     "s 960 o2m+agn 0.6":     {"end2end": False, "agnostic_nms": True, "iou": 0.6,
                               "_model": "yolo26s.pt", "imgsz": 960},
