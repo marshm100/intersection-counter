@@ -147,6 +147,6 @@ class TestFullJourneyRescue:
         assert evs == []
         assert p.n_insufficient_data == 1
 
-    def test_default_off_one_declared_constant(self):
-        assert cfg.FULL_JOURNEY_RESCUE is False
+    def test_shipped_default_on_one_declared_constant(self):
+        assert cfg.FULL_JOURNEY_RESCUE is True        # arm fr3, 2026-10-01
         assert cfg.FULL_RESCUE_MIN_STRAIGHTNESS == 0.25

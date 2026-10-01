@@ -522,9 +522,12 @@ CONTINUATION_DEDUP = _os2.environ.get(
 # window against a 335 shortfall; 1,613 full journeys fleet-wide.
 # When ON (and in evidence mode "on"), such a journey with origin != exit
 # continues to the gate-supremacy / rescue_full labelling instead of being
-# dropped, UNLESS the track doubles back.
+# dropped, UNLESS the track doubles back. SHIPPED default ON 2026-10-01
+# (operator go after arm fr3 on the ts1 default: fleet +1.83, approach +5.8,
+# labels 438 -> 444 of 512 with none worse, FM 51 identical; cam2 16:00
+# -3.7 missed the window clause - its far-band W line - shipped by ruling).
 FULL_JOURNEY_RESCUE = _os2.environ.get(
-    "FULL_JOURNEY_RESCUE", "0") in ("1", "true", "on")
+    "FULL_JOURNEY_RESCUE", "1") in ("1", "true", "on")
 # THE ONE NEW CONSTANT of the rescue (no frozen module draws this line;
 # searched 2026-09-25). Dropped full journeys are bimodal in path
 # straightness: real turns ~0.41-0.51 (matching the counted journeys of the
