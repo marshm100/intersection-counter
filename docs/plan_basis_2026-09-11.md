@@ -3174,3 +3174,14 @@ direction, overlap in frames:
     -0.47 - a following car at dawn in perspective is as close as a car's glow.
   No offset / overlap / size / confidence threshold separates them without deleting real cars.
   The twins stay with the detector (step 3: a model confident on the car, not on its glow).
+
+## STEP 4b FINDING 2026-10-01: cam5's S and E lines lie ALONG the NB through band
+screenshots/cam5_nright_geometry.png (arm ts1, cam5 07:00): the 40 counted S->E rights (gate_tag
+full, 39->36) follow exactly the path of the 1,734 counted S->N throughs - in from the far right
+along the far band, out over the N line at the left. The E line sits on the band's upper edge at
+the left; the S line runs along the band at the right. A through's box brushes E -> "right";
+a NB car grazes S instead of crossing it -> exit_only (the no-inference coin flips, step 2).
+PROPOSAL FOR THE OPERATOR (the operating rule: lines are his, drawn where vehicles are tracked):
+redraw S ACROSS the band where NB traffic enters (near the right edge), and E across the east
+approach's own lanes, off the through band. Then re-score cam5 (3 windows) and re-run os1.
+No code change.
