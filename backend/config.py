@@ -644,8 +644,11 @@ LINKER_STOPPED_LEVEL = _os2.environ.get("LINKER_STOPPED_LEVEL", "0") in ("1", "t
 # where a sustained run of movement is followed, across only slow samples, by
 # a sustained run the opposite way, at a turning point whose box is clearly
 # smaller than both runs'. Sampled every THEFT_SAMPLE_S; speed in box widths
-# per second (scale- and frame-rate-free). Default OFF.
-THEFT_SPLIT = _os2.environ.get("THEFT_SPLIT", "0") in ("1", "true", "on")
+# per second (scale- and frame-rate-free). SHIPPED default ON 2026-10-01
+# (operator go after arm ts1: journey labels 433 -> 438 of 512 with none
+# worse, FM 51 identical, fleet +0.14; cam1's camera mean -2.10 missed the
+# letter's -1.0 clause, shipped by ruling as gx2 was).
+THEFT_SPLIT = _os2.environ.get("THEFT_SPLIT", "1") in ("1", "true", "on")
 THEFT_SAMPLE_S = 0.5
 THEFT_MOVE_WPS = 1.0          # moving = at least 1 box width per second
 THEFT_RUN_S = 1.0             # each run lasts at least 1 s ...

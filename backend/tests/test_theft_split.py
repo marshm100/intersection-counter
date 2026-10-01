@@ -48,5 +48,5 @@ def test_a_car_that_stops_and_drives_on_is_not_cut():
     assert n == 0
 
 
-def test_default_off():
-    assert cfg.THEFT_SPLIT is False
+def test_shipped_default_on():
+    assert cfg.THEFT_SPLIT is True               # arm ts1, 2026-10-01
