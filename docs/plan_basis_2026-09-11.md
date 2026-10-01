@@ -3108,3 +3108,4 @@ hand-off the labels showed: cam2 t831 / t818, cam5 t393). 8-143 cuts a window. C
   at dawn (a car and the glow its headlights throw ahead). Appearance cannot separate a car from its
   own glow. The residual is a detector matter (item 4's d3 arm), not a linking one. Identity
   theft, the error the labels do show, got the split (ts1).
+    ts1 FM 51 (held out): 85.7 / 73.9 and 89.8 / 79.2, IDENTICAL; events 1,598 -> 1,605, 1,957 -> 1,967.
