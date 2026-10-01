@@ -3128,3 +3128,22 @@ hand-off the labels showed: cam2 t831 / t818, cam5 t393). 8-143 cuts a window. C
     + the head fix, on EVERY camera (one default detector). Probe: clicks covered equal or better
     than the large model on every clip (cam1 183, cam2 295, cam3 103, cam4 224, cam5 199).
     Control 86.87 / 74.29; letter + FM 51 (its production cache is already ft2) + labels.
+  ARM d4 VERDICT (stopped after cam1 0700, which alone fails the letter): cam1 0700 91.0 -> 66.7;
+    labels on the cam1 clip 81 -> 69 (15 vs 3 discordant, p = 0.008), no_track 4 -> 10, broken
+    5 -> 11; the GT-free bank discovered a phantom 25->23 right (156 support) on the noisier tracks.
+    At 640 px cam1's small far-field vehicles are not held: the probe's click coverage (one frame)
+    does not show tracking continuity.
+
+### ITEM 4 VERDICT 2026-10-01
+  * THE HEAD FIX is safe and useful: never fewer boxes, duplicate pairs to zero. It does not ship
+    alone because no single MODEL beats the current per-camera mix everywhere:
+      large @ 1280 (d2b)  +0.07 fleet, loses cam3 dawn (confidence) and cam2 1600 at the bar;
+      small @ 960 (d3)    loses cam1 (-4.3) and per vehicle;
+      site-trained @ 640  loses cam1 badly (resolution).
+  * FINDING FOR THE OPERATOR: the production detections are a per-camera recipe (cam1/2 large @
+    1280, cam3 site-trained @ 640, cam4/5 small @ 960), which the one-default ruling does not allow
+    and which a new site cannot reproduce (it gets the project's processing mode). The honest
+    one-detector control has never been measured.
+  * WHAT WOULD WIN EVERYWHERE: the site-trained model's dawn confidence at the large model's
+    resolution - plan phase 4c (fine-tune at 1280 on pseudo-labels from linked tracks), a separate
+    plan.
