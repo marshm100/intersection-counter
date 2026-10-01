@@ -3215,3 +3215,13 @@ and E line geometry, step 4b). Backup: project_20261001T125730_pre_default_repro
 ## ARM fr3 DECLARED (before scoring): FULL_JOURNEY_RESCUE=1 on the shipped default (ts1)
   Control 87.01 / 76.22. Letter + FM 51 + dev labels. Expected: cam5 EB right up (approach), cam1
   0700 EB right and cam2 1600 SB right (fr2's breaches) to watch.
+
+## cam2 EB RIGHT OVERCOUNT (2026-10-01): far-band traffic on the far-side lines
+cam2 07:00 EB right ours 275 vs Mio 167: ~120 full gate journeys (W in, S out), ~124 exit_only with
+the origin assigned W by the branch-1 posterior, 15 no_crossing, 14 entry_only rescued by
+supports (popularity). Labels (cam2 16:05 clip): 17 counted vs 15 labelled; 5 belong to no
+labelled vehicle - long (6-29 s), small (5-25 px) tracks along the FAR ROAD BAND (y ~105-120).
+screenshots/cam2_ebright_geometry.png: witnessed and inferred EB rights alike run along the far
+band where the W and S lines lie - the same geometry as cam5 (step 4b): lines along a traffic
+band cannot tell a grazing far-band vehicle from a turn. The operator's gate-line question
+(paused 2026-09-26) is the lever for BOTH cameras' approach bins; no code rule.
