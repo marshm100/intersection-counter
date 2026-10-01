@@ -381,6 +381,9 @@ class TestPipelineWiring:
         counted there by the posterior — the rewrite-gate rule applies
         per-candidate, the pool empties, and legacy fallback proceeds."""
         plmod = _enable(monkeypatch)
+        # the veto is the subject; the legacy fallback it proceeds to is the
+        # no-crossing side door, closed by default since 2026-09-30 (nf1b)
+        monkeypatch.setattr(plmod, "NOCROSS_NO_FALLBACK", False)
         monkeypatch.setattr(ProcessingPipeline, "_gate_evidence",
                             lambda self, v: (None, None, "no_crossing"))
         # as the real chain would look: the winner-only rewrite gate already

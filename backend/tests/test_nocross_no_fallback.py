@@ -89,8 +89,8 @@ class TestNoCrossNoFallback:
         p, evs = _run(env, monkeypatch, (None, 2, "exit_only"), rule=True)
         assert len(evs) == 1
 
-    def test_default_off(self):
-        assert cfg.NOCROSS_NO_FALLBACK is False
+    def test_shipped_default_on(self):
+        assert cfg.NOCROSS_NO_FALLBACK is True        # arm nf1b, 2026-09-30
 
 
 class TestExtentAwareFallback:

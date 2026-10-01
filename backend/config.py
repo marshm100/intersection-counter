@@ -652,9 +652,12 @@ LINKER_MIDBOX_COST = 6.0         # cost of a piece ending / starting mid-box
 # get "left" from the polyline fallback because the applied left path starts
 # at x ~ 536 and the through path at x ~ 508, and the stubs live upstream of
 # 508. When ON (evidence mode "on" only), such a track gets no destination
-# and drops, the rescue block's own rule. NO NEW CONSTANTS. Default OFF.
+# and drops, the rescue block's own rule. NO NEW CONSTANTS.
+# SHIPPED default ON 2026-09-30 (operator go after arm nf1b on the linker
+# default: fleet 82.68 -> 86.87, approach +9.0, FM 51 identical; journey
+# labels: phantoms 47 -> 25, real cars 434 -> 433).
 NOCROSS_NO_FALLBACK = _os2.environ.get(
-    "NOCROSS_NO_FALLBACK", "0") in ("1", "true", "on")
+    "NOCROSS_NO_FALLBACK", "1") in ("1", "true", "on")
 # arm nf2 (2026-09-26): instead of closing the side door, the fallback may
 # only compare path lines over the stretch of the track that lies alongside
 # ALL of them (trajectory_classifier.score_destination_by_polyline_extent).

@@ -32,7 +32,7 @@ RULES = ("GATE_GROUND_ANCHOR", "STRAIGHT_FRAGMENT_RULE",
          "GATE_EVIDENCE_EITHER_CORNER", "JOURNEY_STATE_MACHINE",
          "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS", "FRACTURE_DEDUP",
          "GATE_EXIT_ONLY_BINDING", "BOUND_CHAIN_CONSERVE",
-         "TRACKLET_LINKER", "TRACKLET_LINKER_EXCLUSIVE")
+         "TRACKLET_LINKER", "TRACKLET_LINKER_EXCLUSIVE", "NOCROSS_NO_FALLBACK")
 assert all(getattr(cfg, r) for r in RULES), "the default is not ON in config"
 assert not cfg.LINKER_STOPPED_LEVEL, "the linker ships with the stopped level OFF"
 import os  # noqa: E402
@@ -51,13 +51,11 @@ WINDOWS = [(1, "study_0700"), (1, "study_1600"),
            (4, "study_0700"), (4, "study_1100"), (4, "study_1600"),
            (5, "study_0700"), (5, "study_1100"), (5, "study_1600")]
 NOTE = ("operator go 2026-09-30: reprocess under THE DEFAULT "
-        "(the global tracklet linker ON, moving levels only; cams 1-3 on the "
-        "promoted default-tracker dumps)")
+        "(the no-crossing side door closed, arm nf1b, on the linker default)")
 ARM = Path("data/projects/97a7849a/_replay_scratch/fleet_20260908")
-ARM_STEM = "lk2"   # the arm this reprocess must reproduce
-# cams 1-3 ran that arm on the rt_ (default-tracker) dumps, which are now
-# PROMOTED to study_*. Same rows, different variant name in the arm DBs.
-ARM_VARIANT = {1: "rt_{}", 2: "rt_{}", 3: "rt_{}"}
+ARM_STEM = "nf1b"   # the arm this reprocess must reproduce
+# nf1b ran every camera on the promoted study_* dumps
+ARM_VARIANT: dict = {}
 
 
 def main() -> int:
@@ -66,7 +64,7 @@ def main() -> int:
     con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     con.close()
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
-    backup = proj_db.parent / "backups" / f"project_{ts}_pre_default_reprocess_lk2.db"
+    backup = proj_db.parent / "backups" / f"project_{ts}_pre_default_reprocess_nf1b.db"
     shutil.copy2(proj_db, backup)
     print(f"pre-reprocess backup: {backup} ({backup.stat().st_size // 2**20} MB)",
           flush=True)
