@@ -1491,6 +1491,10 @@ def _pass1_ingest(project_id, video, chash, hash_method, pq, out, meta, fps,
         while w > 0 and int(mm[w - 1, 1]) >= resume_from:
             w -= 1
         state["mm"], state["w"] = mm, w
+        # state holds the only reference: _grow_rows must be able to drop
+        # the mapping before replacing rows.npy (Windows refuses to replace a
+        # mapped file - a resumed run died at its first grow, 2026-10-01)
+        del mm
         state["bf"] = _load_backfill(out, resume_from)
     else:
         k0 = 0
