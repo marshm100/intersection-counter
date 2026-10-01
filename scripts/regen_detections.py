@@ -8,6 +8,9 @@ A window's variant PREFIX_study_HHMM gets its own parquet cache and dump
 Window frames come from each base window's cache meta.
 
 Usage: DETECT_DEDUP_HEAD=1 DETECT_HALF=1 .venv/Scripts/python.exe -X utf8 scripts/regen_detections.py PREFIX [CAM:WINDOW ...]
+REGEN_MODEL / REGEN_IMGSZ (2026-10-01, item 4): override the processing mode's detector
+model and image size for this run only (project.db is never written), e.g.
+REGEN_MODEL=yolo26s.pt REGEN_IMGSZ=960 for one default model on every camera.
 Default windows: the 12 corridor windows.
 """
 from __future__ import annotations
@@ -44,6 +47,20 @@ def main() -> int:
         return p
 
     _db.get_camera_calibration_params = blank_site
+    import os
+    if os.environ.get("REGEN_MODEL") or os.environ.get("REGEN_IMGSZ"):
+        import backend.config as _cfg
+        real_mode = _cfg.get_processing_mode_config
+
+        def mode(name):
+            c = dict(real_mode(name))
+            if os.environ.get("REGEN_MODEL"):
+                c["yolo_model"] = os.environ["REGEN_MODEL"]
+                c["yolo_class_scheme"] = "coco"
+            if os.environ.get("REGEN_IMGSZ"):
+                c["yolo_imgsz"] = int(os.environ["REGEN_IMGSZ"])
+            return c
+        _cfg.get_processing_mode_config = mode
     from backend.services.two_pass import run_pass1
     con = sqlite3.connect(f"file:data/projects/{PROJ}/project.db?mode=ro", uri=True)
     for cam, window in wins:
