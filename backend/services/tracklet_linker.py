@@ -375,7 +375,7 @@ def link_rows(rows: np.ndarray, fps: float, gates, frame_size=None):
 def ensure_linked_dump(project_id: str, camera_id: int, variant: str,
                        fps: float, base_tdir, base_rows, base_meta: dict,
                        frame_size=None):
-    """Materialise (or reuse) the linked dump lk_{variant}.tracks beside the
+    """Materialise (or reuse) the linked dump lk{sig}_{variant}.tracks beside the
     base dump (the track_cut.ensure_cut_dump pattern). Returns (variant',
     tdir', meta', rows'). The base dump is never touched."""
     import json
@@ -384,10 +384,15 @@ def ensure_linked_dump(project_id: str, camera_id: int, variant: str,
     from backend.services.track_cut import _geom_hash
     from backend.services.two_pass import _pinned_gates
 
-    new_variant = f"lk_{variant}"
-    dst = Path(str(base_tdir).replace(f"{variant}.tracks", f"{new_variant}.tracks"))
     ghash = _geom_hash(project_id, camera_id)
     cfg_sig = linker_signature()
+    # One directory per linker setting (2026-10-01): arms with different
+    # linker settings no longer overwrite each other's derived dump (arm ts1
+    # rewrote the dump a concurrent journey score of the default was reading).
+    import hashlib
+    sig_h = hashlib.sha1(json.dumps(cfg_sig, sort_keys=True).encode()).hexdigest()[:6]
+    new_variant = f"lk{sig_h}_{variant}"
+    dst = Path(str(base_tdir).replace(f"{variant}.tracks", f"{new_variant}.tracks"))
     meta_p = dst / "meta.json"
     if meta_p.exists():
         m = json.loads(meta_p.read_text())

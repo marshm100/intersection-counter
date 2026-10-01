@@ -56,7 +56,9 @@ def locate(stem: str, prefixes: dict, cam: int, window: str, chash: str):
         d.close()
         base = f"{pre}{window}" if pre != "vl3_" else window
         best, best_cov = None, -1.0
-        for v in (f"lk_{base}", base, f"{pre}{window}"):
+        root = tracks_dir(parquet_path(PROJ, cam, chash, base)).parent
+        linked = sorted(p.name[:-len(".tracks")] for p in root.glob(f"lk*_{base}.tracks"))
+        for v in (*linked, base, f"{pre}{window}"):
             td = tracks_dir(parquet_path(PROJ, cam, chash, v))
             if not (td / "count.txt").exists():
                 continue

@@ -1679,7 +1679,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     # THE GLOBAL TRACKLET LINKER (flag-gated, 2026-09-30,
     # docs/research_tracking_2026-09-29.md phase 2): join the pieces a
     # vehicle's track broke into BEFORE the bank, the replays and every
-    # post-pass read `rows`, via a derived dump lk_{variant}.tracks (the
+    # post-pass read `rows`, via a derived dump lk{sig}_{variant}.tracks (one per linker setting) (the
     # ensure_cut_dump pattern). Fail-safe: any error falls back to the
     # unlinked dump (processing never breaks on the linker).
     from backend.config import TRACKLET_LINKER as _lk_on

@@ -3081,3 +3081,30 @@ THEFT_SPLIT=1 on the shipped default (nf1b): before linking, cut a track where i
 slows at a box clearly smaller than both runs, and runs back the other way (the far-field
 hand-off the labels showed: cam2 t831 / t818, cam5 t393). 8-143 cuts a window. Control 86.87 /
 74.29. Letter + FM 51 + labels (no_track and wrong should fall; correct must not).
+
+### ITEM 3 VERDICT 2026-10-01: cam2 tracker settings — neither helps; the third is not indicated
+  cam2 16:00 re-tracked (scripts/retrack_default_tracker.py), judged on the window and the labels
+  (142 cam2 journeys; default 117 correct):
+    f0  TRACKER_FUSE_SCORE=0   window 73.1 -> 66.4 (-6.7)   labels 117 -> 114   FAIL
+    fa  FPS_AWARE=1             window 73.1 -> 72.2 (-0.9)   labels 117 -> 116   FAIL
+  The XYWH Kalman ablation is NOT built: the labels put cam2's per-vehicle errors in identity
+  theft (far-field reversals, item 5) and no-track gaps, not in box-shape prediction.
+
+### ARM ts1 VERDICT 2026-10-01 (item 5, the theft split): LABELS GAIN, LETTER MISSED ON ONE CLAUSE
+    FLEET 86.87 -> 87.01 (+0.14). camera means: cam1 -2.10, cam2 +1.30, cam3 +1.10, cam4 0.00,
+    cam5 +0.30. Windows: cam1 0700 -2.9, 1600 -1.3 | cam2 +1.0 / +1.0 / +1.9 | cam3 +1.1 |
+    cam5 1600 +0.9. Worst window -2.9 (bar -3.0); cam1's camera mean breaches -1.0.
+    JOURNEY LABELS (clean pair, one linked dump per linker setting): 433 -> 438 of 512; discordant
+    0 vs 5 (cam2 3, cam5 2; p = 0.06): no labelled vehicle gets worse. cam1's clip: unchanged.
+    cam1 over the window: 14 cuts add ~23 through events (2146 -> 2157, 1765 -> 1777).
+    Operator's call (the gx2 precedent): a camera-clause miss with a labelled, loss-free gain.
+  INFRASTRUCTURE: linked dumps are now lk{sha6 of the linker settings}_{window} (one per setting),
+  so concurrent arms and journey scoring never read another setting's dump.
+
+### ITEM 5 VERDICT 2026-10-01: the learned link classifier and the appearance veto are not indicated
+  The labels' remaining double counts (15 on the theft-split arm) are NOT breaks across a gap
+  (what a link classifier decides): 10 are two tracks running side by side AT THE SAME TIME,
+  same heading, 2-3 boxes apart, overlapping 0.5-1.5 s - one vehicle seen twice; 8 of them on cam3
+  at dawn (a car and the glow its headlights throw ahead). Appearance cannot separate a car from its
+  own glow. The residual is a detector matter (item 4's d3 arm), not a linking one. Identity
+  theft, the error the labels do show, got the split (ts1).
