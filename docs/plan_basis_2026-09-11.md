@@ -3029,3 +3029,12 @@ labels (521 journeys, 5 clips): cam5 NB-left phantoms should fall; cam2 must not
     (truth 8, plus 2 real lefts whose back tyre crosses after the clip ends).
     cam2 no longer blocks it: on the default tracker its no-crossing stubs are surplus too.
 SHIP NEEDS THE OPERATOR'S GO.
+
+## SHIPPED 2026-10-01 — the no-crossing side door closed (arm nf1b)
+Operator go: "Yes". All 12 windows reprocessed; every window's event total/kept matches arm nf1b
+exactly. Fleet 86.87 / approach 74.29. Health: cams 1, 2, 4 green; cam3 amber; cam5 red on all
+three windows, now ONLY for N_right (39 -> 36): 30-44 counts per window, 78-93% gate-full
+override, "no history". The N_left 2.09x flag cleared. Labels: N_right truth 1 vs counted 3 in the
+cam5 clip (one is labelled through 455, track 408, counted right by its gate crossings). NEXT
+cam5 item: the gate geometry that makes NB throughs read as rights.
+Backup: project_20261001T000345_pre_default_reprocess_nf1b.db.
