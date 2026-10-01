@@ -3004,3 +3004,28 @@ losses in the densest queues (cam2, cam3). cam3 dropped tracks 7139 -> 2254 on s
 head + NMS, class-AGNOSTIC NMS at iou 0.6, FP16); dense queued vehicles overlap > 0.6 and
 agnostic NMS can merge two real vehicles. Not shipped. Next, if pursued: split the arm —
 class-aware NMS only (keeps car-vs-truck duplicates to a later twin dedup) vs half only.
+
+## ARM nf1b DECLARED 2026-09-30 (operator: "Yes go for it") — the no-crossing side door, re-run
+on the shipped default — BEFORE scoring
+
+WHY NOW: the journey labels (cam5 07:05 clip) show cam5's NB-left overcount directly: truth 8,
+counted 17. Eight of the extra are short far-field stubs (18-57 points, boxes 14-59 px) along the
+NB through lane at y ~180, gate tag no_crossing (one entry_only), labelled left by the nearest-line
+fallback. No click lands on any of them, and the clip's NB throughs are matched to other tracks:
+SURPLUS pieces, as nf2 concluded. nf1 failed only on cam2, then on its one-off BoT-SORT basis;
+cam2 is now on the default tracker and the linker is shipped.
+ARM nf1b: NOCROSS_NO_FALLBACK=1 on THE DEFAULT as shipped 2026-09-30 (linker on), all 12 windows.
+Control: fleet 82.68 / approach 65.28 (lk2). Letter G-DEF-1 + FM 51. ALSO judged on the journey
+labels (521 journeys, 5 clips): cam5 NB-left phantoms should fall; cam2 must not lose real cars.
+
+### ARM nf1b VERDICT 2026-09-30: PASSES THE LETTER
+    FLEET movement 82.68 -> 86.87 (+4.19); approach 65.28 -> 74.29 (+9.01).
+    camera means: cam1 +1.70, cam2 +6.60, cam3 -0.30, cam4 +2.50, cam5 +6.63 (none worse than -1.0).
+    windows: cam1 +1.1 / +2.3 | cam2 +6.2 / +1.1 / +12.5 | cam3 -0.3 | cam4 0.0 / 0.0 / +7.5 |
+    cam5 +5.6 / +7.6 / +6.7. Worst window -0.3 (bar -3.0).
+    FM 51 (held out): 85.7 / 73.9 and 89.8 / 79.2, IDENTICAL; events 1,609 -> 1,598, 1,968 -> 1,957.
+    JOURNEY LABELS (521 journeys): correct 434 -> 433 (discordant 2 vs 1, p = 1.0): real cars
+    untouched. Phantoms 47 -> 25 (cam2 17 -> 6, cam5 14 -> 7). cam5 NB left in the clip 17 -> 11
+    (truth 8, plus 2 real lefts whose back tyre crosses after the clip ends).
+    cam2 no longer blocks it: on the default tracker its no-crossing stubs are surplus too.
+SHIP NEEDS THE OPERATOR'S GO.
