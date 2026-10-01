@@ -3243,3 +3243,14 @@ approach 82.03 / vehicle error 2,605. Health: cams 1, 2, 4 green; cam3 amber; ca
 the S/E line geometry). Backup: project_*_pre_default_reprocess_fr3.db.
 Also fixed on the way (Step 9.61): a resumed pass-1 run kept an outer mapping of rows.npy, so its
 first grow could not replace the file on Windows.
+
+## OPERATOR RULING 2026-10-01: "No the lines are drawn fine" - and the crossing-angle test
+The cam2 / cam5 lines stay. Tested a software alternative - a minimum crossing angle (a vehicle
+moving almost along a line grazes it, not crosses it) - on the dev labels
+(scripts/research_crossing_angle.py, arm fr3, angle between the bottom-centre motion +-0.5 s and the
+line; 90 = straight across):
+  CORRECT counts' crossings  n=840  median 36  p10 14  below 15 deg: 129, below 20: 308
+  WRONG                      n=21   median 39           below 15: 5,   below 20: 9
+  PHANTOM                    n=47   median 16           below 15: 16,  below 20: 28
+In the image, perspective makes real crossings shallow too: any cutoff that removes the phantoms'
+crossings removes several times as many real ones. NOT BUILT. The grazes are not separable by angle.
