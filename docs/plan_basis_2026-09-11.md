@@ -3147,3 +3147,19 @@ hand-off the labels showed: cam2 t831 / t818, cam5 t393). 8-143 cuts a window. C
   * WHAT WOULD WIN EVERYWHERE: the site-trained model's dawn confidence at the large model's
     resolution - plan phase 4c (fine-tune at 1280 on pseudo-labels from linked tracks), a separate
     plan.
+
+## STEP 2 FINDINGS 2026-10-01 (the next-phase plan): the entries ARE seen; cam5's are not CROSSED
+scripts/research_late_births.py (arm ts1, development clips, 512 vehicles):
+  SEEN 476 (the track was alive when the back tyre crossed in); LATE 20 (median 0.10 s, 90th pct
+  0.30 s; 15 with a confident box, 4 with none, 1 weak); NO ENTRY TRACK 16 (14 confident box: the
+  thefts / one-to-one conflicts of item 1; 2 no box).
+  => LATE BIRTH IS NOT THE PROBLEM, and weak-birth promotion (1 vehicle) is not the lever.
+The no-inference cost (cam5 489-491, exit_only): tracks born on the back-tyre frame, alive at
+entry - but cam5's S gate line (586,221)-(324,184) runs ALONG the northbound lane (~8 deg to the
+travel direction). A NB car grazes the line instead of crossing it. Density map
+screenshots/density_cam5_study_0700_s2.png: the S and E lines both lie along the far roadway band
+where that traffic runs left/right. Same geometry as the cam5 N_right phantom (step 4).
+BORN_AT_MOUTH (config, entry_gates.classify_pair; 3 tests) built and OFF: the ray back from those
+births meets the S line ~200 px away (grazing), so the rule correctly refuses; not run as an arm.
+NEXT: the operating rule - a cam5 redraw of S (and E) ACROSS the lanes where the tracks are, the
+operator's call; then re-score cam5 and re-run os1.

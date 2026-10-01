@@ -780,6 +780,21 @@ def classify_pair(track_l, track_r, gates, fps, lanes=None):
                         track, gates, fps, lanes, origin, c)):
                     dest = c
 
+    from backend.config import BORN_AT_MOUTH, BORN_AT_MOUTH_WIDTHS
+    if (BORN_AT_MOUTH and origin is None and exit_first is not None
+            and track and gates and track_l and track_r):
+        k = max(1, min(len(track) - 1, int(round(BORN_INSIDE_VEL_S * fps))))
+        vel = _velocity(track, 0, k)
+        lg, pt = nearest_line_in_direction(track[0][1:], vel, gates, True)
+        width = math.hypot(track_r[0][1] - track_l[0][1], track_r[0][2] - track_l[0][2])
+        if (lg is not None and width > 0
+                and math.hypot(pt[0] - track[0][1], pt[1] - track[0][2])
+                <= BORN_AT_MOUTH_WIDTHS * width
+                and track[0][0] < exit_first[0]
+                and (exit_first[1] != lg or _uturn_admissible(
+                    track, gates, fps, lanes, (track[0][0], lg, True, pt), exit_first))):
+            c = exit_first
+            return lg, c[1], track[0][0], c[0], pt, c[3], "full"
     if origin is None and exit_first is not None:
         c = exit_first
         return None, c[1], c[0], None, None, c[3], "exit_only"

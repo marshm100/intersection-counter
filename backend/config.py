@@ -329,6 +329,18 @@ GATE_EXTENSION_MARGIN = 0.25
 BORN_INSIDE_NEAREST_LINE = _os2.environ.get(
     "BORN_INSIDE_NEAREST_LINE", "0") in ("1", "true", "on")
 BORN_INSIDE_VEL_S = 1.0
+# BORN AT THE MOUTH (2026-10-01, plan step 2; docs/plan_basis_2026-09-11.md
+# "late births"): the narrow case of G-DEF-7 (which MISSED by handing every
+# track born inside the lines an origin, mid-box births from occlusion
+# included). The journey labels show the entry-less vehicles that cost the
+# no-inference ruling are born AT the mouth - cam5 489-491: tracks born on the
+# frame the back tyre crossed, 0.7 box widths past the S line's end, already
+# holding a real exit. When ON: a track whose first valid crossing is an EXIT
+# (exit_only) entered over the line the ray back along its first second of
+# travel hits, if that hit lies within BORN_AT_MOUTH_WIDTHS box widths of its
+# birth. The vehicle's own first appearance, not anyone's statistics. OFF.
+BORN_AT_MOUTH = _os2.environ.get("BORN_AT_MOUTH", "0") in ("1", "true", "on")
+BORN_AT_MOUTH_WIDTHS = 1.0
 
 # THE LINES ARE THE MOUTHS (operator ruling 2026-09-10 on the gates
 # review: "all the lines are where they are intended to be but the
