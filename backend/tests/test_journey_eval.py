@@ -92,3 +92,20 @@ def test_a_neighbour_in_a_platoon_is_not_charged_to_this_car():
               _label(2, 0, 118, 0, 20, 118, 100)]
     r = score_clip(labels, rows, [_ev(1), _ev(2)], CLIP)
     assert r["outcomes"] == {"correct": 2}
+
+
+def test_entry_click_just_before_the_track_is_born_is_the_same_car():
+    # car A's track starts at frame 0, y 0; clicked 2 frames earlier, 10 px back
+    labels = [_label(1, -2, 100, -10, 20, 100, 100)]
+    r = score_clip(labels, ROWS, [_ev(1)], CLIP, fps=10.0)
+    assert r["outcomes"] == {"correct": 1}
+
+
+def test_a_packed_queue_is_matched_one_car_to_one_track():
+    # two queued cars 12 px apart; car 2's entry click sits nearer car 1's centre
+    rows = np.array(_track(1, 0, 20, 100, 50, dy=5.0) + _track(2, 0, 20, 100, 62, dy=5.0),
+                    dtype=float)
+    labels = [_label(1, 0, 100, 50, 20, 100, 150),
+              _label(2, 0, 100, 55, 20, 100, 162)]
+    r = score_clip(labels, rows, [_ev(1), _ev(2)], CLIP)
+    assert r["outcomes"] == {"correct": 2}
