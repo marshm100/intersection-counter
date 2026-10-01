@@ -3204,3 +3204,14 @@ Control: fleet 87.01. Letter + FM 51 + the dev labels; held-out labels if it is 
 All 12 windows reprocessed; every window's event total/kept matches arm ts1 exactly. Fleet 87.01 /
 approach 76.23. Health unchanged in kind: cams 1, 2, 4 green; cam3 amber; cam5 red (N_right - the S
 and E line geometry, step 4b). Backup: project_20261001T125730_pre_default_reprocess_ts1.db.
+
+## WHERE THE APPROACH BINS FAIL (2026-10-01, scripts/research_approach_fail.py, production = ts1)
+  cam2: EB over 17 bins (EB right over every bin, e.g. 38 vs 11), WB over 10 (+8-10%, rights and
+  throughs), SB mixed 9. cam5: EB UNDER all 8 bins at 07:00 (-42%; EB right 69 vs Mio 188).
+  cam5 EB right: 100 tracks with a FULL gate journey W(38) -> S(39) are DROPPED as
+  classifier_insufficient - the u-turn-branch defect FULL_JOURNEY_RESCUE was built for (arm fr1/fr2,
+  blocked only by cam2 on its old one-off tracker; cg1 and the merge half of fr2 no longer act:
+  the linker bypasses the bound-chain guard and the turn merge).
+## ARM fr3 DECLARED (before scoring): FULL_JOURNEY_RESCUE=1 on the shipped default (ts1)
+  Control 87.01 / 76.22. Letter + FM 51 + dev labels. Expected: cam5 EB right up (approach), cam1
+  0700 EB right and cam2 1600 SB right (fr2's breaches) to watch.
