@@ -75,20 +75,41 @@ def _ends(rows: np.ndarray) -> tuple[dict, dict]:
             {int(t): r[i] for t, i in zip(tids, i1)})
 
 
+def _rear_point(byf: dict, tid: int, frame: int, r) -> tuple[float, float]:
+    """Where the operator clicks: the BACK TYRE (operator 2026-09-30: clicks
+    are made as the back tyre crosses the gate). The box's lower half, set back
+    from the centre against the direction of travel (from the same track a few
+    frames either side); the lower centre if the track has no motion here."""
+    cx, cy, bw, bh = float(r[2]), float(r[3]), float(r[4]), float(r[5])
+    pts = [(f, q) for f in range(frame - 3, frame + 4)
+           for q in byf.get(f, ()) if int(q[0]) == tid]
+    ux = uy = 0.0
+    if len(pts) >= 2:
+        (fa, a), (fb, b) = min(pts, key=lambda p: p[0]), max(pts, key=lambda p: p[0])
+        dx, dy = float(b[2] - a[2]), float(b[3] - a[3])
+        n = float(np.hypot(dx, dy))
+        if n > 1e-6:
+            ux, uy = dx / n, dy / n
+    back = 0.7 * (abs(ux) * bw / 2 + abs(uy) * bh / 2)
+    return cx - ux * back, cy + bh / 4 - uy * back
+
+
 def _candidates(byf: dict, ends: dict, frame: int, x: float, y: float,
                 fps: float, side: str) -> dict:
-    """Track id -> cost of matching this click. Under the click: the click's
-    distance from the box centre in half-box units (1 = the box edge), plus a
-    little per frame of search. Otherwise a track BORN just after an entry
-    click (side 'in') or that ENDED just before an exit click (side 'out'),
-    close to it: cost 2 + its distance in box widths."""
+    """Track id -> cost of matching this click. Under the click (inside the
+    padded box): the click's distance from the box's BACK-TYRE point in
+    half-diagonals, plus a little per frame of search. Otherwise a track BORN
+    just after an entry click (side 'in') or that ENDED just before an exit
+    click (side 'out'), close to it: cost 2 + its distance in box widths."""
     out: dict = {}
     for df in range(-SEARCH_FRAMES, SEARCH_FRAMES + 1):
         for r in byf.get(frame + df, ()):
             bw, bh = max(float(r[4]), 1.0), max(float(r[5]), 1.0)
             d = max(abs(x - r[2]) / (bw / 2), abs(y - r[3]) / (bh / 2))
             if d <= 1 + 2 * BOX_PAD:
-                c = d + 0.1 * abs(df)
+                rx, ry = _rear_point(byf, int(r[0]), frame + df, r)
+                c = (np.hypot(x - rx, y - ry) / (0.5 * np.hypot(bw, bh))
+                     + 0.1 * abs(df))
                 t = int(r[0])
                 out[t] = min(out.get(t, c), c)
     for t, r in ends.items():
