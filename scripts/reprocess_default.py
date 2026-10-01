@@ -51,7 +51,7 @@ WINDOWS = [(1, "study_0700"), (1, "study_1600"),
            (3, "study_0600"),
            (4, "study_0700"), (4, "study_1100"), (4, "study_1600"),
            (5, "study_0700"), (5, "study_1100"), (5, "study_1600")]
-NOTE = ("operator go 2026-09-30: reprocess under THE DEFAULT "
+NOTE = ("operator go 2026-10-01: reprocess under THE DEFAULT "
         "(the theft split before linking, arm ts1, on the nf1b default)")
 ARM = Path("data/projects/97a7849a/_replay_scratch/fleet_20260908")
 ARM_STEM = "ts1"   # the arm this reprocess must reproduce
