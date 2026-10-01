@@ -634,6 +634,24 @@ LINKER_STOP_GAP_S = 60.0         # a stopped car's break, up to about a red ligh
 # The stopped level can be switched off (arm lk2): on cam3's long queues it
 # joined distinct queued cars (lk1: 5,052 stopped links, SB/NB through -930/-590).
 LINKER_STOPPED_LEVEL = _os2.environ.get("LINKER_STOPPED_LEVEL", "0") in ("1", "true", "on")
+# THE THEFT SPLIT (2026-10-01, item 5; docs/plan_basis_2026-09-11.md "ITEM 1"):
+# the journey labels' identity thefts are smooth far-field hand-offs - a track
+# follows a car driving away until its box is 12-20 px and nearly still, then
+# carries on with a car coming the other way (cam2 t831, cam5 t386/t393,
+# cam3 t471). No position jump, so per-frame guards miss them (rg2). A real
+# vehicle does not slow to a stop and come back the way it went (a U-turn
+# turns through a curve while moving). When ON, the linker first cuts a track
+# where a sustained run of movement is followed, across only slow samples, by
+# a sustained run the opposite way, at a turning point whose box is clearly
+# smaller than both runs'. Sampled every THEFT_SAMPLE_S; speed in box widths
+# per second (scale- and frame-rate-free). Default OFF.
+THEFT_SPLIT = _os2.environ.get("THEFT_SPLIT", "0") in ("1", "true", "on")
+THEFT_SAMPLE_S = 0.5
+THEFT_MOVE_WPS = 1.0          # moving = at least 1 box width per second
+THEFT_RUN_S = 1.0             # each run lasts at least 1 s ...
+THEFT_RUN_BOXES = 2.0         # ... and travels at least 2 box widths
+THEFT_REVERSE_DEG = 135.0     # the two runs' headings differ by more than this
+THEFT_TURN_SIZE_FRAC = 0.7    # turning-point box <= this x each run's median box
 LINKER_OVERLAP_MAX_S = 0.5       # coexisting pieces are two vehicles beyond this
 LINKER_OVERLAP_MAX_FRAC = 0.2    # ... or beyond 20% of the shorter piece
 LINKER_RESID_BASE = 1.0          # box units: prediction residual gate at gap 0

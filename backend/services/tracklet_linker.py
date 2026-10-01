@@ -163,10 +163,79 @@ def _assign(tails, heads, cands, death, birth):
             if i < nT and j < nH and M[i, j] < BIG]
 
 
+def split_reversals(rows: np.ndarray, fps: float, c) -> tuple[np.ndarray, int]:
+    """THE THEFT SPLIT (config.THEFT_SPLIT): cut each track where it moves one
+    way, slows, and moves back the other way at a smaller box than either run
+    (a far-field hand-off between an outgoing and an oncoming car). The part
+    after each cut gets a new track id. Returns (rows', number of cuts)."""
+    rows = np.array(rows, dtype=np.float64, copy=True)
+    if not len(rows):
+        return rows, 0
+    order = np.lexsort((rows[:, 1], rows[:, 0]))
+    rows = rows[order]
+    tids, starts = np.unique(rows[:, 0], return_index=True)
+    ends = np.append(starts[1:], len(rows))
+    next_tid = float(rows[:, 0].max()) + 1
+    step = max(1, int(round(c.THEFT_SAMPLE_S * fps)))
+    min_run = max(2, int(round(c.THEFT_RUN_S / c.THEFT_SAMPLE_S)))
+    cuts = 0
+    for a, b in zip(starts, ends):
+        tr = rows[a:b]
+        if len(tr) < 2 * min_run * step:
+            continue
+        idx = np.arange(0, len(tr), step)
+        smp = tr[idx]
+        if len(smp) < 2 * min_run + 1:
+            continue
+        d = np.diff(smp[:, 2:4], axis=0)
+        dt = np.maximum(np.diff(smp[:, 1]), 1) / fps
+        w = np.maximum(smp[:-1, 4], 1.0)
+        spd = np.hypot(d[:, 0], d[:, 1]) / dt / w
+        mov = spd >= c.THEFT_MOVE_WPS
+        # maximal runs of moving samples
+        runs, k = [], 0
+        while k < len(mov):
+            if mov[k]:
+                j = k
+                while j + 1 < len(mov) and mov[j + 1]:
+                    j += 1
+                runs.append((k, j))
+                k = j + 1
+            else:
+                k += 1
+        cut_rows = []
+        for (a1, b1), (a2, b2) in zip(runs, runs[1:]):
+            if b1 - a1 + 1 < min_run or b2 - a2 + 1 < min_run:
+                continue
+            v1, v2 = d[a1:b1 + 1].sum(axis=0), d[a2:b2 + 1].sum(axis=0)
+            w1, w2 = float(np.median(w[a1:b1 + 1])), float(np.median(w[a2:b2 + 1]))
+            if (np.hypot(*v1) < c.THEFT_RUN_BOXES * w1
+                    or np.hypot(*v2) < c.THEFT_RUN_BOXES * w2):
+                continue
+            cosang = float(np.dot(v1, v2) / (np.hypot(*v1) * np.hypot(*v2)))
+            if np.degrees(np.arccos(np.clip(cosang, -1, 1))) <= c.THEFT_REVERSE_DEG:
+                continue
+            between = range(b1 + 1, a2 + 1)          # sample indices of the turn
+            if not len(between):
+                continue
+            k_turn = min(between, key=lambda q: smp[q, 4])
+            if smp[k_turn, 4] > c.THEFT_TURN_SIZE_FRAC * min(w1, w2):
+                continue
+            cut_rows.append(int(idx[k_turn]))
+        for r0 in sorted(cut_rows):                  # ascending: each cut relabels the rest
+            tr[r0:, 0] = next_tid                    # view into rows: in place
+            next_tid += 1
+            cuts += 1
+    return rows, cuts
+
+
 def link_rows(rows: np.ndarray, fps: float, gates, frame_size=None):
     """Link a dump's pieces. Returns (rows', families {root: [members]}, stats)."""
     c = _cfg()
     rows = np.asarray(rows, dtype=np.float64)
+    theft_cuts = 0
+    if getattr(c, "THEFT_SPLIT", False):
+        rows, theft_cuts = split_reversals(rows, fps, c)
     order = np.lexsort((rows[:, 1], rows[:, 0]))
     rs = rows[order]
     tids, starts = np.unique(rs[:, 0], return_index=True)
@@ -182,6 +251,7 @@ def link_rows(rows: np.ndarray, fps: float, gates, frame_size=None):
 
     grace = c.fps_frames(c.TRACK_FINALIZE_GAP_FRAMES, fps)
     stats = defaultdict(int)
+    stats["theft_cuts"] = theft_cuts
     bridges = []
     levels = [("move", c.LINKER_MOVE_GAP_MIN_S, c.LINKER_LEVEL1_GAP_S, True),
               ("move", c.LINKER_MOVE_GAP_MIN_S, c.LINKER_MOVE_GAP_MAX_S, True)]
@@ -353,4 +423,6 @@ def linker_signature() -> dict:
         "LINKER_RESID_PER_S", "LINKER_SIGMA_BASE", "LINKER_SIGMA_PER_S",
         "LINKER_FOLLOWER_RATIO", "LINKER_STOP_DIST_BOXES", "LINKER_MIDBOX_COST",
         "LINKER_STOPPED_LEVEL",
-        "STITCH_STAT_SPEED_PXS", "CHAIN_DIR_TOL_DEG", "CHAIN_BEARING_END_S")}
+        "STITCH_STAT_SPEED_PXS", "CHAIN_DIR_TOL_DEG", "CHAIN_BEARING_END_S",
+        "THEFT_SPLIT", "THEFT_SAMPLE_S", "THEFT_MOVE_WPS", "THEFT_RUN_S",
+        "THEFT_RUN_BOXES", "THEFT_REVERSE_DEG", "THEFT_TURN_SIZE_FRAC")}
