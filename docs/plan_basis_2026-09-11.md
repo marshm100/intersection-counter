@@ -3052,3 +3052,26 @@ one-to-one assignment had given that track to another label. Two causes:
   Plus ~10 sides with NO detection at all (cam4 / cam5 exits): detector misses.
 CONSEQUENCE: no_track is real and splits into THEFT (plan phase 2 step 8, the split step; phase 5
 appearance veto) and DETECTOR MISS (phase 4). The tracker items stay on the list, aimed at those.
+
+## ARM os1 DECLARED 2026-10-01 (item 2, the no-inference audit) — BEFORE scoring
+Operator rulings 2026-09-29/30: a movement comes only from that vehicle's own on-screen evidence;
+matching its own path against fitted templates is allowed; counts, odds and proportions of other
+vehicles are not. ON_SCREEN_ONLY=1 removes the four places they still act: the branch-1 origin
+posterior's supporting_count weighting (shape-only), the dest-tie posterior, the entry-only rescue
+by supports_posterior (no guessed destination), and the cell movement label taken from the most
+supported path (shared label or leg geometry). Basis: THE DEFAULT as shipped 2026-10-01 (nf1b),
+fleet 86.87 / approach 74.29. Judged on the letter, FM 51 and the journey labels. This is a
+COMPLIANCE arm: if it costs little, the ruling says ship it; if it costs a lot, the cost is what the
+ruling is paying, and the operator decides.
+
+### ARM os1 VERDICT 2026-10-01 (item 2, the no-inference audit): MISSES THE LETTER; the cost is measured
+    FLEET 86.87 -> 86.15 (-0.72); approach 74.29 -> 72.12. camera means: cam1 +2.35, cam2 -2.17,
+    cam3 -0.60, cam4 -0.53, cam5 -1.53. Windows: cam1 1600 +4.7 | cam2 0700 -4.8, 1600 -2.7 |
+    cam5 0700 -3.8 (two breaches of -3.0; two camera means past -1.0).
+    JOURNEY LABELS: 432 -> 430 of 512 (3 cam5 cars right -> wrong, 1 cam2 car wrong -> right).
+    MECHANISM (the 3 cam5 cars): exit_only tracks (born after entering; leave N). Their own in-box
+    shape scores S-through vs E-right 0.50 / 0.50; the support-count weighting (S->N throughs are
+    far more common) is what picked S. Without it the coin lands on E.
+    READING: what the ruling costs is vehicles whose ENTRY is not on screen. The on-screen fix is
+    seeing the entry (earlier births: weak-box births, the detector head / dawn model work, item 4),
+    not a better guess. Shipping os1 is the OPERATOR's call (compliance vs -0.72 / -2 cars in 512).
