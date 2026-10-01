@@ -3199,3 +3199,8 @@ GATE 1 (probe, head fix, clicked frames: clicks with a box / at conf >= 0.35):
 ARM p1 DECLARED (before scoring): models/yolo26s_pl1.pt @ 1280 + the head fix on every camera
 (REGEN_MODEL / REGEN_IMGSZ / REGEN_CLASS_SCHEME=finetune_v2), on the shipped default (ts1).
 Control: fleet 87.01. Letter + FM 51 + the dev labels; held-out labels if it is a ship candidate.
+
+## SHIPPED 2026-10-01 — the theft split (arm ts1), operator go
+All 12 windows reprocessed; every window's event total/kept matches arm ts1 exactly. Fleet 87.01 /
+approach 76.23. Health unchanged in kind: cams 1, 2, 4 green; cam3 amber; cam5 red (N_right - the S
+and E line geometry, step 4b). Backup: project_20261001T125730_pre_default_reprocess_ts1.db.

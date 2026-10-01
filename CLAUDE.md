@@ -24,8 +24,11 @@ default ON, moving levels only (LINKER_STOPPED_LEVEL off — it broke cam3) (202
 after arm lk2; it replaces the fracture rule, the bound-chain guard, the continuation rule and
 the turn merge on the linked path); THE NO-CROSSING SIDE DOOR CLOSED NOCROSS_NO_FALLBACK default ON
 (2026-10-01, operator go after arm nf1b: a track that crosses no gate and matches no path shape is
-dropped, not given the nearest line's movement). ELEVEN rules.
-(fleet 86.87 after nf1b on 2026-10-01, approach 74.29; journey labels 521 vehicles, phantoms 47 -> 25,
+dropped, not given the nearest line's movement); THE THEFT SPLIT THEFT_SPLIT default ON (2026-10-01,
+operator go after arm ts1: the linker first cuts a track that follows a car away, slows at a small box
+and comes back with an oncoming car; labels 433 -> 438 of 512 with none worse; missed the camera clause
+on cam1 -2.10 and shipped by ruling, as gx2 was). TWELVE rules.
+(fleet 87.01 after ts1 on 2026-10-01; 86.87 after nf1b on 2026-10-01, approach 74.29; journey labels 521 vehicles, phantoms 47 -> 25,
 real cars unchanged. Fleet 82.68 after the linker on 2026-09-30 — against the HONEST control 80.81, every camera on
 the default tracker; the 83.50 below had cams 1-3 on one-off BoT-SORT recipes, which the
 one-default ruling of 2026-09-29 retired: "we ship one default to all intersections and if it
@@ -39,7 +42,7 @@ NOTE on the gx2 ship: it MISSED the G-DEF-1 letter by 0.20 on one clause (cam1's
 clause was written to stop a default that RUINS a window; that is not this. Do not treat the
 miss as precedent for arguing a letter down without a ruling. Older plan docs' "operating
 notes" that require env flags are superseded. To improve the default: change it, run all
-12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 86.87, ship on a
+12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 87.01, ship on a
 fleet PASS (docs/plan_default_2026-09-10.md). The four windows shipped by hand on 09-09
 and the fleet reprocess on 09-10 are the last per-window applies. (cam4 1600's 70.2-by-ruling
 note is SUPERSEDED: the recovery tracker plus G-EX-2 took that window to 84.9, and the
@@ -143,7 +146,7 @@ a ctrl/arm comparison against it.
 
 ## Testing
 .venv\Scripts\python.exe -m pytest backend/tests/ -q
-# 1384 passing as of 2026-10-01
+# 1392 passing as of 2026-10-01
 
 ## Git
 git commit -m "Step X.X — [title]"
