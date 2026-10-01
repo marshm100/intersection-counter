@@ -3236,3 +3236,10 @@ band cannot tell a grazing far-band vehicle from a turn. The operator's gate-lin
     clip - cam5 2; p = 0.031). FM 51: 85.7 / 73.9 and 89.8 / 79.2, IDENTICAL.
     Operator's call (as gx2 / ts1): a one-window letter miss with a significant, loss-free labelled
     gain.
+
+## SHIPPED 2026-10-01 — the full-journey rescue (arm fr3), operator go
+All 12 windows reprocessed; every window's event total/kept matches arm fr3 exactly. Fleet 88.84 /
+approach 82.03 / vehicle error 2,605. Health: cams 1, 2, 4 green; cam3 amber; cam5 red (N_right,
+the S/E line geometry). Backup: project_*_pre_default_reprocess_fr3.db.
+Also fixed on the way (Step 9.61): a resumed pass-1 run kept an outer mapping of rows.npy, so its
+first grow could not replace the file on Windows.
