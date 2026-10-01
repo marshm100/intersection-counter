@@ -3225,3 +3225,14 @@ screenshots/cam2_ebright_geometry.png: witnessed and inferred EB rights alike ru
 band where the W and S lines lie - the same geometry as cam5 (step 4b): lines along a traffic
 band cannot tell a grazing far-band vehicle from a turn. The operator's gate-line question
 (paused 2026-09-26) is the lever for BOTH cameras' approach bins; no code rule.
+### ARM fr3 VERDICT 2026-10-01: LABELS GAIN, LETTER MISSED ON ONE WINDOW CLAUSE
+    FLEET 87.01 -> 88.84 (+1.83); approach 76.22 -> 82.03 (+5.81); vehicle error 2,994 -> 2,605.
+    camera means: cam1 +1.15, cam2 -0.90, cam3 0, cam4 0, cam5 +7.47 (none past -1.0).
+    windows: cam1 0 / +2.3 | cam2 +1.0 / 0 / -3.7 | cam3 0 | cam4 0 x3 | cam5 +7.6 / +7.9 / +6.9.
+    cam5 approach 71.9 -> 93.8 / 96.9 / 93.8 (EB right 69 -> ~Mio 188 on 07:00).
+    THE MISS: cam2 16:00 -3.7 (bar -3.0): SB right 301 -> 433 vs Mio 341 - rescued full journeys
+    exiting over cam2's far-band W line (the gate-line geometry, cam2 EB right finding).
+    JOURNEY LABELS: 438 -> 444 of 512, discordant 0 vs 6 (cam1 2, cam2 2 - on the 16:00 window's own
+    clip - cam5 2; p = 0.031). FM 51: 85.7 / 73.9 and 89.8 / 79.2, IDENTICAL.
+    Operator's call (as gx2 / ts1): a one-window letter miss with a significant, loss-free labelled
+    gain.
