@@ -3163,3 +3163,14 @@ BORN_AT_MOUTH (config, entry_gates.classify_pair; 3 tests) built and OFF: the ra
 births meets the S line ~200 px away (grazing), so the rule correctly refuses; not run as an arm.
 NEXT: the operating rule - a cam5 redraw of S (and E) ACROSS the lanes where the tracks are, the
 operator's call; then re-score cam5 and re-run os1.
+
+## STEP 4a FINDING 2026-10-01: the cam3 dawn twins cannot be separated from real pairs - not built
+Concurrent counted pairs on the cam3 clip (arm ts1), offset in box widths along / across the travel
+direction, overlap in frames:
+  TWINS (one labelled car, two counted tracks; 7): along -1.06..+0.82 (one +3.2), across ~0,
+    overlap 4-11 frames, height ratio 0.72-1.65.
+  REAL PAIRS (two labelled cars, same movement, concurrent; 55): several sit in the same range -
+    255/256 along -0.92 overlap 7, 270/271 -0.68 overlap 5, 275/276 -0.57 overlap 11, 272/273
+    -0.47 - a following car at dawn in perspective is as close as a car's glow.
+  No offset / overlap / size / confidence threshold separates them without deleting real cars.
+  The twins stay with the detector (step 3: a model confident on the car, not on its glow).
