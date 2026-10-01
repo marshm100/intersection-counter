@@ -10,7 +10,8 @@ Window frames come from each base window's cache meta.
 Usage: DETECT_DEDUP_HEAD=1 DETECT_HALF=1 .venv/Scripts/python.exe -X utf8 scripts/regen_detections.py PREFIX [CAM:WINDOW ...]
 REGEN_MODEL / REGEN_IMGSZ (2026-10-01, item 4): override the processing mode's detector
 model and image size for this run only (project.db is never written), e.g.
-REGEN_MODEL=yolo26s.pt REGEN_IMGSZ=960 for one default model on every camera.
+REGEN_MODEL=yolo26s.pt REGEN_IMGSZ=960 for one default model on every camera;
+REGEN_CLASS_SCHEME=finetune_v2 with a fine-tuned model.
 Default windows: the 12 corridor windows.
 """
 from __future__ import annotations
@@ -56,7 +57,7 @@ def main() -> int:
             c = dict(real_mode(name))
             if os.environ.get("REGEN_MODEL"):
                 c["yolo_model"] = os.environ["REGEN_MODEL"]
-                c["yolo_class_scheme"] = "coco"
+                c["yolo_class_scheme"] = os.environ.get("REGEN_CLASS_SCHEME", "coco")
             if os.environ.get("REGEN_IMGSZ"):
                 c["yolo_imgsz"] = int(os.environ["REGEN_IMGSZ"])
             return c

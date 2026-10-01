@@ -25,6 +25,8 @@ CLASSES = [2, 3, 5, 7]
 SETTINGS = {
     "ft2-s 640 (cam3 prod)": {"iou": YOLO_IOU_THRESHOLD, "_model": "yolo26s_ft2.pt", "imgsz": 640,
                               "_classes": [0, 1, 2, 3]},           # finetune_v2 class map
+    "ft2-s 640 o2m+agn 0.6": {"end2end": False, "agnostic_nms": True, "iou": 0.6,
+                              "_model": "yolo26s_ft2.pt", "imgsz": 640, "_classes": [0, 1, 2, 3]},
     "s 960 (cam4/5 prod)":   {"iou": YOLO_IOU_THRESHOLD, "_model": "yolo26s.pt", "imgsz": 960},
     "s 960 o2m+agn 0.6":     {"end2end": False, "agnostic_nms": True, "iou": 0.6,
                               "_model": "yolo26s.pt", "imgsz": 960},
@@ -75,26 +77,30 @@ def main() -> int:
             imgsz = kw.pop("imgsz", YOLO_IMGSZ)
             classes = kw.pop("_classes", CLASSES)
             boxes: dict = {}
+            confs: dict = {}
             keys = sorted(frames)
             for i in range(0, len(keys), 16):
                 batch = keys[i:i + 16]
                 res = model([frames[k] for k in batch], conf=YOLO_CONFIDENCE_THRESHOLD,
                              imgsz=imgsz, classes=classes, verbose=False, **kw)
                 for k, r in zip(batch, res):
-                    boxes[k] = r.boxes.xyxy.cpu().numpy() if r.boxes is not None else np.zeros((0, 4))
-            hit = 0
+                    boxes[k] = (r.boxes.xyxy.cpu().numpy() if r.boxes is not None else np.zeros((0, 4)))
+                    confs[k] = (r.boxes.conf.cpu().numpy() if r.boxes is not None else np.zeros(0))
+            hit = hit35 = 0
             for f, x, y in clicks:
-                ok = False
+                ok = ok35 = False
                 for d in (-1, 0, 1):
                     b = boxes.get(int(f) + d, np.zeros((0, 4)))
                     if len(b):
                         cx, cy = (b[:, 0] + b[:, 2]) / 2, (b[:, 1] + b[:, 3]) / 2
                         w, h = b[:, 2] - b[:, 0], b[:, 3] - b[:, 1]
-                        if ((np.abs(x - cx) <= w * 0.75) & (np.abs(y - cy) <= h * 0.75)).any():
-                            ok = True
+                        m = (np.abs(x - cx) <= w * 0.75) & (np.abs(y - cy) <= h * 0.75)
+                        ok |= bool(m.any())
+                        ok35 |= bool((m & (confs[int(f) + d] >= 0.35)).any())
                 hit += ok
+                hit35 += ok35
             dups = np.mean([iou_pairs(b) for b in boxes.values()])
-            print(f"  {name:24} clicks with a box {hit:4}/{len(clicks)}   "
+            print(f"  {name:24} clicks with a box {hit:4}/{len(clicks)} (conf>=0.35: {hit35:4})   "
                   f"dup pairs/frame {dups:.2f}   boxes/frame {np.mean([len(b) for b in boxes.values()]):.1f}")
     return 0
 

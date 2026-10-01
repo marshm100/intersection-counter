@@ -3109,3 +3109,22 @@ hand-off the labels showed: cam2 t831 / t818, cam5 t393). 8-143 cuts a window. C
   own glow. The residual is a detector matter (item 4's d3 arm), not a linking one. Identity
   theft, the error the labels do show, got the split (ts1).
     ts1 FM 51 (held out): 85.7 / 73.9 and 89.8 / 79.2, IDENTICAL; events 1,598 -> 1,605, 1,957 -> 1,967.
+
+### ITEM 4 FINDINGS 2026-10-01: the detector fix split (scripts/probe_detector_settings.py)
+  The production caches are ANOTHER per-camera recipe: cam1/cam2 yolo26l @ 1280, cam3 the
+  site-trained yolo26s_ft2 @ 640, cam4/cam5 yolo26s @ 960. Arm d2 swapped cams 3-5 onto the large
+  model as well as changing the head; its dawn loss is the MODEL, not the head.
+  Probe on the operator's clicked frames (clicks with a box / with a box at conf >= 0.35):
+    cam3 dawn: ft2 640 99 / 87 | s 960 111 / 61 | s 960 + head 117 / 68 | l 1280 94 / 55 |
+               l 1280 + head 100 / 58 | ft2 640 + head 103 / 84.
+    THE HEAD FIX (one-to-many head, class-agnostic NMS 0.6) never loses a box on any camera and
+    removes duplicate pairs entirely. FP16 changes nothing. Dawn is won by CONFIDENCE (births need
+    ~0.35), which only the site-trained model gives.
+  Arm d2 re-scored on the current default (d2b): fleet 86.87 -> 86.94 (+0.07); fails on cam3 dawn
+    (-3.2) and cam2 1600 (-3.0, at the bar); labels 433 -> 430 of 512 (cam3: no_track 3 -> 20).
+  Arm d3 (yolo26s @ 960 + head, every camera; stopped before cam3): cam1 -5.3 / -3.4, cam2 +10.7 /
+    +2.9 / -2.7, cam4 0 / 0 / +0.1, cam5 +4.9 / -1.1 / -0.1; labels on 4 clips 389 -> 382. FAIL.
+  ARM d4 DECLARED (before scoring): the site-trained yolo26s_ft2 @ 640 (the "balanced" mode model)
+    + the head fix, on EVERY camera (one default detector). Probe: clicks covered equal or better
+    than the large model on every clip (cam1 183, cam2 295, cam3 103, cam4 224, cam5 199).
+    Control 86.87 / 74.29; letter + FM 51 (its production cache is already ft2) + labels.
