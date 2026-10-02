@@ -3288,3 +3288,7 @@ audit batch. Control 88.84 / 82.03 (fr3); letter + FM 51 + dev labels.
     Dev labels 444 -> 445 (discordant 0 vs 1). Held-out clips not yet labelled.
     FM 51 (held out): 85.7 / 73.9 and 89.8 / 79.2, IDENTICAL (events 1,605 -> 1,593, 1,967 -> 1,960).
     SHIP NEEDS THE OPERATOR'S GO.
+
+## SHIPPED 2026-10-01 — small no-crossing tracks not counted (arm nc2), operator go
+All 12 windows reprocessed; every window's event total/kept matches arm nc2 exactly. Fleet 89.06 /
+approach 83.54 / vehicle error 2,545. Backup: project_*_pre_default_reprocess_nc2.db.
