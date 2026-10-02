@@ -3281,3 +3281,10 @@ track does not separate them. NOCROSS_DROP_SMALL=1: a no_crossing track is dropp
 median box width < NOCROSS_SMALL_FRAC (0.05) x frame width (30 px at 640). ONE NEW CONSTANT,
 fitted on 30 audit items: the held-out checks are FM 51 and the held-out label clips, and the next
 audit batch. Control 88.84 / 82.03 (fr3); letter + FM 51 + dev labels.
+### ARM nc2 VERDICT 2026-10-01: PASSES THE LETTER
+    FLEET 88.84 -> 89.06 (+0.22); approach 82.03 -> 83.54 (+1.51); vehicle error 2,605 -> 2,545.
+    camera means: cam1 0, cam2 +0.97, cam3 -0.30, cam4 0, cam5 0. Windows: cam2 0700 +1.9, 1100 +1.0;
+    cam3 -0.3; every other window 0. Approach gains on cam1 1600, cam2 x3, cam5 1600.
+    Dev labels 444 -> 445 (discordant 0 vs 1). Held-out clips not yet labelled.
+    FM 51 (held out): 85.7 / 73.9 and 89.8 / 79.2, IDENTICAL (events 1,605 -> 1,593, 1,967 -> 1,960).
+    SHIP NEEDS THE OPERATOR'S GO.
