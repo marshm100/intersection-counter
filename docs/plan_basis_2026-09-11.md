@@ -3308,3 +3308,47 @@ cam2's residual is identity theft at the far side - same-direction swaps the rev
     than vehicles. Gate 1 (one-frame click coverage) did not predict this. Not shipped; the
     per-camera detector recipe stays as recorded (item 4).
     (Infrastructure on the way: the p1 run exposed and fixed a pass-1 resume bug, Step 9.61.)
+
+## ARM eg1 DECLARED 2026-10-02 (before scoring): THE GRAZED EXIT - EXIT_GRAZE_SKIP=1 on the nc2 default
+Why cam5 is red (study_health, all three windows): turn cell N_right (39 -> 36), "NO history, 83-93%
+gate-override". Against Miovision the cell is REAL but over: 42/30/44 vs 21/26/35, while NB thru is
+-82 at 07:00. Mechanism (runs/cam5_graze/measure.py on the nc2 dumps): cam5's upper NB through lane
+runs ALONG the E line and passes above the N line's top end, so through cars cross only the E line and
+the state machine takes it as their (terminal) exit. They end at the left frame edge (x 7-63) where
+every NB through ends; real rights end at the E mouth (x 130-250). From the exit crossing to the track
+end: real E exits 13-31 px OUTWARD, 36-107 px along; grazers 110-233 px ALONG, <= 9 px outward.
+Grazers by this test: 11 at 07:00, 1 at 11:00, 7 at 16:00.
+(cam3 amber is a FALSE alarm: N_left 102 "bank never sampled", Miovision NB left 114. Not this arm.)
+Rule (config EXIT_GRAZE_SKIP, entry_gates.rides_line_after, classify_pair): skip an exit after which
+the track rides its own line (along >= 0.75 x line length AND along >= 6 x outward); keep looking for
+the real exit, else entry_only resolved downstream. No line redrawn (ruling 2026-10-01).
+Prediction: cam5 NB right 07:00 42 -> ~31, 16:00 44 -> ~37, 11:00 ~unchanged; NB thru up by the same.
+Every other camera: fires rarely (a real exit rarely rides its line for 3/4 of its length).
+Letter: G-DEF-1 against the nc2 standings (fleet 89.06); FM 51 identical; dev labels no worse; held-out
+labels (cam1 done: nc2 107/120) no worse. Ship needs the operator's go.
+
+### ARM eg1 VERDICT 2026-10-02: FAIL (letter). Fleet 89.06 -> 88.68 (-0.38); cam1 1600 -3.3, cam4 0700 -3.2.
+FM 51 identical (85.7/73.9, 89.8/79.2; events 1,593 / 1,960). On target as predicted: cam5 NB right
+42 -> 32 (Mio 21), 44 -> 38 (Mio 35), 30 -> 29; NB thru up. The damage is elsewhere and has one shape:
+after skipping a graze the machine kept looking and took a later SAME-LEG crossing as a u-turn
+(cam3 SB uturn 7 -> 67, cam4 NB uturn 1 -> 8), taking real lefts with it (cam4 NB left 14 -> 3, 8 -> 1;
+Mio 20 / 17). cam4 SB right moved toward Mio in two windows (41 -> 20 vs 22; 76 -> 51 vs 39), away in one.
+(Reporting slip on the way: the score JSON totals are [mio, ARM, production]; read column 1 for an arm.)
+
+## ARM eg2 DECLARED 2026-10-02 (before scoring): THE GRAZED EXIT, NARROWED
+eg1 plus: a grazed exit is replaced ONLY by a later outward crossing over a DIFFERENT leg that is
+neither the grazed leg nor the origin (and is not itself a graze); with none, the grazed exit stands.
+A graze never becomes a u-turn, an entry_only, or a DIED-INSIDE guess. A same-leg (origin) crossing
+is never tested as a graze. Prediction: cam5 as eg1 (the grazers cross N after E); the u-turn floods
+and the lost lefts gone. Letter as eg1.
+
+### ARM eg2 VERDICT 2026-10-02: FAIL (letter). Fleet 89.06 -> 88.48 (-0.58); cam4 0700 -4.5, cam1 1600 -2.3,
+cam2 1600 -2.8. FM 51 identical. The narrowing did its job (cam3 u-turn flood gone, cam3 93.4 unchanged)
+and cam5 kept its gain (NB right 42 -> 32, 44 -> 38). What remains is the rule itself firing on REAL turns
+at other cameras whose exits run along their lines under perspective: cam4 NB left 14 -> 10 (Mio 20),
+cam4 1100 SB right 18 -> 5 (Mio 16), cam1 1600 EB left 119 -> 130 (Mio 105). Labels: dev 445 -> 444
+(one cam4 car, none gained), held-out cam1 107 -> 107. The geometry measure (along vs outward after the
+exit) does not separate a graze from a real turn at every site; narrowing it further toward cam5's
+numbers would be tuning to one camera. EXIT_GRAZE_SKIP stays built and OFF (like BORN_AT_MOUTH).
+Next idea needed, not a third threshold: e.g. judge the exit by where the car is NEXT seen relative to
+the other legs' traffic (cam5's grazers end inside the NB-through stream), from witnessed journeys.

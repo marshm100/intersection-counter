@@ -342,6 +342,22 @@ BORN_INSIDE_VEL_S = 1.0
 BORN_AT_MOUTH = _os2.environ.get("BORN_AT_MOUTH", "0") in ("1", "true", "on")
 BORN_AT_MOUTH_WIDTHS = 1.0
 
+# THE GRAZED EXIT (2026-10-02, cam5 N_right phantom; operator: lines are
+# drawn fine, solve it in software). cam5's upper NB through lane runs
+# ALONG the E line and passes above the N line's top end, so through cars
+# cross only the E line and the state machine took it as their exit
+# (EXITED IS TERMINAL). Measured on the nc2 dumps (runs/cam5_graze/
+# measure.py), from the exit crossing to the track's end: real E exits
+# travel 13-31 px OUTWARD and 36-107 px along the line; the grazers
+# 110-233 px ALONG the line (>= 0.9 of its length) and <= 9 px outward.
+# When ON, classify_pair skips an exit after which the track rides its
+# own line - along >= EXIT_GRAZE_ALONG_FRAC x the line's length AND
+# along >= EXIT_GRAZE_RATIO x outward - and keeps looking for the real
+# exit (else the journey is entry_only, resolved downstream).
+EXIT_GRAZE_SKIP = _os2.environ.get("EXIT_GRAZE_SKIP", "0") in ("1", "true", "on")
+EXIT_GRAZE_ALONG_FRAC = 0.75
+EXIT_GRAZE_RATIO = 6.0
+
 # THE LINES ARE THE MOUTHS (operator ruling 2026-09-10 on the gates
 # review: "all the lines are where they are intended to be but the
 # mouth should be the lines and the exit should be the lines the blue

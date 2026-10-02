@@ -706,6 +706,31 @@ def _velocity(track, i0, i1):
     return (x1 - x0, y1 - y0)
 
 
+def rides_line_after(track, c, gates) -> bool:
+    """THE GRAZED EXIT (config.EXIT_GRAZE_SKIP): after outward crossing c
+    (frame, leg, inward, pos), does the track ride ALONG that leg's drawn
+    line instead of leaving through it? Measured from the crossing point
+    to the track's last point: along-line travel >= EXIT_GRAZE_ALONG_FRAC
+    of the line's length and >= EXIT_GRAZE_RATIO x the outward travel."""
+    from backend.config import EXIT_GRAZE_ALONG_FRAC, EXIT_GRAZE_RATIO
+    if c[1] not in gates or not track:
+        return False
+    p1, p2, inw = gates[c[1]]
+    ux, uy = p2[0] - p1[0], p2[1] - p1[1]
+    length = math.hypot(ux, uy)
+    nlen = math.hypot(inw[0], inw[1])
+    if length <= 0 or nlen <= 0:
+        return False
+    after = [p for p in track if p[0] >= c[0]]
+    if not after:
+        return False
+    dx, dy = after[-1][1] - c[3][0], after[-1][2] - c[3][1]
+    along = abs(dx * ux + dy * uy) / length
+    outward = -(dx * inw[0] + dy * inw[1]) / nlen
+    return (along >= EXIT_GRAZE_ALONG_FRAC * length
+            and along >= EXIT_GRAZE_RATIO * max(outward, 0.0))
+
+
 def classify_pair(track_l, track_r, gates, fps, lanes=None):
     """THE JOURNEY STATE MACHINE (operator rulings 2026-09-09). Both
     bottom-corner tracks [(frame,x,y)...] -> classify()'s exact 7-tuple
@@ -735,10 +760,12 @@ def classify_pair(track_l, track_r, gates, fps, lanes=None):
             mid[f] = [x, y, 1]
     track = sorted((f, v[0] / v[2], v[1] / v[2]) for f, v in mid.items())
 
-    from backend.config import BORN_INSIDE_NEAREST_LINE, BORN_INSIDE_VEL_S
+    from backend.config import (BORN_INSIDE_NEAREST_LINE, BORN_INSIDE_VEL_S,
+                                EXIT_GRAZE_SKIP)
     origin = None
     dest = None
     exit_first = None
+    grazed = None
     for c in valid:
         if origin is None:
             if c[2]:
@@ -748,11 +775,26 @@ def classify_pair(track_l, track_r, gates, fps, lanes=None):
             break
         if c[2]:
             continue                                # inward while OCCUPYING: noise
+        if grazed is not None:
+            # after a graze only a real exit over ANOTHER leg (not the
+            # grazed one, not the origin) replaces it (arm eg1: skipping
+            # alone turned grazes into u-turns and lost real lefts)
+            if c[1] not in (grazed[1], origin[1]) and not (
+                    EXIT_GRAZE_SKIP and rides_line_after(track, c, gates)):
+                dest = c
+                break
+            continue
+        if (EXIT_GRAZE_SKIP and c[1] != origin[1]
+                and rides_line_after(track, c, gates)):
+            grazed = c                              # grazed, not exited: keep looking
+            continue
         if c[1] != origin[1] or _uturn_admissible(track, gates, fps, lanes,
                                                   origin, c):
             dest = c                                # -> EXITED, terminal
             break
         # same-leg, fails the u-turn tests: jitter, keep looking
+    if dest is None and grazed is not None:
+        dest = grazed                               # no real exit after it: it stands
 
     if BORN_INSIDE_NEAREST_LINE and track and gates:
         k = max(1, min(len(track) - 1, int(round(BORN_INSIDE_VEL_S * fps))))
