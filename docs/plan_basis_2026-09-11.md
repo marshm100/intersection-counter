@@ -3292,3 +3292,10 @@ audit batch. Control 88.84 / 82.03 (fr3); letter + FM 51 + dev labels.
 ## SHIPPED 2026-10-01 — small no-crossing tracks not counted (arm nc2), operator go
 All 12 windows reprocessed; every window's event total/kept matches arm nc2 exactly. Fleet 89.06 /
 approach 83.54 / vehicle error 2,545. Backup: project_*_pre_default_reprocess_nc2.db.
+
+## cam2 EXIT-ONLY IN THE AUDIT (2026-10-01): mostly THEFT, not origin inference
+8 items: 2 correct, 2 real origin swaps N(27)<->W(28) on exits over S (SB thru vs EB right, alike
+when only the exit is seen), 3 'unsure' all noted "theft", 1 probable mis-click (item 37: wrong
+movement with true legs = the claimed 28->29). Four of eight carry the operator's "theft" note.
+cam2's residual is identity theft at the far side - same-direction swaps the reversal split
+(THEFT_SPLIT) does not catch - more than the branch-1 origin guess.
