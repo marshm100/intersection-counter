@@ -715,8 +715,10 @@ NOCROSS_DROP_ALL = _os2.environ.get("NOCROSS_DROP_ALL", "0") in ("1", "true", "o
 # 14 doubles and 3 off-intersection tracks had median box widths 11-56 px
 # (14 of 17 <= 30 px), the 10 correct ones 33-102 px. When ON (arm nc2), a
 # no_crossing track is dropped only when its median box width is under
-# NOCROSS_SMALL_FRAC of the frame width (30 px at 640). Default OFF.
-NOCROSS_DROP_SMALL = _os2.environ.get("NOCROSS_DROP_SMALL", "0") in ("1", "true", "on")
+# NOCROSS_SMALL_FRAC of the frame width (30 px at 640). SHIPPED default ON
+# 2026-10-01 (operator go after arm nc2: fleet +0.22, approach +1.5, labels
+# +1/-0, FM 51 identical).
+NOCROSS_DROP_SMALL = _os2.environ.get("NOCROSS_DROP_SMALL", "1") in ("1", "true", "on")
 NOCROSS_SMALL_FRAC = 0.05
 # B — flow-informed origin inference: entry-less tracks (born past
 # the gate: occlusion/faint far band; 41% of the deficit corridor)

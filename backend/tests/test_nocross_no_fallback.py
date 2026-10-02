@@ -231,5 +231,5 @@ class TestSmallBoxesNoGate:
     def test_off_the_small_track_counts(self, env, monkeypatch):
         assert len(self._run_width(env, monkeypatch, 18.0, on=False)) == 1
 
-    def test_default_off(self):
-        assert cfg.NOCROSS_DROP_SMALL is False and cfg.NOCROSS_SMALL_FRAC == 0.05
+    def test_shipped_default_on(self):
+        assert cfg.NOCROSS_DROP_SMALL is True and cfg.NOCROSS_SMALL_FRAC == 0.05   # arm nc2
