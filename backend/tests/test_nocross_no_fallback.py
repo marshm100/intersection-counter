@@ -142,3 +142,49 @@ class TestExtentWiring:
                                              "distance": 5.0, "path_id": 3,
                                              "considered": 1})
         assert len(evs) == 1
+
+
+class TestNoGateNoCount:
+    """arm nc1 (config.NOCROSS_DROP_ALL): even a no_crossing track whose
+    path shape the joint scorer DID match is not counted."""
+
+    def _shape_matched(self, env, monkeypatch, drop_all):
+        import backend.services.pipeline as plmod
+        monkeypatch.setattr(plmod, "NOCROSS_DROP_ALL", drop_all)
+        monkeypatch.setattr(plmod, "NOCROSS_NO_FALLBACK", False)
+        monkeypatch.setattr(plmod, "ORIGIN_EVIDENCE_GATE_ENABLED", True)
+        monkeypatch.setattr(plmod, "ORIGIN_POSTERIOR_ENABLED", True)
+        monkeypatch.setattr(ProcessingPipeline, "_gate_evidence",
+                            lambda self, v: (None, None, "no_crossing"))
+        monkeypatch.setattr(plmod, "score_destination_by_polyline",
+                            lambda trajectory, origin_leg_id, paths, **kw: {
+                                "destination_leg_id": 2, "movement_label": "left",
+                                "distance": 5.0, "path_id": 3, "considered": 1})
+        p = ProcessingPipeline(project_id="test", db_path=env["db"], video_path="unused.mp4",
+                               legs=env["legs"], fps=10.0, paths=[P_LEFT])
+        p.active_vehicles[9] = {
+            "origin_leg_id": 1, "reference_heading": 0.0,
+            "trajectory": [(500.0, 100.0 + 30.0 * i) for i in range(20)],
+            "confidences": [0.9] * 20, "last_center": (500, 700), "class_id": 2,
+            "class_name": "car", "bbox_width": 100.0, "bbox_height": 60.0,
+            "bbox_area": 6000.0, "start_frame": 7}
+        p._finalize_vehicle(9, frame_number=250)
+        conn = sqlite3.connect(env["db"])
+        evs = conn.execute("SELECT movement FROM vehicle_events").fetchall()
+        conn.close()
+        return evs
+
+    def test_off_a_shape_matched_no_crossing_track_counts(self, env, monkeypatch):
+        assert len(self._shape_matched(env, monkeypatch, False)) == 1
+
+    def test_on_a_shape_matched_no_crossing_track_is_dropped(self, env, monkeypatch):
+        assert self._shape_matched(env, monkeypatch, True) == []
+
+    def test_an_exit_only_track_is_untouched(self, env, monkeypatch):
+        import backend.services.pipeline as plmod
+        monkeypatch.setattr(plmod, "NOCROSS_DROP_ALL", True)
+        p, evs = _run(env, monkeypatch, (None, 2, "exit_only"), rule=True)
+        assert len(evs) == 1
+
+    def test_default_off(self):
+        assert cfg.NOCROSS_DROP_ALL is False

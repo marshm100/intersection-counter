@@ -3254,3 +3254,16 @@ line; 90 = straight across):
   PHANTOM                    n=47   median 16           below 15: 16,  below 20: 28
 In the image, perspective makes real crossings shallow too: any cutoff that removes the phantoms'
 crossings removes several times as many real ones. NOT BUILT. The grazes are not separable by angle.
+
+## THE EVENT AUDIT, batch a1 (2026-10-01): 135 counted events judged by the operator
+scripts/audit_report.py a1 (precision = correct / judged, unsure left out):
+  full journeys 96% (n 25) | exit_only 89% (n 40) | entry_only 83% (n 40) | NO_CROSSING 37% (n 30:
+  14 DOUBLE - a second piece of a vehicle already counted -, 3 not in the intersection).
+  By camera, no_crossing: cam1 67%, cam2 20%, cam3 20%, cam4 50%, cam5 20%.
+  cam2 exit_only 40% (n 8): 3 wrong ORIGIN from the branch-1 inference (27 vs 28), 3 unsure.
+  "Not a vehicle in the intersection": 3 of 135 (the far-band hypothesis was mostly wrong).
+  Wrong-movement notes: theft x2, occlusion x3, a far car dropped early.
+## ARM nc1 DECLARED (before scoring): NO GATE, NO COUNT - NOCROSS_DROP_ALL=1 on the shipped
+default (fr3): a track that crossed no gate line is never counted, even with a matched path shape.
+~370 counted no_crossing events across the 12 windows; at the audited 37% precision the rule
+removes ~1.6 bad counts per good one. Control 88.84 / 82.03; letter + FM 51 + dev labels.

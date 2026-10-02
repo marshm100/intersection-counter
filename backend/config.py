@@ -703,6 +703,13 @@ NOCROSS_NO_FALLBACK = _os2.environ.get(
 # No new constants. Default OFF.
 NOCROSS_EXTENT_FALLBACK = _os2.environ.get(
     "NOCROSS_EXTENT_FALLBACK", "0") in ("1", "true", "on")
+# NO GATE, NO COUNT (2026-10-01, arm nc1): the event audit (batch a1, 135
+# counted events judged on the video) put tracks that crossed NO gate line at
+# 37% precision (full journeys 96%, exit-only 89%, entry-only 83%); 14 of 30
+# were a second piece of a vehicle already counted. When ON (evidence mode
+# "on"), a no_crossing track is never counted, even with a matched path
+# shape. Default OFF.
+NOCROSS_DROP_ALL = _os2.environ.get("NOCROSS_DROP_ALL", "0") in ("1", "true", "on")
 # B — flow-informed origin inference: entry-less tracks (born past
 # the gate: occlusion/faint far band; 41% of the deficit corridor)
 # get their origin inferred from birth position + the dominant-flow

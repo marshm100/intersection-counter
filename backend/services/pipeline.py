@@ -57,6 +57,7 @@ from backend.config import (
     GATE_EXIT_ONLY_BINDING,
     FULL_JOURNEY_RESCUE,
     NOCROSS_NO_FALLBACK,
+    NOCROSS_DROP_ALL,
     NOCROSS_EXTENT_FALLBACK,
     FULL_RESCUE_MIN_STRAIGHTNESS,
     TRACK_FATE_LEDGER,
@@ -1998,6 +1999,15 @@ class ProcessingPipeline:
                         and gate_tag == "no_crossing"
                         and polyline_dest is None)
         nocross_refused = NOCROSS_NO_FALLBACK and nocross_side
+        # NO GATE, NO COUNT (config.NOCROSS_DROP_ALL, arm nc1): the event
+        # audit (batch a1) found a track that crossed no gate line counted
+        # right 37% of the time - 14 of 30 were a second piece of a vehicle
+        # already counted. With no gate evidence of its own, even a matched
+        # path shape does not count it.
+        if (NOCROSS_DROP_ALL and self._evidence_mode == "on"
+                and gate_tag == "no_crossing"):
+            polyline_dest = None
+            nocross_refused = True
         # arm nf2 (config.NOCROSS_EXTENT_FALLBACK): the side door stays open
         # only where a line actually runs alongside the track.
         if (NOCROSS_EXTENT_FALLBACK and nocross_side and not nocross_refused
