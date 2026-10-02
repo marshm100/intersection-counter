@@ -3299,3 +3299,12 @@ when only the exit is seen), 3 'unsure' all noted "theft", 1 probable mis-click 
 movement with true legs = the claimed 28->29). Four of eight carry the operator's "theft" note.
 cam2's residual is identity theft at the far side - same-direction swaps the reversal split
 (THEFT_SPLIT) does not catch - more than the branch-1 origin guess.
+### ARM p1 VERDICT 2026-10-02 (pseudo-labelled detector, re-scored on the nc2 default): FAIL
+    FLEET 89.06 -> 87.29 (-1.77); approach 83.54 -> 80.83; vehicle error 2,545 -> 3,080.
+    camera means: cam1 -6.55 (0700 -9.2, 1600 -3.9), cam2 -0.67, cam3 -1.6, cam4 +0.2, cam5 -1.7
+    (1600 -4.9). Dev labels 445 -> 441 (discordant 37 vs 34): better on cam2 (+4), cam3 (+3),
+    cam4 (+2); worse on cam5 (14 vs 5) and cam1. Phantoms 30 -> 51, broken tracks 35 -> 48: the
+    model finds more boxes, and the tracker and counting rules turn the extra ones into more noise
+    than vehicles. Gate 1 (one-frame click coverage) did not predict this. Not shipped; the
+    per-camera detector recipe stays as recorded (item 4).
+    (Infrastructure on the way: the p1 run exposed and fixed a pass-1 resume bug, Step 9.61.)
