@@ -58,6 +58,8 @@ from backend.config import (
     FULL_JOURNEY_RESCUE,
     NOCROSS_NO_FALLBACK,
     NOCROSS_DROP_ALL,
+    NOCROSS_DROP_SMALL,
+    NOCROSS_SMALL_FRAC,
     NOCROSS_EXTENT_FALLBACK,
     FULL_RESCUE_MIN_STRAIGHTNESS,
     TRACK_FATE_LEDGER,
@@ -2008,6 +2010,19 @@ class ProcessingPipeline:
                 and gate_tag == "no_crossing"):
             polyline_dest = None
             nocross_refused = True
+        # SMALL BOXES, NO GATE (config.NOCROSS_DROP_SMALL, arm nc2): the
+        # audit's no_crossing doubles and off-intersection tracks were small,
+        # far-off boxes (14 of 17 at <= 30 px of 640); the correct ones were
+        # near vehicles (all >= 33 px). Only the small ones are dropped.
+        if (NOCROSS_DROP_SMALL and not nocross_refused
+                and self._evidence_mode == "on" and gate_tag == "no_crossing"):
+            widths = vehicle.get("bbox_widths") or [vehicle.get("bbox_width") or 0.0]
+            if not hasattr(self, "_nocross_fw"):
+                self._nocross_fw = (self._video_frame_size() or (640, 480))[0]
+            import statistics as _st
+            if float(_st.median(widths)) < NOCROSS_SMALL_FRAC * self._nocross_fw:
+                polyline_dest = None
+                nocross_refused = True
         # arm nf2 (config.NOCROSS_EXTENT_FALLBACK): the side door stays open
         # only where a line actually runs alongside the track.
         if (NOCROSS_EXTENT_FALLBACK and nocross_side and not nocross_refused

@@ -188,3 +188,48 @@ class TestNoGateNoCount:
 
     def test_default_off(self):
         assert cfg.NOCROSS_DROP_ALL is False
+
+
+class TestSmallBoxesNoGate:
+    """arm nc2 (config.NOCROSS_DROP_SMALL): only SMALL no_crossing tracks
+    (median box width < 5% of the frame width) are dropped."""
+
+    def _run_width(self, env, monkeypatch, width, on=True):
+        import backend.services.pipeline as plmod
+        monkeypatch.setattr(plmod, "NOCROSS_DROP_SMALL", on)
+        monkeypatch.setattr(plmod, "NOCROSS_NO_FALLBACK", False)
+        monkeypatch.setattr(plmod, "ORIGIN_EVIDENCE_GATE_ENABLED", True)
+        monkeypatch.setattr(plmod, "ORIGIN_POSTERIOR_ENABLED", True)
+        monkeypatch.setattr(ProcessingPipeline, "_gate_evidence",
+                            lambda self, v: (None, None, "no_crossing"))
+        monkeypatch.setattr(plmod, "score_destination_by_polyline",
+                            lambda trajectory, origin_leg_id, paths, **kw: {
+                                "destination_leg_id": 2, "movement_label": "left",
+                                "distance": 5.0, "path_id": 3, "considered": 1})
+        p = ProcessingPipeline(project_id="test", db_path=env["db"], video_path="unused.mp4",
+                               legs=env["legs"], fps=10.0, paths=[P_LEFT])
+        p._nocross_fw = 640                      # the corridor's frame width
+        p.active_vehicles[9] = {
+            "origin_leg_id": 1, "reference_heading": 0.0,
+            "trajectory": [(500.0, 100.0 + 30.0 * i) for i in range(20)],
+            "confidences": [0.9] * 20, "last_center": (500, 700), "class_id": 2,
+            "class_name": "car", "bbox_width": width, "bbox_height": width * 0.6,
+            "bbox_widths": [width] * 20,
+            "bbox_area": width * width * 0.6, "start_frame": 7}
+        p._finalize_vehicle(9, frame_number=250)
+        conn = sqlite3.connect(env["db"])
+        evs = conn.execute("SELECT movement FROM vehicle_events").fetchall()
+        conn.close()
+        return evs
+
+    def test_a_small_far_no_crossing_track_drops(self, env, monkeypatch):
+        assert self._run_width(env, monkeypatch, 18.0) == []
+
+    def test_a_near_no_crossing_track_still_counts(self, env, monkeypatch):
+        assert len(self._run_width(env, monkeypatch, 60.0)) == 1
+
+    def test_off_the_small_track_counts(self, env, monkeypatch):
+        assert len(self._run_width(env, monkeypatch, 18.0, on=False)) == 1
+
+    def test_default_off(self):
+        assert cfg.NOCROSS_DROP_SMALL is False and cfg.NOCROSS_SMALL_FRAC == 0.05

@@ -3273,3 +3273,11 @@ removes ~1.6 bad counts per good one. Control 88.84 / 82.03; letter + FM 51 + de
     1600 -1.9. Labels 444 -> 443 (discordant 3 vs 2). Dropping every no_crossing count removes
     real counts about as often as doubles at the 5/95 level. NOT a ship candidate as built; the
     lever is the DOUBLES alone (14 of the audit's 30), which needs a rule that tells them apart.
+
+## ARM nc2 DECLARED 2026-10-01 (before scoring): SMALL BOXES, NO GATE
+The audit's no_crossing items by verdict and median box width: double (14) 11-56 px, 11 of 14 <= 30;
+not_intersection (3) 18-22 px; CORRECT (10) 33-102 px, none <= 30. Distance to the nearest counted
+track does not separate them. NOCROSS_DROP_SMALL=1: a no_crossing track is dropped only when its
+median box width < NOCROSS_SMALL_FRAC (0.05) x frame width (30 px at 640). ONE NEW CONSTANT,
+fitted on 30 audit items: the held-out checks are FM 51 and the held-out label clips, and the next
+audit batch. Control 88.84 / 82.03 (fr3); letter + FM 51 + dev labels.

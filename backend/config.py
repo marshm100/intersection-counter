@@ -710,6 +710,14 @@ NOCROSS_EXTENT_FALLBACK = _os2.environ.get(
 # "on"), a no_crossing track is never counted, even with a matched path
 # shape. Default OFF.
 NOCROSS_DROP_ALL = _os2.environ.get("NOCROSS_DROP_ALL", "0") in ("1", "true", "on")
+# arm nc1 tied (fleet -0.07): dropping every no_crossing count removes real
+# near vehicles as often as doubles. In the audit the two differ by SIZE: the
+# 14 doubles and 3 off-intersection tracks had median box widths 11-56 px
+# (14 of 17 <= 30 px), the 10 correct ones 33-102 px. When ON (arm nc2), a
+# no_crossing track is dropped only when its median box width is under
+# NOCROSS_SMALL_FRAC of the frame width (30 px at 640). Default OFF.
+NOCROSS_DROP_SMALL = _os2.environ.get("NOCROSS_DROP_SMALL", "0") in ("1", "true", "on")
+NOCROSS_SMALL_FRAC = 0.05
 # B — flow-informed origin inference: entry-less tracks (born past
 # the gate: occlusion/faint far band; 41% of the deficit corridor)
 # get their origin inferred from birth position + the dominant-flow
