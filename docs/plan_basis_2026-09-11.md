@@ -3267,3 +3267,9 @@ scripts/audit_report.py a1 (precision = correct / judged, unsure left out):
 default (fr3): a track that crossed no gate line is never counted, even with a matched path shape.
 ~370 counted no_crossing events across the 12 windows; at the audited 37% precision the rule
 removes ~1.6 bad counts per good one. Control 88.84 / 82.03; letter + FM 51 + dev labels.
+### ARM nc1 VERDICT 2026-10-01: A TIE - fails the letter's first clause by 0.07
+    FLEET 88.84 -> 88.77 (-0.07); approach 82.03 -> 83.88 (+1.85); vehicle error 2,605 -> 2,540.
+    camera means: cam1 -0.15, cam2 +1.00, cam3 -0.60, cam4 -0.63, cam5 -0.34. Worst window cam4
+    1600 -1.9. Labels 444 -> 443 (discordant 3 vs 2). Dropping every no_crossing count removes
+    real counts about as often as doubles at the 5/95 level. NOT a ship candidate as built; the
+    lever is the DOUBLES alone (14 of the audit's 30), which needs a rule that tells them apart.
