@@ -3458,3 +3458,29 @@ breaks on the chains, but the refused recoveries leave shorter pieces that the c
 wash (+3 dev, -2 held-out). TRACKER_RECOVERY_LOST_PATIENCE_FRAMES stays built and 0 (off). The chain win
 does not reach the deliverable through today's counting rules; if revisited, it would need the shorter
 pieces re-joined (the tracklet linker's job), not a different patience number.
+
+## THE TRACK QC CHECK (2026-10-09; operator's design "track, check, fix, re-track") — Phase 0 FAIL
+Operator's design: per vehicle, track (1-3), QC the whole track for believable motion AND the same-looking
+car throughout (4), on failure feed the error back and re-track up to N times (5), then restore the knock-on
+effects on the other cars (6). Operator clarified 10-09: run it one vehicle at a time (vehicle 1 through
+1-6, then vehicle 2, ...), not in window-wide rounds. Either way it stands on step 4, measured first.
+INSTRUMENTS (kept): scripts/build_appearance_sidecar.py - osnet_x0_25 embedding + Lab colour for EVERY
+detection-cache row, memmapped beside the parquet (<variant>.app/, row i = parquet row i; cam2 study_0700 /
+1100 / 1600 built, ~95 min each on the GPU). scripts/research_track_qc.py - every production-dump row joined
+to its detector box (99.6%); at every point of every track: app_os (osnet, mean of 1 s before vs 1 s after),
+app_hist (colour histogram, same windows), mot_dv (velocity change, 0.5 s each side, box widths/s),
+mot_jump (gap between the before- and after-lines, box widths). Truth = the theft census on the same dump.
+GATE (declared in the plan): recall >= 0.40 of THEFT + EMERGENCE + A ENDS at precision >= 0.50, every cam2
+window, one operating point chosen on 16:00.
+RESULT: every signal and every AND of an appearance and a motion signal sits at precision 0.01-0.04 at
+every threshold (best AND rule 16:00 / 11:00 / 07:00: P 0.04 / 0.03 / 0.03, R 0.04 / 0.03 / 0.04).
+The signals are not empty - at the switch vs a same-length stretch elsewhere on the same track (11:00):
+AUC app_os 0.70, app_hist 0.69, mot_dv 0.82, mot_jump 0.86 - but a switch is about 1 point in 3,800 along
+a track, and an AUC of 0.7-0.86 is orders short of the likelihood ratio a precision of 0.5 needs at that
+base rate. (Some "false" flags are real switches the census cannot see - chains need >= 15 hits - but
+that cannot close 0.04 to 0.50.) Motion is the stronger signal after the fact (0.86) yet the same motion
+did not separate at the moment of the match (09-15 / 09-19): the jump shows only when the after-line is
+known. Logs: runs/v2_week1/track_qc_cam2.log, track_qc_dryrun.log, app_sidecar_cam2_*.log.
+VERDICT: FAIL on all three windows. The loop (bans, re-track, rounds or per vehicle) is NOT built: a QC that
+flags ~25 good points per real switch would ban good matches 25 times as often as bad ones. Same root as
+the probe: at 640x480 neither what the car looks like nor how its box moves marks a switch reliably enough.
