@@ -158,7 +158,7 @@ a ctrl/arm comparison against it.
 
 ## Testing
 .venv\Scripts\python.exe -m pytest backend/tests/ -q
-# 1410 passing as of 2026-10-09
+# 1413 passing as of 2026-10-09
 
 ## Git
 git commit -m "Step X.X — [title]"
