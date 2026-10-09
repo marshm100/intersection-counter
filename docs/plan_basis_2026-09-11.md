@@ -3437,3 +3437,24 @@ identity check holds; the production dump reproduces from cache with today's cod
 Wrong switches fall on every window (-17% to -21%) and breaks FALL on two (the prediction said they would
 rise). But the bar's one-track clause fails at 11:00 (-67, 1.5% of 4395; 2-id vehicles 1133 -> 1177).
 NOT advanced to labels / fleet without an operator ruling (the gx2 note: no arguing a letter down unruled).
+OPERATOR RULING 2026-10-09: "Score it anyway" - pf1 goes on to the deliverable (cam2 dev clip car by car,
+fleet on the 3 cam2 windows with a same-day control on the production dumps) despite the 11:00 one-track
+miss. Ship still needs a separate go.
+
+### ARM pf1 VERDICT on the deliverable (2026-10-09): NOT A SHIP CANDIDATE - knob stays OFF
+Fleet on the 3 cam2 windows (FLEET_STEM pf1) against a same-day control on the production dumps (pf1c,
+which reproduced the standings exactly: 79.6 / 81.2 / 71.3). Logs runs/v2_week1/fleet_pf1{,c}.log.
+  cam2 window   movement (ctrl -> pf1)   approach (ctrl -> pf1)   dropped tracks   coverage
+  07:00         79.6 -> 78.2 (-1.4)      53.1 -> 40.6 (-12.5)     2626 -> 3284     0.621 -> 0.578
+  11:00         81.2 -> 86.3 (+5.1)      68.8 -> 65.6 (-3.2)      2673 -> 3330     0.555 -> 0.511
+  16:00         71.3 -> 72.9 (+1.6)      68.8 -> 59.4 (-9.4)      4249 -> 5604     0.542 -> 0.486
+  cam2 mean movement +1.77 (fleet ~ +0.44); approach falls on every window (fleet approach ~ -2.1).
+Journey labels, car by car (eval_journeys pf1c vs pf1:2=pf1_):
+  dev cam2_1600_m5       123 -> 126 of 142 (only-ctrl 1, only-pf1 4, p 0.375); phantoms 9 -> 15
+  HELD-OUT cam2_1600_m50 164 -> 162 of 184 (only-ctrl 5, only-pf1 3, p 0.727)  - scored once
+READING. Capping lost-track recovery at 5 frames on the 25 fps camera does cut wrong switches (-19%) and
+breaks on the chains, but the refused recoveries leave shorter pieces that the counting rules drop (+650 to
++1350 dropped tracks a window, gate coverage down), and approach volumes fall 3-12 points. The labels are a
+wash (+3 dev, -2 held-out). TRACKER_RECOVERY_LOST_PATIENCE_FRAMES stays built and 0 (off). The chain win
+does not reach the deliverable through today's counting rules; if revisited, it would need the shorter
+pieces re-joined (the tracklet linker's job), not a different patience number.
