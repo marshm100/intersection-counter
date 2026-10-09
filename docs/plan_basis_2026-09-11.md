@@ -3362,3 +3362,31 @@ Clips loaded 2026-10-02 (scripts/journey_clips.py had defined them; never run). 
   footage they never saw. The held-out errors are TRACKER errors (breaks, thefts, phantom splits).
 cam3 / cam4 / cam5 held-out: NOT labelled; the operator finds labelling slow (cam2 took most of a week).
 Stopping rule: the held-out set is scored ONCE per ship candidate, never used to build or tune.
+
+## THEFTS, cam2 (2026-10-09): census + same-depth APPEARANCE PROBE — FAIL; thefts stay parked
+Plan: next-work item 1 of docs/handoff_2026-10-09.md. Label-free throughout.
+CENSUS (research_thefts.py on the production study_1600 dump; 7,446 chain vehicles, 13,740 tracks):
+  switches 1363: THEFT 244, EMERGENCE 469, A ENDS 240, CHAIN SEAM 410; THEFT swaps 123.
+  THEFT stage onto B: s1/tracked 76, s25/tracked 64, s25/lost 59, s2 29, s1/lost 12 - the 09-19 shape
+  (recovery about half, ordinary matches the rest), as cam4 vl3 (73: s1 28, s25 31) and cam5 vl3
+  (149: s1 51, s25 72). Not a new standing-queue kind. Log runs/v2_week1/thefts_cam2_2026-10-09.log.
+  Chain baseline (timeline_all, runs/v2_week1/wb_study_cam2_1600.log): one-track 4409 of 7446, breaks
+  7090; hand-offs onto a confident box another id took 1558 (cam4 vl3 208).
+PROBE (scripts/probe_theft_appearance.py; declared in the plan before running). G-TH-1 (09-11) had
+tested osnet only as a break along 17 ruled tracks; never colour, never per match at the switch. Here:
+each THEFT's taken box vs the id's own clean boxes in the second before (same depth), against good
+matches of the same stage (1500 sampled per stage from the in-process match log, scaled to the full
+population). Signals: Lab mean, chroma (a,b), Lab histogram (central 60% of the box), osnet cosine.
+Gate: s25 AUC >= 0.85 AND <= 1 good match refused per theft stopped.
+  group        thefts/good(all)  box w th/gd   AUC dLab  dAB   dHist  dOsnet  combined
+  s25/lost        32 / 4906        31/24          0.75  0.72  0.78   0.74    0.80
+  s25/tracked     41 / 5599        33/30          0.57  0.62  0.64   0.62    0.63
+  s1/tracked      46 / 1124001     46/41          0.76  0.65  0.74   0.79    0.77
+  At the 99th percentile of good matches, thefts above: 6-15% (s25/lost combined 9%: about 5 of 59
+  stopped for about 49 good recoveries refused, ~10 per theft; the geometry rules were 2-7).
+  No threshold meets the operating-point clause in any group. Log runs/v2_week1/probe_appearance_cam2_1600.log.
+VERDICT: FAIL on both clauses, on the near-field camera (the best case for appearance at 640x480).
+Colour joins osnet: appearance at this resolution does not separate a theft from a good match, at one
+depth or two. THEFTS STAY PARKED, now with every cheap signal measured (geometry 09-15/09-19,
+osnet 07-28 + 09-11, colour + osnet per match 10-09). Not reopened without a new signal or source.
+(11:00 / 07:00 census rows run for the record; they cannot change a per-window AUC this far short.)
