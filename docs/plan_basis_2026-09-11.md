@@ -3390,3 +3390,37 @@ Colour joins osnet: appearance at this resolution does not separate a theft from
 depth or two. THEFTS STAY PARKED, now with every cheap signal measured (geometry 09-15/09-19,
 osnet 07-28 + 09-11, colour + osnet per match 10-09). Not reopened without a new signal or source.
 (11:00 / 07:00 census rows run for the record; they cannot change a per-window AUC this far short.)
+
+## THE NEWBORN-CLAIM CENSUS (2026-10-09; plan "the lost-track recovery lever", Step 1)
+Hypothesis tested: stage 2.5 runs before the unconfirmed-newborn pass, so a LOST id could take a newborn's
+second box (emergence). Diagnostics: tracker `recovery_claim_log` (tests: changes nothing; _claim_rec);
+scripts/research_recovery_guard.py now splits OTHER into THEFT / EMERGENCE and SEAM/EMERGE into A ENDS / SEAM
+(research_thefts' b_before test) and prints the claim census. Logs runs/v2_week1/recovery_claim_*.log.
+  recoveries of LOST ids        SAME   EMERG   A ENDS   THEFT  | N1 newborn (wrong/SAME) | N2 +tentatives
+  cam2 0700 (25 fps)            5781    169     270      247   |   0 / 0                 |  26 / 48
+  cam2 1100                     4121    111     157      146   |   0 / 1                 |  17 / 25
+  cam2 1600                     7987    215     375      285   |   0 / 1                 |  36 / 57
+  cam4 1600 (10 fps)            3199     31      58       54   |   0 / 1                 |   6 / 16
+  cam5 1600                     3875     34     236      150   |   0 / 1                 |  18 / 24
+  FM51 0700                      565      1      13       15   |   0 / 0                 |   2 / 3
+HYPOTHESIS FALSE: a newborn almost never holds the taken box - the lost id takes the arriving car's FIRST
+box, before any newborn exists. N1 is dead. N2 passes the 1-per-3 letter but moves ~4% of the wrong
+recoveries (deferred: too small to carry code on its own).
+THE LEVER THE TABLE SHOWS INSTEAD: LOST AGE, on the 25 fps camera only. 0.5 s patience = 12 frames on cam2
+(5 on the 10 fps cameras). cam2 recoveries after 6-12 lost frames:
+  wrong (EMERG + A ENDS + THEFT)  331 of 686 / 202 of 414 / 414 of 875   (about HALF)
+  SAME                            374 of 5781 / 204 of 4121 / 390 of 7987  (5-6%)
+  refusing them: 0.89 / 0.99 / 1.06 wrong per SAME (letter: >= 1 per 3) - ADVANCES.
+On the 10 fps cameras the ages stop at 5 by construction: a frames cap of 5 changes nothing there.
+
+## ARM pf1 DECLARED 2026-10-09 (BEFORE re-tracking): lost-track patience in FRAMES, 5
+Knob TRACKER_RECOVERY_LOST_PATIENCE_FRAMES=5 (backend/config.py; 0 = off, the seconds rule; recorded in
+the dump's recovery_geom only when set). 5 is not a new number: it is the census linker's 5 frames at
+10 fps that the 0.5 s was derived from, now held in frames at every fps. Only cam2 (25 fps) can change.
+Re-track from cache (arm_retrack_alias.py, scratch pf1_*): cam2 study_0700/1100/1600; plus cam4 study_1600
+as the identity check (must be row-identical to study_1600).
+BAR (chains, every cam2 window): EMERGENCE + A ENDS + THEFT + swaps fall; one-track does not fall; breaks
+may not rise more than the wrong switches fall. Then dev labels (cam2's dev clip; others identical by
+construction), then the fleet on the 3 cam2 windows (the other 9 unchanged) against 89.06, held-out cam2 once.
+PREDICTION: refused SAME recoveries (~200-400 per window) mostly become breaks (a new id after a 6-12 f gap),
+so breaks rise; the wrong switches fall by up to ~200-400. Whether one-track holds is the open question.

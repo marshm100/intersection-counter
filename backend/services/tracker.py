@@ -335,6 +335,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
                  recovery_reverse_jump: float = 0.15, kf_vel_std: float = 1.0 / 20,
                  confirm_by_position: bool = True, confirm_width_ratio: float = 0.5,
                  reinit_width_jump: float = 1.5, lost_patience_s: float = 0.5,
+                 lost_patience_frames: int = 0,
                  edge_exit: bool = True, frame_size: tuple | None = None,
                  edge_margin: float = 3.0, stack_iou: float = 0.6,
                  weak_birth: bool = False, weak_birth_persist_s: float = 0.5,
@@ -360,6 +361,9 @@ class _RecoveringByteTrack(sv.ByteTrack):
         # recovering those by position hands a stale id to the next vehicle
         # through the spot (2026-09-12: FM51 0700 stale hand-offs 246 -> 573).
         self.lost_patience_frames = max(1, int(round(float(lost_patience_s) * fr)))
+        if int(lost_patience_frames) > 0:
+            # the frames override (config.TRACKER_RECOVERY_LOST_PATIENCE_FRAMES)
+            self.lost_patience_frames = int(lost_patience_frames)
         # weak-box births (see the class docstring). Plain attributes only:
         # tentatives are dicts of scalar tuples, so checkpoints pickle stably.
         self.weak_birth = bool(weak_birth)
@@ -418,6 +422,40 @@ class _RecoveringByteTrack(sv.ByteTrack):
         # Diagnostics only (research_thefts.py sets a list): one tuple per
         # association that puts a box on a track — see _match_rec. None = off.
         self.match_log = None
+        # Diagnostics only (research_recovery_guard.py sets a list): one tuple
+        # per stage-2.5 match - does the taken box already belong to a
+        # newborn's or a weak-birth tentative's own short history? See
+        # _claim_rec. None = off.
+        self.recovery_claim_log = None
+
+    def _claim_rec(self, track, det, unconfirmed: list, was_lost: bool) -> tuple:
+        """(absolute frame, id, was_lost, frames since seen,
+        newborn: best IoU, its IoU x conf (the unconf pass claims at >= 0.3),
+        its id, IoU(its birth box, this track's last observed box),
+        tentative: best IoU (last or velocity-shifted box), its length in
+        frames, IoU(its first box, this track's last observed box))."""
+        d = np.asarray([det.tlbr], dtype=np.float32)
+        last = np.asarray([getattr(track, "last_obs_tlbr", track.tlbr)], dtype=np.float32)
+        u_iou = u_fused = u_birth = 0.0
+        u_id = -1
+        if unconfirmed:
+            ut = np.asarray([u.tlbr for u in unconfirmed], dtype=np.float32)
+            ov = 1.0 - _m.iou_distance(d, ut)[0]
+            k = int(ov.argmax())
+            u_iou, u_fused, u_id = float(ov[k]), float(ov[k] * det.score), int(unconfirmed[k].track_id)
+            u_birth = float(1.0 - _m.iou_distance(ut[k:k + 1], last)[0, 0])
+        t_iou = t_birth = 0.0
+        t_len = 0
+        if getattr(self, "tentatives", None):
+            L, P = self._tent_boxes()
+            ov = np.maximum(1.0 - _m.iou_distance(d, L)[0], 1.0 - _m.iou_distance(d, P)[0])
+            k = int(ov.argmax())
+            o = self.tentatives[k]["obs"]
+            first = np.asarray([o[0][2:6]], dtype=np.float32)
+            t_iou, t_len = float(ov[k]), int(o[-1][0] - o[0][0] + 1)
+            t_birth = float(1.0 - _m.iou_distance(first, last)[0, 0])
+        return (self._abs(), int(track.track_id), bool(was_lost), int(self.frame_id - track.end_frame),
+                u_iou, u_fused, u_id, u_birth, t_iou, t_len, t_birth)
 
     def update_with_tensors(self, tensors: np.ndarray) -> list:
         mlog = getattr(self, "match_log", None)
@@ -590,6 +628,9 @@ class _RecoveringByteTrack(sv.ByteTrack):
                     was_tracked = track.state == _TrackState.Tracked
                     if mlog is not None:
                         mlog.append(_match_rec(self, "s25", track, det, not was_tracked))
+                    if getattr(self, "recovery_claim_log", None) is not None:
+                        self.recovery_claim_log.append(
+                            self._claim_rec(track, det, unconfirmed, not was_tracked))
                     if _adopt(track, det, self.frame_id, self.kalman_filter,
                               self.reinit_width_jump, was_tracked):
                         self.n_reinit += 1
@@ -991,6 +1032,7 @@ class ByteTrackBackend:
             "confirm_width_ratio": float(getattr(_cfg, "TRACKER_CONFIRM_WIDTH_RATIO", 0.5)),
             "reinit_width_jump": float(getattr(_cfg, "TRACKER_REINIT_WIDTH_JUMP", 1.5)),
             "lost_patience_s": float(getattr(_cfg, "TRACKER_RECOVERY_LOST_PATIENCE_S", 0.5)),
+            "lost_patience_frames": int(getattr(_cfg, "TRACKER_RECOVERY_LOST_PATIENCE_FRAMES", 0)),
             "edge_exit": bool(getattr(_cfg, "TRACKER_EDGE_EXIT", True)),
             "frame_size": (tuple(frame_size) if frame_size else None),
             "stack_iou": float(getattr(_cfg, "TRACKER_STACK_IOU", 0.6)),

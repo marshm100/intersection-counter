@@ -920,6 +920,13 @@ TRACKER_REINIT_WIDTH_JUMP = 1.5
 # library's own stage-1 re-find (IoU x conf); recovering them by position
 # handed stale ids to following vehicles (FM51 0700: 246 -> 573).
 TRACKER_RECOVERY_LOST_PATIENCE_S = 0.5
+# The same patience in FRAMES (2026-10-09, arm pf1; 0 = off, the seconds rule
+# stands). The newborn-claim census (scripts/research_recovery_guard.py) found
+# that on the 25 fps camera (cam2, where 0.5 s = 12 f) about half of the wrong
+# lost-track recoveries (emergence / first car ends / theft by the chains) come
+# after 6-12 lost frames, against 5-6% of the same-car ones; on the 10 fps
+# cameras the seconds rule already caps at 5 f. Under test, not the default.
+TRACKER_RECOVERY_LOST_PATIENCE_FRAMES = int(_os.environ.get("TRACKER_RECOVERY_LOST_PATIENCE_FRAMES", "0"))
 # Recovery guards (Phase B thefts, 2026-09-15). The theft reel ruled that every
 # filmed position recovery onto a NEIGHBOUR's weak box was a theft (3 of 3)
 # while every ordinary-stage match filmed was right. The census

@@ -62,7 +62,9 @@ def main() -> int:
         for h in v:
             cf[int(h[0])].append((vi, h[1], h[2], h[3], h[4]))
 
-    by_box, log = stage_run(proj, cam, variant, meta, (int(vw), int(vh)) if vw and vh else None)
+    extra = {"claim": []}
+    by_box, log = stage_run(proj, cam, variant, meta, (int(vw), int(vh)) if vw and vh else None, extra)
+    claim = {(c[0], c[1]): c for c in extra["claim"]}
     recs = sorted(log.values(), key=lambda r: (r[0], r[1]))
     by_frame = defaultdict(list)
     for r in recs:
@@ -118,6 +120,15 @@ def main() -> int:
         else:
             a_after = int(((hits[prev] >= f) & (hits[prev] <= f + cont)).sum())
             kind = "OTHER" if a_after >= CONT_HITS else "SEAM/EMERGE"
+        # the finer kind (research_thefts' switch kinds): was the new car there before?
+        kind2 = kind
+        if kind in ("OTHER", "SEAM/EMERGE"):
+            b_before = int(((hits[new] < f) & (hits[new] >= f - cont)).sum())
+            if kind == "OTHER":
+                kind2 = "THEFT" if b_before >= CONT_HITS else "EMERGENCE"
+            else:
+                kind2 = "A ENDS" if b_before >= CONT_HITS else "SEAM"
+        cl = claim.get((f, tid))
         # where the NEIGHBOURS were last frame (their output boxes at f-1), and
         # where this id itself was: the jump's direction against the prediction
         prev_boxes = [(b, t) for b, t in by_box.get(f - 1, []) if t != tid]
@@ -154,7 +165,13 @@ def main() -> int:
                     "jump": None if jump is None else round(jump, 3),
                     "angle": None if angle is None else round(angle, 1),
                     "own_box_free": own_box_free, "prev": int(prev), "new": int(new),
-                    "ov_iou_nb": round(ov_iou_nb, 3)})
+                    "ov_iou_nb": round(ov_iou_nb, 3), "kind2": kind2,
+                    "u_iou": None if cl is None else round(cl[4], 3),
+                    "u_fused": None if cl is None else round(cl[5], 3),
+                    "u_birth": None if cl is None else round(cl[7], 3),
+                    "t_iou": None if cl is None else round(cl[8], 3),
+                    "t_len": None if cl is None else int(cl[9]),
+                    "t_birth": None if cl is None else round(cl[10], 3)})
 
     print(f"{proj} cam{cam} {variant}: {len(out)} position recoveries "
           f"({sum(1 for o in out if o['lost'])} of lost ids); yardstick {len(veh)} vehicles")
@@ -212,10 +229,51 @@ def main() -> int:
         sub = [o["conf"] for o in out if o["kind"] == k]
         if sub:
             print(f"  {k}: taken-box conf median {np.median(sub):.2f}, <0.35 {sum(1 for c in sub if c < 0.35)} of {len(sub)}")
+    claim_table(out, fps)
     p = Path(f"runs/v2_week1/recovery_guard_{proj}_{cam}_{variant}.json")
     p.write_text(json.dumps(out))
     print(f"  -> {p}")
     return 0
+
+
+KINDS2 = ("SAME", "EMERGENCE", "A ENDS", "THEFT", "SEAM", "NONE")
+UNCONF_CLAIM = 0.3      # the library's unconfirmed pass: linear_assignment(fused distance, thresh=0.7)
+TENT_CLAIM = 0.2        # the tentatives' position rule: TRACKER_RECOVERY_MIN_IOU
+
+
+def claim_table(out: list, fps: float) -> None:
+    """The newborn-claim census (plan 2026-10-09, Step 1): for recoveries of
+    LOST tracks, by the finer kind - lost age, and how many each candidate
+    rule would refuse (N1 newborn claim, N2 + tentatives; each excepting a
+    claimant born on the lost track's own last-seen box)."""
+    lost = [o for o in out if o["lost"] and o.get("u_iou") is not None]
+    print(f"  NEWBORN-CLAIM CENSUS: {len(lost)} recoveries of LOST tracks (fps {fps:g})")
+    ages = (1, 2, 3, 5, 8, 12, 10 ** 6)
+    print("     lost age (frames) <=" + "".join(f"{a if a < 10 ** 6 else 'more':>6}" for a in ages))
+    for k in KINDS2:
+        sub = [o["age"] for o in lost if o["kind2"] == k]
+        if not sub:
+            continue
+        h, lo = [], 0
+        for a in ages:
+            h.append(sum(1 for x in sub if lo < x <= a)); lo = a
+        print(f"     {k:<12}        " + "".join(f"{n:>6d}" for n in h) + f"   n={len(sub)}  median {np.median(sub):.0f} f")
+    rules = {
+        "newborn claims (no exception)": lambda o: o["u_fused"] >= UNCONF_CLAIM,
+        "N1 newborn claims, born off the lost box": lambda o: o["u_fused"] >= UNCONF_CLAIM and o["u_birth"] <= 0.0,
+        "tentative claims (no exception)": lambda o: o["t_iou"] >= TENT_CLAIM,
+        "N2 = N1 or tentative born off the lost box": lambda o: (
+            (o["u_fused"] >= UNCONF_CLAIM and o["u_birth"] <= 0.0) or (o["t_iou"] >= TENT_CLAIM and o["t_birth"] <= 0.0)),
+    }
+    print("     rule refuses:  " + "  ".join(f"{k:>10}" for k in KINDS2) + "   wrong/SAME")
+    for name, fn in rules.items():
+        c = Counter(o["kind2"] for o in lost if fn(o))
+        wrong = c["EMERGENCE"] + c["A ENDS"] + c["THEFT"]
+        ratio = wrong / c["SAME"] if c["SAME"] else float("inf")
+        print(f"     {name}")
+        print("                    " + "  ".join(f"{c[k]:>10d}" for k in KINDS2) + f"   {wrong}/{c['SAME']} = {ratio:.2f}")
+    tot = Counter(o["kind2"] for o in lost)
+    print("     (of)            " + "  ".join(f"{tot[k]:>10d}" for k in KINDS2))
 
 
 if __name__ == "__main__":

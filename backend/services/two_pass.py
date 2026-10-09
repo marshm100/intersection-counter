@@ -512,11 +512,16 @@ def _cfg_recovery_geom():
     """Position-recovery geometry and timing (2026-09-30 recipe hygiene): these
     shape which box a lost track may take, and were not recorded before."""
     from backend import config as c
-    return {"reach": float(getattr(c, "TRACKER_RECOVERY_REACH", 0.9)),
+    geom = {"reach": float(getattr(c, "TRACKER_RECOVERY_REACH", 0.9)),
             "size_ratio": float(getattr(c, "TRACKER_RECOVERY_SIZE_RATIO", 0.3)),
             "reinit_width_jump": float(getattr(c, "TRACKER_REINIT_WIDTH_JUMP", 1.5)),
             "lost_patience_s": float(getattr(c, "TRACKER_RECOVERY_LOST_PATIENCE_S", 0.5)),
             "confirm_width_ratio": float(getattr(c, "TRACKER_CONFIRM_WIDTH_RATIO", 0.5))}
+    # recorded only when set, so dumps written before the knob still resume
+    pf = int(getattr(c, "TRACKER_RECOVERY_LOST_PATIENCE_FRAMES", 0))
+    if pf > 0:
+        geom["lost_patience_frames"] = pf
+    return geom
 
 
 def _cfg_recovery_guard():

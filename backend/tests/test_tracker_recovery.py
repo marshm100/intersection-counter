@@ -625,3 +625,66 @@ def test_kf_velocity_noise_follows_an_accelerating_vehicle(monkeypatch, recovery
     assert "kf_vel_std" in tp.PASS1_RESUME_KEYS
     monkeypatch.setattr(cfg, "TRACKER_KF_VEL_STD", 1.0 / 160)
     assert abs(tp._cfg_kf_vel_std() - 1.0 / 160) < 1e-12
+
+
+def test_recovery_claim_log_changes_nothing_and_matches_s25(recovery_on):
+    """The diagnostics-only claim log (research_recovery_guard.py) writes one
+    record per stage-2.5 match, and switching it on leaves the output identical."""
+    frames = {}
+    for f in range(1, 31):
+        if 11 <= f <= 13:
+            continue
+        frames[f] = [det(100.0 + 8.0 * (f - 1), 200.0 + (8.0 if f >= 14 else 0.0), 20.0, 15.0, 0.6)]
+    two = chain(y=320.0)
+    both = {f: frames.get(f, []) + two.get(f, []) for f in range(1, 31)}
+    be = backend()
+    be.byte_track.match_log = []
+    plain = [[(r["track_id"], tuple(r["bbox"])) for r in be.update(both.get(f, []), 1000 + f)] for f in range(1, 31)]
+    s25 = [(r[0], r[1]) for r in be.byte_track.match_log if r[2] == "s25"]
+    BaseTrack._count = 0
+    be = backend()
+    be.byte_track.recovery_claim_log = []
+    logged = [[(r["track_id"], tuple(r["bbox"])) for r in be.update(both.get(f, []), 1000 + f)] for f in range(1, 31)]
+    assert logged == plain
+    log = be.byte_track.recovery_claim_log
+    assert s25 and [(r[0], r[1]) for r in log] == s25
+    assert all(len(r) == 11 for r in log)
+    del be.byte_track.recovery_claim_log          # an old pickle without the attribute still runs
+    be.update(both[30], 1031)
+
+
+def test_claim_rec_sees_a_newborns_box():
+    """_claim_rec: the taken box sits on an unconfirmed newborn born away from
+    the lost track's last observed box."""
+    be = backend()
+    bt = be.byte_track
+    bt.frame_id = 20
+    lost = T._STrack(T._STrack.tlbr_to_tlwh(np.array([100.0, 100.0, 130.0, 120.0])), 0.9, 2)
+    lost.frame_id, lost.track_id = 16, 5   # end_frame is the last frame seen
+    lost.last_obs_tlbr = np.array([100.0, 100.0, 130.0, 120.0])
+    newborn = T._STrack(T._STrack.tlbr_to_tlwh(np.array([200.0, 100.0, 230.0, 120.0])), 0.9, 2)
+    newborn.track_id = 77
+    taken = T._STrack(T._STrack.tlbr_to_tlwh(np.array([202.0, 100.0, 232.0, 120.0])), 0.5, 2)
+    rec = bt._claim_rec(lost, taken, [newborn], True)
+    assert rec[1:4] == (lost.track_id, True, 4)
+    assert rec[4] == pytest.approx(28 / 32, abs=1e-3)       # IoU with the newborn's box
+    assert rec[5] == pytest.approx(0.5 * 28 / 32, abs=1e-3)  # x conf: the unconf pass would claim it
+    assert rec[6] == 77 and rec[7] == 0.0                    # born away from the lost car
+    assert rec[8:] == (0.0, 0, 0.0)                          # no tentatives
+
+
+def test_lost_patience_frames_override(monkeypatch):
+    """TRACKER_RECOVERY_LOST_PATIENCE_FRAMES (arm pf1): 0 keeps the seconds
+    rule; a positive value caps lost-track recovery at that many frames at any
+    fps, and is written to the dump recipe only when set."""
+    def make(fps):
+        return create_tracker_backend("bytetrack", track_activation_threshold=0.25,
+                                      minimum_matching_threshold=0.8, frame_rate=fps,
+                                      lost_track_buffer=150)
+    assert make(25).byte_track.lost_patience_frames == 12          # 0.5 s at 25 fps
+    assert make(10).byte_track.lost_patience_frames == 5
+    assert "lost_patience_frames" not in tp._cfg_recovery_geom()
+    monkeypatch.setattr(cfg, "TRACKER_RECOVERY_LOST_PATIENCE_FRAMES", 5)
+    assert make(25).byte_track.lost_patience_frames == 5
+    assert make(10).byte_track.lost_patience_frames == 5
+    assert tp._cfg_recovery_geom()["lost_patience_frames"] == 5

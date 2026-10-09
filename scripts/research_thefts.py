@@ -64,9 +64,12 @@ def tlbr(r) -> np.ndarray:
     return np.array([r[2] - r[4] / 2, r[3] - r[5] / 2, r[2] + r[4] / 2, r[3] + r[5] / 2], dtype=np.float64)
 
 
-def stage_run(proj: str, cam: int, variant: str, meta: dict, frame_size) -> tuple[dict, dict]:
+def stage_run(proj: str, cam: int, variant: str, meta: dict, frame_size,
+              extra: dict | None = None) -> tuple[dict, dict]:
     """The dump's tracker, in process, match log on. Returns
-    {frame: [(tlbr, in-process id)]} and {(frame, id): log record}."""
+    {frame: [(tlbr, in-process id)]} and {(frame, id): log record}.
+    extra: a dict to receive optional diagnostics logs - with key "claim"
+    present, the stage-2.5 claim log (research_recovery_guard.py)."""
     from backend.services.detection_cache import DetectionCacheReader
     from backend.services.pipeline import _class_agnostic_nms
     from backend.services.tracker import create_tracker_backend
@@ -80,6 +83,8 @@ def stage_run(proj: str, cam: int, variant: str, meta: dict, frame_size) -> tupl
                                 minimum_matching_threshold=float(meta["match"]), frame_rate=int(fps),
                                 frame_size=frame_size, collect_backfill=True, **kw)
     be.byte_track.match_log = []
+    if extra is not None and "claim" in extra:
+        be.byte_track.recovery_claim_log = extra["claim"]
     nms, buf = meta.get("nms_iou"), float(meta.get("bbox_buffer") or 1.0)
     assert buf == 1.0, "research_thefts: bbox buffer != 1 not reproduced"
     f0, f1 = meta["frames"]
