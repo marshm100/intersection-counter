@@ -3352,3 +3352,13 @@ exit) does not separate a graze from a real turn at every site; narrowing it fur
 numbers would be tuning to one camera. EXIT_GRAZE_SKIP stays built and OFF (like BORN_AT_MOUTH).
 Next idea needed, not a third threshold: e.g. judge the exit by where the car is NEXT seen relative to
 the other legs' traffic (cam5's grazers end inside the NB-through stream), from witnessed journeys.
+
+## HELD-OUT LABELS, first results (2026-10-02 .. 10-09) - the shipped default (nc2), scored once each
+Clips loaded 2026-10-02 (scripts/journey_clips.py had defined them; never run). Labelled by the operator:
+  cam1_0700_m50  120 vehicles, 107 correct (89.2%) - dev cam1 89.2%; broken 14 (dev 5), phantoms 2
+  cam2_1600_m50  184 vehicles, 164 correct (89.1%) - dev cam2 86.6%; broken 17 (dev 4), phantoms 20;
+                 cells 28->27 6/11, 26->27 6/9, 29->27 53/49
+  Both: 271 / 304 (89.1%) against dev 445 / 512 (86.9%). The five rules shipped 09-30..10-01 hold on
+  footage they never saw. The held-out errors are TRACKER errors (breaks, thefts, phantom splits).
+cam3 / cam4 / cam5 held-out: NOT labelled; the operator finds labelling slow (cam2 took most of a week).
+Stopping rule: the held-out set is scored ONCE per ship candidate, never used to build or tune.
