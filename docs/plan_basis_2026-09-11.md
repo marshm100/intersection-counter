@@ -3424,3 +3424,16 @@ may not rise more than the wrong switches fall. Then dev labels (cam2's dev clip
 construction), then the fleet on the 3 cam2 windows (the other 9 unchanged) against 89.06, held-out cam2 once.
 PREDICTION: refused SAME recoveries (~200-400 per window) mostly become breaks (a new id after a 6-12 f gap),
 so breaks rise; the wrong switches fall by up to ~200-400. Whether one-track holds is the open question.
+
+### ARM pf1 VERDICT 2026-10-09 (chains): FAIL on the letter - one-track falls on cam2 11:00
+Re-tracks pf1_study_* (logs runs/v2_week1/retrack_pf1_*, wb_pf1_cam2_*, research_thefts_pf1_cam2_*;
+baselines wb_study_cam2_*, thefts_cam2_2026-10-09.log). cam4 16:00 pf1 = study_1600 row for row (the 10 fps
+identity check holds; the production dump reproduces from cache with today's code).
+  cam2 window   one-track (base -> pf1)   breaks              wrong switches E+AE+T   swaps
+  07:00         3602 -> 3628 (+26)        5431 -> 5234 (-197)  732 -> 608 (-124)      107 -> 89
+  11:00         2934 -> 2867 (-67)        3331 -> 3353 (+22)   504 -> 414 (-90)        52 -> 49
+  16:00         4409 -> 4413 (+4)         7090 -> 6899 (-191)  953 -> 757 (-196)      123 -> 115
+  all three     10945 -> 10908 (-37)      15852 -> 15486 (-366) 2189 -> 1779 (-410)    282 -> 253
+Wrong switches fall on every window (-17% to -21%) and breaks FALL on two (the prediction said they would
+rise). But the bar's one-track clause fails at 11:00 (-67, 1.5% of 4395; 2-id vehicles 1133 -> 1177).
+NOT advanced to labels / fleet without an operator ruling (the gx2 note: no arguing a letter down unruled).
