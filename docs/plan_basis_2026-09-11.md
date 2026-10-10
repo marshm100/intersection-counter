@@ -3531,3 +3531,48 @@ scripts/research_entry_exit.py on the production study_* dumps (raw tracks, befo
      43% none of the three (stop-go in the queue, box jitter). Median box 72 px: near-field, not tiny.
   So the motion check cannot reach 100%: the misses are invisible to motion and the false flags are
   produced by the detector, not the car. Neither is fixable by a threshold.
+
+## VEHICLE APPEARANCE PROBE DECLARED (2026-10-09, operator: "with my own eyes I can tell the vehicles apart";
+## "all that matters is the vehicles just around the intersection"; go for the model download)
+Every appearance verdict so far used osnet_x0_25_msmt17 - the smallest osnet, trained on PEDESTRIANS (MSMT17) -
+plus a colour histogram. Never tried: a VEHICLE re-identification model or a modern general vision model.
+Downloaded once (dev-time; the tool stays offline): clip_veri.pt (CLIP-ReID trained on VeRi-776 vehicles,
+boxmot) and DINOv2 ViT-B/14 (torch.hub). scripts/probe_vehicle_reid.py, the human's test, in the zone only
+(ground point inside the hull of the drawn gate segments):
+  THEFTS   every census THEFT / SWAP / EMERGENCE / A ENDS whose taken box is in the zone: the car the id was on
+           (chain A's detector boxes in the second before, up to 5) vs the box it takes (chain B at the switch).
+  SAME     random in-zone points on the chains: the same chain's boxes in the second before vs its box now.
+Signals: osnet (baseline), clip_veri, DINOv2 CLS - cosine distance of the take to the mean of the refs.
+GATE: AUC >= 0.95 AND >= 50% of thefts caught at <= 1% of same-car points refused, on every cam2 window;
+reported by box width (< 33 / 33-66 / > 66 px) so the far side of the intersection shows separately.
+RESULT (runs/v2_week1/probe_vehicle_reid_cam2.log): all three models ~0.82-0.86 AUC on every window,
+caught at 1% refused 0.16-0.39 - FAIL on the letter. BUT THE TRUTH IS WRONG: crop sheets
+(screenshots/vreid_thefts_lookalike_1600.png, vreid_same_unlike_1600.png) show, by eye, that the 12 "thefts"
+the models score most alike are ONE vehicle each (box truck, pickups, FedEx and Swift trailers split into two
+chains by the yardstick) and at least half of the 12 "same car" points they score least alike are DIFFERENT
+vehicles (the chain jumped cars). Bigger boxes scoring worse is the trucks. The chain yardstick cannot measure
+appearance; the 0.85 is the yardstick's error rate, not the models' limit.
+RE-DECLARED on clean truth (same gate): scripts/probe_vehicle_reid_labels.py on the JOURNEY LABELS - the five
+DEV clips (one per camera; held-out untouched), each labelled vehicle's entry and exit clicks matched to the
+detector box containing them. Test A: the car before entry vs the exit box (own = SAME; another labelled
+vehicle's exit box within 2 s = DIFFERENT). Test B: the car in the 0.5 s before its exit click vs its own box
+at the click (SAME) and vs other labelled vehicles' boxes in that frame within 2 box widths (DIFFERENT).
+RESULT (runs/v2_week1/probe_vehicle_reid_labels.log; clicks matched to a detector box within 0.35 box widths -
+a back-tyre click sits at the box's end, and at 10 fps the car moves 10-20 px a frame; 394 of 521 matched):
+  TEST A entry vs exit:  osnet 0.55, clip_veri 0.68, DINOv2 0.50 AUC. Appearance CANNOT compare the car entering
+    with the car leaving - turning and growing/shrinking changes the look more than a different car does.
+  TEST B side by side at the exit (0.5 s of the car vs its own box / a neighbour's box, same frame):
+                 same diff   osnet           clip_veri       DINOv2      (AUC, caught at 1% refused)
+    all           354  231   0.940 0.29      0.942 0.41      0.887 0.25
+    cam2          136   86   0.897 0.17      0.931 0.26      0.795 0.16
+    cam4           95   53   0.970 0.62 P    0.969 0.77 P    0.921 0.55
+    cam5           60   56   0.974 0.61 P    0.988 0.79 P    0.898 0.18
+    cam1           45   30   0.968 0.57 P    0.867 0.37      0.970 0.60 P
+    cam3           18    6   1.000 (n tiny)  1.000           0.963
+  cam2 by box width (clip_veri): < 33 px 0.90, 33-66 0.93, > 66 1.00; other cameras 0.93 / 0.94 / 0.97.
+  VERDICT: FAIL on the letter (all 0.942 < 0.95; cam2 fails on every model). But the picture has changed:
+  appearance DOES tell two cars apart at the same moment (0.94-0.99 on four cameras), and the earlier
+  failures (9.76, the per-point QC, the chain probe) were partly the chain yardstick's own errors. It fails
+  across the intersection, so a check must compare each step with the last half second (the operator's
+  per-frame design), never entry with exit. Even the pedestrian osnet does about as well as the vehicle
+  model here; the test design mattered more than the model. cam2's far side (< 33 px) is the weak spot.
