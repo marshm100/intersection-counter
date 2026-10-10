@@ -3576,3 +3576,39 @@ a back-tyre click sits at the box's end, and at 10 fps the car moves 10-20 px a 
   across the intersection, so a check must compare each step with the last half second (the operator's
   per-frame design), never entry with exit. Even the pedestrian osnet does about as well as the vehicle
   model here; the test design mattered more than the model. cam2's far side (< 33 px) is the weak spot.
+
+## STAGE 1 DECLARED (2026-10-10, plan "a per-frame same-car check inside the tracker", operator go):
+## TRAIN OUR OWN CAR VERIFIER FROM THE FOOTAGE, label-free
+Why: on the journey labels, side by side at one frame, off-the-shelf models plateau at AUC ~0.94 and fail on
+cam2 (far side < 33 px). The operator's design checks every frame's match against the track's recent memory
+of its car; the verifier is that check's eyes.
+DATA (scripts/build_verifier_pairs.py): the 12 fleet windows, 1-s blocks every 5 s, EXCLUDING every
+journey-label clip (dev and held-out) +- 30 s. Pseudo-identities are short and unambiguous: a production-dump
+track stretch inside one block whose detector boxes follow each other at IoU >= 0.7 and never overlap or abut
+another box (a truck's cab and trailer boxes touch); up to 4 crops each. Different cars = different tracklets
+of the same block (same frames: two separate boxes are two vehicles) plus a block from another window.
+MODEL (scripts/train_vehicle_verifier.py, backend/services/vehicle_verifier.py): osnet_x1_0 from its MSMT17
+weights, 128x128 square crops, supervised-contrastive loss within each batch, augmentation includes random
+down-scaling to far-side sizes. Two models: ALL cameras, and LEAVE-CAM2-OUT (a camera it never saw).
+GATE: scripts/probe_vehicle_reid_labels.py Test B - AUC >= 0.95 AND >= 50% of neighbours caught at <= 1% of
+same-car refused, on cam1, cam2, cam4 and cam5 (>= 30 neighbour pairs each; cam3 reported only), for the
+ALL-cameras model. The leave-cam2-out model's cam2 line is reported beside it (the blank-site question).
+FAIL -> write up and stop; the dataset and trainer stay as instruments.
+RESULT (2026-10-10; runs/v2_week1/probe_verifier_v1_labels.log, train_verifier_{all,nocam2}.log). Data: 12
+windows, 1-s blocks every 5 s (every 20 s gave ~1 tracklet a block on the 10 fps cameras; IoU step 0.3 and
+"abutting" < 0.05 box widths for the same reason), ~60k tracklets / 240k crops. 12,000 iterations each, ~18 min.
+  TEST B, side by side (AUC / caught at 1% of same-car refused):
+                 clip_veri (best off-the-shelf)   ver_all           ver_nocam2 (never saw cam2)
+    all            0.942 0.41                     0.965 0.55 P      0.968 0.51 P
+    cam2           0.931 0.26                     0.978 0.66 P      0.969 0.51 P
+    cam1           0.867 0.37                     0.980 0.67 P      0.974 0.67 P
+    cam5           0.988 0.79 P                   0.980 0.80 P      0.988 0.89 P
+    cam4           0.969 0.77 P                   0.971 0.43 FAIL   0.980 0.42
+    cam3 (n 6)     1.000                          0.935             0.935
+  TEST A, entry vs exit: still ~0.53-0.81 - appearance across the intersection stays unusable.
+  ONE shared threshold (ver_all's all-camera 1% point, as the tracker would use): neighbours caught cam1 0.63,
+  cam2 0.65, cam4 0.53, cam5 0.41, with same-car refused 1/45, 1/136, 2/95, 0/60.
+  VERDICT: FAIL on the letter by ONE clause - cam4's caught-at-1% is 0.43 against 0.50 (1% of 95 same-car pairs
+  is a single pair; at 2% it catches 0.81). Every other camera passes; cam2, the target, goes 0.93 -> 0.98 and
+  26% -> 66%; the model that never saw cam2 reaches 0.969 / 0.51 there (it carries to an unseen camera).
+  Stage 2 waits for the operator's ruling.

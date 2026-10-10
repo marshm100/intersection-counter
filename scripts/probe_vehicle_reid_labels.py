@@ -106,7 +106,7 @@ def follow(boxes: dict, f: int, b: np.ndarray, frames: list[int]) -> list:
 
 
 def main() -> int:
-    proj = sys.argv[1] if len(sys.argv) > 1 else "97a7849a"
+    proj = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else "97a7849a"
     con = sqlite3.connect(f"file:data/projects/{proj}/project.db?mode=ro", uri=True)
     clips = con.execute("SELECT clip_id, camera_id, start_frame, end_frame, fps FROM journey_clips "
                         "WHERE label NOT LIKE '%held out%'").fetchall()
@@ -114,6 +114,12 @@ def main() -> int:
     models = {"osnet": ReID(weights="osnet_x0_25_msmt17.pt", device="cuda:0").model,
               "clip_veri": ReID(weights="clip_veri.pt", device="cuda:0").model,
               "dinov2": Dino()}
+    from backend.services.vehicle_verifier import Verifier
+    for name, wpath in (("ver_all", "data/models/verifier_v1_all.pt"), ("ver_nocam2", "data/models/verifier_v1_nocam2.pt")):
+        if Path(wpath).exists():
+            models[name] = Verifier(wpath)
+    if "--only-new" in sys.argv:
+        models = {k: v for k, v in models.items() if k.startswith("ver_") or k == "clip_veri"}
     pairs = []
     for clip, cam, f0, f1, fps in clips:
         vpath, chash = con.execute("SELECT path, content_hash FROM videos WHERE camera_id=?", (cam,)).fetchone()
@@ -171,7 +177,8 @@ def main() -> int:
             bl = sorted(need[f])
             bb = np.clip(np.asarray(bl, dtype=np.float32), 0, [639, 479, 639, 479])
             for name, m in models.items():
-                x = np.asarray(m.get_features(bb, img) if name != "dinov2" else m.features(bb, img), dtype=np.float64)
+                x = np.asarray(m.features(bb, img) if hasattr(m, "features") else m.get_features(bb, img),
+                               dtype=np.float64)
                 x /= np.maximum(np.linalg.norm(x, axis=1, keepdims=True), 1e-9)
                 for key, e in zip(bl, x):
                     feats[name][(f, key)] = e
@@ -194,7 +201,7 @@ def main() -> int:
             P = [p for p in pairs if p["test"] == test and (scope == "all" or p["clip"] == scope)]
             ns, nd = sum(p["cls"] == "same" for p in P), sum(p["cls"] == "diff" for p in P)
             line = f"  {scope:14s} same {ns:4d} diff {nd:4d} |"
-            for name in MODELS:
+            for name in models:
                 pos = [p[name] for p in P if p["cls"] == "diff"]
                 neg = [p[name] for p in P if p["cls"] == "same"]
                 a, c1 = auc(pos, neg), caught_at(pos, neg, 0.01)
