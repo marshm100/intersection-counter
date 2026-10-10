@@ -3513,3 +3513,21 @@ scripts/research_entry_exit.py on the production study_* dumps (raw tracks, befo
     precision (0.41, 0.38 against 0.50). Turns alone pass all three, but that split is post-hoc: not a pass.
   VERDICT: FAIL on the letter (2 of 3 windows). The lead is a cut at the in-box motion jump (a widened theft
   split), to be declared as its own arm and judged on the deliverable if the operator wants it.
+
+### WHY IT MISSES AND OVER-FIRES (2026-10-09, operator: "lay out how and why it fails"; scripts/
+### research_entry_exit_why.py, runs/v2_week1/entry_exit_why_cam2.log, jump >= 0.19, three cam2 windows)
+  1. THE TRUTH IS PARTLY THE YARDSTICK'S OWN BREAKS. Of 1,170 journeys whose exit chain != entry chain, 462
+     are CHAIN SEAMs (the yardstick split one car) and 279 have no census switch at all; only 431 are real
+     switches (EMERGENCE 186, A ENDS 125, SWAP 73, THEFT 47). The jump "catches" 295 seams + 173 no-switch
+     because both react to the same detection glitch. Counted honestly (seams and no-switch = same car):
+     real switches caught 290 / 431 = 67%; precision 290 / 1,737 flags = 17% (23% with seams left out).
+     The gate's 0.38-0.50 precision was flattered by the yardstick's errors.
+  2. MISSES (141 real): the id slides onto a car RIGHT NEXT to it going the SAME WAY - boxes < 0.5 box
+     widths apart 80%, headings within 20 deg 80%, no unseen frame 61%. Motion is continuous by
+     construction (same lane, same speed, the next car); only what the car looks like could tell them
+     apart, and at 640x480 it cannot (AUC 0.42-0.61 above, 0.75-0.80 at the match in 9.76).
+  3. FALSE FLAGS (979 same car): detection-box artefacts move the box centre while the car moves smoothly
+     - another box overlapping (occlusion) 37%, box size change >= 1.3x 32%, a gap in the track 18%;
+     43% none of the three (stop-go in the queue, box jitter). Median box 72 px: near-field, not tiny.
+  So the motion check cannot reach 100%: the misses are invisible to motion and the false flags are
+  produced by the detector, not the car. Neither is fixable by a threshold.
