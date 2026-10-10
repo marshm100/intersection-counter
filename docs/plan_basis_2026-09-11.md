@@ -3484,3 +3484,32 @@ known. Logs: runs/v2_week1/track_qc_cam2.log, track_qc_dryrun.log, app_sidecar_c
 VERDICT: FAIL on all three windows. The loop (bans, re-track, rounds or per vehicle) is NOT built: a QC that
 flags ~25 good points per real switch would ban good matches 25 times as often as bad ones. Same root as
 the probe: at 640x480 neither what the car looks like nor how its box moves marks a switch reliably enough.
+
+## ENTRY vs EXIT CHECK DECLARED (2026-10-09, operator: "all that matters is the moment before the
+## intersection and the moment after; the detection far before the intersection is only guidance, not the law")
+Step 4 re-aimed: one comparison per track that crosses two different gate lines - the car in the second
+before its ENTRY crossing vs the car in the second after its EXIT crossing (ground point, the drawn gate
+segments) - not every point along the track. Truth: the yardstick chain at entry vs at exit (label-free).
+Signals: osnet and colour histogram between the two windows (the .app sidecars), and the largest motion
+jump between entry and exit (mot_jump of research_track_qc). Reported overall and split through / turn (a
+turning car shows the camera a different side). GATE: as Phase 0 - recall >= 0.40 of the tracks whose exit
+car is not their entry car, at precision >= 0.50, every cam2 window, one threshold chosen on 16:00.
+scripts/research_entry_exit.py on the production study_* dumps (raw tracks, before the linker).
+
+### ENTRY vs EXIT VERDICT 2026-10-09: appearance FAILS outright; the in-box MOTION JUMP nearly passes
+  (runs/v2_week1/entry_exit_cam2.log; threshold chosen on 16:00, applied unchanged)
+                     journeys  exit car != entry car   osnet AUC  colour AUC  jump AUC   jump >= 0.19 box widths
+  16:00 all            5942     558 / 4999 (11.2%)       0.44       0.58        0.85      P 0.50  R 0.65  PASS
+  11:00 all            4106     246 / 3486 ( 7.1%)       0.49       0.61        0.86      P 0.41  R 0.62  FAIL
+  07:00 all            5202     366 / 4424 ( 8.3%)       0.42       0.48        0.85      P 0.38  R 0.66  FAIL
+  turns only (16/11/07)                                                     0.90/0.93/0.94  P 0.55/0.55/0.62  R 0.69/0.68/0.76
+  throughs only                                                             0.83/0.81/0.79  P 0.48/0.34/0.32
+  - 7-11% of the raw tracks that enter one gate and leave by another end on a different car (by the chains;
+    a chain seam also reads DIFFERENT, so this is an upper bound). The linker repairs some before counting.
+  - APPEARANCE between entry and exit separates nothing (AUC 0.42-0.61, osnet BELOW chance: the same car
+    seen entering and leaving changes size and side more than two different cars do). Dead as a check.
+  - The MOTION JUMP inside the intersection (the operator's "impossible motion") is a real signal: AUC
+    0.85 overall, 0.90-0.94 on turns. On the declared gate it PASSES 16:00 and FAILS 11:00 / 07:00 on
+    precision (0.41, 0.38 against 0.50). Turns alone pass all three, but that split is post-hoc: not a pass.
+  VERDICT: FAIL on the letter (2 of 3 windows). The lead is a cut at the in-box motion jump (a widened theft
+  split), to be declared as its own arm and judged on the deliverable if the operator wants it.
