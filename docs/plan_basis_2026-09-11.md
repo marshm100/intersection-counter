@@ -3612,3 +3612,22 @@ windows, 1-s blocks every 5 s (every 20 s gave ~1 tracklet a block on the 10 fps
   is a single pair; at 2% it catches 0.81). Every other camera passes; cam2, the target, goes 0.93 -> 0.98 and
   26% -> 66%; the model that never saw cam2 reaches 0.969 / 0.51 there (it carries to an unseen camera).
   Stage 2 waits for the operator's ruling.
+OPERATOR RULING 2026-10-10: "Proceed to Stage 2" - the cam4 1%-clause miss (one pair of 95) ruled through; arm
+av1 is built and judged as usual (chains, dev labels, fleet); shipping needs a separate go. Not precedent for
+arguing a letter down without a ruling.
+
+## ARM av1 DECLARED (2026-10-10) — THE SAME-CAR CHECK, BEFORE any re-track
+Built (backend/services/tracker.py _app_refuse / _app_note; config TRACKER_APPEARANCE_VETO, default OFF):
+each track keeps the car-verifier embeddings of its last 0.5 s of boxes (TRACKER_APPEARANCE_MEM_S); at s1, s2,
+s25 and confirm_pos, when another box lies within 2 box widths of the track's prediction
+(TRACKER_APPEARANCE_NEAR_W), a candidate box whose cosine distance to the mean of that memory exceeds
+TRACKER_APPEARANCE_THRESH = 0.482 (verifier_v1_all's 1%-of-same-car point on the labels' side-by-side test) is
+refused this frame (the track coasts). Embeddings come from <variant>.ver1/ (scripts/build_appearance_sidecar.py
+--model ver1), fed by pass 1 from cache through the parquet row number; recorded in the recipe
+(recovery_geom.appearance) only when on. Tests: refuses a contested look-alike-fail, never checks an
+uncontested pair, alike looks = identical ids, no embeddings = inert, sidecar found through an arm alias.
+RUN: TRACKER_APPEARANCE_VETO=1 scripts/arm_retrack_alias.py ... av1 on all 12 windows + FM51 0700 (scratch av1_*).
+BARS (Stage 3, as planned): (1) chains, every cam2 window and then cam1/3/4/5/FM51: wrong switches (THEFT +
+EMERGENCE + A ENDS) and swaps fall, one-track does not fall, breaks rise less than switches fall; (2) dev labels
+car by car vs 445 / 512 (McNemar); (3) fleet vs 89.06 on the G-DEF-1 letter; (4) held-out cam1 + cam2 once
+(271 / 304); (5) live-pass run-time cost stated. Ship only on the operator's go.

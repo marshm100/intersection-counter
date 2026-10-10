@@ -342,6 +342,8 @@ class _RecoveringByteTrack(sv.ByteTrack):
                  weak_birth_gap_s: float = 0.2, weak_birth_min_move: float = 0.5,
                  weak_birth_max_cover: float = 0.6, weak_birth_history_s: float = 10.0,
                  weak_birth_promote: bool = True, collect_backfill: bool = False,
+                 appearance_veto: bool = False, appearance_thresh: float = 0.482,
+                 appearance_near_w: float = 2.0, appearance_mem_s: float = 0.5,
                  **kwargs):
         super().__init__(*args, **kwargs)
         self.stack_iou = float(stack_iou)
@@ -376,6 +378,22 @@ class _RecoveringByteTrack(sv.ByteTrack):
         self.wb_promote = bool(weak_birth_promote)
         self.tentatives: list = []
         self.backfill = [] if collect_backfill else None
+        # THE SAME-CAR CHECK (config.TRACKER_APPEARANCE_VETO, arm av1, 2026-10-10;
+        # docs/plan_basis_2026-09-11.md "STAGE 2"): each track remembers what its car
+        # looked like over its last appearance_mem_s of boxes (car-verifier
+        # embeddings, backend/services/vehicle_verifier.py, fed per frame through
+        # _frame_embs); where another box lies within appearance_near_w box widths
+        # of the track's prediction, a candidate box that does not look like that
+        # car (cosine distance > appearance_thresh) is refused this frame - the
+        # track coasts. Off, or with no embeddings fed, the fork is unchanged.
+        self.appearance_veto = bool(appearance_veto)
+        self.appearance_thresh = float(appearance_thresh)
+        self.appearance_near_w = float(appearance_near_w)
+        self.app_mem_frames = max(2, int(round(float(appearance_mem_s) * fr)))
+        self._frame_embs = None
+        self._app_centres = None
+        self.n_appearance_checked = 0
+        self.n_appearance_refused = 0
         self.n_weak_births = 0
         self.n_weak_inherited = 0
         self.weak_birth_log = None
@@ -457,6 +475,47 @@ class _RecoveringByteTrack(sv.ByteTrack):
         return (self._abs(), int(track.track_id), bool(was_lost), int(self.frame_id - track.end_frame),
                 u_iou, u_fused, u_id, u_birth, t_iou, t_len, t_birth)
 
+    def _app_on(self) -> bool:
+        return bool(getattr(self, "appearance_veto", False)) and getattr(self, "_frame_embs", None) is not None
+
+    def _app_note(self, track, det) -> None:
+        """Remember the look of the box a track just took (its last app_mem_frames boxes)."""
+        if not self._app_on():
+            return
+        e = getattr(det, "app_emb", None)
+        if e is None or not np.isfinite(e[0]):
+            return
+        mem = getattr(track, "app_mem", None) or []
+        mem.append(e)
+        track.app_mem = mem[-self.app_mem_frames:]
+
+    def _app_refuse(self, tracks: list, dets: list) -> np.ndarray:
+        """(T, D) True where a contested pair fails the same-car check."""
+        out = np.zeros((len(tracks), len(dets)), dtype=bool)
+        if not self._app_on() or not tracks or not dets or self._app_centres is None:
+            return out
+        E = [getattr(d, "app_emb", None) for d in dets]
+        ok = np.asarray([e is not None and bool(np.isfinite(e[0])) for e in E])
+        if not ok.any():
+            return out
+        for i, t in enumerate(tracks):
+            mem = getattr(t, "app_mem", None)
+            if not mem or len(mem) < 2:
+                continue
+            p = t.tlbr
+            w = max(float(p[2] - p[0]), 1.0)
+            c = np.array([(p[0] + p[2]) / 2, (p[1] + p[3]) / 2])
+            near = np.hypot(*(self._app_centres - c).T) <= self.appearance_near_w * w
+            if int(near.sum()) < 2:
+                continue            # uncontested: no other box to confuse it with
+            m = np.mean(mem, axis=0)
+            m = m / max(float(np.linalg.norm(m)), 1e-9)
+            for j in np.flatnonzero(ok):
+                self.n_appearance_checked += 1
+                if 1.0 - float(m @ E[j]) > self.appearance_thresh:
+                    out[i, j] = True
+        return out
+
     def update_with_tensors(self, tensors: np.ndarray) -> list:
         mlog = getattr(self, "match_log", None)
         # ---- fork of supervision 0.17.1 core.py L267-327 (verbatim) ----------
@@ -492,6 +551,12 @@ class _RecoveringByteTrack(sv.ByteTrack):
             ]
         else:
             detections = []
+        app = self._app_on()
+        if app:
+            for d, e in zip(detections, self._frame_embs[remain_inds]):
+                d.app_emb = e
+            self._app_centres = np.stack([(bboxes[inds_low, 0] + bboxes[inds_low, 2]) / 2,
+                                          (bboxes[inds_low, 1] + bboxes[inds_low, 3]) / 2], axis=1)
 
         unconfirmed = []
         tracked_stracks = []
@@ -506,6 +571,11 @@ class _RecoveringByteTrack(sv.ByteTrack):
         _STrack.multi_predict(strack_pool)
         dists = _m.iou_distance(strack_pool, detections)
         dists = _m.fuse_score(dists, detections)
+        if app:
+            rf = self._app_refuse(strack_pool, detections)
+            if rf.any():
+                self.n_appearance_refused += int((rf & (dists <= self.match_thresh)).sum())
+                dists = np.where(rf, 10.0, dists)
         matches, u_track, u_detection = _m.linear_assignment(
             dists, thresh=self.match_thresh
         )
@@ -518,6 +588,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
             if _adopt(track, det, self.frame_id, self.kalman_filter,
                       self.reinit_width_jump, was_tracked):
                 self.n_reinit += 1
+            self._app_note(track, det)
             (activated_starcks if was_tracked else refind_stracks).append(track)
 
         # ---- L329-356: stage 2, low dets, plain IoU 0.5 -------------------------
@@ -528,6 +599,9 @@ class _RecoveringByteTrack(sv.ByteTrack):
             ]
         else:
             detections_second = []
+        if app:
+            for d, e in zip(detections_second, self._frame_embs[inds_second]):
+                d.app_emb = e
         r_tracked_stracks = [
             strack_pool[i]
             for i in u_track
@@ -541,6 +615,11 @@ class _RecoveringByteTrack(sv.ByteTrack):
             if strack_pool[i].state == _TrackState.Lost
         ]
         dists = _m.iou_distance(r_tracked_stracks, detections_second)
+        if app:
+            rf = self._app_refuse(r_tracked_stracks, detections_second)
+            if rf.any():
+                self.n_appearance_refused += int((rf & (dists <= 0.5)).sum())
+                dists = np.where(rf, 10.0, dists)
         matches, u_track_second, u_detection_second = _m.linear_assignment(
             dists, thresh=0.5
         )
@@ -553,6 +632,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
             if _adopt(track, det, self.frame_id, self.kalman_filter,
                       self.reinit_width_jump, was_tracked):
                 self.n_reinit += 1
+            self._app_note(track, det)
             (activated_starcks if was_tracked else refind_stracks).append(track)
 
         # ---- STAGE 2.5: position recovery (the insertion) -----------------------
@@ -608,6 +688,11 @@ class _RecoveringByteTrack(sv.ByteTrack):
                                                  int(held[hj].track_id), float(h_iou[di, hj])))
                         self.n_recovery_refused_held += int(np.isfinite(cost[:, stacked]).sum())
                         cost[:, stacked] = np.inf
+                if app:
+                    rf = self._app_refuse(cand_tracks, cand_dets)
+                    if rf.any():
+                        self.n_appearance_refused += int((rf & np.isfinite(cost)).sum())
+                        cost = np.where(rf, np.inf, cost).astype(np.float32)
                 rev_deg = float(getattr(self, "recovery_reverse_deg", 0.0))
                 if rev_deg > 0:
                     refused = _reverse_jump_mask(cand_tracks, d_tlbr, rev_deg,
@@ -634,6 +719,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
                     if _adopt(track, det, self.frame_id, self.kalman_filter,
                               self.reinit_width_jump, was_tracked):
                         self.n_reinit += 1
+                    self._app_note(track, det)
                     if was_tracked:
                         activated_starcks.append(track)
                         self.n_recovered += 1
@@ -707,6 +793,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
                 mlog.append(_match_rec(self, "unconf", unconfirmed[itracked], detections[idet], False))
             unconfirmed[itracked].update(detections[idet], self.frame_id)
             _note_obs(unconfirmed[itracked], detections[idet].tlbr, self.frame_id)
+            self._app_note(unconfirmed[itracked], detections[idet])
             activated_starcks.append(unconfirmed[itracked])
         # ---- CONFIRMATION BY POSITION (the second insertion) --------------------
         # A just-born track the IoU x conf pass (0.3) did not confirm is offered
@@ -732,6 +819,11 @@ class _RecoveringByteTrack(sv.ByteTrack):
                     h_tlbr = np.asarray([h.tlbr for h in held], dtype=np.float32)
                     stacked = (1.0 - _m.iou_distance(d_tlbr, h_tlbr)).max(axis=1) > self.stack_iou
                     cost[:, stacked] = np.inf
+                if app:
+                    rf = self._app_refuse(cand_tracks, cand_dets)
+                    if rf.any():
+                        self.n_appearance_refused += int((rf & np.isfinite(cost)).sum())
+                        cost = np.where(rf, np.inf, cost).astype(np.float32)
                 taken_t: set[int] = set()
                 used_d: set[int] = set()
                 for ti, di in _greedy_pairs(cost, self.recovery_reach):
@@ -742,6 +834,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
                     # the motion state starts over from this full box
                     _adopt_reinit(track, det, self.frame_id, self.kalman_filter)
                     _note_obs(track, det.tlbr, self.frame_id)
+                    self._app_note(track, det)
                     activated_starcks.append(track)
                     self.n_confirmed_by_position += 1
                     taken_t.add(ti); used_d.add(di)
@@ -795,6 +888,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
                     continue
             track.activate(self.kalman_filter, self.frame_id)
             _note_obs(track, track.tlbr, self.frame_id)
+            self._app_note(track, track)
             if mlog is not None:
                 mlog.append(_match_rec(self, "birth", track, track, False))
             if self.birth_log is not None:
@@ -1044,6 +1138,10 @@ class ByteTrackBackend:
             "weak_birth_history_s": float(getattr(_cfg, "TRACKER_WEAK_BIRTH_HISTORY_S", 10.0)),
             "weak_birth_promote": bool(getattr(_cfg, "TRACKER_WEAK_BIRTH_PROMOTE", False)),
             "collect_backfill": bool(collect_backfill),
+            "appearance_veto": bool(getattr(_cfg, "TRACKER_APPEARANCE_VETO", False)),
+            "appearance_thresh": float(getattr(_cfg, "TRACKER_APPEARANCE_THRESH", 0.482)),
+            "appearance_near_w": float(getattr(_cfg, "TRACKER_APPEARANCE_NEAR_W", 2.0)),
+            "appearance_mem_s": float(getattr(_cfg, "TRACKER_APPEARANCE_MEM_S", 0.5)),
         }
         self._init_kwargs = {
             "track_thresh": track_activation_threshold,
@@ -1067,12 +1165,25 @@ class ByteTrackBackend:
         # the absolute frame, for back-fill rows (the fork counts frames locally)
         self.byte_track._abs_now = int(frame_number)
         if not detections:
+            if self.position_recovery:
+                self.byte_track._frame_embs = None
             self.byte_track.update_with_detections(sv.Detections.empty())
             self._active_track_ids = set()
             return []
 
         if getattr(self, "dup_box_iou", 0.0) > 0:
             detections = _dedup_boxes(detections, self.dup_box_iou)
+        if self.position_recovery:
+            # the same-car check's eyes: per-box car-verifier embeddings, when the
+            # caller supplied them (pass 1 from cache with TRACKER_APPEARANCE_VETO)
+            embs = [d.get("emb") for d in detections]
+            if any(e is not None for e in embs):
+                dim = next(len(e) for e in embs if e is not None)
+                self.byte_track._frame_embs = np.stack(
+                    [np.asarray(e, dtype=np.float32) if e is not None else np.full(dim, np.nan, np.float32)
+                     for e in embs])
+            else:
+                self.byte_track._frame_embs = None
         xyxy = np.array([d["bbox"] for d in detections], dtype=np.float32)
         confidence = np.array([d["confidence"] for d in detections], dtype=np.float32)
         class_id = np.array([d["class_id"] for d in detections], dtype=int)

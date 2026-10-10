@@ -927,6 +927,18 @@ TRACKER_RECOVERY_LOST_PATIENCE_S = 0.5
 # after 6-12 lost frames, against 5-6% of the same-car ones; on the 10 fps
 # cameras the seconds rule already caps at 5 f. Under test, not the default.
 TRACKER_RECOVERY_LOST_PATIENCE_FRAMES = int(_os.environ.get("TRACKER_RECOVERY_LOST_PATIENCE_FRAMES", "0"))
+# THE SAME-CAR CHECK (2026-10-10, arm av1; docs/plan_basis_2026-09-11.md "STAGE 2"; 0 = off).
+# Per frame, a track whose prediction has another box within NEAR_W box widths may
+# only take a box that looks like its own car: cosine distance between the box's
+# car-verifier embedding (backend/services/vehicle_verifier.py, trained label-free on
+# the footage) and the mean of the track's last MEM_S of boxes <= THRESH. THRESH is
+# the verifier's 1%-of-same-car point on the journey labels' side-by-side test
+# (verifier_v1_all: 0.482). Needs the per-box embeddings (<variant>.ver1/ sidecar,
+# scripts/build_appearance_sidecar.py --model ver1); pass 1 from cache only.
+TRACKER_APPEARANCE_VETO = _os.environ.get("TRACKER_APPEARANCE_VETO", "0") == "1"
+TRACKER_APPEARANCE_THRESH = float(_os.environ.get("TRACKER_APPEARANCE_THRESH", "0.482"))
+TRACKER_APPEARANCE_NEAR_W = 2.0
+TRACKER_APPEARANCE_MEM_S = 0.5
 # Recovery guards (Phase B thefts, 2026-09-15). The theft reel ruled that every
 # filmed position recovery onto a NEIGHBOUR's weak box was a theft (3 of 3)
 # while every ordinary-stage match filmed was right. The census

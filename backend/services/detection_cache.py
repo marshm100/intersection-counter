@@ -277,9 +277,12 @@ class DetectionCacheReader:
     def total_detections(self) -> int:
         return self._pf.metadata.num_rows
 
-    def iter_frames(self) -> Iterator[tuple[int, list[dict]]]:
+    def iter_frames(self, with_rows: bool = False) -> Iterator[tuple[int, list[dict]]]:
+        """with_rows: each det also carries "row", its parquet row number (the key
+        of per-detection sidecars such as the car-verifier embeddings)."""
         pending_idx: int | None = None
         pending: list[dict] = []
+        row = 0
         for batch in self._pf.iter_batches():
             d = batch.to_pydict()
             for k in range(len(d["frame_idx"])):
@@ -288,6 +291,9 @@ class DetectionCacheReader:
                     fi, d["bbox_x1"][k], d["bbox_y1"][k], d["bbox_x2"][k],
                     d["bbox_y2"][k], d["confidence"][k], d["class_id"][k],
                 )
+                if with_rows:
+                    det["row"] = row
+                row += 1
                 if pending_idx is None:
                     pending_idx = fi
                 if fi != pending_idx:

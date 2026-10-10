@@ -9,7 +9,9 @@ Row i of each array = parquet row i (the cache is written in frame order, detect
 within a frame), so the parquet row number is the detection's id. Memmapped into
 <parquet stem>.app/, resumable (progress.txt = frames finished, in order).
 
-Usage: .venv/Scripts/python.exe -X utf8 scripts/build_appearance_sidecar.py PROJ CAM VARIANT [--resume]
+With --model ver1 (STAGE 2, 2026-10-10): the car verifier (backend/services/vehicle_verifier.py,
+data/models/verifier_v1_all.pt) instead of osnet, into <stem>.ver1/emb.npy; no colour.
+Usage: .venv/Scripts/python.exe -X utf8 scripts/build_appearance_sidecar.py PROJ CAM VARIANT [--resume] [--model ver1]
 """
 from __future__ import annotations
 
@@ -31,8 +33,11 @@ CENTRE = 0.6
 BINS = 8
 
 
-def sidecar_dir(pqp: Path) -> Path:
-    return pqp.with_name(pqp.stem + ".app")
+VERIFIER_WEIGHTS = "data/models/verifier_v1_all.pt"
+
+
+def sidecar_dir(pqp: Path, model: str = "osnet") -> Path:
+    return pqp.with_name(pqp.stem + (".ver1" if model == "ver1" else ".app"))
 
 
 def load_rows(pqp: Path) -> tuple[np.ndarray, np.ndarray]:
@@ -67,11 +72,13 @@ def colour_rows(lab: np.ndarray, boxes: np.ndarray) -> np.ndarray:
 def main() -> int:
     proj, cam, variant = sys.argv[1], int(sys.argv[2]), sys.argv[3]
     resume = "--resume" in sys.argv
+    mname = sys.argv[sys.argv.index("--model") + 1] if "--model" in sys.argv else "osnet"
+    ver = mname == "ver1"
     con = sqlite3.connect(f"file:data/projects/{proj}/project.db?mode=ro", uri=True)
     vpath, chash = con.execute("SELECT path, content_hash FROM videos WHERE camera_id=?", (cam,)).fetchone()
     con.close()
     pqp = parquet_path(proj, cam, chash, variant)
-    out = sidecar_dir(pqp)
+    out = sidecar_dir(pqp, mname)
     fr, bb = load_rows(pqp)
     N = len(fr)
     frames, starts = np.unique(fr, return_index=True)
@@ -83,17 +90,23 @@ def main() -> int:
     if resume and (out / "progress.txt").exists():
         done = int((out / "progress.txt").read_text())
         em = open_memmap(out / "emb.npy", mode="r+")
-        co = open_memmap(out / "col.npy", mode="r+")
+        co = None if ver else open_memmap(out / "col.npy", mode="r+")
         if em.shape != (N, EMB_DIM):
             raise SystemExit("--resume: sidecar shape does not match the parquet; rebuild fresh")
         print(f"resuming after {done} frames", flush=True)
     else:
         em = open_memmap(out / "emb.npy", mode="w+", dtype=np.float16, shape=(N, EMB_DIM))
-        co = open_memmap(out / "col.npy", mode="w+", dtype=np.float16, shape=(N, 3 + 3 * BINS))
-        co[:] = np.nan
+        co = None
+        if not ver:
+            co = open_memmap(out / "col.npy", mode="w+", dtype=np.float16, shape=(N, 3 + 3 * BINS))
+            co[:] = np.nan
 
-    from boxmot.reid.core.reid import ReID
-    model = ReID(weights="osnet_x0_25_msmt17.pt", device="cuda:0").model
+    if ver:
+        from backend.services.vehicle_verifier import Verifier
+        model = Verifier(VERIFIER_WEIGHTS)
+    else:
+        from boxmot.reid.core.reid import ReID
+        model = ReID(weights="osnet_x0_25_msmt17.pt", device="cuda:0").model
 
     cap = cv2.VideoCapture(vpath)
     k = done
@@ -116,16 +129,20 @@ def main() -> int:
         boxes = np.clip(bb[a:b], 0, [w - 1, h - 1, w - 1, h - 1]).astype(np.float32)
         okb = (boxes[:, 2] - boxes[:, 0] >= 4) & (boxes[:, 3] - boxes[:, 1] >= 4)
         if okb.any():
-            ft = np.asarray(model.get_features(boxes[okb], img), dtype=np.float32)
+            ft = np.asarray(model.features(boxes[okb], img) if ver else model.get_features(boxes[okb], img),
+                            dtype=np.float32)
             ft /= np.maximum(np.linalg.norm(ft, axis=1, keepdims=True), 1e-9)
             blk = np.zeros((b - a, EMB_DIM), dtype=np.float16)
             blk[okb] = ft
             em[a:b] = blk
-        lab = cv2.cvtColor(img.astype(np.float32) / 255.0, cv2.COLOR_BGR2LAB)
-        co[a:b] = colour_rows(lab, boxes)
+        if co is not None:
+            lab = cv2.cvtColor(img.astype(np.float32) / 255.0, cv2.COLOR_BGR2LAB)
+            co[a:b] = colour_rows(lab, boxes)
         k += 1
         if k % 2000 == 0 or k == len(frames):
-            em.flush(); co.flush()
+            em.flush()
+            if co is not None:
+                co.flush()
             (out / "progress.txt").write_text(str(k))
             el = time.time() - t0
             rate = (k - done) / max(el, 1e-9)

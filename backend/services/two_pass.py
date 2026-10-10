@@ -521,7 +521,27 @@ def _cfg_recovery_geom():
     pf = int(getattr(c, "TRACKER_RECOVERY_LOST_PATIENCE_FRAMES", 0))
     if pf > 0:
         geom["lost_patience_frames"] = pf
+    if getattr(c, "TRACKER_APPEARANCE_VETO", False):
+        geom["appearance"] = {"thresh": float(c.TRACKER_APPEARANCE_THRESH),
+                              "near_w": float(c.TRACKER_APPEARANCE_NEAR_W),
+                              "mem_s": float(c.TRACKER_APPEARANCE_MEM_S)}
     return geom
+
+
+def _appearance_embeddings(pq):
+    """The car-verifier sidecar for a detection-cache parquet (arm av1): <stem>.ver1/emb.npy,
+    or the one of the variant an arm's alias was copied from (prefixes stripped one at a time)."""
+    from pathlib import Path as _P
+    import numpy as _np_
+    pq = _P(pq)
+    stem = pq.stem
+    while True:
+        d = pq.with_name(stem + ".ver1")
+        if (d / "count.txt").exists():
+            return _np_.load(d / "emb.npy", mmap_mode="r")
+        if "_" not in stem:
+            raise FileNotFoundError(f"TRACKER_APPEARANCE_VETO: no .ver1 sidecar for {pq.name}")
+        stem = stem.split("_", 1)[1]
 
 
 def _cfg_recovery_guard():
@@ -1417,7 +1437,9 @@ def _pass1_from_cache(pq, out, meta, start_frame, end_frame, warm_frames,
     if resume_from > start_frame:
         loop_start = max(start_frame, resume_from - warm_frames)
 
-    reader_iter = DetectionCacheReader(pq).iter_frames()
+    from backend import config as _c
+    embs = _appearance_embeddings(pq) if getattr(_c, "TRACKER_APPEARANCE_VETO", False) else None
+    reader_iter = DetectionCacheReader(pq).iter_frames(with_rows=embs is not None)
     nxt = next(reader_iter, None)
     done = 0
     for fidx in range(loop_start, end_frame):
@@ -1435,6 +1457,10 @@ def _pass1_from_cache(pq, out, meta, start_frame, end_frame, warm_frames,
             nxt = next(reader_iter, None)
         else:
             dets = []
+        if embs is not None:
+            for d in dets:
+                e = embs[d["row"]]
+                d["emb"] = e if e.any() else None     # zero row = box too small to embed
         step(fidx, dets, write=(fidx >= resume_from))
         done += 1
         if done % 5000 == 0:

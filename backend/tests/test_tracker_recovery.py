@@ -688,3 +688,82 @@ def test_lost_patience_frames_override(monkeypatch):
     assert make(25).byte_track.lost_patience_frames == 5
     assert make(10).byte_track.lost_patience_frames == 5
     assert tp._cfg_recovery_geom()["lost_patience_frames"] == 5
+
+
+def _emb(k, dim=512):
+    e = np.zeros(dim, dtype=np.float32)
+    e[k] = 1.0
+    return e
+
+
+def _app_scene(with_neighbour: bool):
+    """Car A (look 0) drives right; at frame 7 its own box is missing and a
+    different-looking box (look 1) sits where A is predicted - the theft.
+    with_neighbour adds a third box (look 2) within two widths: contested."""
+    frames = {}
+    for f in range(1, 7):
+        frames[f] = [dict(det(100 + 8 * f, 240), emb=_emb(0))]
+    frames[7] = [dict(det(100 + 8 * 7, 240), emb=_emb(1))]
+    if with_neighbour:
+        frames[7].append(dict(det(100 + 8 * 7 + 40, 240), emb=_emb(2)))
+    return frames
+
+
+def test_appearance_veto_refuses_a_contested_lookalike_fail(monkeypatch):
+    """TRACKER_APPEARANCE_VETO (arm av1): with another box within two widths,
+    a track may not take a box that does not look like its car - it coasts."""
+    out_off = run(backend(), _app_scene(True), 7)
+    a_id = out_off[6][0]
+    assert a_id in out_off[7]                       # without the check: the id takes the box
+    monkeypatch.setattr(cfg, "TRACKER_APPEARANCE_VETO", True)
+    monkeypatch.setattr(BaseTrack, "_count", 0)
+    be = backend()
+    out_on = run(be, _app_scene(True), 7)
+    assert out_on[6] == [a_id]
+    assert a_id not in out_on[7]                    # refused: A coasts, B is not A
+    assert be.byte_track.n_appearance_refused >= 1
+
+
+def test_appearance_veto_skips_uncontested_pairs(monkeypatch):
+    """With no other box near the prediction the check never runs (a lone box
+    is not where an id gets confused), whatever the box looks like."""
+    monkeypatch.setattr(cfg, "TRACKER_APPEARANCE_VETO", True)
+    be = backend()
+    out = run(be, _app_scene(False), 7)
+    assert out[7] == out[6]
+    assert be.byte_track.n_appearance_checked == 0
+
+
+def test_appearance_veto_same_look_changes_nothing(monkeypatch):
+    """Every box looking alike, the check on gives the same ids as off; with
+    no embeddings fed it is inert; the recipe records it only when on."""
+    def scene():
+        fr = {}
+        for f in range(1, 30):
+            fr[f] = [dict(det(100 + 6 * f, 240), emb=_emb(0)),
+                     dict(det(140 + 6 * f, 240, conf=0.5 if f % 3 else 0.2), emb=_emb(0)),
+                     dict(det(400 - 5 * f, 300), emb=_emb(0))]
+        return fr
+    off = run(backend(), scene(), 29)
+    assert "appearance" not in tp._cfg_recovery_geom()
+    monkeypatch.setattr(cfg, "TRACKER_APPEARANCE_VETO", True)
+    monkeypatch.setattr(BaseTrack, "_count", 0)
+    be = backend()
+    assert run(be, scene(), 29) == off
+    assert be.byte_track.n_appearance_refused == 0
+    assert tp._cfg_recovery_geom()["appearance"]["thresh"] == cfg.TRACKER_APPEARANCE_THRESH
+    monkeypatch.setattr(BaseTrack, "_count", 0)
+    bare = {f: [{k: v for k, v in d.items() if k != "emb"} for d in ds] for f, ds in scene().items()}
+    assert run(backend(), bare, 29) == off
+
+
+def test_appearance_sidecar_found_through_an_arm_alias(tmp_path):
+    """An arm's aliased parquet (av1_study_1600) reads its source's .ver1 sidecar."""
+    src = tmp_path / "study_1600.ver1"
+    src.mkdir()
+    np.save(src / "emb.npy", np.ones((3, 4), dtype=np.float16))
+    (src / "count.txt").write_text("3")
+    e = tp._appearance_embeddings(tmp_path / "av1_study_1600.parquet")
+    assert e.shape == (3, 4)
+    with pytest.raises(FileNotFoundError):
+        tp._appearance_embeddings(tmp_path / "study_0700.parquet")
