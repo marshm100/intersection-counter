@@ -40,7 +40,9 @@ def main() -> int:
     rows = int((tracks_dir(dst) / "count.txt").read_text())
     print(f"pass-1 cam{cam} {new}: {rows} rows in {time.time() - t:.0f}s; recipe backend={tm.get('backend')} "
           f"fuse_score={tm.get('fuse_score')} position_recovery={tm.get('position_recovery')} "
-          f"bbox_buffer={tm.get('bbox_buffer')} activation={tm.get('activation')}")
+          f"bbox_buffer={tm.get('bbox_buffer')} activation={tm.get('activation')}"
+          + (f" appearance checked={tm['appearance_checked']} refused={tm['appearance_refused']}"
+             if "appearance_checked" in tm else ""))
     return 0
 
 

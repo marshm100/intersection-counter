@@ -3631,3 +3631,21 @@ BARS (Stage 3, as planned): (1) chains, every cam2 window and then cam1/3/4/5/FM
 EMERGENCE + A ENDS) and swaps fall, one-track does not fall, breaks rise less than switches fall; (2) dev labels
 car by car vs 445 / 512 (McNemar); (3) fleet vs 89.06 on the G-DEF-1 letter; (4) held-out cam1 + cam2 once
 (271 / 304); (5) live-pass run-time cost stated. Ship only on the operator's go.
+
+### ARM av1 VERDICT 2026-10-10 (chains, cam2): FAIL on every window - the check breaks far more cars than it saves
+Re-tracks av1_study_* (TRACKER_APPEARANCE_VETO=1, logs runs/v2_week1/av1_retrack_2_*, wb_av1_cam2_*,
+research_thefts_av1_cam2_*; baselines wb_study_cam2_*, thefts_cam2_2026-10-09.log). The dump meta now records
+the check's work (appearance_checked / appearance_refused, written only when the veto is on).
+  cam2 window   one-track (base -> av1)    breaks                 wrong switches E+AE+T   swaps     checked / refused
+  07:00         3602 -> 3467 (-135)        5431 -> 6100 (+669)    732 -> 695 (-37)        107 -> 104  29.2M / 26,924
+  11:00         2934 -> 2507 (-427)        3331 -> 5257 (+1926)   504 -> 417 (-87)         52 -> 40   43.8M / 82,021
+  16:00         4409 -> 3831 (-578)        7090 -> 10124 (+3034)  953 -> 858 (-95)        123 -> 106  59.3M / 80,054
+  all three     10945 -> 9805 (-1140)      15852 -> 21481 (+5629) 2189 -> 1970 (-219)     282 -> 250
+Bar (1) fails on all three clauses that can fail: one-track falls on every window (-4% to -15%), and breaks rise
+~26x more than wrong switches fall. Vehicles with 5+ ids: 40/12/64 -> 67/127/239.
+READING. The base-rate problem of 9.81 again, now per frame instead of per track: 0.482 was the 1%-of-same-car
+point on ONE side-by-side pair, but a track is checked at every contested frame (30-60 M checks a window), so a
+1% per-check false refusal compounds over a vehicle's life into a coast, then a break. Refusals ~0.1-0.2% of
+checks; the few hundred true switches stopped are drowned by thousands of correct matches refused.
+Run time (re-track only, alongside 3 GPU sidecar builds): 1503 / 1982 / 2961 s vs pf1's 666 s for 07:00.
+NOT advanced to labels / fleet without an operator ruling. TRACKER_APPEARANCE_VETO stays built and OFF.

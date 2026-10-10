@@ -1350,6 +1350,11 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         bt = getattr(be, "byte_track", None)
         meta["weak_births"] = int(getattr(bt, "n_weak_births", 0))
         meta["weak_inherited"] = int(getattr(bt, "n_weak_inherited", 0))
+    # the same-car check's work (arm av1): recorded only when it was on
+    _bt = getattr(be, "byte_track", None)
+    if getattr(_bt, "appearance_veto", False):
+        meta["appearance_checked"] = int(_bt.n_appearance_checked)
+        meta["appearance_refused"] = int(_bt.n_appearance_refused)
     # Counted-path C (flag-gated, default off): collapse red-light
     # stop-fracture twin pairs before anything reads the dump.
     from backend.config import STOP_FRACTURE_COLLAPSE
