@@ -3667,3 +3667,38 @@ NOT advanced to labels / fleet without an operator ruling. TRACKER_APPEARANCE_VE
   NOT taken to labels or the fleet (chains first). TRACKER_APPEARANCE_VETO stays built and OFF.
   If revisited, the shape the numbers point to: appearance as a TIE-BREAK between competing boxes (take the box
   that looks MORE like the car than the alternative), never an absolute veto on the only good box.
+
+## REPLAY rv1 DECLARED (2026-10-10, operator: "go for it") — the same-car check, offline, BEFORE any re-track
+Question (operator): does a longer memory (1-2 s) help, and does "several bad looks in a row" fix av1's base-rate
+failure? scripts/research_veto_replay.py replays the decision over the PRODUCTION dumps (no re-track): each dump row
+joined to its detector box (IoU >= 0.7) and its .ver1 embedding; a row is CONTESTED when another detector box
+(conf > 0.1, as live) has its centre within 2 box widths; at a contested row the box is compared with the mean of the
+track's last MEM boxes (cosine distance > 0.482, unchanged); K consecutive failed contested checks CUT the track at
+the first of them (memory restarts after a cut). Grid: MEM 0.5 / 1 / 2 s x K 1 / 3 / 5 (threshold NOT swept).
+Truth = the theft census on the same dump: a cut is TRUE within [f_last_A - 0.5 s, f_first_B + MEM + 0.5 s] of a
+THEFT / EMERGENCE / A ENDS switch on that track, NEUTRAL near a CHAIN SEAM, else FALSE. One-track vehicles lost =
+yardstick vehicles covered by a single id that receive a FALSE cut.
+Operating point chosen on cam2 study_1600 (max caught - one-track lost), applied unchanged to 0700 and 1100.
+GATE (every cam2 window): precision TRUE/(TRUE+FALSE) >= 0.50 AND switches caught > one-track vehicles lost.
+Only on a PASS is a live arm declared. Calibration: MEM 0.5 / K 1 is av1's rule; it must FAIL here, or the
+replay does not see what the re-track saw.
+
+### REPLAY rv1 VERDICT 2026-10-10: GATE FAIL - no memory length and no run length makes the check pay
+scripts/research_veto_replay.py 97a7849a 2 study_1600 study_0700 study_1100 (log runs/v2_week1/veto_replay_cam2.log,
+JSON veto_replay_97a7849a_2_<variant>.json). Contested rows 87-93% of all rows (cam2's queues). Calibration holds:
+av1's rule (MEM 0.5 K 1) fails here as the re-track did (16:00 net -378). Operating point chosen on 16:00 = MEM 0.5 s,
+K 5 (net -10), applied unchanged:
+  window   P      cuts TRUE / FALSE   switches caught   one-track lost   net
+  16:00    0.11   24 / 200            25 / 953           35              -10
+  07:00    0.10    6 / 52              5 / 732            4               +1
+  11:00    0.05   10 / 181            11 / 504           21              -10
+Best precision anywhere in the 27 cells is 0.11 (gate 0.50). Net is negative in 23 of 27 cells; the 4 positive cells
+are all 07:00 and at most +8.
+READING. (1) LONGER MEMORY HURTS at every K on every window (16:00 K 3: 0.5 s -103, 1 s -364, 2 s -679): the car
+changes on screen (scale, viewpoint, turning) faster than a 1-2 s average tolerates. (2) "K IN A ROW" barely moves
+precision (0.05 -> ~0.10): the verifier's false fails on the SAME car are not one-frame glitches but runs - a crop
+shared with the neighbour, a partial box, a view change - so requiring 5 in a row removes true catches about as fast
+as false ones. (3) Even the loosest rule sees only half the census's wrong switches (2 s K 1: 475 / 953): after many
+switches the new car looks like the memory. The verifier's 0.965 AUC was measured on clean side-by-side pairs;
+in a contested crop on cam2 it is not that instrument.
+No live arm is declared. TRACKER_APPEARANCE_VETO stays built and OFF.
