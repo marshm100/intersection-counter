@@ -3649,3 +3649,21 @@ point on ONE side-by-side pair, but a track is checked at every contested frame 
 checks; the few hundred true switches stopped are drowned by thousands of correct matches refused.
 Run time (re-track only, alongside 3 GPU sidecar builds): 1503 / 1982 / 2961 s vs pf1's 666 s for 07:00.
 NOT advanced to labels / fleet without an operator ruling. TRACKER_APPEARANCE_VETO stays built and OFF.
+
+### ARM av1 VERDICT ON THE CHAINS (2026-10-10): FAIL - switches fall a little, breaks rise a lot
+  (runs/v2_week1/retrack_av1_cam2_*.log, wb_av1_cam2_*.log, thefts_av1_cam2_*.log; production = study_*)
+                 wrong switches (T+E+AE)   swaps       one-track       breaks           pairs checked / refused
+  cam2 07:00       732 -> 695  (-37)       107 -> 104  3602 -> 3467    5431 -> 6100     29.2M / 26,924
+  cam2 11:00       504 -> 417  (-87)        52 ->  40  2934 -> 2507    3331 -> 5257     43.8M / 82,021
+  cam2 16:00       953 -> 858  (-95)       123 -> 106  4409 -> 3831    7090 -> 10124    59.3M / 80,054
+  Bars: switches fall (yes); one-track does not fall (NO, -135 / -427 / -578); breaks rise less than switches
+  fall (NO, +669 / +1926 / +3034 against -37 / -87 / -95). FAIL on every window.
+  Why: the check refuses 27k-82k matches a window to stop ~40-95 switches. The threshold was set where 1% of
+  same-car comparisons fail ON THE LABELS' TEST - but in the tracker the check runs on every contested frame of
+  every car's life (tens of millions of pairs), so a 1% per-frame false refusal hits most cars at least once,
+  and each refusal of a car's own box is a coast that often becomes a break. The same base-rate trap as the
+  after-the-fact QC (9.81), moved inside the tracker. An absolute threshold per frame cannot work at this rate.
+  Run-time: ~9x the plain re-track (16:00: 8,693 s vs 963 s) in this pure-Python form.
+  NOT taken to labels or the fleet (chains first). TRACKER_APPEARANCE_VETO stays built and OFF.
+  If revisited, the shape the numbers point to: appearance as a TIE-BREAK between competing boxes (take the box
+  that looks MORE like the car than the alternative), never an absolute veto on the only good box.
