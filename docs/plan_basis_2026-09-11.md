@@ -3885,3 +3885,20 @@ dt3 = dt2 with the nested-birth guard narrowed to its purpose: a nested box is d
 retired a twin within the last TRACKER_TWIN_REBIRTH_S = 1.0 s (the re-birth cycle), never elsewhere. Retirement
 (younger, containment >= 0.9, IoU >= 0.4, 3 frames) unchanged. Knob TRACKER_TWIN_NESTED_BIRTH = "all" (dt2) |
 "rebirth" (dt3). BARS: dt2's, chains on all 8 windows (cam2 x3, cam1 0700, cam3 0600, cam4 1600, cam5 1600, FM51 ctl).
+
+### ARM dt3 VERDICT 2026-10-11: WORSE than dt2 - the broad nested-birth guard is where dt2's gain comes from
+runs/v2_week1/dt3_all.sh (logs dt3_retrack_*, wb_dt3_*, thefts_dt3_*; table by scratchpad arm_table.py).
+  window      dt3 one-track   breaks     wrong switches   swaps       (dt2 one-track / breaks / wrong)
+  cam2 07:00  -11             -131       -84              107 -> 94   (+102 / -494 / -95)
+  cam2 11:00  -8              -58        -76              52 -> 41    (+51 / -291 / -84)
+  cam2 16:00  -7              -159       -104             123 -> 99   (+137 / -666 / -111)
+  cam1 07:00  -5              +3         -8               56 -> 49    (+26 / -89 / -14)
+  cam3 06:00  +182            -2867      -422             908 -> 737  (+1099 / -6958 / -433)
+  cam4 16:00  -6              +24        +2               32 -> 32    (+17 / -27 / +2)
+  cam5 16:00  +2              -39        -9               78 -> 71    (+23 / -128 / -6)
+  FM51 07:00  +2              -20        0                3 -> 3      (+36 / -114 / +2)
+READING: narrowing the guard keeps the wrong-switch cut (it comes from retiring the younger twin) but loses nearly all
+the one-track and break gains - those come from NOT BIRTHING a box nested in a held box at all, i.e. from preventing
+duplicate tracks in the first place. And cam4's +2 persists under dt3, so it is not caused by the broad guard.
+dt3 is dropped; dt2 remains the candidate. Its residue against the letter is +2 wrong switches on cam4 16:00 (of 214)
+and FM51 (of 37), with every other clause improving on all eight windows.
