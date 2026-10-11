@@ -3843,3 +3843,15 @@ ADDED to dt2 before any re-track (found by its unit test): a retired twin's box 
 as a new id, retired again 3 frames later, forever (dt1 had the same cycle). With "younger", the birth guard also
 defers a box nested in a box a track already took this frame (containment >= 0.9 AND IoU >= 0.4 - the twin rule's own
 thresholds), as the stacked-box guard already does for IoU > 0.6.
+
+### ARM dt2 VERDICT 2026-10-11 (chains, cam2): PASS on every window - every measure improves
+Re-tracks dt2_study_* (TRACKER_TWIN_RETIRE=1, TRACKER_TWIN_RETIRE_WHICH=younger; logs runs/v2_week1/dt2_retrack_2_*,
+wb_dt2_cam2_*, research_thefts_dt2_cam2_*).
+  cam2 window   twins retired   one-track            breaks               wrong switches E+AE+T   swaps
+  07:00         912             3602 -> 3704 (+102)   5431 -> 4937 (-494)   732 -> 637 (-95)       107 -> 95
+  11:00         737             2934 -> 2985 (+51)    3331 -> 3040 (-291)   504 -> 420 (-84)        52 -> 43
+  16:00         1326            4409 -> 4546 (+137)   7090 -> 6424 (-666)   953 -> 842 (-111)      123 -> 95
+  all three     2975            +290 (+2.7%)          -1451 (-9%)           -290 (-13%)            282 -> 233
+Vehicles with 5+ ids 40/12/64 -> 41/19/59. Re-track 473 / 683 / 848 s. Retiring the YOUNGER id and not re-birthing a
+nested box turns dt1's trade into a gain on every clause: wrong switches -13%, swaps -17%, breaks -9%, one-track +2.7%.
+Bar (1) PASSES on cam2. Next per the bars: chains on cam1 / 3 / 4 / 5 / FM51, then dev labels, fleet, held-out.
