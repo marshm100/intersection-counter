@@ -3816,3 +3816,19 @@ recipe and in the dump meta (twin_retired) only when on.
 BARS (as av1): (1) chains, every cam2 window: wrong switches (THEFT + EMERGENCE + A ENDS) and swaps fall, one-track
 does not fall, breaks rise less than wrong switches fall; then cam1/3/4/5/FM51; (2) dev labels car by car vs 445 / 512;
 (3) fleet vs 89.06 on the G-DEF-1 letter; (4) held-out once; (5) run-time stated. Ship only on the operator's go.
+
+### ARM dt1 VERDICT 2026-10-11 (chains, cam2): FAIL on the letter - wrong switches fall, but one-track falls too
+Re-tracks dt1_study_* (TRACKER_TWIN_RETIRE=1; logs runs/v2_week1/dt1_retrack_2_*, wb_dt1_cam2_*,
+research_thefts_dt1_cam2_*; baselines wb_study_cam2_*, thefts_cam2_2026-10-09.log).
+  cam2 window   twins retired   one-track          breaks             wrong switches E+AE+T   swaps
+  07:00         1877            3602 -> 3568 (-34)  5431 -> 5483 (+52)   732 -> 638 (-94)       107 -> 93
+  11:00         1758            2934 -> 2899 (-35)  3331 -> 3487 (+156)  504 -> 412 (-92)        52 -> 40
+  16:00         2909            4409 -> 4356 (-53)  7090 -> 7239 (+149)  953 -> 819 (-134)      123 -> 98
+  all three     6544            -122                +357                 -320 (-15%)            282 -> 231
+Wrong switches fall 12-18% and swaps fall on every window; but one-track falls on every window (-1%), and breaks rise
+more than wrong switches fall at 11:00 and 16:00. Vehicles with 5+ ids: 40/12/64 -> 83/39/115. Re-track run time
+440 / 533 / 742 s (vs 666 s for pf1 at 07:00: no cost).
+READING: ~6,500 retirements to remove ~320 wrong switches - most retirements hit a pair where the LARGER box was the
+car's real id (a partial box inside it then ends, and the car breaks). The direction is right (the first tracker rule
+in this series to cut wrong switches with near-flat one-track); the choice of WHICH id to retire is the open question.
+NOT advanced to labels / fleet without an operator ruling. TRACKER_TWIN_RETIRE stays built and OFF.
