@@ -374,6 +374,8 @@ class _RecoveringByteTrack(sv.ByteTrack):
                  weak_birth_gap_s: float = 0.2, weak_birth_min_move: float = 0.5,
                  weak_birth_max_cover: float = 0.6, weak_birth_history_s: float = 10.0,
                  weak_birth_promote: bool = True, collect_backfill: bool = False,
+                 twin_retire: bool = False, twin_contain: float = 0.9, twin_iou: float = 0.4,
+                 twin_frames: int = 3,
                  appearance_veto: bool = False, appearance_thresh: float = 0.482,
                  appearance_near_w: float = 2.0, appearance_mem_s: float = 0.5,
                  **kwargs):
@@ -418,6 +420,15 @@ class _RecoveringByteTrack(sv.ByteTrack):
         # of the track's prediction, a candidate box that does not look like that
         # car (cosine distance > appearance_thresh) is refused this frame - the
         # track coasts. Off, or with no embeddings fed, the fork is unchanged.
+        # RETIRE THE TWIN (config.TRACKER_TWIN_RETIRE, arm dt1, 2026-10-11): two
+        # confirmed tracks on one car - the smaller box inside the larger - for
+        # twin_frames frames running; the one holding the larger box is retired.
+        self.twin_retire = bool(twin_retire)
+        self.twin_contain = float(twin_contain)
+        self.twin_iou = float(twin_iou)
+        self.twin_frames = int(twin_frames)
+        self._twin_runs: dict = {}
+        self.n_twin_retired = 0
         self.appearance_veto = bool(appearance_veto)
         self.appearance_thresh = float(appearance_thresh)
         self.appearance_near_w = float(appearance_near_w)
@@ -509,6 +520,36 @@ class _RecoveringByteTrack(sv.ByteTrack):
             t_birth = float(1.0 - _m.iou_distance(first, last)[0, 0])
         return (self._abs(), int(track.track_id), bool(was_lost), int(self.frame_id - track.end_frame),
                 u_iou, u_fused, u_id, u_birth, t_iou, t_len, t_birth)
+
+    def _retire_twins(self, took: list) -> set:
+        """Ids of confirmed tracks to retire this frame: of two that both took a box,
+        the smaller box >= twin_contain inside the larger and IoU >= twin_iou, for
+        twin_frames frames running, the one holding the larger box (tie: the younger)."""
+        conf = [t for t in took if t.is_activated]
+        runs: dict = {}
+        gone: set = set()
+        if len(conf) >= 2:
+            B = np.asarray([t.tlbr for t in conf], dtype=np.float64)
+            area = np.maximum(B[:, 2] - B[:, 0], 0) * np.maximum(B[:, 3] - B[:, 1], 0)
+            iou = 1.0 - _m.iou_distance(B, B)
+            for i in range(len(conf)):
+                for j in range(i + 1, len(conf)):
+                    if iou[i, j] < self.twin_iou:
+                        continue
+                    ix = max(0.0, min(B[i, 2], B[j, 2]) - max(B[i, 0], B[j, 0]))
+                    iy = max(0.0, min(B[i, 3], B[j, 3]) - max(B[i, 1], B[j, 1]))
+                    if ix * iy / max(min(area[i], area[j]), 1e-9) < self.twin_contain:
+                        continue
+                    a, b = conf[i], conf[j]
+                    key = (min(a.track_id, b.track_id), max(a.track_id, b.track_id))
+                    runs[key] = self._twin_runs.get(key, 0) + 1
+                    if runs[key] >= self.twin_frames and not ({a.track_id, b.track_id} & gone):
+                        big = (a if area[i] > area[j] else b if area[j] > area[i]
+                               else (a if a.track_id > b.track_id else b))
+                        gone.add(big.track_id)
+                        self.n_twin_retired += 1
+        self._twin_runs = runs
+        return gone
 
     def _app_on(self) -> bool:
         return bool(getattr(self, "appearance_veto", False)) and getattr(self, "_frame_embs", None) is not None
@@ -949,6 +990,16 @@ class _RecoveringByteTrack(sv.ByteTrack):
                 track.mark_removed()
                 removed_stracks.append(track)
 
+        if getattr(self, "twin_retire", False):
+            gone = self._retire_twins(activated_starcks + refind_stracks)
+            if gone:
+                for t in activated_starcks + refind_stracks:
+                    if t.track_id in gone:
+                        t.mark_removed()
+                        removed_stracks.append(t)
+                activated_starcks = [t for t in activated_starcks if t.track_id not in gone]
+                refind_stracks = [t for t in refind_stracks if t.track_id not in gone]
+
         self.tracked_tracks = [
             t for t in self.tracked_tracks if t.state == _TrackState.Tracked
         ]
@@ -1182,6 +1233,10 @@ class ByteTrackBackend:
             "weak_birth_history_s": float(getattr(_cfg, "TRACKER_WEAK_BIRTH_HISTORY_S", 10.0)),
             "weak_birth_promote": bool(getattr(_cfg, "TRACKER_WEAK_BIRTH_PROMOTE", False)),
             "collect_backfill": bool(collect_backfill),
+            "twin_retire": bool(getattr(_cfg, "TRACKER_TWIN_RETIRE", False)),
+            "twin_contain": float(getattr(_cfg, "TRACKER_TWIN_CONTAIN", 0.9)),
+            "twin_iou": float(getattr(_cfg, "TRACKER_TWIN_IOU", 0.4)),
+            "twin_frames": int(getattr(_cfg, "TRACKER_TWIN_FRAMES", 3)),
             "appearance_veto": bool(getattr(_cfg, "TRACKER_APPEARANCE_VETO", False)),
             "appearance_thresh": float(getattr(_cfg, "TRACKER_APPEARANCE_THRESH", 0.482)),
             "appearance_near_w": float(getattr(_cfg, "TRACKER_APPEARANCE_NEAR_W", 2.0)),

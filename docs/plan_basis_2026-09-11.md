@@ -3801,3 +3801,18 @@ frames - where one keeps A and the other is pushed onto the neighbour (twin, ~30
 association math: (1) is detection continuity, (2) is duplicate-track control. pf1 (shorter lost patience) already
 showed that refusing to take a box while A is gone cuts wrong switches but costs approach volume through shorter
 pieces. Next arm is the operator's pick.
+
+## ARM dt1 DECLARED (2026-10-11, operator: "fix the target") — retire the twin, BEFORE any re-track
+Target: rd1's TWIN (two ids on one car for a few frames; one is then pushed onto the neighbour; 27-39% of judged
+wrong switches). The existing stacked-box guard acts only at birth / confirmation and on IoU > 0.6; a twin is a box
+INSIDE a bigger one (IoU ~0.45), so it passes. PROBE (dump + chains, cam2 16:00, scratchpad twin_probe.py): over
+overlapping id pairs (IoU >= 0.3), twin (both on one chain) vs distinct (two chains): containment of the smaller box
+in the larger median 0.97 vs 0.71; at containment >= 0.9, IoU >= 0.4, >= 3 consecutive frames: 35% of twin
+pair-frames, precision 0.94 at the pair-frame level.
+RULE (knob TRACKER_TWIN_RETIRE, default OFF; TRACKER_TWIN_CONTAIN 0.9, _IOU 0.4, _FRAMES 3, chosen on 16:00 above):
+after association, two CONFIRMED tracks that both took a box this frame, with containment >= 0.9 and IoU >= 0.4
+for >= 3 consecutive frames: the one holding the LARGER box is retired (removed; tie -> the younger). Recorded in the
+recipe and in the dump meta (twin_retired) only when on.
+BARS (as av1): (1) chains, every cam2 window: wrong switches (THEFT + EMERGENCE + A ENDS) and swaps fall, one-track
+does not fall, breaks rise less than wrong switches fall; then cam1/3/4/5/FM51; (2) dev labels car by car vs 445 / 512;
+(3) fleet vs 89.06 on the G-DEF-1 letter; (4) held-out once; (5) run-time stated. Ship only on the operator's go.

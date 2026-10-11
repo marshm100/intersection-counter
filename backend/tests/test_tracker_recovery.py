@@ -788,3 +788,43 @@ def test_decision_log_changes_nothing_and_names_the_runner_up(monkeypatch):
     assert recs and {r[2] for r in recs} <= {"s1", "s25"}
     assert all(len(r) == 11 for r in recs)
     assert any(r[6] is not None and r[7] > r[5] for r in recs if r[2] == "s1")
+
+
+def _twin_scene():
+    """Car A drives right with a tight box; from frame 5 a second, wider box over A and
+    a bit of road (the twin's box) is detected on it too."""
+    fr = {}
+    for f in range(1, 20):
+        x = 100 + 6 * f
+        fr[f] = [det(x, 240)]
+        if f >= 5:
+            fr[f].append(det(x + 4, 241, w=44.0, h=26.0, conf=0.85))
+    return fr
+
+
+def test_twin_retire_off_changes_nothing_and_on_retires_the_larger_box(monkeypatch):
+    """TRACKER_TWIN_RETIRE (arm dt1): two confirmed ids on one car (small box inside
+    the large) for twin_frames frames: the id on the LARGER box is retired; the tight
+    box keeps its id. Off, the fork is unchanged."""
+    off = run(backend(), _twin_scene(), 19)
+    assert len(off[12]) == 2                          # off: both ids live on
+    monkeypatch.setattr(cfg, "TRACKER_TWIN_RETIRE", True)
+    monkeypatch.setattr(BaseTrack, "_count", 0)
+    be = backend()
+    on = run(be, _twin_scene(), 19)
+    assert be.byte_track.n_twin_retired >= 1
+    a_id = on[3][0]
+    assert a_id in on[18]                             # the tight box keeps A's id
+    assert tp._cfg_recovery_geom()["twin"]["frames"] == cfg.TRACKER_TWIN_FRAMES
+
+
+def test_twin_retire_leaves_side_by_side_cars(monkeypatch):
+    """Two cars overlapping side by side (neither box inside the other) are never retired."""
+    def scene():
+        return {f: [det(100 + 6 * f, 240), det(118 + 6 * f, 242)] for f in range(1, 20)}
+    off = run(backend(), scene(), 19)
+    monkeypatch.setattr(cfg, "TRACKER_TWIN_RETIRE", True)
+    monkeypatch.setattr(BaseTrack, "_count", 0)
+    be = backend()
+    assert run(be, scene(), 19) == off
+    assert be.byte_track.n_twin_retired == 0

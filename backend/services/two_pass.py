@@ -521,6 +521,9 @@ def _cfg_recovery_geom():
     pf = int(getattr(c, "TRACKER_RECOVERY_LOST_PATIENCE_FRAMES", 0))
     if pf > 0:
         geom["lost_patience_frames"] = pf
+    if getattr(c, "TRACKER_TWIN_RETIRE", False):
+        geom["twin"] = {"contain": float(c.TRACKER_TWIN_CONTAIN), "iou": float(c.TRACKER_TWIN_IOU),
+                        "frames": int(c.TRACKER_TWIN_FRAMES)}
     if getattr(c, "TRACKER_APPEARANCE_VETO", False):
         geom["appearance"] = {"thresh": float(c.TRACKER_APPEARANCE_THRESH),
                               "near_w": float(c.TRACKER_APPEARANCE_NEAR_W),
@@ -1352,6 +1355,8 @@ def run_pass1(project_id: str, camera_id: int, *, variant: str,
         meta["weak_inherited"] = int(getattr(bt, "n_weak_inherited", 0))
     # the same-car check's work (arm av1): recorded only when it was on
     _bt = getattr(be, "byte_track", None)
+    if getattr(_bt, "twin_retire", False):
+        meta["twin_retired"] = int(_bt.n_twin_retired)
     if getattr(_bt, "appearance_veto", False):
         meta["appearance_checked"] = int(_bt.n_appearance_checked)
         meta["appearance_refused"] = int(_bt.n_appearance_refused)

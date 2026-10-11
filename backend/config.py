@@ -939,6 +939,14 @@ TRACKER_APPEARANCE_VETO = _os.environ.get("TRACKER_APPEARANCE_VETO", "0") == "1"
 TRACKER_APPEARANCE_THRESH = float(_os.environ.get("TRACKER_APPEARANCE_THRESH", "0.482"))
 TRACKER_APPEARANCE_NEAR_W = 2.0
 TRACKER_APPEARANCE_MEM_S = 0.5
+# RETIRE THE TWIN (2026-10-11, arm dt1; docs/plan_basis_2026-09-11.md "ARM dt1 DECLARED"; 0 = off).
+# Two confirmed tracks that both took a box this frame, the smaller box at least CONTAIN inside the
+# larger and IoU >= IOU, for FRAMES consecutive frames, are two ids on one car (measurement rd1: the
+# "twin" behind 27-39% of cam2's wrong switches): the one holding the larger box is retired.
+TRACKER_TWIN_RETIRE = _os.environ.get("TRACKER_TWIN_RETIRE", "0") == "1"
+TRACKER_TWIN_CONTAIN = 0.9
+TRACKER_TWIN_IOU = 0.4
+TRACKER_TWIN_FRAMES = 3
 # Recovery guards (Phase B thefts, 2026-09-15). The theft reel ruled that every
 # filmed position recovery onto a NEIGHBOUR's weak box was a theft (3 of 3)
 # while every ordinary-stage match filmed was right. The census
