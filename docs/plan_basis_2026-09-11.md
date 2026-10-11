@@ -3946,3 +3946,21 @@ another has its box nested in the leader's, and the guard retires or never birth
 the chains, but they do not reach the labelled cars. Recommendation: do NOT ship dt2 as is; TRACKER_TWIN_RETIRE stays
 off. If pursued, the next look is the leg-28 queue cars on the dev clip (twin_log around cam2 1600 m5 tracks 622 /
 642 / 644 / 841) to see which action - retirement or deferred nested birth - takes the queued car. Ship needs a go.
+
+## THE NO-TRACK CARS (2026-10-11, operator: "park this and move to no-track cars") - mostly NOT a gap, mostly COUNTED
+THEFTS PARKED again after dt2 (operator). Context: of the 100 labelled-car errors under today's default (816 cars, dev 512
++ held-out 304), no_track was the largest outcome (47). scripts/research_no_track.py (logs runs/v2_week1/no_track_dev.log,
+no_track_heldout.log) puts every missing click in one bucket and asks where the car's OWN track (from its other click) was.
+  missing clicks 53:  CONTESTED 43 (a track IS under the click; the one-to-one scorer gave it to a neighbouring car's click)
+                      NO_DET 9 (no detector box at all; 5 within 20 px of the image edge - cars leaving view, cam5 exits)
+                      DET_STRONG 2 (a confident box the tracker did not track)   DET_WEAK 0
+  CONTESTED, the car's own track at that moment: present 14 (10 within 1 box of the click - a queue click landing on the
+    neighbour's box, a SCORER matter); absent 17 (born 0.4-1.3 s after the entry click / ended 0.4-1.2 s before the
+    exit click - the car's box was held by another id, i.e. two cars on one track at the gate); no other track 12.
+  COUNTED ANYWAY: 35 of the 47 no_track vehicles carry the right movement on their other click's track (dev 26 of 32,
+    held-out 9 of 15). Only 12 no_track vehicles are an actual count loss.
+READING. The no_track bucket is not a detector problem (9 of 53 clicks, nearly all counted right anyway) and is mostly
+the same two-cars-one-track shape as thefts, which the counting rules already survive. Per car, the errors that change
+a count are then ~65 of 816: wrong 21, double 19, missed 13, no_track-uncounted 12 - against 52 PHANTOMS (dev 30,
+held-out 22: counted events no labelled vehicle claims), the largest single source of count error the labels show and
+the one not yet dissected. No arm declared.
