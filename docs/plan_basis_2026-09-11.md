@@ -3744,3 +3744,30 @@ the cars above and below it - on cam2 often a parked row - so two-three cars sha
 car" (a duplicate box).
 Steps T2 (memory) and T3 (retrain) change which torn decisions flip, not where switches happen: they cannot lift the
 10% ceiling, so per the plan they are NOT run. TRACKER_APPEARANCE_VETO stays OFF; decision_log stays as an instrument.
+
+## MEASUREMENT rd1 DECLARED (2026-10-11; plan C:\Users\marsh\.claude\plans\yes-plan-all-of-quiet-pearl.md) — why the prediction leaves a car it can still see
+After T1: ~90% of cam2's wrong switches start where motion was CONFIDENT, and in 60-65% the abandoned car A is still
+detected at the switch frame. scripts/research_switch_cause.py re-runs the dump's tracker in process
+(research_breaks.run: match + miss logs, the tracker's real inputs after NMS / dedup) and gives every census wrong
+switch (THEFT / EMERGENCE / A ENDS) ONE cause at f_first_B, first that applies:
+  1 A UNDETECTED          no A yardstick hit at the switch frame
+  2 A NOT IN INPUT        A's hit exists but its box never reached the tracker (conf <= 0.10, NMS, input dedup)
+  3 A TAKEN               another id took A's box that frame
+  4 PREDICTION OFF A      A's box free but IoU(T's prediction, A) < 0.2; sub-cause over the last 1 s:
+                          a coasting (T unmatched >= 2 of the last 5 frames), b dragged (T adopted a box not on A, or
+                          nearer B than A), c size jump (A's width vs the prediction > 1.5x), d velocity (the rest)
+  5 PREDICTION ON A, B WON  a stage order (A's box weak - s2 pool - while T took B in s1), b stacked (IoU(A, B) >= 0.3),
+                          c other
+  6 UNCLEAR               T not mapped in process (IoU 0.95 on box_B), or T itself took A's box
+Diagnostic, NOT an arm: no pass/fail. DECISION RULE (fixed now): a cause or sub-cause holding >= 35% of judged
+(non-UNCLEAR) switches on every cam2 window becomes the next arm's target; if none, the two largest go to the
+operator. Candidate fixes, listed now and NOT built: coasting -> damp the extrapolated velocity while lost; dragged ->
+no velocity update from a box stacked on another detection; velocity -> velocity from observed centres; stage order
+-> let s1 consider a weak box that overlaps the prediction far better; not in input -> NMS / dedup thresholds;
+undetected -> the detector, out of the tracker's reach. Sanity: share UNDETECTED must agree with the chain count of
+2026-10-10 (337/953, 290/732, 178/504). Then cam1 0700, cam3 0600, cam4 1600, cam5 1600 (one default).
+ADDED after the 6000-frame plumbing run, BEFORE the full runs (the smoke put 74% of switches in A TAKEN, where the
+declared split by stage says nothing about the fix): A TAKEN is split by where the taker was the frame before -
+SWAP (on B), TWIN (already on A: two ids on one car; with how long, which id is younger, and their box IoU), or new /
+lost / elsewhere; and a cross-cut MERGED flag (T's box holds >= 70% of A's and is >= 1.5x its area: one box over two
+cars). The decision rule is unchanged and applies to these sub-causes too.
