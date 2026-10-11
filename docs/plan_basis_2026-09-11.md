@@ -3863,11 +3863,25 @@ noise, no guards) - not a fair base; a same-day control ctl_l1_study_0700 (today
   window          twins retired   one-track            breaks                wrong switches E+AE+T   swaps
   cam1 07:00      73              3120 -> 3146 (+26)    2968 -> 2879 (-89)     294 -> 280 (-14)        56 -> 49
   cam3 06:00      4575            14224 -> 15323 (+1099) 42539 -> 35581 (-6958) 5266 -> 4833 (-433)    908 -> 715
-  cam4 16:00      11              4422 -> 4439 (+17)    2547 -> 2520 (-27)     214 -> 216 (+2)         32 -> 30
+  cam4 16:00      47              4422 -> 4439 (+17)    2547 -> 2520 (-27)     214 -> 216 (+2)         32 -> 30
   cam5 16:00      177             3952 -> 3975 (+23)    3637 -> 3509 (-128)    407 -> 401 (-6)         78 -> 71
-  FM51 07:00 ctl  47              1249 -> 1285 (+36)    624 -> 510 (-114)      37 -> 39 (+2)            3 -> 2
-On the letter, "wrong switches fall" MISSES on cam4 16:00 (+2 of 214; 11 retirements in the window) and FM51 (+2 of
+  FM51 07:00 ctl  11              1249 -> 1285 (+36)    624 -> 510 (-114)      37 -> 39 (+2)            3 -> 2
+On the letter, "wrong switches fall" MISSES on cam4 16:00 (+2 of 214; 47 retirements in the window) and FM51 (+2 of
 37); every other clause holds on every window, and cam3 - the camera the one-default ruling hurt most - gains most
 (one-track +7.7%, breaks -16%). Bar (1) is NOT PASSED on the letter: operator ruling needed before labels / fleet.
 (Assumption: cams 1-5 production study_* dumps reproduce under today's code - shown for cam4 16:00 by pf1's identity
 check on 2026-10-09; not re-shown here for cams 1, 3, 5.)
+CORRECTION (2026-10-11): the twins-retired column had cam4 and FM51 swapped (log glob order); cam4 47, FM51 11. Fixed above.
+
+### WHAT BREAKS IN dt2 (2026-10-11, operator: "fix what is broken about it") and ARM dt3 DECLARED
+Census diff (same chain pair within 10 frames = the same switch), dt2 vs base: cam4 16:00 8 new / 6 gone; FM51 6 new /
+4 gone (cam1 4 / 18, cam5 20 / 23). An in-process dt2 run with the new twin_log (diagnostics: every retirement and every
+deferred nested birth) puts a dt2 action on the same cars just before 12 of the 14 new switches (within 15 frames;
+13 within 32):
+deferred NESTED BIRTHS dominate (cam4: 1113 deferrals vs 47 retirements) - the guard added to dt2 to stop a retired
+twin's re-birth also stops EVERY car whose box first appears inside another's (a car emerging from behind another,
+IoU 0.5-0.6), and their ids then confuse on separation; and a few retirements hit a real second car.
+dt3 = dt2 with the nested-birth guard narrowed to its purpose: a nested box is deferred only inside a track that
+retired a twin within the last TRACKER_TWIN_REBIRTH_S = 1.0 s (the re-birth cycle), never elsewhere. Retirement
+(younger, containment >= 0.9, IoU >= 0.4, 3 frames) unchanged. Knob TRACKER_TWIN_NESTED_BIRTH = "all" (dt2) |
+"rebirth" (dt3). BARS: dt2's, chains on all 8 windows (cam2 x3, cam1 0700, cam3 0600, cam4 1600, cam5 1600, FM51 ctl).

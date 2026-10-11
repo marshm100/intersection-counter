@@ -376,6 +376,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
                  weak_birth_promote: bool = True, collect_backfill: bool = False,
                  twin_retire: bool = False, twin_contain: float = 0.9, twin_iou: float = 0.4,
                  twin_frames: int = 3, twin_which: str = "larger",
+                 twin_nested_birth: str = "all", twin_rebirth_s: float = 1.0,
                  appearance_veto: bool = False, appearance_thresh: float = 0.482,
                  appearance_near_w: float = 2.0, appearance_mem_s: float = 0.5,
                  **kwargs):
@@ -428,8 +429,14 @@ class _RecoveringByteTrack(sv.ByteTrack):
         self.twin_iou = float(twin_iou)
         self.twin_frames = int(twin_frames)
         self.twin_which = str(twin_which)
+        self.twin_nested_birth = str(twin_nested_birth)
+        self.twin_rebirth_frames = max(1, int(round(float(twin_rebirth_s) * fr)))
+        self._twin_kept: dict = {}          # kept id -> frame its twin was retired
         self._twin_runs: dict = {}
         self.n_twin_retired = 0
+        # Diagnostics only (a list = on): ("retire", abs frame, retired id, kept id,
+        # retired tlbr, kept tlbr) and ("defer", abs frame, -1, -1, box tlbr, holder tlbr).
+        self.twin_log = None
         self.appearance_veto = bool(appearance_veto)
         self.appearance_thresh = float(appearance_thresh)
         self.appearance_near_w = float(appearance_near_w)
@@ -553,6 +560,12 @@ class _RecoveringByteTrack(sv.ByteTrack):
                             out_ = (a if area[i] > area[j] else b if area[j] > area[i] else younger)
                         gone.add(out_.track_id)
                         self.n_twin_retired += 1
+                        self._twin_kept[(b if out_ is a else a).track_id] = self.frame_id
+                        if self.twin_log is not None:
+                            keep = b if out_ is a else a
+                            self.twin_log.append(("retire", self._abs(), int(out_.track_id), int(keep.track_id),
+                                                  tuple(float(v) for v in out_.tlbr),
+                                                  tuple(float(v) for v in keep.tlbr)))
         self._twin_runs = runs
         return gone
 
@@ -963,7 +976,8 @@ class _RecoveringByteTrack(sv.ByteTrack):
         # track this frame is that vehicle's double box 86-98% of the time
         # (research_dup_boxes.py); a real occluded vehicle is born once it
         # separates. Deferring the birth prevents the twin track.
-        held_tlbr = (np.asarray([h.tlbr for h in activated_starcks + refind_stracks], dtype=np.float32)
+        held_tracks = activated_starcks + refind_stracks
+        held_tlbr = (np.asarray([h.tlbr for h in held_tracks], dtype=np.float32)
                      if self.stack_iou > 0 and (activated_starcks or refind_stracks) else None)
         for inew in u_detection:
             track = detections[inew]
@@ -981,7 +995,17 @@ class _RecoveringByteTrack(sv.ByteTrack):
                     ah = (held_tlbr[:, 2] - held_tlbr[:, 0]) * (held_tlbr[:, 3] - held_tlbr[:, 1])
                     ab = (b[2] - b[0]) * (b[3] - b[1])
                     cont = ix * iy / np.maximum(np.minimum(ah, ab), 1e-9)
-                    nested = bool(((cont >= self.twin_contain) & (ov[0] >= self.twin_iou)).any())
+                    hit = (cont >= self.twin_contain) & (ov[0] >= self.twin_iou)
+                    if getattr(self, "twin_nested_birth", "all") == "rebirth":
+                        # arm dt3: only where a twin was just retired (its re-birth)
+                        hit &= np.asarray([self.frame_id - self._twin_kept.get(h.track_id, -10 ** 9)
+                                           <= self.twin_rebirth_frames for h in held_tracks])
+                        for k in np.flatnonzero(hit):     # the duplicate is still there: keep the guard up
+                            self._twin_kept[held_tracks[int(k)].track_id] = self.frame_id
+                    nested = bool(hit.any())
+                    if nested and getattr(self, "twin_log", None) is not None:
+                        self.twin_log.append(("defer", self._abs(), -1, -1, tuple(float(v) for v in b),
+                                              tuple(float(v) for v in held_tlbr[int(np.argmax(hit))])))
                 if ov.max() > self.stack_iou or nested:
                     self.n_births_deferred += 1
                     if self.birth_log is not None:
@@ -1254,6 +1278,8 @@ class ByteTrackBackend:
             "twin_iou": float(getattr(_cfg, "TRACKER_TWIN_IOU", 0.4)),
             "twin_frames": int(getattr(_cfg, "TRACKER_TWIN_FRAMES", 3)),
             "twin_which": str(getattr(_cfg, "TRACKER_TWIN_RETIRE_WHICH", "larger")),
+            "twin_nested_birth": str(getattr(_cfg, "TRACKER_TWIN_NESTED_BIRTH", "all")),
+            "twin_rebirth_s": float(getattr(_cfg, "TRACKER_TWIN_REBIRTH_S", 1.0)),
             "appearance_veto": bool(getattr(_cfg, "TRACKER_APPEARANCE_VETO", False)),
             "appearance_thresh": float(getattr(_cfg, "TRACKER_APPEARANCE_THRESH", 0.482)),
             "appearance_near_w": float(getattr(_cfg, "TRACKER_APPEARANCE_NEAR_W", 2.0)),

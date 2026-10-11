@@ -949,6 +949,10 @@ TRACKER_TWIN_IOU = 0.4
 TRACKER_TWIN_FRAMES = 3
 # which of the two is retired: "larger" (the larger box, arm dt1) or "younger" (the later-born id, arm dt2)
 TRACKER_TWIN_RETIRE_WHICH = _os.environ.get("TRACKER_TWIN_RETIRE_WHICH", "larger")
+# with "younger": which nested births are deferred - "all" (any box nested in a held box, arm dt2) or
+# "rebirth" (only inside a track that retired a twin within REBIRTH_S - the re-birth cycle, arm dt3)
+TRACKER_TWIN_NESTED_BIRTH = _os.environ.get("TRACKER_TWIN_NESTED_BIRTH", "all")
+TRACKER_TWIN_REBIRTH_S = 1.0
 # Recovery guards (Phase B thefts, 2026-09-15). The theft reel ruled that every
 # filmed position recovery onto a NEIGHBOUR's weak box was a theft (3 of 3)
 # while every ordinary-stage match filmed was right. The census
