@@ -767,3 +767,24 @@ def test_appearance_sidecar_found_through_an_arm_alias(tmp_path):
     assert e.shape == (3, 4)
     with pytest.raises(FileNotFoundError):
         tp._appearance_embeddings(tmp_path / "study_0700.parquet")
+
+
+def test_decision_log_changes_nothing_and_names_the_runner_up(monkeypatch):
+    """decision_log (research_tiebreak.py) is diagnostics only: on, the ids are
+    identical to off; each s1 record carries the runner-up box of a track that
+    had two boxes near it."""
+    def scene():
+        fr = {}
+        for f in range(1, 30):
+            fr[f] = [det(100 + 6 * f, 240), det(112 + 6 * f, 243),
+                     det(400 - 5 * f, 300)]
+        return fr
+    off = run(backend(), scene(), 29)
+    monkeypatch.setattr(BaseTrack, "_count", 0)
+    be = backend()
+    be.byte_track.decision_log = []
+    assert run(be, scene(), 29) == off
+    recs = be.byte_track.decision_log
+    assert recs and {r[2] for r in recs} <= {"s1", "s25"}
+    assert all(len(r) == 11 for r in recs)
+    assert any(r[6] is not None and r[7] > r[5] for r in recs if r[2] == "s1")

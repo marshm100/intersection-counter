@@ -85,6 +85,8 @@ def stage_run(proj: str, cam: int, variant: str, meta: dict, frame_size,
     be.byte_track.match_log = []
     if extra is not None and "claim" in extra:
         be.byte_track.recovery_claim_log = extra["claim"]
+    if extra is not None and "decision" in extra:
+        be.byte_track.decision_log = extra["decision"]       # research_tiebreak.py
     nms, buf = meta.get("nms_iou"), float(meta.get("bbox_buffer") or 1.0)
     assert buf == 1.0, "research_thefts: bbox buffer != 1 not reproduced"
     f0, f1 = meta["frames"]

@@ -209,6 +209,38 @@ def _match_rec(bt, stage: str, track, det, was_lost: bool) -> tuple:
             float(det.score))
 
 
+def _decision_recs(bt, stage: str, tracks: list, dets: list, cost: np.ndarray, pairs) -> list:
+    """decision_log records for one association stage (research_tiebreak.py; diagnostics only),
+    taken BEFORE any track adopts its box. Per matched pair: (absolute frame, track id, stage,
+    was_lost, chosen det tlbr, chosen cost, runner-up det tlbr | None, runner-up cost, rival
+    track id | -1, rival cost, the rival's own det tlbr this stage | None). Runner-up = the
+    track's next-cheapest det; rival = the next-cheapest track for the chosen det. Pairs with
+    neither are not logged."""
+    cost = np.asarray(cost, dtype=np.float64)
+    pairs = [(int(t), int(d)) for t, d in pairs]
+    took = {t: d for t, d in pairs}
+    out = []
+    for ti, di in pairs:
+        row = cost[ti].copy(); row[di] = np.inf
+        col = cost[:, di].copy(); col[ti] = np.inf
+        j = int(row.argmin()) if row.size else -1
+        k = int(col.argmin()) if col.size else -1
+        ru_ok = j >= 0 and np.isfinite(row[j])
+        rv_ok = k >= 0 and np.isfinite(col[k])
+        if not (ru_ok or rv_ok):
+            continue                     # nothing competed: not a decision
+        rd = took.get(k) if rv_ok else None
+        out.append((bt._abs(), int(tracks[ti].track_id), stage,
+                    tracks[ti].state != _TrackState.Tracked,
+                    tuple(float(v) for v in dets[di].tlbr), float(cost[ti, di]),
+                    tuple(float(v) for v in dets[j].tlbr) if ru_ok else None,
+                    float(row[j]) if ru_ok else float("inf"),
+                    int(tracks[k].track_id) if rv_ok else -1,
+                    float(col[k]) if rv_ok else float("inf"),
+                    tuple(float(v) for v in dets[rd].tlbr) if rd is not None else None))
+    return out
+
+
 def _note_obs(track, tlbr, frame_id: int) -> None:
     """Record an OBSERVED box on the track: last_obs_tlbr + the last few
     observed centres (the exit-direction test reads them)."""
@@ -440,6 +472,9 @@ class _RecoveringByteTrack(sv.ByteTrack):
         # Diagnostics only (research_thefts.py sets a list): one tuple per
         # association that puts a box on a track — see _match_rec. None = off.
         self.match_log = None
+        # Diagnostics only (research_tiebreak.py sets a list): per s1 / s25 match,
+        # the runner-up box and the rival track - see _decision_recs. None = off.
+        self.decision_log = None
         # Diagnostics only (research_recovery_guard.py sets a list): one tuple
         # per stage-2.5 match - does the taken box already belong to a
         # newborn's or a weak-birth tentative's own short history? See
@@ -579,6 +614,10 @@ class _RecoveringByteTrack(sv.ByteTrack):
         matches, u_track, u_detection = _m.linear_assignment(
             dists, thresh=self.match_thresh
         )
+        dlog = getattr(self, "decision_log", None)
+        if dlog is not None and len(matches):
+            dlog.extend(_decision_recs(self, "s1", strack_pool, detections,
+                                       np.where(dists <= self.match_thresh, dists, np.inf), matches))
         for itracked, idet in matches:
             track = strack_pool[itracked]
             det = detections[idet]
@@ -701,7 +740,12 @@ class _RecoveringByteTrack(sv.ByteTrack):
                         self.n_recovery_refused_reverse += int(np.isfinite(cost[refused]).sum())
                         cost[refused] = np.inf
                 used_d: set[int] = set()
-                for ti, di in _greedy_pairs(cost, self.recovery_reach):
+                gp = _greedy_pairs(cost, self.recovery_reach)
+                dlog = getattr(self, "decision_log", None)
+                if dlog is not None and len(gp):
+                    dlog.extend(_decision_recs(self, "s25", cand_tracks, cand_dets,
+                                               np.where(cost < self.recovery_reach, cost, np.inf), gp))
+                for ti, di in gp:
                     track, det = cand_tracks[ti], cand_dets[di]
                     if self.recovery_log is not None:
                         self.recovery_log.append((

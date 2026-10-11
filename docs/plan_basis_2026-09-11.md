@@ -3702,3 +3702,22 @@ as false ones. (3) Even the loosest rule sees only half the census's wrong switc
 switches the new car looks like the memory. The verifier's 0.965 AUC was measured on clean side-by-side pairs;
 in a contested crop on cam2 it is not that instrument.
 No live arm is declared. TRACKER_APPEARANCE_VETO stays built and OFF.
+
+## STEP T1 DECLARED (2026-10-10; plan C:\Users\marsh\.claude\plans\yes-plan-all-of-quiet-pearl.md) — appearance as a TIE-BREAKER, offline
+Operator: "how do we tell the cars apart currently and how could we make that better". Today: motion only (Kalman
++ IoU x conf, recovery stages, guards; the linker's motion residual). av1/rv1 asked an ABSOLUTE question on every
+contested frame; T1 asks the RELATIVE one, only where motion is TORN.
+Instrument: tracker decision_log (diagnostics, off; identical ids on/off - test): per s1 / s25 match, the chosen box
+and cost, the track's RUNNER-UP box and cost, and the RIVAL track for the chosen box and its cost. scripts/
+research_tiebreak.py re-runs the dump's tracker in process (research_thefts.stage_run) with the log on.
+TORN = runner-up (or rival) cost within M of the chosen cost. Appearance (.ver1 verifier, v1 memory = mean of the
+track's last 0.5 s of boxes) FLIPS a torn decision when the other candidate is nearer to the memory by > D:
+  row tie: the track's memory is nearer the runner-up box than the chosen box;
+  column tie: the rival's memory is nearer the chosen box than the track's own memory is.
+Truth = yardstick chains: the track's chain = its majority chain over the last 1 s (>= 80% of labelled boxes,
+else NEUTRAL); a box's chain by IoU >= LABEL_IOU. FIX = motion picked the wrong car and the flip picks the right
+one; BREAK = the reverse; anything unlabelled is NEUTRAL. Census switches (THEFT + EMERGENCE + A ENDS) are matched to
+the decision at f_first_B with the chosen box (IoU >= 0.95); CAUGHT = that decision is a FIX.
+Grid M 0.05 / 0.1 / 0.2 x D 0 / 0.05 / 0.1; operating point = max FIX - BREAK on cam2 study_1600, applied unchanged
+to 0700 and 1100.
+GATE T1 (every cam2 window): FIX >= 2 x BREAK AND CAUGHT >= 15% of the census's wrong switches.
