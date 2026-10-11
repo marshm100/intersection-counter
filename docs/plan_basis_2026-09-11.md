@@ -3964,3 +3964,23 @@ the same two-cars-one-track shape as thefts, which the counting rules already su
 a count are then ~65 of 816: wrong 21, double 19, missed 13, no_track-uncounted 12 - against 52 PHANTOMS (dev 30,
 held-out 22: counted events no labelled vehicle claims), the largest single source of count error the labels show and
 the one not yet dissected. No arm declared.
+
+## THE PHANTOMS DISSECTED (2026-10-11, operator: "dissect it") - not 52 over-counts; ~19 are the clip's end
+scripts/research_phantoms.py (logs runs/v2_week1/phantoms_dev.log, phantoms_heldout.log), today's default (dt2c), 52
+phantoms (dev 30, held-out 22) = counted events inside a labelled clip that no labelled click claims. On FULL tracks:
+  PAST THE CLIP END   19  the track runs on after the clip's last frame - mostly cars queued at the end of the clip
+                          that leave after it (75-90% of their life still, then 4-30 box widths of travel). The
+                          labeller marks journeys inside the clip, so these are very likely REAL cars, unlabelled:
+                          a scoring edge, not an over-count. (cam2 held-out 12 of its 20.)
+  SIDE BY SIDE        21  inside the clip, within 1.5 box widths of ONE labelled car for >= half its life, every
+                          one with ~0 box overlap (median IoU 0.00-0.13, containment mostly 0): a box NEXT TO the
+                          car, not on it. The coexisting-twin rule (IoU >= 0.2, 35 px) is built for boxes ON the car
+                          and rightly passes these. Either an unlabelled neighbour car or a ghost (cam3 dawn: 10-25 px
+                          boxes ahead of real cars - the headlight glow of item 5). NOT decidable from data in hand.
+  PIECE                8  starts within 3 s of a labelled car's track ending, nearby; the car is already counted -
+                          plausible over-counts (re-counted fragments the linker did not join).
+  ALONE / STILL       4
+Decision paths: entry_only 20, full 18, exit_only 13, no_crossing 1 (all 52).
+READING. The labels' over-count is smaller than "52 phantoms" suggests: ~19 are cars the 3-minute clip cut off, 8 are
+re-counted pieces, and 21 need eyes (real neighbour vs ghost). Count-changing per-car errors stay ~65 of 816 plus the
+8 pieces and whatever share of the 21 are ghosts. No arm declared.
