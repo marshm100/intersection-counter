@@ -3855,3 +3855,19 @@ wb_dt2_cam2_*, research_thefts_dt2_cam2_*).
 Vehicles with 5+ ids 40/12/64 -> 41/19/59. Re-track 473 / 683 / 848 s. Retiring the YOUNGER id and not re-birthing a
 nested box turns dt1's trade into a gain on every clause: wrong switches -13%, swaps -17%, breaks -9%, one-track +2.7%.
 Bar (1) PASSES on cam2. Next per the bars: chains on cam1 / 3 / 4 / 5 / FM51, then dev labels, fleet, held-out.
+
+### ARM dt2 bar (1) beyond cam2 (2026-10-11): one-track up, breaks and swaps down EVERYWHERE; wrong switches +2 on two
+Driver runs/v2_week1/dt2_others.sh (yardstick, production baseline wb_base_* / thefts_base_*, dt2 re-track, wb_dt2_* /
+thefts_dt2_*; thefts --no-stages). FM51's production dump l1_study_0700 is the OLD LIBRARY tracker (no recovery, no KF
+noise, no guards) - not a fair base; a same-day control ctl_l1_study_0700 (today's default, dt2 off) is the base there.
+  window          twins retired   one-track            breaks                wrong switches E+AE+T   swaps
+  cam1 07:00      73              3120 -> 3146 (+26)    2968 -> 2879 (-89)     294 -> 280 (-14)        56 -> 49
+  cam3 06:00      4575            14224 -> 15323 (+1099) 42539 -> 35581 (-6958) 5266 -> 4833 (-433)    908 -> 715
+  cam4 16:00      11              4422 -> 4439 (+17)    2547 -> 2520 (-27)     214 -> 216 (+2)         32 -> 30
+  cam5 16:00      177             3952 -> 3975 (+23)    3637 -> 3509 (-128)    407 -> 401 (-6)         78 -> 71
+  FM51 07:00 ctl  47              1249 -> 1285 (+36)    624 -> 510 (-114)      37 -> 39 (+2)            3 -> 2
+On the letter, "wrong switches fall" MISSES on cam4 16:00 (+2 of 214; 11 retirements in the window) and FM51 (+2 of
+37); every other clause holds on every window, and cam3 - the camera the one-default ruling hurt most - gains most
+(one-track +7.7%, breaks -16%). Bar (1) is NOT PASSED on the letter: operator ruling needed before labels / fleet.
+(Assumption: cams 1-5 production study_* dumps reproduce under today's code - shown for cam4 16:00 by pf1's identity
+check on 2026-10-09; not re-shown here for cams 1, 3, 5.)
