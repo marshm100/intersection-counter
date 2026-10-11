@@ -3721,3 +3721,26 @@ the decision at f_first_B with the chosen box (IoU >= 0.95); CAUGHT = that decis
 Grid M 0.05 / 0.1 / 0.2 x D 0 / 0.05 / 0.1; operating point = max FIX - BREAK on cam2 study_1600, applied unchanged
 to 0700 and 1100.
 GATE T1 (every cam2 window): FIX >= 2 x BREAK AND CAUGHT >= 15% of the census's wrong switches.
+
+### STEP T1 VERDICT 2026-10-10: GATE FAIL - the tie-breaker can reach at most ~10% of the wrong switches
+scripts/research_tiebreak.py 97a7849a 2 study_* (logs runs/v2_week1/tiebreak_cam2_study_*.log, JSON
+tiebreak_97a7849a_2_study_*.json, sheets tiebreak_sheet_97a7849a_2_study_*_{FIX,BREAK}.png). In-process tracker
+16-26 min a window. Operating point chosen on 16:00: M 0.10, D 0.10.
+  window   torn decisions   flips   FIX   BREAK   FIX/BREAK   caught / wrong switches   switches at ANY torn decision
+  16:00    34105            2592    109   67      1.6         16 / 953 (2%)             98 (10%)
+  07:00    25948            1351    69    37      1.9         12 / 732 (2%)             69 (9%)
+  11:00    19880            1441    50    43      1.2          3 / 504 (1%)             43 (9%)
+Both clauses fail on every window. READING:
+(1) THE CEILING. Only 9-10% of the census's wrong switches begin at a decision where motion was torn (runner-up or
+rival within 0.2 of the chosen cost). The other ~90% happen where motion was CONFIDENT and wrong; no tie-breaker sees
+them, however good the verifier. Of the wrong switches, 60-65% have the abandoned car A still DETECTED at the switch
+frame (16:00 616 / 953, 07:00 442 / 732, 11:00 326 / 504) - its box was there, but not a close second for the track:
+the prediction had already left it.
+(2) THE VERIFIER AT TORN DECISIONS is barely better than a coin: at D 0 it is wrong more often than right (16:00 FIX
+202 / BREAK 300 at M 0.10); only at D 0.10 does it reach ~60% right.
+(3) THE CROPS (sheets): 30-40 px boxes at 640x480; the square crop (1.1 x the LONGER edge) of a wide low box takes in
+the cars above and below it - on cam2 often a parked row - so two-three cars share every crop.
+(4) The yardstick judges few torn decisions: NEUTRAL is mostly "track has no clear chain" and "both boxes are the same
+car" (a duplicate box).
+Steps T2 (memory) and T3 (retrain) change which torn decisions flip, not where switches happen: they cannot lift the
+10% ceiling, so per the plan they are NOT run. TRACKER_APPEARANCE_VETO stays OFF; decision_log stays as an instrument.
