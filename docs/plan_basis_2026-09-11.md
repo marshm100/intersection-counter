@@ -3832,3 +3832,14 @@ READING: ~6,500 retirements to remove ~320 wrong switches - most retirements hit
 car's real id (a partial box inside it then ends, and the car breaks). The direction is right (the first tracker rule
 in this series to cut wrong switches with near-flat one-track); the choice of WHICH id to retire is the open question.
 NOT advanced to labels / fleet without an operator ruling. TRACKER_TWIN_RETIRE stays built and OFF.
+
+## ARM dt2 DECLARED (2026-10-11, operator: "Ok fix it") — retire the YOUNGER twin, BEFORE any re-track
+dt1's failure: retiring the LARGER box often ended the car's real id (a partial box inside it then ended -> a break).
+dt2 = dt1's detection unchanged (containment >= 0.9, IoU >= 0.4, 3 frames, both confirmed and matched this frame) but
+the id retired is the YOUNGER (the later-born duplicate); the car's original id keeps the car. Knob
+TRACKER_TWIN_RETIRE_WHICH = "larger" (dt1) | "younger" (dt2); recorded in the recipe. No other change.
+BARS: dt1's (av1's) unchanged, chains on every cam2 window first.
+ADDED to dt2 before any re-track (found by its unit test): a retired twin's box goes on being detected and is re-born
+as a new id, retired again 3 frames later, forever (dt1 had the same cycle). With "younger", the birth guard also
+defers a box nested in a box a track already took this frame (containment >= 0.9 AND IoU >= 0.4 - the twin rule's own
+thresholds), as the stacked-box guard already does for IoU > 0.6.

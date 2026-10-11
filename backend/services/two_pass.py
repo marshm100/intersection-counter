@@ -523,7 +523,7 @@ def _cfg_recovery_geom():
         geom["lost_patience_frames"] = pf
     if getattr(c, "TRACKER_TWIN_RETIRE", False):
         geom["twin"] = {"contain": float(c.TRACKER_TWIN_CONTAIN), "iou": float(c.TRACKER_TWIN_IOU),
-                        "frames": int(c.TRACKER_TWIN_FRAMES)}
+                        "frames": int(c.TRACKER_TWIN_FRAMES), "which": str(c.TRACKER_TWIN_RETIRE_WHICH)}
     if getattr(c, "TRACKER_APPEARANCE_VETO", False):
         geom["appearance"] = {"thresh": float(c.TRACKER_APPEARANCE_THRESH),
                               "near_w": float(c.TRACKER_APPEARANCE_NEAR_W),

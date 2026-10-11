@@ -375,7 +375,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
                  weak_birth_max_cover: float = 0.6, weak_birth_history_s: float = 10.0,
                  weak_birth_promote: bool = True, collect_backfill: bool = False,
                  twin_retire: bool = False, twin_contain: float = 0.9, twin_iou: float = 0.4,
-                 twin_frames: int = 3,
+                 twin_frames: int = 3, twin_which: str = "larger",
                  appearance_veto: bool = False, appearance_thresh: float = 0.482,
                  appearance_near_w: float = 2.0, appearance_mem_s: float = 0.5,
                  **kwargs):
@@ -427,6 +427,7 @@ class _RecoveringByteTrack(sv.ByteTrack):
         self.twin_contain = float(twin_contain)
         self.twin_iou = float(twin_iou)
         self.twin_frames = int(twin_frames)
+        self.twin_which = str(twin_which)
         self._twin_runs: dict = {}
         self.n_twin_retired = 0
         self.appearance_veto = bool(appearance_veto)
@@ -524,7 +525,8 @@ class _RecoveringByteTrack(sv.ByteTrack):
     def _retire_twins(self, took: list) -> set:
         """Ids of confirmed tracks to retire this frame: of two that both took a box,
         the smaller box >= twin_contain inside the larger and IoU >= twin_iou, for
-        twin_frames frames running, the one holding the larger box (tie: the younger)."""
+        twin_frames frames running, the one holding the larger box (tie: the younger) - or,
+        with twin_which "younger", the later-born id."""
         conf = [t for t in took if t.is_activated]
         runs: dict = {}
         gone: set = set()
@@ -544,9 +546,12 @@ class _RecoveringByteTrack(sv.ByteTrack):
                     key = (min(a.track_id, b.track_id), max(a.track_id, b.track_id))
                     runs[key] = self._twin_runs.get(key, 0) + 1
                     if runs[key] >= self.twin_frames and not ({a.track_id, b.track_id} & gone):
-                        big = (a if area[i] > area[j] else b if area[j] > area[i]
-                               else (a if a.track_id > b.track_id else b))
-                        gone.add(big.track_id)
+                        younger = a if a.track_id > b.track_id else b
+                        if getattr(self, "twin_which", "larger") == "younger":
+                            out_ = younger
+                        else:
+                            out_ = (a if area[i] > area[j] else b if area[j] > area[i] else younger)
+                        gone.add(out_.track_id)
                         self.n_twin_retired += 1
         self._twin_runs = runs
         return gone
@@ -966,7 +971,18 @@ class _RecoveringByteTrack(sv.ByteTrack):
                 continue
             if held_tlbr is not None:
                 ov = 1.0 - _m.iou_distance(np.asarray([track.tlbr], dtype=np.float32), held_tlbr)
-                if ov.max() > self.stack_iou:
+                nested = False
+                if getattr(self, "twin_retire", False) and getattr(self, "twin_which", "larger") == "younger":
+                    # arm dt2: a box nested in (or holding) a box a track already took this
+                    # frame is that car's twin - not born, or it is retired and re-born forever
+                    b = np.asarray(track.tlbr, dtype=np.float64)
+                    ix = np.clip(np.minimum(held_tlbr[:, 2], b[2]) - np.maximum(held_tlbr[:, 0], b[0]), 0, None)
+                    iy = np.clip(np.minimum(held_tlbr[:, 3], b[3]) - np.maximum(held_tlbr[:, 1], b[1]), 0, None)
+                    ah = (held_tlbr[:, 2] - held_tlbr[:, 0]) * (held_tlbr[:, 3] - held_tlbr[:, 1])
+                    ab = (b[2] - b[0]) * (b[3] - b[1])
+                    cont = ix * iy / np.maximum(np.minimum(ah, ab), 1e-9)
+                    nested = bool(((cont >= self.twin_contain) & (ov[0] >= self.twin_iou)).any())
+                if ov.max() > self.stack_iou or nested:
                     self.n_births_deferred += 1
                     if self.birth_log is not None:
                         self.birth_log.append((self.frame_id, -1, tuple(float(v) for v in track.tlbr), float(track.score)))
@@ -1237,6 +1253,7 @@ class ByteTrackBackend:
             "twin_contain": float(getattr(_cfg, "TRACKER_TWIN_CONTAIN", 0.9)),
             "twin_iou": float(getattr(_cfg, "TRACKER_TWIN_IOU", 0.4)),
             "twin_frames": int(getattr(_cfg, "TRACKER_TWIN_FRAMES", 3)),
+            "twin_which": str(getattr(_cfg, "TRACKER_TWIN_RETIRE_WHICH", "larger")),
             "appearance_veto": bool(getattr(_cfg, "TRACKER_APPEARANCE_VETO", False)),
             "appearance_thresh": float(getattr(_cfg, "TRACKER_APPEARANCE_THRESH", 0.482)),
             "appearance_near_w": float(getattr(_cfg, "TRACKER_APPEARANCE_NEAR_W", 2.0)),

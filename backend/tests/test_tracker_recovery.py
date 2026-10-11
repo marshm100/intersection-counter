@@ -828,3 +828,29 @@ def test_twin_retire_leaves_side_by_side_cars(monkeypatch):
     be = backend()
     assert run(be, scene(), 19) == off
     assert be.byte_track.n_twin_retired == 0
+
+
+def test_twin_retire_younger_keeps_the_cars_own_id(monkeypatch):
+    """dt1's failure case: the car's own id holds the LARGER box and a partial box
+    inside it is born later. "larger" (dt1) retires the car's id; "younger" (dt2)
+    retires the newcomer and the car keeps its id."""
+    def scene():
+        fr = {}
+        for f in range(1, 20):
+            x = 100 + 6 * f
+            fr[f] = [det(x, 241, w=44.0, h=26.0)]
+            if f >= 5:
+                fr[f].append(det(x - 4, 240, conf=0.85))
+        return fr
+    monkeypatch.setattr(cfg, "TRACKER_TWIN_RETIRE", True)
+    monkeypatch.setattr(BaseTrack, "_count", 0)
+    larger = run(backend(), scene(), 19)
+    car = larger[3][0]
+    assert car not in larger[18]                      # dt1: the car's own id is retired
+    monkeypatch.setattr(cfg, "TRACKER_TWIN_RETIRE_WHICH", "younger")
+    monkeypatch.setattr(BaseTrack, "_count", 0)
+    be = backend()
+    younger = run(be, scene(), 19)
+    assert younger[18] == [car]                       # dt2: the car keeps its id, no twin lives on
+    assert be.byte_track.n_births_deferred >= 1       # the nested box is never born as a twin
+    assert tp._cfg_recovery_geom()["twin"]["which"] == "younger"
