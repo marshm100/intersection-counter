@@ -3902,3 +3902,47 @@ the one-track and break gains - those come from NOT BIRTHING a box nested in a h
 duplicate tracks in the first place. And cam4's +2 persists under dt3, so it is not caused by the broad guard.
 dt3 is dropped; dt2 remains the candidate. Its residue against the letter is +2 wrong switches on cam4 16:00 (of 214)
 and FM51 (of 37), with every other clause improving on all eight windows.
+
+### ARM dt2 ON THE DELIVERABLE (2026-10-11, operator ruling "score dt2 on the deliverable"): fleet PASSES the letter,
+### the labels say WORSE on cam2 (dev AND held-out) - NOT recommended to ship; operator ruling needed
+Driver runs/v2_week1/dt2_deliver.sh: dt2 re-tracks of the 5 windows that had none (cam1 1600 122 twins retired,
+cam4 0700 23, cam4 1100 6, cam5 0700 150, cam5 1100 80); same-day control dt2c on the production dumps (logs
+fleet_dt2c.log, fleet_dt2.log, journeys_dt2_dev.log, journeys_dt2_heldout.log). The control reproduced the standings
+EXACTLY on all 12 windows (fleet 89.06), so the production dumps reproduce under today's code.
+  window      movement ctrl -> dt2     approach ctrl -> dt2
+  cam1 0700   88.1 -> 86.4 (-1.7)      92.3 -> 92.3
+  cam1 1600   88.2 -> 91.8 (+3.6)      90.3 -> 90.3
+  cam2 0700   79.6 -> 82.5 (+2.9)      53.1 -> 50.0
+  cam2 1100   81.2 -> 83.3 (+2.1)      68.8 -> 71.9
+  cam2 1600   71.3 -> 75.9 (+4.6)      68.8 -> 68.8
+  cam3 0600   93.4 -> 93.1 (-0.3)      87.4 -> 86.2
+  cam4 0700   88.6 -> 88.6             75.0 -> 75.0
+  cam4 1100   93.6 -> 93.6             87.5 -> 87.5
+  cam4 1600   96.2 -> 96.3 (+0.1)      91.7 -> 91.7
+  cam5 0700   92.4 -> 92.3 (-0.1)      93.8 -> 93.8
+  cam5 1100   97.1 -> 97.0 (-0.1)      96.9 -> 100.0
+  cam5 1600   99.0 -> 99.0             96.9 -> 96.9
+  FLEET 89.06 -> 89.98 (+0.92); cameras cam1 +0.95, cam2 +3.20, cam3 -0.30, cam4 +0.03, cam5 -0.07; approach mean +0.16.
+  G-DEF-1 letter: PASS (fleet rises; worst camera -0.30 vs -1.0; worst window -1.7 vs -3.0).
+Journey labels, car by car (eval_journeys dt2c vs dt2:1..5=dt2_):
+  dev       cam1 0700  83 -> 83 of 93   (0 / 0)
+            cam2 1600 123 -> 118 of 142 (only-ctrl 5, only-dt2 0, p 0.062)
+            cam3 0600  44 -> 45 of 61   (1 / 2)
+            cam4 1600 104 -> 104 of 112 (0 / 0)
+            cam5 0700  91 -> 92 of 104  (0 / 1)
+            ALL 445 -> 442 of 512 (only-ctrl 6, only-dt2 3, p 0.508); phantoms 30 -> 27, broken 35 -> 39
+  HELD-OUT  cam1 0700 107 -> 108 of 120 (0 / 1)          - scored once
+            cam2 1600 164 -> 158 of 184 (only-ctrl 8, only-dt2 2, p 0.109); phantoms 20 -> 14
+            ALL 271 -> 266 of 304 (8 / 3, p 0.227)
+  cam2, dev + held-out: 15 discordant cars, 13 worse under dt2, 2 better (exact binomial p ~ 0.007).
+READING. The fleet and the labels disagree, and they disagree on the camera dt2 was built for. The fleet credits cam2
+with +3.2 movement on all three windows; car by car, the two labelled cam2 clips lose 13 vehicles and gain 2. That is
+the pattern the instrument note warns of (arm d2): window totals letting errors cancel. The 5 dev losses are all
+leg-28 entrants (28->27, 28->26), every one BROKEN under dt2 and correct on one unbroken track under the control, and
+two pairs share a dt2 track (622: cars 120/121; 642/644: cars 124/125) - ids passed between adjacent queued cars on
+the leg-28 approach. That fits "a few retirements hit a real second car" (WHAT BREAKS IN dt2): a car queued behind
+another has its box nested in the leader's, and the guard retires or never births it. Held-out losses are mixed
+(missed / wrong / no_track, legs 27/28/29), not one shape. The chain gains (wrong switches -13% on cam2) are real on
+the chains, but they do not reach the labelled cars. Recommendation: do NOT ship dt2 as is; TRACKER_TWIN_RETIRE stays
+off. If pursued, the next look is the leg-28 queue cars on the dev clip (twin_log around cam2 1600 m5 tracks 622 /
+642 / 644 / 841) to see which action - retirement or deferred nested birth - takes the queued car. Ship needs a go.
