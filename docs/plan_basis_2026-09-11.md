@@ -3771,3 +3771,33 @@ declared split by stage says nothing about the fix): A TAKEN is split by where t
 SWAP (on B), TWIN (already on A: two ids on one car; with how long, which id is younger, and their box IoU), or new /
 lost / elsewhere; and a cross-cut MERGED flag (T's box holds >= 70% of A's and is >= 1.5x its area: one box over two
 cars). The decision rule is unchanged and applies to these sub-causes too.
+
+### MEASUREMENT rd1 RESULT 2026-10-11
+CORRECTION BEFORE THE RESULT: the first full run classified the switch at f_first_B as declared, and its sheets showed
+T's prediction already on another car - EMERGENCE switches spend a median 2-5 frames between leaving A and landing
+on B. Re-run at the LEAVE frame (f_last_A + 1; T found in process by box_A at f_last_A), with one cause added
+(A FREE ON PRED, T TOOK NOTHING). The f_first_B version is kept as switch_cause_atB_* (it put A TAKEN at 50-55% and
+TWIN at 40-48%). Logs runs/v2_week1/switch_cause_cam2_study_*.log, JSON switch_cause_97a7849a_2_study_*.json, sheets
+switch_cause_sheet_*.png.
+  cause (share of judged)          16:00 (923)   07:00 (703)   11:00 (483)
+  A UNDETECTED                     45%           49%           43%
+  A TAKEN                          41%           38%           46%
+     twin (another id already on A)  28%         27%           39%
+     new / lost / elsewhere           8%          7%            4%
+     swap (taker came from B)         4%          4%            2%
+  PRED OFF A (all sub-causes)       5%            4%            4%
+  PRED ON A, B WON                  9%            8%            8%   (stage order 4-5%, stacked 2%)
+  A FREE ON PRED, T TOOK NOTHING    0%            0%            0%
+  UNCLEAR (not found in process)   30            29            21
+At the leave frame T took B in ~40%, nothing (coasted) in ~35%, an unlabelled box in ~25%. MERGED boxes 5-8%.
+TWIN: the two ids sat on A together a median 6-8 frames, boxes overlapping ~0.45; T is the younger id about half the
+time; T's predicted width >= 1.3x A's in ~40% (an over-wide box over A and a neighbour - seen on the sheets), median
+1.07-1.17x.
+DECISION RULE: two causes hold >= 35% on every window - A UNDETECTED and A TAKEN; no sub-cause does (twin 27-39%).
+READING. Motion error in the narrow sense (prediction drift, velocity, coasting, size) is only ~5% of wrong switches:
+the Kalman filter is NOT the problem. The switches are made by (1) the car vanishing from the detector for a frame and
+the id taking whatever is next to it (45%), and (2) TWO ids on one car - a duplicate track sitting on A for a few
+frames - where one keeps A and the other is pushed onto the neighbour (twin, ~30%). Both are upstream of the
+association math: (1) is detection continuity, (2) is duplicate-track control. pf1 (shorter lost patience) already
+showed that refusing to take a box while A is gone cuts wrong switches but costs approach volume through shorter
+pieces. Next arm is the operator's pick.

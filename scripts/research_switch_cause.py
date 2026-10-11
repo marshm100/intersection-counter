@@ -4,7 +4,8 @@ Declared in docs/plan_basis_2026-09-11.md "MEASUREMENT rd1 DECLARED".
 Step T1 found ~90% of cam2's wrong switches start where motion was CONFIDENT, and in 60-65% the abandoned car A is
 still detected at the switch frame. This re-runs the dump's tracker in process (research_breaks.run: match + miss
 logs, the tracker's real inputs after NMS / dedup) and gives every census wrong switch (research_thefts.py:
-THEFT / EMERGENCE / A ENDS; track T leaves chain A for chain B at f_first_B) ONE cause, the first that applies:
+THEFT / EMERGENCE / A ENDS; track T leaves chain A after f_last_A and lands on chain B at f_first_B) ONE cause
+at the LEAVE frame f_last_A + 1 (T found in process by box_A at f_last_A), the first that applies:
   A UNDETECTED       no A yardstick hit at the switch frame
   A NOT IN INPUT     A's hit exists but its box never reached the tracker (conf <= 0.10, NMS, input dedup)
   A TAKEN            another id took A's box that frame: swap (the taker came from B) / twin (the taker was
@@ -13,6 +14,7 @@ THEFT / EMERGENCE / A ENDS; track T leaves chain A for chain B at f_first_B) ONE
   PRED OFF A         A's box free but IoU(T's prediction, A) < OFF_IOU; sub-cause over the last 1 s:
                        coasting (T unmatched >= 2 of the last 5 frames) / dragged (T adopted a box not on A, or
                        nearer B than A) / size jump (A's width vs the prediction > 1.5x) / velocity (the rest)
+  A FREE ON PRED, T TOOK NOTHING   A's box free and on the prediction, but T matched nothing (a gate refused it)
   PRED ON A, B WON   stage order (A's box weak - s2 pool - and T took B in s1) / stacked (IoU(A, B) >= 0.3) / other
   UNCLEAR            T not found in process (IoU 0.95 on box_B), or T itself took A's box
 Diagnostic only. Usage:
@@ -49,7 +51,8 @@ ON_A_IOU = 0.3          # a box T adopted counts as A's when it overlaps A's hit
 SHEET_N = 12
 MERGED_COVER = 0.7      # T's box holds >= 70% of A's box ...
 MERGED_AREA = 1.5       # ... and is >= 1.5x its area: one box over two cars
-CAUSES = ("A UNDETECTED", "A NOT IN INPUT", "A TAKEN", "PRED OFF A", "PRED ON A, B WON", "UNCLEAR")
+CAUSES = ("A UNDETECTED", "A NOT IN INPUT", "A TAKEN", "PRED OFF A", "A FREE ON PRED, T TOOK NOTHING",
+          "PRED ON A, B WON", "UNCLEAR")
 
 
 def _iou(a, b) -> float:
@@ -73,20 +76,32 @@ def _centre(b):
 
 def classify(e: dict, ctx: dict) -> dict:
     """One cause (+ sub-cause and measurements) for one census switch."""
-    f = int(e["f_first_B"])
+    # the LEAVE frame: the first frame after T's last frame on A (f_first_B can be several frames later -
+    # EMERGENCE switches spend a median 4-10 frames coasting or on unlabelled boxes in between; rd1 v1
+    # classified f_first_B and misread those, 2026-10-11)
+    fa = int(e["f_last_A"])
+    f = fa + 1
     hits, inputs, by_box = ctx["hits"], ctx["inputs"], ctx["by_box"]
     match, miss, match_by_frame = ctx["match"], ctx["miss"], ctx["match_by_frame"]
-    out = {"track": e["track"], "kind": e["kind"], "f": f, "A": e["A"], "B": e["B"]}
-    # T in process: the output box on box_B at f
+    out = {"track": e["track"], "kind": e["kind"], "f": f, "f_first_B": int(e["f_first_B"]),
+           "gap": int(e["f_first_B"]) - f, "A": e["A"], "B": e["B"]}
     T = None
-    for box, tid in by_box.get(f, []):
-        if _iou(box, e["box_B"]) >= MAP_IOU:
+    for box, tid in by_box.get(fa, []):
+        if _iou(box, e["box_A"]) >= MAP_IOU:
             T = tid
             break
-    rec = match.get((f, T)) if T is not None else None
-    if rec is None:
+    if T is None:
         return {**out, "cause": "UNCLEAR", "sub": "not in process"}
-    out.update(T=T, stage=rec[2], pred=list(rec[5]), took=list(rec[6]), took_conf=rec[7])
+    rec = match.get((f, T))
+    mrec = miss.get((f, T))
+    if rec is None and mrec is None:
+        return {**out, "cause": "UNCLEAR", "sub": "T removed at the leave frame"}
+    if rec is not None:
+        hb = hits[e["B"]].get(f)
+        took_on = ("B" if hb is not None and _iou(rec[6], hb) >= ON_A_IOU else "not B (unlabelled / other)")
+        out.update(T=T, stage=rec[2], pred=list(rec[5]), took=list(rec[6]), took_conf=rec[7], took_on=took_on)
+    else:
+        out.update(T=T, stage="none: coasted", pred=list(mrec[4]), took_on="nothing")
     a_box = hits[e["A"]].get(f)
     if a_box is None:
         return {**out, "cause": "A UNDETECTED", "sub": ""}
@@ -103,9 +118,10 @@ def classify(e: dict, ctx: dict) -> dict:
                 "a_conf": float(inp[1][j]) if j >= 0 else None}
     a_conf = float(inp[1][j])
     out["a_conf"] = a_conf
-    if _iou(rec[6], a_box) >= BOX_MATCH:
+    if rec is not None and _iou(rec[6], a_box) >= BOX_MATCH:
         return {**out, "cause": "UNCLEAR", "sub": "T took A's box"}
-    out["merged"] = _cover(a_box, rec[6]) >= MERGED_COVER and _area(rec[6]) >= MERGED_AREA * _area(a_box)
+    out["merged"] = (rec is not None and _cover(a_box, rec[6]) >= MERGED_COVER
+                     and _area(rec[6]) >= MERGED_AREA * _area(a_box))
     for r in match_by_frame.get(f, []):
         if r[1] != T and _iou(r[6], a_box) >= BOX_MATCH:
             # where was the taker the frame before: on B (a swap), already on A (a twin), or elsewhere / new
@@ -132,7 +148,7 @@ def classify(e: dict, ctx: dict) -> dict:
                          "twin_iou": round(_iou(match[(f - 1, T)][6], match[(f - 1, r[1])][6]), 3)
                          if (f - 1, T) in match and (f - 1, r[1]) in match else None}
             return {**out, "cause": "A TAKEN", "sub": origin, "taker": r[1], "taker_stage": r[2], **extra}
-    pred = rec[5]
+    pred = rec[5] if rec is not None else mrec[4]
     iou_pa = _iou(pred, a_box)
     pw = max(pred[2] - pred[0], 1.0)
     aw = max(a_box[2] - a_box[0], 1.0)
@@ -162,7 +178,11 @@ def classify(e: dict, ctx: dict) -> dict:
         sub = ("coasting" if n_coast >= COAST_MIN else
                "dragged" if dragged >= 1 else
                "size jump" if max(aw / pw, pw / aw) > SIZE_JUMP else "velocity")
-        return {**out, "cause": "PRED OFF A", "sub": sub}
+        return {**out, "cause": "PRED OFF A", "sub": sub + (" (T took nothing)" if rec is None else "")}
+    if rec is None:
+        # A's box free and on the prediction, and T took nothing: a gate refused it
+        return {**out, "cause": "A FREE ON PRED, T TOOK NOTHING",
+                "sub": "A weak (s2 / recovery)" if a_conf <= ctx["activation"] else "A strong"}
     iou_ab = _iou(a_box, rec[6])
     out["iou_a_b"] = round(iou_ab, 3)
     sub = ("stage order" if a_conf <= ctx["activation"] and rec[2] == "s1" else
@@ -172,7 +192,7 @@ def classify(e: dict, ctx: dict) -> dict:
 
 def sheet(res: list[dict], vpath: str, tag: str, cause: str) -> None:
     import cv2
-    pick = [r for r in res if r["cause"] == cause and "pred" in r]
+    pick = [r for r in res if r["cause"] == cause and "pred" in r]  # drawn at the LEAVE frame
     if not pick:
         return
     rng = np.random.default_rng(0)
@@ -245,10 +265,12 @@ def main() -> int:
         print(f"  {c:<34}" + "".join(f"{sum(1 for r in sub if r['kind'] == k):>11}" for k in kinds)
               + f"{len(sub):>8}" + (f"{len(sub) / nj:>10.0%}" if c != "UNCLEAR" else ""))
         subs = Counter(r["sub"] for r in sub)
-        if c in ("PRED OFF A", "PRED ON A, B WON", "A TAKEN", "A NOT IN INPUT"):
+        if c != "UNCLEAR":
             for s, k in subs.most_common():
                 print(f"      {s:<30}" + "".join(f"{sum(1 for r in sub if r['sub'] == s and r['kind'] == kk):>11}"
                                               for kk in kinds) + f"{k:>8}" + f"{k / nj:>10.0%}")
+    print("  at the leave frame T: " + "; ".join(f"{k} {v}" for k, v in Counter(r.get("took_on", "?") for r in judged).most_common())
+          + f"; frames from leaving A to landing on B: median {np.median([r['gap'] for r in res]):.0f}")
     mg = [r for r in judged if r.get("merged")]
     print(f"  across causes: T took a MERGED box (holds >= {MERGED_COVER:.0%} of A, >= {MERGED_AREA}x its area): "
           f"{len(mg)} of {len(judged)} judged ({len(mg) / nj:.0%}); by cause "
