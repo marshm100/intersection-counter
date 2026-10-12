@@ -3984,3 +3984,23 @@ Decision paths: entry_only 20, full 18, exit_only 13, no_crossing 1 (all 52).
 READING. The labels' over-count is smaller than "52 phantoms" suggests: ~19 are cars the 3-minute clip cut off, 8 are
 re-counted pieces, and 21 need eyes (real neighbour vs ghost). Count-changing per-car errors stay ~65 of 816 plus the
 8 pieces and whatever share of the 21 are ghosts. No arm declared.
+
+## WHERE THE DELIVERABLE FAILS (2026-10-11, operator: "Ok so how do we fix it?") - the failing cells, and a rule REFUSED
+scripts/research_failing_cells.py dt2c (runs/v2_week1/failing_cells_dt2c.log): 133 failing 5/95 cells of 1251.
+SYSTEMATIC (one direction in nearly every failing bin):
+  cam2 EB right   16 fails / 24 bins, over 15   net +252 (+58% 07:00, +16% 11:00, +14% 16:00)
+  cam2 SB right   15 / 24, over 15               net +160      cam2 WB right 6 / 24, over 6   net +83
+  cam2 NB left     8 / 24, under 7               net -85       cam2 EB thru  7 / 24, under 7  net -79
+  cam1 NB left     9 / 16, under 9               net -84 (-11%, -18%)
+  cam4 SB thru     5 / 16, over 5                net +171 (+5.4%, +4.0%)   cam5 NB thru 4 / 16, under 4, net -87
+NOT A BIAS: cam3 NB thru 18 / 56 fails, runs of consecutive bins over (+33 +40 +40 +23) then under (-38 -65 -125) -
+  a time-shaped swing (video gap / clock / a dark spell?), not a counting rule.
+cam2 is 62 of the 133; its right turns alone are 37 failing cells (~3 fleet points if all passed).
+LABELLED CLIPS, per cell (cell ledger, runs/v2_week1/cell_ledger_dt2c.log): cam2 EB right +3 / +3 and SB thru +4 over
+6 labelled minutes, mostly from SIDE-BY-SIDE phantoms (+4 EB right, +4 SB thru) - about 0.8 / min, the rate of the
+window's EB right over-count against Miovision. Two yardsticks point at the same boxes.
+THE OBVIOUS RULE, REFUSED BEFORE BUILDING: "drop a counted partial journey that rides beside a counted full journey".
+Fleet pool 6,413 riders (5-10% of counts, mostly through movements). On the labelled clips, of 84 riders: 58 are
+labelled cars counted RIGHT, 8 labelled cars counted wrong, 18 phantoms - it would remove ~3 real cars per ghost
+(cam2: 14 right, 10 phantom). Riding beside a car is what neighbouring real cars do; the track geometry in hand does
+not separate a ghost from a neighbour.
