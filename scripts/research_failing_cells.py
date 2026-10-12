@@ -3,7 +3,7 @@ The deliverable is cell pass/fail per 15-min bin, so this lists, per window and 
 how many bins fail, in which direction (over / under Miovision), and by how much beyond the
 tolerance. A movement that fails the same way in most bins is a SYSTEMATIC bias with one
 cause; one that flips sign bin to bin is noise or timing. Dev-validation only.
-Usage: .venv\\Scripts\python.exe -X utf8 scripts/research_failing_cells.py STEM [PREFIX]
+Usage: .venv/Scripts/python.exe -X utf8 scripts/research_failing_cells.py STEM [PREFIX]
 """
 from __future__ import annotations
 
