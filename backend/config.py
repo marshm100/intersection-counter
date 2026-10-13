@@ -641,6 +641,25 @@ DETECT_HALF = _os2.environ.get("DETECT_HALF", "0") in ("1", "true", "on")
 # a gate-witnessed cell's movement label is the paths' shared label, else the
 # legs' geometry, never "the most-supported path". Default OFF pending an arm.
 ON_SCREEN_ONLY = _os2.environ.get("ON_SCREEN_ONLY", "0") in ("1", "true", "on")
+# THE MOUTH FROM MOTION + COUNT ONCE (arm mm, declared 2026-10-13,
+# docs/plan_basis_2026-09-11.md; backend/services/mouth_from_motion.py).
+# An unseen entry (exit) line is decided from the car's own motion against
+# lane maps of the window's fully seen journeys - waited in a queue zone,
+# lane fit, the backward ray, the occluder - never from movement popularity
+# (operator 2026-10-13). COUNT ONCE: two counted tracks of one movement that
+# reach every spot of their path together are one car. Default OFF pending
+# the arm.
+MOUTH_FROM_MOTION = _os2.environ.get("MOUTH_FROM_MOTION", "0") in ("1", "true", "on")
+COUNT_ONCE = _os2.environ.get("COUNT_ONCE", "0") in ("1", "true", "on")
+LANE_CELL_PX = 10.0          # lane-map cell (the far corner's boxes are 15-30 px)
+MOTION_FIT_S = 2.0           # seconds of motion compared against the lanes
+MOTION_MIN_FIT = 0.5         # a lane must explain at least half of that motion...
+MOTION_MARGIN = 0.2          # ...and beat the next lane by this share
+MOTION_WAIT_S = 1.0          # stood still this long at the start = waited
+MIN_CLEAN_TRACKS = 5         # a movement needs this many fully seen journeys to have a lane
+COUNT_ONCE_HEADWAY_PCT = 5   # percentile of a lane's own car-to-car lags = its minimum headway
+COUNT_ONCE_HEADWAY_FRAC = 0.5  # one car only under HALF that: two ids on one car lag ~0 s,
+                               # the closest real followers sit AT the minimum (unit test, 2026-10-13)
 # THE GLOBAL TRACKLET LINKER (2026-09-30, docs/research_tracking_2026-09-29.md
 # phase 2; backend/services/tracklet_linker.py). Joins the pieces a vehicle's
 # track broke into BEFORE the journey logic, by one global assignment per

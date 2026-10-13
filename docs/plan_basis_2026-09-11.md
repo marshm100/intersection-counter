@@ -4033,3 +4033,59 @@ SCORER FLAWS FOUND ON THE WAY (dev instrument, not the deliverable): 5 of the 52
 journey_eval.duplicate_labels() discards - two cars entering side by side, one hidden behind the other at the entry
 click, so both entry clicks land on one box (labels 150, 162, 169, 807 on cam2; 269 on cam3). And a car whose track
 has a gap at its exit click scores no_track although it was counted (label 123).
+
+## ARM mm DECLARED (2026-10-13, operator: "Yes plan it out", plan C:\Users\marsh\.claude\plans\yes-plan-it-out-soft-valiant.md)
+## THE MOUTH FROM MOTION + COUNT ONCE - decide an unseen entry / exit line from the car's own motion, BEFORE scoring
+Operator ruling 2026-10-13: "the most common one is not the same as the logical trajectory" - a partial track's lines
+are decided by what a real car can do (where it waited, where and which way it moved, where it came from while
+hidden), never by movement popularity; only the entry line, exit line, 15-min bin and one count per car are scored.
+Built as backend/services/mouth_from_motion.py, two pass-2 post-passes after conservation, before the twin dedup:
+ MOUTH_FROM_MOTION (default OFF): lane maps per movement from the window's own FULL journeys (bottom-centre anchor,
+   velocity over +-HEADING_VELOCITY_S, cells of LANE_CELL_PX, each movement normalised on its own; queue zones = cells
+   where an entry leg's clean tracks stood still before entering). An exit_only count's entry line, in order:
+   WAITED in exactly one candidate's queue zone (>= MOTION_WAIT_S still at the start) -> LANE FIT over the first
+   MOTION_FIT_S s of motion (best >= MOTION_MIN_FIT, margin >= MOTION_MARGIN; heading within
+   TRAJECTORY_THROUGH_MAX_ANGLE) -> BACKTRACK ray (entry_gates.nearest_line_in_direction) -> OCCLUDER (the track whose
+   box covered a mid-box birth in the previous 1 s) -> else TIE: left as today and counted (ruling after the number).
+   Mirror for entry_only counts' exit line (lane fit over the last motion, forward ray). Candidates need
+   >= MIN_CLEAN_TRACKS clean tracks. Event times unchanged.
+ COUNT_ONCE (default OFF): two counted tracks with the same movement overlapping in time are one car when, along the
+   shared path, one reaches each spot when the other does (median |lag| under COUNT_ONCE_HEADWAY_FRAC 0.5 x the lane's own minimum headway,
+   the COUNT_ONCE_HEADWAY_PCT-th percentile of lags between consecutive clean tracks of that movement - the half was
+   added at the unit test, before any scoring: at the bare percentile the closest real followers merged) and they sit
+   within LINKER_STOP_DIST_BOXES box; the less-witnessed event is rejected (write-then-reject).
+New constants: LANE_CELL_PX 10, MOTION_FIT_S 2.0, MOTION_MIN_FIT 0.5, MOTION_MARGIN 0.2, MOTION_WAIT_S 1.0,
+MIN_CLEAN_TRACKS 5, COUNT_ONCE_HEADWAY_PCT 5, COUNT_ONCE_HEADWAY_FRAC 0.5. Reused: HEADING_VELOCITY_S, TRAJECTORY_THROUGH_MAX_ANGLE,
+STITCH_STAT_SPEED_PXS, LINKER_STOP_DIST_BOXES.
+STEP 3 GATE (offline, existing dt2c working DBs, before wiring): on labelled cars the re-decided entry/exit lines must
+beat today's (cam2 guessed origin 83%, every miss EB<->SB) with ties reported; count-once must merge more of the 7
+one-car touching labelled pairs than it merges of the 20 two-car pairs (ideally 7 / 0).
+BARS for the arms mm1 (MOUTH_FROM_MOTION) and mm2 (+ COUNT_ONCE), same-day control on 12 windows: G-DEF-1 letter vs
+89.06; dev labels car by car no worse (McNemar); cam2 EB-right and SB-thru cells toward Miovision; FM 51 not worse;
+held-out once. Ship only on the operator's go.
+
+### ARM mm STEP 3 VERDICT (2026-10-13, offline on the dt2c working DBs; scripts/research_mouth_from_motion.py,
+### runs/v2_week1/mouth_from_motion_offline.log, journeys_mo1_dev.log, journeys_mo2_dev.log): NOT READY TO ARM
+mo1 = MOUTH_FROM_MOTION only; mo2 = + COUNT_ONCE. Post-passes applied to COPIES of the control DBs, then scored.
+  window       ctrl   mo1   mo2        window       ctrl   mo1   mo2
+  cam1 0700    88.1   88.1  86.6       cam4 0700    88.6   86.4  95.5
+  cam1 1600    88.2   92.6  91.4       cam4 1100    93.6   93.6  95.7
+  cam2 0700    79.6   86.1  88.1       cam4 1600    96.2   98.1  92.5
+  cam2 1100    81.2   85.1  85.1       cam5 0700    92.4   88.3  84.5
+  cam2 1600    71.3   75.2  70.6       cam5 1100    97.1   98.1  93.3
+  cam3 0600    93.4   93.1  87.9       cam5 1600    99.0   97.0  92.1
+  FLEET movement 89.06 -> mo1 90.14 (+1.08) -> mo2 88.61; approach 83.54 -> 82.68 -> 78.05.
+  Dev labels car by car: mo1 445 -> 447 of 512 (only-ctrl 1, only-mo1 3); mo2 449 (6 / 10; cam3 +6 doubles fixed).
+mo1 on the letter: MISS - cam5 0700 -4.1 (window bar -3.0), cam5 mean -1.7 (camera bar -1.0). cam2 rises on all
+three windows (+6.5 / +3.9 / +3.9) and cam1 1600 +4.4, but NOT for the reason it was built: on cam2 16:00 it moved 140
+SB-thru counts INTO EB right (and 50 back). WHY: in the far corner the EB-right and SB-thru lane maps COINCIDE - the
+cars fit both 1.0 / 1.0 - so the lane test cannot decide and the BACKWARD RAY decides, and for a car moving right->left
+along the top band the first line behind it is the EB line: the ray reproduces the very EB guess it was meant to
+replace. The WAIT test (EB queue zone) is the only tier that separates the corner as intended. cam5's losses
+(NB thru -> NB right 31, -> WB right 13 on 0700) not yet looked at.
+mo2 (count once): FAILS - 948 rejections on cam3, 97-194 a window elsewhere, approach -5.5: one car reaching every
+spot with another within 1 box is also TWO cars side by side in adjacent lanes at this resolution. Labels gain only
+on cam3's dawn doubles. COUNT_ONCE stays built and OFF.
+NEXT (design, not tuning): for moving cars in a corner where two lanes coincide, the separating evidence must come
+from the car's WHOLE visible track and from the angle at which it meets a line (a ray nearly parallel to a gate is no
+evidence of crossing it), not from the first 2 s and the first line behind it; then cam5's flips on video.
