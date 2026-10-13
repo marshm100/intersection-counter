@@ -7,6 +7,7 @@ import os
 import sqlite3
 import tempfile
 
+import numpy as np
 import pytest
 
 from backend.database import SCHEMA
@@ -170,3 +171,48 @@ class TestCountOnce:
         e2 = _ev(db, 2, 1, 3, "through", "exit_only")
         count_once_pass(db, 2, rows, FPS)
         assert _event(db, e1)[4] == 0 and _event(db, e2)[4] == 0
+
+
+def test_ray_skips_a_line_it_rides_along():
+    """THE GRAZE (step 3b): a car moving along a line did not come through it;
+    the backward ray goes on to the line it really crossed. cam2's SB-thru car
+    in the far band runs along the EB line; cam5's NB-thru along the WB line."""
+    from backend.services.mouth_from_motion import ray_leg
+    # leg 9's line runs from (20, 10) to (90, 14): nearly along the motion (-1, 0)
+    # leg 2's line is the right side x = 100, crossed head-on
+    gates = {9: ((20.0, 10.0), (90.0, 14.0), (0.0, 1.0)),
+             2: ((100.0, 0.0), (100.0, 100.0), (-1.0, 0.0))}
+    # car at (50, 12.5) moving left, slightly downward (it crosses leg 9 at ~3 deg)
+    leg, inc, grazed = ray_leg((50.0, 12.5), (-10.0, 0.5), gates, entering=True)
+    assert leg == 2 and grazed == [9] and inc > 80
+    # the same car moving down across leg 9 head-on: leg 9 is its entry
+    leg, inc, grazed = ray_leg((50.0, 20.0), (-1.0, 10.0), gates, entering=True)
+    assert leg == 9 and grazed == [] and inc > 60
+
+
+def _track(pts, fps=FPS):
+    from backend.services.mouth_from_motion import tracks_from_rows
+    return tracks_from_rows(_rows(1, pts), fps)[1]
+
+
+def test_shared_cells_do_not_vote():
+    """THE EXCLUSIVE CELLS (step 3b): where two lanes coincide a point says
+    nothing; only the stretch one lane alone runs decides. cam2 t734 (EB right):
+    seen first in the EB-only cells, then a long tail in the band SB thru shares."""
+    from backend.services.mouth_from_motion import LaneMaps, _lane_votes
+    lm = LaneMaps(10.0, {}, {}, {}, {})
+    shared = {(ix, 5): (2, 1.0, 0.0) for ix in range(0, 10)}
+    lanes = {"EB": {**shared, **{(ix, 3): (2, 1.0, 0.0) for ix in range(0, 3)}}, "SB": dict(shared)}
+    # 1 s in row 3 (EB alone), then 3 s in row 5 (both): the anchor is cy + 5
+    pts = [(i, 2.0 + 2.0 * i, 30.0) for i in range(10)] + \
+          [(10 + i, 22.0 + 2.0 * i, 50.0) for i in range(30)]
+    votes = _lane_votes(_track(pts), np.arange(40), lanes, lm)
+    assert votes["SB"] == 0 and votes["EB"] > 0
+
+
+def test_uturn_needs_a_visible_reversal():
+    from backend.services.mouth_from_motion import _reverses
+    straight = [(i, 6.0 * i, 50.0) for i in range(40)]
+    back = [(i, 6.0 * i, 50.0) for i in range(20)] + [(20 + i, 114.0 - 6.0 * i, 60.0) for i in range(20)]
+    assert not _reverses(_track(straight), FPS)
+    assert _reverses(_track(back), FPS)

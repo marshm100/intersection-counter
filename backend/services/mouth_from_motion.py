@@ -163,17 +163,91 @@ def _lane_fit(t: Track, idx: np.ndarray, lane: dict, lm: LaneMaps) -> float:
     return hits / len(idx)
 
 
-def _moving_window(t: Track, fps: float, at_start: bool) -> np.ndarray:
-    """Indices of the first (or last) MOTION_FIT_S seconds of motion."""
+def _lane_votes(t: Track, idx: np.ndarray, lanes: dict, lm: LaneMaps) -> dict:
+    """THE EXCLUSIVE CELLS (step 3b): over the given moving points, a point
+    votes for a candidate only where that candidate's lane alone runs (cell
+    and heading); where the lanes coincide - cam2's far corner - a point says
+    nothing either way, so a long shared tail neither dilutes nor decides."""
+    from backend.config import TRAJECTORY_THROUGH_MAX_ANGLE
+    cos_tol = math.cos(math.radians(TRAJECTORY_THROUGH_MAX_ANGLE))
+    votes = {k: 0 for k in lanes}
+    for i in idx:
+        c = lm.key(t.x[i], t.y[i])
+        s = math.hypot(t.vx[i], t.vy[i]) or 1.0
+        hit = [k for k, lane in lanes.items() if (cell := lane.get(c)) is not None
+               and (t.vx[i] * cell[1] + t.vy[i] * cell[2]) / s >= cos_tol]
+        if len(hit) == 1:
+            votes[hit[0]] += 1
+    return votes
+
+
+def _reverses(t: Track, fps: float) -> bool:
+    """The car's own visible track turns back: the mean heading of its first
+    and of its last MOTION_FIT_S s of motion differ by at least
+    TRAJECTORY_UTURN_MIN_ANGLE."""
+    from backend.config import TRAJECTORY_UTURN_MIN_ANGLE
+    a, b = _moving_window(t, fps, True), _moving_window(t, fps, False)
+    if not len(a) or not len(b):
+        return False
+    ha = math.atan2(float(np.mean(t.vy[a])), float(np.mean(t.vx[a])))
+    hb = math.atan2(float(np.mean(t.vy[b])), float(np.mean(t.vx[b])))
+    dh = abs(math.degrees(ha - hb)) % 360.0
+    return min(dh, 360.0 - dh) >= TRAJECTORY_UTURN_MIN_ANGLE
+
+
+def _moving_window(t: Track, fps: float, at_start: bool, whole: bool = False) -> np.ndarray:
+    """Indices of the first (or last) MOTION_FIT_S seconds of motion; with
+    whole=True every moving index of the visible track."""
     from backend.config import MOTION_FIT_S
     from backend.services.track_chains import STITCH_STAT_SPEED_PXS
     mv = np.nonzero(t.speed >= STITCH_STAT_SPEED_PXS)[0]
-    if not len(mv):
+    if not len(mv) or whole:
         return mv
     span = MOTION_FIT_S * fps
     if at_start:
         return mv[t.f[mv] <= t.f[mv[0]] + span]
     return mv[t.f[mv] >= t.f[mv[-1]] - span]
+
+
+def incidence_deg(vel, p1, p2) -> float:
+    """Angle between a motion and a line: 90 = head-on, 0 = along it."""
+    lx, ly = p2[0] - p1[0], p2[1] - p1[1]
+    n = math.hypot(vel[0], vel[1]) * math.hypot(lx, ly)
+    if n < 1e-9:
+        return 0.0
+    return math.degrees(math.asin(min(1.0, abs(vel[0] * ly - vel[1] * lx) / n)))
+
+
+def ray_leg(pt, vel, gates: dict, entering: bool) -> tuple[int | None, float | None, list]:
+    """entry_gates.nearest_line_in_direction with THE GRAZE: a line the ray
+    meets nearly along it (across < along / EXIT_GRAZE_RATIO, the grazed-exit
+    definition of riding a line) is no evidence the car came through (went
+    out through) it, so the ray goes on to the next line it really crosses.
+    Returns (leg, incidence deg, grazed legs passed on the way)."""
+    from backend.config import EXIT_GRAZE_RATIO, GATE_EXTENSION_MARGIN
+    from backend.services.entry_gates import _seg_cross, extend_gates
+    n = math.hypot(vel[0], vel[1])
+    if n < 1e-9:
+        return None, None, []
+    ux, uy = vel[0] / n, vel[1] / n
+    if entering:
+        ux, uy = -ux, -uy
+    q = (pt[0] + ux * 3000.0, pt[1] + uy * 3000.0)
+    min_inc = math.degrees(math.atan(1.0 / EXIT_GRAZE_RATIO))
+    hits = []
+    for lg, (p1, p2, inw) in extend_gates(gates, GATE_EXTENSION_MARGIN).items():
+        agree = vel[0] * inw[0] + vel[1] * inw[1]
+        if (entering and agree <= 0) or (not entering and agree >= 0):
+            continue
+        s = _seg_cross(pt, q, p1, p2)
+        if s is not None:
+            hits.append((s, lg, incidence_deg(vel, p1, p2)))
+    grazed = []
+    for _s, lg, inc in sorted(hits):
+        if inc >= min_inc:
+            return lg, inc, grazed
+        grazed.append(lg)
+    return None, None, grazed
 
 
 def _waited_leg(t: Track, fps: float, lm: LaneMaps, cands) -> int | None:
@@ -227,15 +301,27 @@ def _occluder_leg(t: Track, tracks_all: dict[int, Track], counted: dict,
 
 def decide(t: Track, side: str, known: int, lm: LaneMaps, gates: dict, fps: float,
            tracks_all: dict | None = None, counted_origin: dict | None = None,
-           frame_size=None) -> tuple[int | None, str, dict]:
+           frame_size=None, graze: bool = False, whole: bool = False,
+           mean_ray: bool = False, exclusive: bool = False,
+           uturn_seen: bool = False) -> tuple[int | None, str, dict]:
     """side 'entry': known = the witnessed exit leg, returns the entry leg.
     side 'exit': known = the witnessed entry leg, returns the exit leg.
-    Returns (leg or None, evidence, detail). None = a tie (no evidence decides)."""
+    Returns (leg or None, evidence, detail). None = a tie (no evidence decides).
+    Variants (step 3b): graze = the ray skips a line it meets along (ray_leg);
+    whole = lanes fitted over the whole visible moving track; mean_ray = the
+    ray's direction is the mean motion over the first (last) MOTION_FIT_S s;
+    exclusive = the lane tier counts votes from cells one candidate's lane
+    alone runs, over the whole visible moving track (_lane_votes): the best
+    needs >= 3 votes, a MOTION_MIN_FIT share and a MOTION_MARGIN lead;
+    uturn_seen = the line the car is known to use is a candidate for the
+    other end (a U-turn) only when its own visible track reverses (_reverses)."""
     from backend.config import MIN_CLEAN_TRACKS, MOTION_MARGIN, MOTION_MIN_FIT
     from backend.services.entry_gates import nearest_line_in_direction
     entry = side == "entry"
     ods = [od for od, n in lm.n_clean.items() if n >= MIN_CLEAN_TRACKS
            and (od[1] == known if entry else od[0] == known)]
+    if uturn_seen and not _reverses(t, fps):
+        ods = [od for od in ods if od[0] != od[1]]
     cands = [od[0] if entry else od[1] for od in ods]
     detail = {"cands": cands}
     if not cands:
@@ -245,17 +331,34 @@ def decide(t: Track, side: str, known: int, lm: LaneMaps, gates: dict, fps: floa
         if w is not None:
             return w, "wait", detail
     idx = _moving_window(t, fps, at_start=entry)
-    fits = {(od[0] if entry else od[1]): _lane_fit(t, idx, lm.lanes.get(od, {}), lm)
-            for od in ods}
-    detail["fits"] = {k: round(v, 2) for k, v in fits.items()}
-    ranked = sorted(fits.items(), key=lambda kv: -kv[1])
-    best, second = ranked[0][1], (ranked[1][1] if len(ranked) > 1 else 0.0)
-    if len(idx) >= 3 and best >= MOTION_MIN_FIT and best - second >= MOTION_MARGIN:
-        return ranked[0][0], "lane", detail
+    fit_idx = _moving_window(t, fps, at_start=entry, whole=True) if (whole or exclusive) else idx
+    if exclusive:
+        votes = _lane_votes(t, fit_idx, {(od[0] if entry else od[1]): lm.lanes.get(od, {})
+                                         for od in ods}, lm)
+        n = sum(votes.values())
+        detail["votes"] = votes
+        ranked = sorted(votes.items(), key=lambda kv: -kv[1])
+        if n >= 3:
+            best, second = ranked[0][1] / n, (ranked[1][1] / n if len(ranked) > 1 else 0.0)
+            if best >= MOTION_MIN_FIT and best - second >= MOTION_MARGIN:
+                return ranked[0][0], "lane", detail
+    else:
+        fits = {(od[0] if entry else od[1]): _lane_fit(t, fit_idx, lm.lanes.get(od, {}), lm)
+                for od in ods}
+        detail["fits"] = {k: round(v, 2) for k, v in fits.items()}
+        ranked = sorted(fits.items(), key=lambda kv: -kv[1])
+        best, second = ranked[0][1], (ranked[1][1] if len(ranked) > 1 else 0.0)
+        if len(fit_idx) >= 3 and best >= MOTION_MIN_FIT and best - second >= MOTION_MARGIN:
+            return ranked[0][0], "lane", detail
     if len(idx):
         i = idx[0] if entry else idx[-1]
-        leg, _ = nearest_line_in_direction((t.x[i], t.y[i]), (t.vx[i], t.vy[i]), gates,
-                                           entering=entry)
+        vel = ((float(np.mean(t.vx[idx])), float(np.mean(t.vy[idx]))) if mean_ray
+               else (t.vx[i], t.vy[i]))
+        if graze:
+            leg, inc, grazed = ray_leg((t.x[i], t.y[i]), vel, gates, entering=entry)
+            detail.update(ray_inc=None if inc is None else round(inc, 1), grazed=grazed)
+        else:
+            leg, _ = nearest_line_in_direction((t.x[i], t.y[i]), vel, gates, entering=entry)
         detail["ray"] = leg
         if leg in cands:
             return leg, "ray", detail
@@ -292,9 +395,10 @@ def _movement(o, d, lm: LaneMaps, legs: list[dict] | None):
 
 def mouth_from_motion_pass(db, camera_id: int, rows, fps: float, gates: dict,
                            legs: list[dict] | None = None, frame_size=None,
-                           apply: bool = True) -> dict:
+                           apply: bool = True, **variant) -> dict:
     """Re-decide the unseen entry line of exit_only counts (and the unseen exit
-    line of entry_only counts). Returns stats + the per-event decisions."""
+    line of entry_only counts). Returns stats + the per-event decisions.
+    variant: decide()'s graze / whole / mean_ray switches."""
     conn = sqlite3.connect(str(db))
     try:
         evs = _load(conn, camera_id)
@@ -315,10 +419,10 @@ def mouth_from_motion_pass(db, camera_id: int, rows, fps: float, gates: dict,
                 continue
             if e["tag"] == "exit_only" and e["d"] is not None:
                 leg, ev, det = decide(t, "entry", e["d"], lm, gates, fps, tracks,
-                                      counted_origin, frame_size)
+                                      counted_origin, frame_size, **variant)
                 new_o, new_d = (leg, e["d"]) if leg is not None else (e["o"], e["d"])
             elif e["tag"] == "entry_only" and e["o"] is not None:
-                leg, ev, det = decide(t, "exit", e["o"], lm, gates, fps)
+                leg, ev, det = decide(t, "exit", e["o"], lm, gates, fps, **variant)
                 new_o, new_d = (e["o"], leg) if leg is not None else (e["o"], e["d"])
             else:
                 continue

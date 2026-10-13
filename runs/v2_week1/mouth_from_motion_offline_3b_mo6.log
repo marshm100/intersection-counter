@@ -1,0 +1,50 @@
+
+== cam1 study_0700: movement 88.1 -> mo6 92.4   (approach 92.3 -> mo6 92.3)
+   mo6: {'n': 1075, 'changed': 47, 'ev': {'exit_only:lane': 724, 'entry_only:lane': 184, 'entry_only:ray': 97, 'exit_only:ray': 34, 'exit_only:wait': 26, 'entry_only:tie': 10}, 'moves': [('NB right -> NB thru', 12), ('EB left -> NB thru', 10), ('EB right -> SB thru', 6), ('NB thru -> NB left', 6), ('SB right -> SB thru', 3), ('SB right -> NB left', 3)]}
+       cells moved (mio, ctrl, arm): [('NB_thru', 2141, 2151, 2168), ('NB_right', 3, 23, 10), ('NB_left', 382, 339, 350), ('EB_left', 86, 95, 86), ('SB_thru', 1756, 1776, 1784)]
+
+== cam1 study_1600: movement 88.2 -> mo6 94.7   (approach 90.3 -> mo6 90.0)
+   mo6: {'n': 1219, 'changed': 63, 'ev': {'exit_only:ray': 80, 'exit_only:lane': 823, 'entry_only:lane': 138, 'entry_only:ray': 112, 'exit_only:wait': 42, 'entry_only:tie': 23, 'exit_only:tie': 1}, 'moves': [('NB right -> NB thru', 14), ('EB left -> NB thru', 13), ('NB thru -> NB left', 9), ('EB right -> SB thru', 5), ('SB thru -> EB right', 4), ('WB thru -> NB left', 3)]}
+       cells moved (mio, ctrl, arm): [('NB_thru', 2078, 2141, 2161), ('NB_right', 2, 25, 12), ('NB_left', 229, 188, 200), ('EB_left', 105, 119, 108), ('WB_thru', 3, 5, 1)]
+
+== cam2 study_0700: movement 79.6 -> mo6 86.0   (approach 53.1 -> mo6 50.0)
+   mo6: {'n': 635, 'changed': 149, 'ev': {'exit_only:lane': 326, 'entry_only:ray': 39, 'entry_only:lane': 158, 'exit_only:wait': 59, 'exit_only:ray': 44, 'exit_only:tie': 6, 'entry_only:tie': 3}, 'moves': [('EB right -> SB thru', 41), ('SB thru -> EB right', 40), ('SB right -> SB thru', 9), ('NB left -> NB thru', 7), ('SB right -> NB left', 5), ('NB thru -> EB left', 4)]}
+       cells moved (mio, ctrl, arm): [('SB_right', 379, 411, 398), ('SB_thru', 1384, 1444, 1457), ('EB_right', 167, 264, 258), ('WB_right', 293, 324, 319), ('EB_left', 229, 227, 231)]
+
+== cam2 study_1100: movement 81.2 -> mo6 89.1   (approach 68.8 -> mo6 62.5)
+   mo6: {'n': 568, 'changed': 148, 'ev': {'exit_only:ray': 57, 'exit_only:lane': 262, 'exit_only:wait': 80, 'entry_only:lane': 113, 'exit_only:tie': 9, 'entry_only:ray': 39, 'entry_only:tie': 8}, 'moves': [('SB thru -> EB right', 35), ('EB right -> SB thru', 31), ('EB right -> EB thru', 11), ('EB left -> EB thru', 9), ('SB right -> NB left', 9), ('EB right -> EB left', 8)]}
+       cells moved (mio, ctrl, arm): [('EB_thru', 176, 166, 195), ('SB_right', 388, 436, 420), ('EB_right', 351, 407, 397), ('SB_left', 145, 153, 145), ('WB_thru', 196, 204, 212)]
+
+== cam2 study_1600: movement 71.3 -> mo6 78.2   (approach 68.8 -> mo6 68.8)
+   mo6: {'n': 1184, 'changed': 359, 'ev': {'exit_only:lane': 484, 'entry_only:ray': 137, 'exit_only:ray': 313, 'exit_only:wait': 64, 'entry_only:lane': 146, 'entry_only:tie': 24, 'exit_only:tie': 16}, 'moves': [('SB thru -> EB right', 95), ('EB right -> SB thru', 54), ('EB right -> EB thru', 28), ('SB left -> EB thru', 27), ('NB thru -> EB left', 17), ('EB left -> EB thru', 17)]}
+       cells moved (mio, ctrl, arm): [('EB_thru', 454, 401, 473), ('SB_thru', 2247, 2214, 2157), ('SB_left', 307, 338, 319), ('NB_thru', 1726, 1733, 1719), ('NB_uturn', 0, 7, 21)]
+
+== cam3 study_0600: movement 93.4 -> mo6 93.5   (approach 87.4 -> mo6 87.4)
+   mo6: {'n': 2578, 'changed': 36, 'ev': {'entry_only:lane': 734, 'exit_only:lane': 1379, 'entry_only:ray': 222, 'exit_only:ray': 227, 'entry_only:tie': 11, 'exit_only:wait': 3, 'exit_only:tie': 2}, 'moves': [('EB left -> NB thru', 10), ('SB uturn -> NB thru', 6), ('SB right -> NB left', 5), ('NB thru -> NB left', 4), ('EB left -> EB right', 3), ('EB right -> EB left', 2)]}
+       cells moved (mio, ctrl, arm): [('NB_thru', 13756, 13551, 13563), ('EB_left', 196, 218, 208), ('NB_left', 114, 102, 110), ('SB_uturn', 0, 7, 0), ('SB_right', 247, 263, 259)]
+
+== cam4 study_0700: movement 88.6 -> mo6 86.4   (approach 75.0 -> mo6 75.0)
+   mo6: {'n': 670, 'changed': 24, 'ev': {'exit_only:lane': 598, 'exit_only:wait': 2, 'entry_only:lane': 60, 'entry_only:ray': 10}, 'moves': [('SB right -> SB thru', 15), ('EB left -> NB thru', 6), ('NB thru -> NB left', 2), ('SB right -> NB left', 1)]}
+       cells moved (mio, ctrl, arm): [('SB_right', 22, 41, 25), ('SB_thru', 1957, 2062, 2077), ('EB_left', 15, 6, 0), ('NB_thru', 2713, 2787, 2791), ('NB_left', 20, 14, 17)]
+
+== cam4 study_1100: movement 93.6 -> mo6 93.6   (approach 87.5 -> mo6 83.3)
+   mo6: {'n': 321, 'changed': 8, 'ev': {'exit_only:lane': 289, 'entry_only:ray': 8, 'entry_only:lane': 23, 'entry_only:tie': 1}, 'moves': [('EB left -> NB thru', 5), ('SB right -> SB thru', 3)]}
+       cells moved (mio, ctrl, arm): [('EB_left', 20, 6, 1), ('NB_thru', 1546, 1577, 1582), ('SB_right', 16, 18, 15), ('SB_thru', 1640, 1706, 1709)]
+
+== cam4 study_1600: movement 96.2 -> mo6 98.1   (approach 91.7 -> mo6 95.8)
+   mo6: {'n': 964, 'changed': 32, 'ev': {'exit_only:lane': 789, 'entry_only:lane': 118, 'entry_only:ray': 28, 'exit_only:tie': 1, 'entry_only:no_lanes': 5, 'entry_only:tie': 8, 'exit_only:wait': 14, 'exit_only:ray': 1}, 'moves': [('SB right -> SB thru', 25), ('EB left -> NB thru', 4), ('NB uturn -> SB thru', 1), ('SB right -> NB left', 1), ('NB thru -> NB left', 1)]}
+       cells moved (mio, ctrl, arm): [('SB_right', 39, 76, 50), ('SB_thru', 2981, 3005, 3031), ('EB_left', 29, 13, 9), ('NB_thru', 2439, 2436, 2439), ('NB_left', 23, 22, 24)]
+
+== cam5 study_0700: movement 92.4 -> mo6 94.2   (approach 93.8 -> mo6 96.9)
+   mo6: {'n': 903, 'changed': 74, 'ev': {'exit_only:wait': 38, 'entry_only:tie': 11, 'exit_only:lane': 523, 'entry_only:ray': 188, 'entry_only:lane': 105, 'exit_only:ray': 37, 'exit_only:tie': 1}, 'moves': [('NB left -> NB thru', 22), ('NB thru -> WB right', 12), ('NB thru -> NB left', 7), ('SB thru -> WB left', 6), ('NB thru -> NB right', 6), ('NB right -> NB thru', 2)]}
+       cells moved (mio, ctrl, arm): [('NB_left', 335, 356, 342), ('WB_right', 23, 13, 23), ('NB_right', 21, 42, 51), ('WB_left', 26, 19, 25), ('EB_thru', 4, 4, 1)]
+
+== cam5 study_1100: movement 97.1 -> mo6 98.1   (approach 96.9 -> mo6 96.9)
+   mo6: {'n': 464, 'changed': 42, 'ev': {'exit_only:lane': 261, 'exit_only:wait': 82, 'entry_only:lane': 68, 'entry_only:ray': 43, 'exit_only:ray': 5, 'entry_only:tie': 5}, 'moves': [('NB left -> NB thru', 17), ('SB left -> SB thru', 4), ('EB right -> SB thru', 4), ('NB thru -> NB left', 3), ('NB right -> EB thru', 2), ('NB thru -> NB right', 1)]}
+       cells moved (mio, ctrl, arm): [('NB_thru', 1362, 1357, 1371), ('NB_left', 185, 207, 194), ('SB_thru', 1496, 1503, 1511), ('EB_right', 162, 162, 156), ('EB_thru', 12, 12, 15)]
+
+== cam5 study_1600: movement 99.0 -> mo6 99.0   (approach 96.9 -> mo6 96.9)
+   mo6: {'n': 680, 'changed': 59, 'ev': {'entry_only:lane': 99, 'exit_only:lane': 427, 'exit_only:wait': 39, 'entry_only:ray': 84, 'exit_only:ray': 24, 'entry_only:tie': 6, 'exit_only:tie': 1}, 'moves': [('NB left -> NB thru', 16), ('NB thru -> WB right', 11), ('NB thru -> NB right', 7), ('NB thru -> NB left', 6), ('EB right -> WB left', 5), ('NB left -> NB right', 3)]}
+       cells moved (mio, ctrl, arm): [('NB_left', 240, 252, 241), ('WB_right', 25, 14, 25), ('NB_right', 35, 44, 53), ('NB_thru', 2185, 2173, 2165), ('EB_right', 244, 230, 225)]
+FLEET base: movement 89.06  approach 83.54
+FLEET mo6: movement 91.94  approach 82.98

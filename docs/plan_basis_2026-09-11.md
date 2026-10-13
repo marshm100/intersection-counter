@@ -4089,3 +4089,45 @@ on cam3's dawn doubles. COUNT_ONCE stays built and OFF.
 NEXT (design, not tuning): for moving cars in a corner where two lanes coincide, the separating evidence must come
 from the car's WHOLE visible track and from the angle at which it meets a line (a ray nearly parallel to a gate is no
 evidence of crossing it), not from the first 2 s and the first line behind it; then cam5's flips on video.
+
+### ARM mm STEP 3b - THE MOVING-CAR EVIDENCE REDESIGNED (2026-10-13; offline on the dt2c working DBs,
+### scripts/research_mouth_from_motion.py, runs/v2_week1/mouth_from_motion_offline_3b*.log, journeys_mo{3..7}_dev.log,
+### scripts/research_mm_corner.py -> screenshots/mm/): PASSES the letter and the labels OFFLINE - ready to wire as arm mm1
+WHAT FLIPPED THE COUNTS. Tabulated by evidence and by the angle at which the ray meets its line: the big wrong flips are
+RAY decisions that meet the line at under 15 degrees - cam2 16:00 60 SB thru -> EB right (the backward ray runs ALONG the
+EB line in the far band; labelled t781, truly SB thru, went to EB on a 3.7 deg graze), cam5 07:00 27 NB thru -> NB right
+(the forward ray of a car ending mid-band runs ALONG the short WB line: the same geometry as the grazed exit of 2026-10-02;
+still screenshots/mm/cam5_study_0700_from39.png). Window totals confirm they were wrong: mo1 took cam2 16:00 EB right
+798 -> 858 (Mio 699) and SB thru 2214 -> 2103 (Mio 2247); cam5 07:00 NB right 42 -> 77 (Mio 21).
+THE REDESIGN (no new constant; switches on decide(), the step 3 resolver unchanged when they are off):
+ THE GRAZE (ray_leg): a line the ray meets with across < along / EXIT_GRAZE_RATIO (under 9.5 deg - the grazed-exit
+   definition of riding a line) is no evidence of coming through it; the ray goes on to the next line it really crosses.
+ MEAN RAY: the ray's direction is the mean motion over the first (last) MOTION_FIT_S s, not one point's velocity.
+ THE EXCLUSIVE CELLS (_lane_votes): the lane tier looks at the WHOLE visible moving track, but a point votes only in a
+   cell (with heading) that ONE candidate's lane alone runs; where lanes coincide it says nothing. (mo5, the whole track
+   as a SHARE, was tried first: it diluted the early EB-only stretch of two true EB-right cars, t734 / t884, into the
+   shared band and lost them - its cam2 16:00 EB right 696 = Mio was luck, not evidence.)
+ THE SEEN U-TURN (_reverses): the known line is a candidate for the other end only when the car's own visible track
+   reverses by >= TRAJECTORY_UTURN_MIN_ANGLE (cam2's 7 "full" NB U-turns, Mio 0, made a lane whose turnaround cells
+   voted U-turn: NB uturn 7 -> 21 under mo6, 16 under mo7).
+  arm   switches                       fleet  approach  labels (only-ctrl / only-arm)
+  ctrl  dt2c                           89.06  83.54     445
+  mo1   step 3                         90.14  82.68     447 (1 / 3)   letter MISS (cam5 0700 -4.1)
+  mo3   graze                          90.61  83.41     447 (1 / 3)
+  mo4   graze + mean ray               90.60  83.77     447 (1 / 3)
+  mo5   mo4 + whole-track share        91.67  84.02     446 (2 / 3)   loses t734, t884 (true EB right)
+  mo6   mo4 + exclusive cells          91.94  82.98     448 (0 / 3)
+  mo7   mo6 + seen U-turn              91.92  82.72     448 (0 / 3)   <- the design to wire
+ mo7 per window (ctrl -> mo7): cam1 88.1->92.4, 88.2->94.7; cam2 79.6->86.0, 81.2->89.1, 71.3->78.0; cam3 93.4->93.5;
+ cam4 88.6->86.4, 93.6->93.6, 96.2->98.1; cam5 92.4->94.2, 97.1->98.1, 99.0->99.0. Camera means +5.4 / +7.0 / +0.1 /
+ -0.1 / +0.9; worst window cam4 0700 -2.2 (bar -3.0; the same in every arm: SB right 41 -> 25 toward Mio 22, EB left
+ 6 -> 0 against Mio 15). LETTER PASS offline; labels no worse (0 lost, p 0.25).
+WHAT IT DOES NOT FIX. cam2 EB right stays over Miovision (16:00 798 -> 801 vs 699; 07:00 264 -> 258 vs 167): the
+SB -> EB flips that survive are backed by 10-136 EB-only votes (labelled t722, a true EB right, among them), and the
+over-count is EXTRA counts (mechanism B, one queued car on two tracks), not wrong entry lines. That needs the count-once
+question solved another way (COUNT_ONCE fails: side-by-side cars). cam2 16:00 SB thru also falls 2214 -> 2161 (Mio 2247).
+Remaining U-turns (16) not looked at. Held-out and FM 51 untouched.
+NEXT: wire MOUTH_FROM_MOTION into pass 2 with the mo7 switches. Placement is a choice: the offline gate measured it on
+the FINISHED DB (after every post-pass), the declaration put it after conservation, before the twin dedup - wire it where
+it was measured unless the operator rules otherwise. Then arm mm1 on 12 windows, same-day control, FM 51, held-out once,
+under the declared bars. Nothing ships without the operator's go.
