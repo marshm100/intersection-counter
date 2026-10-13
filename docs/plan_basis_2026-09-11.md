@@ -4004,3 +4004,32 @@ Fleet pool 6,413 riders (5-10% of counts, mostly through movements). On the labe
 labelled cars counted RIGHT, 8 labelled cars counted wrong, 18 phantoms - it would remove ~3 real cars per ghost
 (cam2: 14 right, 10 phantom). Riding beside a car is what neighbouring real cars do; the track geometry in hand does
 not separate a ghost from a neighbour.
+
+## WHAT IS HAPPENING ON cam2 (2026-10-13, operator: "go look for the problem ... see why it is happening")
+Looked at the video (scripts/viz_phantom_riders.py -> screenshots/phantoms/*.png, zoomed crops of 12 phantoms and 8
+random EB-right guessed counts), traced each track frame by frame, and measured (scripts/research_near_twins.py,
+runs/v2_week1/near_twins_dt2c.log). Scope: cam2 only; cam1 NB left and cam3 not yet looked at.
+THE PLACE. cam2's EB approach and its right turn (W leg -> S leg) are the FAR top-right corner of the fisheye frame:
+cars there are 15-30 px boxes, packed, and the W (EB) gate line runs THROUGH the EB queue (cars wait on it) and along
+the SB far lane (SB-through cars drive parallel to it, just inside it).
+WHAT GOES WRONG THERE, three mechanisms seen on the video:
+ A. THE ENTRY IS NOT WITNESSED. A car that waits in the queue sits on the W line; its track is born on it and never
+    "crosses", so it is counted exit_only with a GUESSED origin (branch1: corpus-support proportions x shape fit).
+    Share of each cam2 cell that is guessed: EB right 47% / 40% / 24% (07 / 11 / 16); SB thru 9-21%; every other
+    cell 2-16%. EB right is the one movement counted mostly by guess.
+ B. ONE QUEUED CAR, TWO TRACKS, TWO COUNTS. The red car at the head of the EB queue (cam2 16:04, label 123): t655
+    (exit_only, origin guessed EB) and t686 (entry_only) ride it together for 90 frames - boxes touching in EVERY
+    frame, centres 15 px apart - and both are counted EB right. The coexisting-twin rule needs median IoU >= 0.2;
+    small jittering boxes give 0.13. Loosening it is NOT a fix: of 30 such touching pairs on the labelled clips,
+    20 are TWO real cars (queue neighbours overlap on screen from this angle) and ~7 one car.
+ C. THE GUESS PICKS THE WRONG APPROACH. A SB-through car in the far lane, hidden behind a near pickup until it is
+    already inside the box, is first seen next to the W line and guessed EB (t6727, a white SUV, label 807 SB thru,
+    counted EB right). On labelled cam2 cars a guessed origin is right 83% (fully seen: 96%); every miss is EB<->SB.
+THE ARITHMETIC. Fully seen EB-right counts alone are BELOW Miovision (16:00: 528 vs 699; 07:00: ~120 vs 167); the
+guessed / partial EB-right counts push the cell OVER (+99, +58, +101): roughly a third to two-thirds of them are extra.
+THE COMMON CAUSE. Every decision here - new car or a piece of a counted one, and which way it came from - is made from
+box geometry, at the one place in the frame where box geometry is weakest: tiny, packed, occluded, and on the line.
+SCORER FLAWS FOUND ON THE WAY (dev instrument, not the deliverable): 5 of the 52 "phantoms" are real cars whose labels
+journey_eval.duplicate_labels() discards - two cars entering side by side, one hidden behind the other at the entry
+click, so both entry clicks land on one box (labels 150, 162, 169, 807 on cam2; 269 on cam3). And a car whose track
+has a gap at its exit click scores no_track although it was counted (label 123).
