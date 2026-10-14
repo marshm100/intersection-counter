@@ -150,9 +150,12 @@ def flags_fingerprint() -> str:
     law = Path(__file__).with_name("entry_gates.py").read_bytes()
     # the tracklet linker's source is part of what pass 2 obeys too
     linker = Path(__file__).with_name("tracklet_linker.py").read_bytes()
+    # ...and the mouth from motion's (arm mm, 2026-10-14)
+    mm = Path(__file__).with_name("mouth_from_motion.py").read_bytes()
     blob = json.dumps({"flags": flags,
                        "entry_gates_sha": hashlib.sha256(law).hexdigest(),
-                       "tracklet_linker_sha": hashlib.sha256(linker).hexdigest()},
+                       "tracklet_linker_sha": hashlib.sha256(linker).hexdigest(),
+                       "mouth_from_motion_sha": hashlib.sha256(mm).hexdigest()},
                       sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()
 
@@ -2063,6 +2066,31 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         logger.info("two-pass cam%s %s: merge-rescue reclassified %s "
                     "gate-verified cross-cell rejects", camera_id, variant,
                     rescued)
+    # THE MOUTH FROM MOTION (arm mm, flag-gated, 2026-10-13): an unseen
+    # entry (exit) line decided from the car's own motion against the
+    # window's fully seen journeys. LAST, on the finished working DB -
+    # where the step 3b offline gate measured it (mo7 switches).
+    if getattr(_cfg, "MOUTH_FROM_MOTION", False):
+        from backend.services.mouth_from_motion import mouth_from_motion_pass
+        _gates_m, _skip_m = _pinned_gates(project_id, camera_id, rows)
+        if _gates_m is None:
+            stats["mouth_from_motion"] = {"skipped": _skip_m}
+        else:
+            _c_m = sqlite3.connect(out_db)
+            _c_m.row_factory = sqlite3.Row
+            _legs_m = [dict(r) for r in _c_m.execute(
+                "SELECT * FROM legs WHERE camera_id=?", (camera_id,))]
+            _c_m.close()
+            _fs_m = ((int(video["width"]), int(video["height"]))
+                     if video["width"] and video["height"] else None)
+            _mm = mouth_from_motion_pass(
+                out_db, camera_id, rows, fps, _gates_m, legs=_legs_m,
+                frame_size=_fs_m, graze=True, mean_ray=True, exclusive=True,
+                uturn_seen=True)
+            _mm.pop("decisions", None)
+            stats["mouth_from_motion"] = _mm
+        logger.info("two-pass cam%s %s: mouth from motion %s", camera_id,
+                    variant, stats["mouth_from_motion"])
 
     result = {
         "camera_id": camera_id, "intersection_id": intersection_id,

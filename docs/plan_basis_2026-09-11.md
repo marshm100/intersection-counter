@@ -4131,3 +4131,28 @@ NEXT: wire MOUTH_FROM_MOTION into pass 2 with the mo7 switches. Placement is a c
 the FINISHED DB (after every post-pass), the declaration put it after conservation, before the twin dedup - wire it where
 it was measured unless the operator rules otherwise. Then arm mm1 on 12 windows, same-day control, FM 51, held-out once,
 under the declared bars. Nothing ships without the operator's go.
+
+### ARM mm1 VERDICT (2026-10-14; MOUTH_FROM_MOTION wired into pass 2 with the mo7 switches, LAST on the finished
+### working DB - where step 3b measured it; scripts/fleet_flags.py, runs/v2_week1/fleet_mm1{,c}.log, journeys_mm1_dev.log)
+The pipeline reproduces the offline mo7 numbers EXACTLY on all 12 windows (same-day control mm1c = 89.06, identical to the
+default standings on every window). The module's source is now in the pass-2 flags fingerprint (cache safety).
+  window       ctrl   mm1   delta        window       ctrl   mm1   delta
+  cam1 0700    88.1   92.4  +4.3         cam4 0700    88.6   86.4  -2.2
+  cam1 1600    88.2   94.7  +6.5         cam4 1100    93.6   93.6  +0.0
+  cam2 0700    79.6   86.0  +6.4         cam4 1600    96.2   98.1  +1.9
+  cam2 1100    81.2   89.1  +7.9         cam5 0700    92.4   94.2  +1.8
+  cam2 1600    71.3   78.0  +6.7         cam5 1100    97.1   98.1  +1.0
+  cam3 0600    93.4   93.5  +0.1         cam5 1600    99.0   99.0  +0.0
+  FLEET movement 89.06 -> 91.92 (+2.87). Camera means +5.40 / +7.00 / +0.10 / -0.10 / +0.93. Worst window -2.2 (bar
+  -3.0), worst camera -0.10 (bar -1.0): G-DEF-1 LETTER PASS.
+  Dev labels car by car: 445 -> 448 of 512 (only-ctrl 0, only-mm1 3: cam2 / cam4 / cam5 one each; p 0.25); phantoms 30
+  and broken 35 unchanged.
+  APPROACH falls 83.54 -> 82.72 (-0.82): cam2 53.1 -> 50.0, 68.8 -> 62.5, 68.8 -> 65.6; cam4 1100 87.5 -> 83.3; up cam4
+  1600 91.7 -> 95.8, cam5 0700 93.8 -> 96.9. The same as offline (82.72); not a declared bar, reported for the ruling.
+  cam2 cells (Mio / ctrl / mm1): EB right 0700 167 / 264 / 258, 1100 351 / 407 / 397 (toward Mio, small - the over-count
+  is mechanism B, extra counts, untouched); SB right 0700 379 / 411 / 398, 1100 388 / 436 / 420 (toward); EB thru 1600
+  454 / 401 / 473 (past Mio), 1100 176 / 166 / 195 (past); SB thru 1600 2247 / 2214 / 2161 (AWAY); NB uturn 1600
+  0 / 7 / 16 (away).
+NOTE: a first attempt ran control and arm fleets CONCURRENTLY - they share the arm/ working dir and corrupted each other
+(WinError 32, readonly / malformed working DBs); discarded and rerun serially. project.db quick_check ok.
+NOT YET RUN: FM 51 (not worse), held-out once. Nothing ships without the operator's go.
