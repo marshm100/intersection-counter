@@ -1,0 +1,34 @@
+  TWO        cam1_0700_m5   t375+t377 box 30px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.77/0.44  tags full / full  later born +10f dies -16f nested True area 0.61
+  ONE        cam1_0700_m50  t3408+t3410 box 22px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.69/0.29  tags full / exit_only  later born +5f dies -19f nested True area 0.70
+  unlabelled cam2_1600_m5   t655+t686 box 21px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.60/0.51  tags exit_only / entry_only  later born +356f dies -217f nested True area 0.59
+  TWO        cam2_1600_m5   t696+t715 box 37px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.69/0.66  tags full / full  later born +208f dies -40f nested True area 0.48
+  TWO        cam2_1600_m5   t731+t800 box 46px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.57/0.83  tags full / full  later born +991f dies -12f nested True area 4.32
+  TWO        cam2_1600_m5   t736+t737 box 35px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.77/0.70  tags full / full  later born +13f dies +28f nested False area 0.33
+  TWO        cam2_1600_m5   t757+t756 box 48px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.58/0.65  tags full / full  later born +3f dies +13f nested False area 2.61
+  TWO        cam2_1600_m5   t768+t769 box 45px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.69/0.76  tags full / full  later born +4f dies +25f nested False area 1.09
+  TWO        cam2_1600_m5   t775+t797 box 45px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.87/0.74  tags full / full  later born +249f dies +5f nested False area 2.79
+  TWO        cam2_1600_m5   t777+t781 box 37px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.80/0.58  tags full / exit_only  later born +42f dies -59f nested True area 0.32
+  TWO        cam2_1600_m5   t782+t783 box 45px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.42/0.80  tags full / full  later born +5f dies +29f nested False area 1.45
+  TWO        cam2_1600_m5   t783+t786 box 37px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.69/0.75  tags full / exit_only  later born +34f dies +9f nested False area 0.37
+  TWO        cam2_1600_m5   t826+t884 box 38px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.77/0.68  tags exit_only / exit_only  later born +765f dies +95f nested False area 0.97
+  TWO        cam2_1600_m50  t6455+t6462 box 46px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.78/0.48  tags full / full  later born +61f dies +9f nested False area 1.50
+  ONE        cam2_1600_m50  t6594+t6598 box 21px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.75/0.58  tags full / entry_only  later born +141f dies -98f nested True area 0.54
+  unlabelled cam2_1600_m50  t6619+t6630 box 29px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.79/0.84  tags exit_only / entry_only  later born +195f dies +2f nested False area 0.92
+  TWO        cam2_1600_m50  t6661+t6663 box 50px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.76/0.86  tags full / full  later born +14f dies -87f nested True area 2.17
+  TWO        cam2_1600_m50  t6662+t6668 box 24px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.54/0.61  tags exit_only / exit_only  later born +50f dies +29f nested False area 0.31
+  TWO        cam2_1600_m50  t6688+t6689 box 47px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.32/0.86  tags full / full  later born +5f dies -3f nested True area 2.31
+  unlabelled cam2_1600_m50  t6724+t6773 box 29px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.81/0.68  tags full / full  later born +380f dies -21f nested True area 1.06
+  ONE        cam3_0600_m5   t403+t405 box 37px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.86/0.50  tags exit_only / exit_only  later born +2f dies +1f nested False area 1.79
+  TWO        cam3_0600_m5   t456+t474 box 43px det 1.00/1.00 two_dets 0.91 shared 0.09 conf 0.68/0.59  tags full / exit_only  later born +73f dies +0f nested True area 4.06
+  ONE        cam3_0600_m5   t485+t491 box 38px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.74/0.34  tags full / exit_only  later born +15f dies -1f nested True area 3.45
+  ONE        cam4_1600_m5   t356+t358 box 28px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.67/0.41  tags full / entry_only  later born +7f dies -9f nested True area 0.51
+  ONE        cam4_1600_m5   t391+t392 box 21px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.78/0.39  tags full / entry_only  later born +12f dies -18f nested True area 0.54
+  TWO        cam4_1600_m5   t407+t408 box 44px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.73/0.88  tags full / full  later born +1f dies +34f nested False area 0.25
+  ONE        cam5_0700_m5   t432+t433 box 53px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.81/0.81  tags entry_only / exit_only  later born +9f dies +7f nested False area 1.69
+  TWO        cam5_0700_m5   t506+t508 box 68px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.67/0.81  tags full / full  later born +3f dies +24f nested False area 0.95
+  TWO        cam5_0700_m5   t540+t542 box 33px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.88/0.75  tags full / full  later born +3f dies +19f nested False area 0.53
+  TWO        cam5_0700_m5   t548+t550 box 28px det 1.00/1.00 two_dets 1.00 shared 0.00 conf 0.56/0.74  tags full / full  later born +2f dies +65f nested False area 0.53
+
+TWO        n= 20  two_dets median 1.00  min-det median 1.00  shared median 0.00
+ONE        n=  7  two_dets median 1.00  min-det median 1.00  shared median 0.00
+unlabelled n=  3  two_dets median 1.00  min-det median 1.00  shared median 0.00

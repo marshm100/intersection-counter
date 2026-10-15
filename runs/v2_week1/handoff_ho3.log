@@ -1,0 +1,31 @@
+cam1 study_0700: merged   40  movement 92.4 -> 90.9  approach 92.3 -> 88.5  paths [('full+exit_only', 22), ('entry_only+exit_only', 7), ('exit_only+exit_only', 4), ('full+no_crossing', 3)]  by cell [('NB thru', 36), ('NB left', 2), ('SB thru', 1)]
+      (cell, Mio, mm1, ho3): [('NB_thru', 2141, 2168, 2132), ('NB_left', 382, 350, 348), ('SB_right', 102, 116, 115), ('SB_thru', 1756, 1784, 1783)]
+cam1 study_1600: merged   55  movement 94.7 -> 97.3  approach 90.0 -> 93.3  paths [('full+exit_only', 33), ('exit_only+exit_only', 16), ('entry_only+exit_only', 5), ('no_crossing+exit_only', 1)]  by cell [('NB thru', 52), ('SB thru', 2), ('EB left', 1)]
+      (cell, Mio, mm1, ho3): [('NB_thru', 2078, 2161, 2109), ('SB_thru', 2498, 2525, 2523), ('EB_left', 105, 108, 107)]
+cam2 study_0700: merged    9  movement 86.0 -> 86.0  approach 50.0 -> 50.0  paths [('full+exit_only', 6), ('entry_only+exit_only', 2), ('exit_only+exit_only', 1)]  by cell [('NB thru', 7), ('EB left', 1), ('EB right', 1)]
+      (cell, Mio, mm1, ho3): [('NB_thru', 2198, 2225, 2218), ('EB_left', 229, 231, 230), ('EB_right', 167, 258, 257)]
+cam2 study_1100: merged    6  movement 89.1 -> 89.1  approach 62.5 -> 62.5  paths [('full+exit_only', 3), ('entry_only+exit_only', 3)]  by cell [('NB thru', 3), ('SB right', 1), ('EB thru', 1)]
+      (cell, Mio, mm1, ho3): [('NB_thru', 1105, 1108, 1106), ('EB_left', 326, 329, 328), ('EB_thru', 176, 195, 194), ('NB_left', 450, 417, 416), ('SB_right', 388, 420, 419)]
+cam2 study_1600: merged   15  movement 78.0 -> 78.0  approach 65.6 -> 68.8  paths [('entry_only+exit_only', 7), ('full+exit_only', 6), ('exit_only+exit_only', 2)]  by cell [('NB thru', 6), ('SB thru', 4), ('EB left', 3)]
+      (cell, Mio, mm1, ho3): [('NB_thru', 1726, 1723, 1717), ('SB_thru', 2247, 2161, 2158), ('EB_left', 496, 497, 495), ('EB_thru', 454, 473, 471), ('EB_right', 699, 801, 800), ('WB_right', 256, 288, 287)]
+cam3 study_0600: merged  404  movement 93.5 -> 92.0  approach 87.4 -> 84.4  paths [('full+exit_only', 342), ('entry_only+exit_only', 49), ('exit_only+exit_only', 5), ('full+no_crossing', 4)]  by cell [('NB thru', 400), ('SB thru', 4)]
+      (cell, Mio, mm1, ho3): [('NB_thru', 13756, 13563, 13163), ('SB_thru', 14385, 14289, 14285)]
+cam4 study_0700: merged   49  movement 86.4 -> 95.5  approach 75.0 -> 87.5  paths [('full+exit_only', 46), ('entry_only+exit_only', 2), ('full+no_crossing', 1)]  by cell [('SB thru', 41), ('NB thru', 8)]
+      (cell, Mio, mm1, ho3): [('SB_thru', 1957, 2077, 2036), ('NB_thru', 2713, 2791, 2783)]
+cam4 study_1100: merged   19  movement 93.6 -> 93.6  approach 83.3 -> 83.3  paths [('full+exit_only', 18), ('full+no_crossing', 1)]  by cell [('SB thru', 19)]
+      (cell, Mio, mm1, ho3): [('SB_thru', 1640, 1709, 1690)]
+cam4 study_1600: merged   50  movement 98.1 -> 98.1  approach 95.8 -> 95.8  paths [('full+exit_only', 42), ('entry_only+exit_only', 5), ('full+no_crossing', 2), ('exit_only+exit_only', 1)]  by cell [('SB thru', 49), ('NB thru', 1)]
+      (cell, Mio, mm1, ho3): [('SB_thru', 2981, 3031, 2982), ('NB_thru', 2439, 2439, 2438)]
+cam5 study_0700: merged   53  movement 94.2 -> 91.3  approach 96.9 -> 90.6  paths [('full+exit_only', 32), ('entry_only+exit_only', 12), ('exit_only+exit_only', 8), ('exit_only+full', 1)]  by cell [('NB thru', 47), ('SB thru', 3), ('WB thru', 1)]
+      (cell, Mio, mm1, ho3): [('NB_thru', 2379, 2296, 2251), ('SB_thru', 1868, 1845, 1842), ('NB_left', 335, 342, 340), ('WB_thru', 25, 26, 24), ('NB_right', 21, 51, 50), ('NB_uturn', 1, 3, 4)]
+cam5 study_1100: merged   19  movement 98.1 -> 99.0  approach 96.9 -> 96.9  paths [('full+exit_only', 14), ('exit_only+exit_only', 3), ('entry_only+exit_only', 2)]  by cell [('NB thru', 17), ('SB right', 1), ('NB left', 1)]
+      (cell, Mio, mm1, ho3): [('NB_thru', 1362, 1371, 1354), ('NB_left', 185, 194, 193), ('SB_right', 88, 92, 91)]
+cam5 study_1600: merged   58  movement 99.0 -> 97.0  approach 96.9 -> 96.9  paths [('full+exit_only', 42), ('exit_only+exit_only', 10), ('entry_only+exit_only', 5), ('full+no_crossing', 1)]  by cell [('NB thru', 52), ('SB thru', 5), ('NB left', 1)]
+      (cell, Mio, mm1, ho3): [('NB_thru', 2185, 2165, 2113), ('SB_thru', 2819, 2819, 2814), ('NB_left', 240, 241, 240)]
+
+FLEET movement 91.92 -> 92.32   approach 82.72 -> 83.21
+  cam1 mean 93.55 -> 94.10
+  cam2 mean 84.37 -> 84.37
+  cam3 mean 93.50 -> 92.00
+  cam4 mean 92.70 -> 95.73
+  cam5 mean 97.10 -> 95.77

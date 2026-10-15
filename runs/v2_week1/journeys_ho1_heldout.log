@@ -1,0 +1,19 @@
+
+=== mm1 ===
+  cam1_0700_m50  vehicles  120  correct  108 ( 90.0%)  wrong   4  double   0  missed   1  no_track   7  | broken  14  phantoms   2  dup labels 1
+      biggest cell errors (legs origin->dest: truth / ours): 22->23: 56/58; 22->24: 14/14; 23->22: 45/45
+  cam2_1600_m50  vehicles  184  correct  164 ( 89.1%)  wrong   3  double   5  missed   4  no_track   8  | broken  17  phantoms  20  dup labels 3
+      biggest cell errors (legs origin->dest: truth / ours): 28->27: 6/12; 29->27: 53/48; 26->27: 6/9
+  ALL           vehicles  304  correct  272 ( 89.5%)  broken 31  phantoms 22
+
+=== ho1 ===
+  cam1_0700_m50  vehicles  120  correct  108 ( 90.0%)  wrong   4  double   0  missed   1  no_track   7  | broken  14  phantoms   2  dup labels 1
+      biggest cell errors (legs origin->dest: truth / ours): 22->23: 56/57; 22->24: 14/14; 23->22: 45/45
+  cam2_1600_m50  vehicles  184  correct  164 ( 89.1%)  wrong   3  double   5  missed   4  no_track   8  | broken  17  phantoms  20  dup labels 3
+      biggest cell errors (legs origin->dest: truth / ours): 28->27: 6/12; 29->27: 53/48; 26->27: 6/9
+  ALL           vehicles  304  correct  272 ( 89.5%)  broken 31  phantoms 22
+
+=== paired: mm1 vs ho1 ===
+  cam1_0700_m50  120 vehicles; only mm1 right 0, only ho1 right 0, p = 1.000
+  cam2_1600_m50  184 vehicles; only mm1 right 0, only ho1 right 0, p = 1.000
+  ALL            304 vehicles; only mm1 right 0, only ho1 right 0, p = 1.000

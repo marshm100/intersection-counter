@@ -1,0 +1,63 @@
+cam1_0700_m5   t411    entry_only   22->23  w   20 life   24  near t405 22->24 touch 0.25 dist 1.71w cover 1.00 same .  [near claimed]
+cam1_0700_m5   t430    no_crossing  22->23  w   58 life    5  near t425 22->23 touch 0.80 dist 0.79w cover 1.00 same Y  [touching claimed]
+cam1_0700_m50  t3417   exit_only    22->23  w   70 life    6  near t3384 22->23 touch 1.00 dist 0.62w cover 1.00 same Y  [touching claimed]
+cam1_0700_m50  t3479   exit_only    22->24  w   32 life  476  near t3484 23->22 touch 0.29 dist 1.38w cover 0.04 same .  [near claimed]
+cam2_1600_m5   t686    entry_only   28->29  w   19 life   90  near t691 28->26 touch 1.00 dist 0.45w cover 0.28 same .  [touching claimed]
+cam2_1600_m5   t655    exit_only    28->29  w   28 life  595  near t691 28->26 touch 0.62 dist 0.50w cover 0.13 same .  [touching claimed]
+cam2_1600_m5   t759    exit_only    27->29  w   41 life  119  near t752 27->28 touch 0.33 dist 2.32w cover 0.13 same .  [alone]
+cam2_1600_m5   t778    exit_only    27->29  w   43 life   70  near t772 27->29 touch 0.76 dist 0.87w cover 0.77 same Y  [touching claimed]
+cam2_1600_m5   t786    exit_only    27->29  w   30 life   81  near t783 27->29 touch 1.00 dist 0.71w cover 0.89 same Y  [touching claimed]
+cam2_1600_m5   t939    exit_only    27->29  w   31 life  303  near t901 27->28 touch 0.19 dist 1.92w cover 0.21 same .  [near claimed]
+cam2_1600_m5   t934    full         29->26  w   23 life  517  near t925 27->29 touch 0.06 dist 7.38w cover 0.72 same .  [alone]
+cam2_1600_m5   t929    exit_only    28->29  w   18 life  579  near t818 27->29 touch 0.02 dist 12.19w cover 0.90 same .  [alone]
+cam2_1600_m5   t796    full         26->27  w  149 life 3483  near t696 29->27 touch 0.00 dist 3.35w cover 0.03 same .  [alone]
+cam2_1600_m50  t6549   entry_only   28->27  w   16 life  240  near t6539 29->28 touch 0.51 dist 0.59w cover 0.77 same .  [touching claimed]
+cam2_1600_m50  t6569   full         27->26  w   65 life   90  near t6558 29->27 touch 0.46 dist 1.04w cover 0.14 same .  [near claimed]
+cam2_1600_m50  t6598   entry_only   28->26  w   16 life   91  near t6594 28->26 touch 1.00 dist 0.65w cover 1.00 same Y  [touching claimed]
+cam2_1600_m50  t6587   entry_only   29->26  w   22 life  501  near t6528 28->26 touch 0.07 dist 9.14w cover 0.45 same .  [alone]
+cam2_1600_m50  t6619   exit_only    27->28  w   31 life  736  near t6662 27->29 touch 0.85 dist 0.64w cover 0.02 same .  [touching claimed]
+cam2_1600_m50  t6630   entry_only   28->27  w   28 life  556  near t6662 27->29 touch 0.61 dist 0.51w cover 0.04 same .  [touching claimed]
+cam2_1600_m50  t6628   entry_only   28->27  w   19 life  711  near t6656 27->28 touch 0.35 dist 1.23w cover 0.18 same .  [near claimed]
+cam2_1600_m50  t6698   exit_only    27->29  w   29 life   45  near t6679 28->29 touch 0.29 dist 2.01w cover 0.84 same .  [alone]
+cam2_1600_m50  t6727   exit_only    26->29  w   38 life  102  near t6723 27->29 touch 0.38 dist 0.99w cover 0.93 same .  [near claimed]
+cam2_1600_m50  t6798   entry_only   26->27  w  255 life   22  near t6780 26->27 touch 1.00 dist 0.30w cover 0.77 same Y  [touching claimed]
+cam2_1600_m50  t6801   full         26->27  w  239 life  502  near t6814 29->27 touch 0.02 dist 18.55w cover 0.42 same .  [alone]
+cam2_1600_m50  t6822   full         26->27  w  165 life  145  near t6814 29->27 touch 0.00 dist 3.60w cover 0.17 same .  [alone]
+cam2_1600_m50  t6819   full         28->27  w   30 life  324  near t6812 27->28 touch 1.00 dist 0.27w cover 0.02 same .  [touching claimed]
+cam2_1600_m50  t6773   full         28->27  w   30 life 1118  near t6759 29->27 touch 0.20 dist 0.74w cover 0.01 same .  [near claimed]
+cam2_1600_m50  t6737   full         28->27  w   23 life 1498  near t6656 27->28 touch 0.29 dist 1.05w cover 0.00 same .  [near claimed]
+cam2_1600_m50  t6724   full         28->26  w   28 life 1552  near t6666 27->28 touch 1.00 dist 0.42w cover 0.04 same .  [touching claimed]
+cam2_1600_m50  t6648   full         28->26  w   18 life 2441  near t6656 27->28 touch 0.64 dist 0.42w cover 0.22 same .  [touching claimed]
+cam2_1600_m50  t6805   full         28->27  w   20 life  872  near t6810 29->28 touch 0.09 dist 8.08w cover 0.57 same .  [alone]
+cam2_1600_m50  t6811   full         28->27  w   12 life  886  near t6812 27->28 touch 0.01 dist 1.37w cover 0.12 same .  [near claimed]
+cam2_1600_m50  t6790   full         26->28  w  137 life 1699  near t6780 26->27 touch 0.71 dist 0.41w cover 0.12 same .  [touching claimed]
+cam3_0600_m5   t389    entry_only   31->30  w   10 life   84  near t392 31->30 touch 0.00 dist 7.45w cover 0.35 same Y  [alone]
+cam3_0600_m5   t399    entry_only   31->30  w   14 life   25  near t401 30->31 touch 0.25 dist 1.22w cover 0.16 same .  [near claimed]
+cam3_0600_m5   t421    entry_only   31->30  w   25 life   20  near t418 31->30 touch 0.29 dist 1.24w cover 0.85 same Y  [near claimed]
+cam3_0600_m5   t431    entry_only   31->30  w   10 life   95  near t417 31->30 touch 0.04 dist 2.44w cover 1.00 same Y  [alone]
+cam3_0600_m5   t458    entry_only   31->30  w   13 life   25  near t460 30->31 touch 0.33 dist 0.69w cover 0.24 same .  [near claimed]
+cam3_0600_m5   t467    entry_only   31->30  w   15 life   42  near t473 30->31 touch 0.15 dist 1.31w cover 0.48 same .  [near claimed]
+cam3_0600_m5   t544    full         31->30  w   17 life   40  near t542 31->30 touch 0.00 dist 2.68w cover 0.50 same Y  [alone]
+cam3_0600_m5   t555    entry_only   31->30  w   15 life   58  near t572 31->30 touch 1.00 dist 0.23w cover 0.21 same Y  [touching claimed]
+cam3_0600_m5   t547    entry_only   31->30  w   14 life  470  near t540 30->31 touch 0.10 dist 1.19w cover 0.09 same .  [near claimed]
+cam4_1600_m5   t392    entry_only   33->35  w   20 life   23  near t391 33->35 touch 1.00 dist 0.78w cover 1.00 same Y  [touching claimed]
+cam4_1600_m5   t395    full         33->35  w  159 life    7  near t387 33->35 touch 1.00 dist 0.27w cover 1.00 same Y  [touching claimed]
+cam4_1600_m5   t411    exit_only    33->35  w   33 life    6  near t410 35->33 touch 0.00 dist 1.63w cover 1.00 same .  [near claimed]
+cam5_0700_m5   t428    entry_only   39->37  w   25 life   10  near t413 39->38 touch 0.40 dist 0.90w cover 1.00 same .  [near claimed]
+cam5_0700_m5   t462    entry_only   39->37  w   24 life   13  near t451 39->38 touch 0.38 dist 1.03w cover 1.00 same .  [near claimed]
+cam5_0700_m5   t454    entry_only   39->37  w   13 life   57  near t466 39->37 touch 0.18 dist 1.39w cover 0.30 same Y  [near claimed]
+cam5_0700_m5   t484    exit_only    36->38  w  240 life   21  near t453 39->38 touch 0.70 dist 0.74w cover 0.48 same .  [touching claimed]
+cam5_0700_m5   t557    full         39->37  w   22 life   58  near t550 37->39 touch 0.78 dist 0.76w cover 0.55 same .  [touching claimed]
+cam5_0700_m5   t561    full         39->38  w   33 life   99  near t556 39->38 touch 0.00 dist 1.63w cover 0.21 same Y  [near claimed]
+cam5_0700_m5   t504    full         38->37  w   21 life  652  near t495 39->38 touch 0.14 dist 3.75w cover 0.06 same .  [alone]
+
+   10  ('near claimed', 'entry_only')
+    7  ('touching claimed', 'entry_only')
+    7  ('alone', 'full')
+    6  ('touching claimed', 'exit_only')
+    6  ('touching claimed', 'full')
+    5  ('near claimed', 'full')
+    4  ('near claimed', 'exit_only')
+    3  ('alone', 'exit_only')
+    3  ('alone', 'entry_only')
+    1  ('touching claimed', 'no_crossing')

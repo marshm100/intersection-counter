@@ -1,0 +1,82 @@
+  REAL CAR on a short track: cam1_0700_m5 t356 life 23 label 14 correct
+  REAL CAR on a short track: cam1_0700_m5 t404 life 22 label 42 correct
+  REAL CAR on a short track: cam1_0700_m5 t409 life 17 label 46 correct
+  REAL CAR on a short track: cam1_0700_m5 t412 life 19 label 47 correct
+  REAL CAR on a short track: cam1_0700_m5 t414 life 18 label 48 correct
+  REAL CAR on a short track: cam1_0700_m5 t417 life 22 label 52 correct
+  REAL CAR on a short track: cam1_0700_m5 t437 life 5 label 62 no_track
+  REAL CAR on a short track: cam1_0700_m5 t436 life 20 label 63 correct
+  REAL CAR on a short track: cam1_0700_m5 t458 life 20 label 83 correct
+  REAL CAR on a short track: cam1_0700_m50 t3314 life 21 label 553 correct
+  REAL CAR on a short track: cam1_0700_m50 t3325 life 22 label 561 correct
+  REAL CAR on a short track: cam1_0700_m50 t3331 life 12 label 568 correct
+  REAL CAR on a short track: cam1_0700_m50 t3329 life 21 label 566 correct
+  REAL CAR on a short track: cam1_0700_m50 t3356 life 14 label 581 no_track
+  REAL CAR on a short track: cam1_0700_m50 t3383 life 14 label 598 wrong
+  REAL CAR on a short track: cam1_0700_m50 t3390 life 22 label 603 correct
+  REAL CAR on a short track: cam1_0700_m50 t3391 life 23 label 605 correct
+  REAL CAR on a short track: cam1_0700_m50 t3401 life 16 label 612 correct
+  REAL CAR on a short track: cam1_0700_m50 t3400 life 24 label 611 correct
+  REAL CAR on a short track: cam1_0700_m50 t3407 life 23 label 613 correct
+  REAL CAR on a short track: cam1_0700_m50 t3413 life 18 label 617 correct
+  REAL CAR on a short track: cam1_0700_m50 t3419 life 22 label 621 correct
+  REAL CAR on a short track: cam1_0700_m50 t3424 life 22 label 624 correct
+  REAL CAR on a short track: cam1_0700_m50 t3428 life 20 label 626 correct
+  REAL CAR on a short track: cam1_0700_m50 t3429 life 17 label 627 correct
+  REAL CAR on a short track: cam1_0700_m50 t3437 life 23 label 633 correct
+  REAL CAR on a short track: cam1_0700_m50 t3446 life 15 label 637 no_track
+  REAL CAR on a short track: cam1_0700_m50 t3474 life 22 label 655 correct
+  REAL CAR on a short track: cam1_0700_m50 t3477 life 19 label 657 correct
+  REAL CAR on a short track: cam1_0700_m50 t3478 life 21 label 658 correct
+  REAL CAR on a short track: cam1_0700_m50 t3481 life 19 label 660 correct
+  REAL CAR on a short track: cam3_0600_m5 t427 life 20 label 260 correct
+  REAL CAR on a short track: cam3_0600_m5 t466 life 7 label 270 correct
+  REAL CAR on a short track: cam3_0600_m5 t465 life 20 label 271 correct
+  REAL CAR on a short track: cam3_0600_m5 t473 life 23 label 274 correct
+  REAL CAR on a short track: cam3_0600_m5 t496 life 21 label 284 no_track
+  REAL CAR on a short track: cam3_0600_m5 t530 life 11 label 295 correct
+  REAL CAR on a short track: cam3_0600_m5 t537 life 22 label 299 correct
+  REAL CAR on a short track: cam3_0600_m5 t572 life 21 label 310 correct
+  REAL CAR on a short track: cam4_1600_m5 t358 life 24 label 319 correct
+  REAL CAR on a short track: cam4_1600_m5 t365 life 22 label 323 correct
+  REAL CAR on a short track: cam4_1600_m5 t397 life 15 label 347 no_track
+  REAL CAR on a short track: cam4_1600_m5 t401 life 24 label 350 correct
+  REAL CAR on a short track: cam4_1600_m5 t424 life 15 label 366 correct
+  REAL CAR on a short track: cam4_1600_m5 t437 life 22 label 374 correct
+  REAL CAR on a short track: cam4_1600_m5 t471 life 13 label 399 no_track
+  REAL CAR on a short track: cam4_1600_m5 t493 life 13 label 417 correct
+  REAL CAR on a short track: cam4_1600_m5 t501 life 19 label 425 correct
+  REAL CAR on a short track: cam5_0700_m5 t397 life 22 label 450 no_track
+  REAL CAR on a short track: cam5_0700_m5 t406 life 19 label 454 no_track
+  REAL CAR on a short track: cam5_0700_m5 t431 life 15 label 468 correct
+  REAL CAR on a short track: cam5_0700_m5 t434 life 21 label 473 correct
+  REAL CAR on a short track: cam5_0700_m5 t456 life 13 label 485 no_track
+  REAL CAR on a short track: cam5_0700_m5 t460 life 14 label 486 correct
+  REAL CAR on a short track: cam5_0700_m5 t468 life 9 label 489 correct
+  REAL CAR on a short track: cam5_0700_m5 t465 life 24 label 488 correct
+  REAL CAR on a short track: cam5_0700_m5 t470 life 11 label 490 correct
+  REAL CAR on a short track: cam5_0700_m5 t474 life 6 label 491 correct
+  REAL CAR on a short track: cam5_0700_m5 t532 life 20 label 519 no_track
+
+LABELLED CLIPS (dev + held-out): counted events whose track lives < N dump rows
+  <   8: double (one of two) 2  only count (correct) 2  only count (no_track) 1  phantom 4
+  <  12: double (one of two) 9  only count (correct) 5  only count (no_track) 1  phantom 5
+  <  16: double (one of two) 11  only count (correct) 10  only count (no_track) 6  only count (wrong) 1  phantom 6
+  <  20: double (one of two) 13  label not a full journey 3  only count (correct) 19  only count (no_track) 7  only count (wrong) 1  phantom 6
+  <  25: double (one of two) 14  label not a full journey 3  only count (correct) 48  only count (no_track) 10  only count (wrong) 1  phantom 11
+  <  30: double (one of two) 15  label not a full journey 3  only count (correct) 75  only count (no_track) 11  only count (wrong) 2  phantom 13
+  <  40: double (one of two) 16  label not a full journey 5  only count (correct) 165  only count (no_track) 11  only count (wrong) 2  phantom 13
+
+FLEET: counted events whose track lives < N rows, by decision path
+  cam1 study_0700: of  4691  <12:   80 {'exit_only': 46, 'entry_only': 23, 'no_crossing': 10}   <25:  784 {'exit_only': 464, 'full': 146, 'entry_only': 143}
+  cam1 study_1600: of  5661  <12:   82 {'exit_only': 51, 'entry_only': 29, 'no_crossing': 2}   <25:  600 {'exit_only': 453, 'entry_only': 98, 'full': 40}
+  cam2 study_0700: of  5909  <12:   21 {'exit_only': 12, 'entry_only': 8, 'full': 1}   <25:   56 {'entry_only': 27, 'exit_only': 24, 'full': 3}
+  cam2 study_1100: of  4587  <12:    3 {'exit_only': 2, 'entry_only': 1}   <25:   14 {'entry_only': 6, 'exit_only': 5, 'full': 2}
+  cam2 study_1600: of  7439  <12:   22 {'entry_only': 12, 'exit_only': 10}   <25:   62 {'entry_only': 26, 'exit_only': 25, 'full': 8}
+  cam3 study_0600: of 28593  <12:  585 {'exit_only': 386, 'entry_only': 161, 'no_crossing': 29}   <25: 2298 {'exit_only': 971, 'full': 879, 'entry_only': 414}
+  cam4 study_0700: of  4912  <12:   68 {'exit_only': 41, 'entry_only': 22, 'no_crossing': 5}   <25:  895 {'full': 607, 'exit_only': 228, 'entry_only': 55}
+  cam4 study_1100: of  3317  <12:   21 {'exit_only': 13, 'entry_only': 6, 'no_crossing': 2}   <25:  137 {'exit_only': 65, 'full': 55, 'entry_only': 15}
+  cam4 study_1600: of  5557  <12:   98 {'exit_only': 76, 'entry_only': 12, 'no_crossing': 9}   <25:  882 {'exit_only': 447, 'full': 373, 'entry_only': 49}
+  cam5 study_0700: of  4975  <12:   73 {'exit_only': 52, 'entry_only': 19, 'full': 1}   <25:  624 {'full': 267, 'exit_only': 255, 'entry_only': 98}
+  cam5 study_1100: of  3530  <12:   26 {'exit_only': 14, 'entry_only': 11, 'no_crossing': 1}   <25:  147 {'exit_only': 75, 'full': 38, 'entry_only': 31}
+  cam5 study_1600: of  5931  <12:   46 {'exit_only': 29, 'entry_only': 17}   <25:  481 {'full': 211, 'exit_only': 191, 'entry_only': 75}

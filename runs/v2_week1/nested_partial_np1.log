@@ -1,0 +1,31 @@
+cam1 study_0700: rejected   24  movement 92.4 -> 90.9  approach 92.3 -> 92.3  by cell [('SB thru', 17), ('NB thru', 7)]
+      (cell, Mio, mm1, np1): [('SB_thru', 1756, 1784, 1767), ('NB_thru', 2141, 2168, 2161)]
+cam1 study_1600: rejected   10  movement 94.7 -> 94.7  approach 90.0 -> 90.0  by cell [('SB thru', 6), ('NB thru', 4)]
+      (cell, Mio, mm1, np1): [('SB_thru', 2498, 2525, 2519), ('NB_thru', 2078, 2161, 2157)]
+cam2 study_0700: rejected   24  movement 86.0 -> 86.0  approach 50.0 -> 53.1  by cell [('SB thru', 15), ('EB right', 4), ('NB left', 2), ('NB thru', 1)]
+      (cell, Mio, mm1, np1): [('SB_thru', 1384, 1457, 1442), ('EB_right', 167, 258, 254), ('NB_left', 411, 390, 388), ('NB_right', 22, 28, 27), ('NB_thru', 2198, 2225, 2224), ('SB_right', 379, 398, 397)]
+cam2 study_1100: rejected   14  movement 89.1 -> 90.1  approach 62.5 -> 65.6  by cell [('SB thru', 5), ('EB thru', 4), ('EB left', 3), ('NB left', 1)]
+      (cell, Mio, mm1, np1): [('SB_thru', 1064, 1100, 1095), ('EB_thru', 176, 195, 191), ('EB_left', 326, 329, 326), ('NB_left', 450, 417, 416), ('SB_right', 388, 420, 419)]
+cam2 study_1600: rejected   35  movement 78.0 -> 76.1  approach 65.6 -> 68.8  by cell [('SB thru', 18), ('EB thru', 6), ('EB right', 5), ('NB thru', 5)]
+      (cell, Mio, mm1, np1): [('SB_thru', 2247, 2161, 2143), ('EB_thru', 454, 473, 467), ('EB_right', 699, 801, 796), ('NB_thru', 1726, 1723, 1718), ('SB_right', 341, 415, 414)]
+cam3 study_0600: rejected  119  movement 93.5 -> 93.5  approach 87.4 -> 87.4  by cell [('NB thru', 66), ('SB thru', 53)]
+      (cell, Mio, mm1, np1): [('NB_thru', 13756, 13563, 13497), ('SB_thru', 14385, 14289, 14236)]
+cam4 study_0700: rejected   13  movement 86.4 -> 86.4  approach 75.0 -> 75.0  by cell [('SB thru', 7), ('NB thru', 6)]
+      (cell, Mio, mm1, np1): [('SB_thru', 1957, 2077, 2070), ('NB_thru', 2713, 2791, 2785)]
+cam4 study_1100: rejected    2  movement 93.6 -> 93.6  approach 83.3 -> 83.3  by cell [('SB thru', 2)]
+      (cell, Mio, mm1, np1): [('SB_thru', 1640, 1709, 1707)]
+cam4 study_1600: rejected   21  movement 98.1 -> 98.1  approach 95.8 -> 95.8  by cell [('SB thru', 17), ('NB thru', 4)]
+      (cell, Mio, mm1, np1): [('SB_thru', 2981, 3031, 3014), ('NB_thru', 2439, 2439, 2435)]
+cam5 study_0700: rejected   25  movement 94.2 -> 94.2  approach 96.9 -> 96.9  by cell [('NB thru', 15), ('SB thru', 10)]
+      (cell, Mio, mm1, np1): [('NB_thru', 2379, 2296, 2281), ('SB_thru', 1868, 1845, 1835)]
+cam5 study_1100: rejected    7  movement 98.1 -> 98.1  approach 96.9 -> 96.9  by cell [('SB thru', 5), ('NB thru', 2)]
+      (cell, Mio, mm1, np1): [('SB_thru', 1496, 1511, 1506), ('NB_thru', 1362, 1371, 1369)]
+cam5 study_1600: rejected   20  movement 99.0 -> 99.0  approach 96.9 -> 96.9  by cell [('NB thru', 10), ('SB thru', 8), ('NB left', 1), ('NB right', 1)]
+      (cell, Mio, mm1, np1): [('NB_thru', 2185, 2165, 2155), ('SB_thru', 2819, 2819, 2811), ('NB_left', 240, 241, 240), ('NB_right', 35, 53, 52)]
+
+FLEET movement 91.92 -> 91.73   approach 82.72 -> 83.50
+  cam1 mean 93.55 -> 92.80
+  cam2 mean 84.37 -> 84.07
+  cam3 mean 93.50 -> 93.50
+  cam4 mean 92.70 -> 92.70
+  cam5 mean 97.10 -> 97.10
