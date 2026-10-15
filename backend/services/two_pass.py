@@ -1628,27 +1628,72 @@ def _pass1_ingest(project_id, video, chash, hash_method, pq, out, meta, fps,
         p.with_suffix(".meta.json").unlink(missing_ok=True)
 
 
+_REVIEW_FIELDS = ("origin_leg_id", "destination_leg_id", "movement",
+                  "vehicle_class", "rejected")
+
+
 def _apply_window_events(proj_db: Path, out_db: Path, camera_id: int,
-                         t_lo: float, t_hi: float) -> None:
+                         t_lo: float, t_hi: float) -> dict:
     """Swap ONE trim window's events into project.db, scoped by the event's
     crossing timestamp (the two-pass binning convention) — applying a study
     day's three windows must not wipe each other. The applied bank is never
-    touched here."""
+    touched here.
+
+    THE REVIEWER'S RULINGS SURVIVE (2026-10-15, plan proud-wiggling-swan
+    phase 0): the swap used to delete every operator row in the window. Now
+    cars the reviewer ADDED (vehicle_track_id = -1, manually_edited = 1) are
+    kept as they are, and edits / rejects of tracked events are re-applied
+    to the new row of the same track. A ruling whose track is not in the new
+    window is reported (``vanished``), never silently dropped."""
     c = sqlite3.connect(proj_db)
-    cols = [r[1] for r in c.execute("PRAGMA table_info(vehicle_events)")
-            if r[1] != "event_id"]
+    all_cols = [r[1] for r in c.execute("PRAGMA table_info(vehicle_events)")]
+    cols = [x for x in all_cols if x != "event_id"]
     collist = ",".join(cols)
+    reviewed = {"manually_edited", "vehicle_track_id"} <= set(all_cols)
+    fields = [f for f in _REVIEW_FIELDS if f in all_cols]
+    rulings: list[tuple] = []
+    keep_added = ""
+    if reviewed:
+        rulings = c.execute(
+            f"SELECT vehicle_track_id, {','.join(fields)} FROM vehicle_events "
+            "WHERE camera_id = ? AND timestamp_video >= ? AND timestamp_video < ? "
+            "AND manually_edited = 1 AND vehicle_track_id >= 0",
+            (camera_id, t_lo, t_hi)).fetchall()
+        keep_added = (" AND NOT (COALESCE(manually_edited, 0) = 1 "
+                      "AND vehicle_track_id = -1)")
+    stats = {"added_kept": 0, "edits_replayed": 0, "vanished": []}
     with c:
         c.execute("ATTACH DATABASE ? AS w", (str(out_db),))
+        if reviewed:
+            stats["added_kept"] = c.execute(
+                "SELECT COUNT(*) FROM vehicle_events WHERE camera_id = ? AND "
+                "timestamp_video >= ? AND timestamp_video < ? AND "
+                "manually_edited = 1 AND vehicle_track_id = -1",
+                (camera_id, t_lo, t_hi)).fetchone()[0]
         c.execute("DELETE FROM vehicle_events WHERE camera_id = ? AND "
-                  "timestamp_video >= ? AND timestamp_video < ?",
+                  "timestamp_video >= ? AND timestamp_video < ?" + keep_added,
                   (camera_id, t_lo, t_hi))
         c.execute(f"INSERT INTO vehicle_events ({collist}) "
                   f"SELECT {collist} FROM w.vehicle_events WHERE camera_id = ? "
-                  f"AND timestamp_video >= ? AND timestamp_video < ?",
+                  f"AND timestamp_video >= ? AND timestamp_video < ?" + keep_added,
                   (camera_id, t_lo, t_hi))
+        for tid, *vals in rulings:
+            cur = c.execute(
+                f"UPDATE vehicle_events SET {', '.join(f + ' = ?' for f in fields)}, "
+                "manually_edited = 1 WHERE camera_id = ? AND vehicle_track_id = ? "
+                "AND timestamp_video >= ? AND timestamp_video < ?",
+                (*vals, camera_id, tid, t_lo, t_hi))
+            if cur.rowcount:
+                stats["edits_replayed"] += 1
+            else:
+                stats["vanished"].append(int(tid))
     c.execute("DETACH DATABASE w")
     c.close()
+    if stats["vanished"]:
+        logger.warning("two-pass apply cam%s: %d reviewer ruling(s) on tracks no longer "
+                       "in the window: %s", camera_id, len(stats["vanished"]),
+                       stats["vanished"][:20])
+    return stats
 
 
 def run_pass2(project_id: str, camera_id: int, *, variant: str,
@@ -2254,7 +2299,8 @@ def _finish_apply(project_id: str, camera_id: int, intersection_id: int,
     backup.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(proj_db, backup)
     _rotate_backups(backup.parent)
-    _apply_window_events(proj_db, out_db, camera_id, f_lo / fps, f_hi / fps)
+    review_replay = _apply_window_events(proj_db, out_db, camera_id,
+                                         f_lo / fps, f_hi / fps)
     c = sqlite3.connect(proj_db)
     card = {lid: cd for lid, cd in c.execute(
         "SELECT leg_id, cardinal_direction FROM legs WHERE camera_id = ?",
@@ -2266,7 +2312,8 @@ def _finish_apply(project_id: str, camera_id: int, intersection_id: int,
     extra = s5_flags(camera_id, borderline, card, bound_approach)
     flag_summary = rebuild_flags(project_id, intersection_id, extra_flags=extra)
     result = dict(result)
-    result.update({"applied": True, "backup": str(backup), "flags": flag_summary})
+    result.update({"applied": True, "backup": str(backup), "flags": flag_summary,
+                   "review_replay": review_replay})
     logger.info("two-pass apply cam%s: %s events (applied bank kept), backup %s",
                 camera_id, result["replay"]["events"], backup)
     return result

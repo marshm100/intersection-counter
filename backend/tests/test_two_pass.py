@@ -91,6 +91,71 @@ class TestWindowScopedApply:
         assert other == 1
 
 
+class TestReviewSurvivesReapply:
+    """Phase 0 (2026-10-15): a re-apply keeps the reviewer's adds, edits and
+    rejects; a ruling on a track the new window lacks is reported."""
+
+    @staticmethod
+    def _mk(path, events):
+        import sqlite3
+        c = sqlite3.connect(path)
+        c.execute("CREATE TABLE vehicle_events (event_id INTEGER PRIMARY KEY, "
+                  "camera_id INT, timestamp_video REAL, vehicle_track_id INT, "
+                  "origin_leg_id INT, destination_leg_id INT, movement TEXT, "
+                  "vehicle_class TEXT, rejected INT DEFAULT 0, manually_edited INT DEFAULT 0)")
+        with c:
+            c.executemany("INSERT INTO vehicle_events (camera_id, timestamp_video, "
+                          "vehicle_track_id, origin_leg_id, destination_leg_id, movement, "
+                          "vehicle_class, rejected, manually_edited) VALUES (?,?,?,?,?,?,?,?,?)",
+                          events)
+        c.close()
+
+    def test_adds_edits_rejects_survive(self, tmp_path):
+        import sqlite3
+        from backend.services.two_pass import _apply_window_events
+        proj = tmp_path / "proj.db"
+        self._mk(proj, [
+            (2, 10.0, 7, 1, 2, "left", "car", 0, 1),     # edited: movement changed
+            (2, 20.0, 8, 1, 3, "through", "car", 1, 1),  # rejected by the reviewer
+            (2, 30.0, 9, 1, 3, "through", "car", 0, 0),  # untouched
+            (2, 40.0, -1, 2, 4, "right", "car", 0, 1),   # ADDED by the reviewer
+            (2, 50.0, 99, 1, 3, "through", "car", 1, 1),  # ruling on a vanishing track
+        ])
+        w = tmp_path / "w.db"
+        self._mk(w, [
+            (2, 11.0, 7, 1, 3, "through", "car", 0, 0),
+            (2, 21.0, 8, 1, 3, "through", "car", 0, 0),
+            (2, 31.0, 9, 1, 2, "left", "car", 0, 0),
+        ])
+        stats = _apply_window_events(proj, w, 2, 0.0, 100.0)
+        c = sqlite3.connect(proj)
+        rows = {r[0]: r[1:] for r in c.execute(
+            "SELECT vehicle_track_id, movement, destination_leg_id, rejected, manually_edited "
+            "FROM vehicle_events WHERE camera_id = 2")}
+        c.close()
+        assert rows[7] == ("left", 2, 0, 1)        # the reviewer's movement wins
+        assert rows[8][2] == 1                     # still rejected
+        assert rows[9] == ("left", 2, 0, 0)        # machine row replaced as before
+        assert rows[-1] == ("right", 4, 0, 1)      # the added car is kept
+        assert 99 not in rows
+        assert stats == {"added_kept": 1, "edits_replayed": 2, "vanished": [99]}
+
+    def test_reapply_twice_does_not_duplicate_adds(self, tmp_path):
+        import sqlite3
+        from backend.services.two_pass import _apply_window_events
+        proj = tmp_path / "proj.db"
+        self._mk(proj, [(2, 40.0, -1, 2, 4, "right", "car", 0, 1)])
+        w = tmp_path / "w.db"
+        self._mk(w, [(2, 11.0, 7, 1, 3, "through", "car", 0, 0)])
+        _apply_window_events(proj, w, 2, 0.0, 100.0)
+        _apply_window_events(proj, w, 2, 0.0, 100.0)
+        c = sqlite3.connect(proj)
+        n_add = c.execute("SELECT COUNT(*) FROM vehicle_events WHERE vehicle_track_id = -1").fetchone()[0]
+        n = c.execute("SELECT COUNT(*) FROM vehicle_events").fetchone()[0]
+        c.close()
+        assert (n_add, n) == (1, 2)
+
+
 class TestStage33Endpoints:
     def test_pass1_and_process_disabled_404(self, proj, monkeypatch):
         import backend.routers.two_pass as tp
