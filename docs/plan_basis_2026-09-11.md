@@ -4229,3 +4229,16 @@ labelled cars' tracks. 34 true swaps (20 dev / 14 held-out), ~200 true keeps.
 READING: where two cars meet inside the box, neither the motion (research_encounters) nor the look of the car over
 the nearest clean frames tells them apart in this video (640x480; small, packed boxes). The switch is decided where
 the information is not.
+
+### OPTION 1 (operator 2026-10-15: "1" - fix the cars the tracker had the information for)
+- research_no_track on mm1 (runs/v2_week1/no_track_mm1_{dev,heldout}.log): of the 47 no_track cars' missing clicks,
+  CONTESTED 43 (a track IS under the click, held by a neighbouring car - identity again), NO_DET 9, DET_STRONG 2
+  (a good box the tracker dropped). 35 of 47 are counted right via the other click. research_inside_box's
+  "NO TRACK: DETECTED" 42 is mostly this CONTESTED shape, not boxes thrown away. The truly thrown-away set is ~20:
+  18 second ids on one car + 2 dropped boxes.
+- The second id on a nested box (dt2's target; scripts/research_nested_ground.py -> nested_ground_mm1.log). On the
+  labelled clips, track pairs meeting dt2's trigger (containment >= 0.9, IoU >= 0.4, >= 3 frames) are TWO real cars 25,
+  ONE car 6 (98 unclaimed). Ground-contact test (same bottom edge = same car) FAILS: two real cars share the bottom
+  edge too (22 of 25 within 0.05 of the outer height) - the outer box is a detection spanning both cars and the nested
+  one is the front car. Nested-box suppression costs ~4 real cars per duplicate on the labels - dt2's label loss.
+READING: box geometry, motion and appearance each fail to tell one car from two where boxes overlap in this video.

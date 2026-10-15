@@ -1,0 +1,47 @@
+  TWO  cam1_0700_m50  outer t3296 nested t3294  frames   4  bottom gap -0.04  top gap +0.08  width 0.62  labels [539]/[549]
+  TWO  cam1_0700_m50  outer t3289 nested t3291  frames  10  bottom gap +0.00  top gap +0.15  width 0.67  labels [547]/[539]
+  TWO  cam1_0700_m50  outer t3300 nested t3294  frames   3  bottom gap +0.36  top gap +0.01  width 0.69  labels [543]/[549]
+  ONE  cam1_0700_m50  outer t3382 nested t3385  frames   4  bottom gap +0.13  top gap +0.05  width 0.61  labels [595, 596]/[595]
+  TWO  cam2_1600_m5   outer t644 nested t647  frames   4  bottom gap -0.00  top gap +0.38  width 1.06  labels [108]/[110]
+  TWO  cam2_1600_m5   outer t690 nested t684  frames   8  bottom gap +0.25  top gap +0.10  width 0.80  labels [125]/[126]
+  TWO  cam2_1600_m5   outer t775 nested t731  frames  20  bottom gap +0.01  top gap +0.13  width 0.64  labels [181]/[189]
+  TWO  cam2_1600_m5   outer t731 nested t775  frames  76  bottom gap +0.01  top gap +0.07  width 0.66  labels [189]/[181]
+  TWO  cam2_1600_m5   outer t731 nested t800  frames   3  bottom gap -0.02  top gap +0.11  width 0.70  labels [189]/[186]
+  TWO  cam2_1600_m5   outer t15469 nested t830  frames   5  bottom gap +0.01  top gap +0.05  width 0.59  labels [206]/[199]
+  TWO  cam2_1600_m5   outer t835 nested t847  frames   4  bottom gap -0.00  top gap +0.24  width 0.67  labels [213]/[208]
+  TWO  cam2_1600_m5   outer t850 nested t15470  frames   4  bottom gap -0.01  top gap +0.35  width 0.72  labels [211]/[217]
+  TWO  cam2_1600_m5   outer t851 nested t852  frames   3  bottom gap -0.01  top gap +0.33  width 0.70  labels [220]/[212]
+  TWO  cam2_1600_m50  outer t6457 nested t6462  frames   4  bottom gap -0.01  top gap +0.27  width 0.72  labels [686]/[682]
+  ONE  cam2_1600_m50  outer t6484 nested t6406  frames   3  bottom gap -0.03  top gap +0.42  width 0.78  labels [689]/[689]
+  TWO  cam2_1600_m50  outer t6588 nested t6591  frames  14  bottom gap +0.00  top gap +0.14  width 0.59  labels [739]/[736]
+  TWO  cam2_1600_m50  outer t6591 nested t6588  frames   5  bottom gap +0.01  top gap +0.18  width 0.56  labels [736]/[739]
+  TWO  cam2_1600_m50  outer t6641 nested t6609  frames  76  bottom gap +0.07  top gap +0.02  width 0.57  labels [795]/[750, 751]
+  TWO  cam2_1600_m50  outer t6640 nested t6627  frames  12  bottom gap -0.02  top gap +0.01  width 0.57  labels [804]/[801]
+  TWO  cam2_1600_m50  outer t6679 nested t6723  frames   4  bottom gap +0.00  top gap +0.27  width 0.80  labels [794]/[805]
+  TWO  cam2_1600_m50  outer t6733 nested t6734  frames   3  bottom gap +0.01  top gap +0.26  width 0.63  labels [810]/[812]
+  TWO  cam2_1600_m50  outer t6745 nested t6746  frames  10  bottom gap +0.01  top gap +0.27  width 0.69  labels [823]/[832]
+  TWO  cam2_1600_m50  outer t6759 nested t6756  frames   3  bottom gap +0.00  top gap +0.30  width 0.86  labels [829]/[844]
+  TWO  cam2_1600_m50  outer t6783 nested t6779  frames  49  bottom gap +0.00  top gap +0.26  width 0.69  labels [848]/[845]
+  ONE  cam3_0600_m5   outer t569 nested t552  frames   5  bottom gap +0.03  top gap +0.26  width 0.63  labels [308]/[308]
+  ONE  cam5_0700_m5   outer t386 nested t384  frames   3  bottom gap +0.25  top gap +0.00  width 0.61  labels [442, 452]/[442]
+  TWO  cam5_0700_m5   outer t374 nested t379  frames   3  bottom gap -0.04  top gap +0.11  width 0.52  labels [434]/[438]
+  ONE  cam5_0700_m5   outer t453 nested t442  frames  15  bottom gap +0.00  top gap -0.00  width 0.60  labels [487, 492]/[487]
+  ONE  cam5_0700_m5   outer t442 nested t453  frames  74  bottom gap +0.01  top gap -0.01  width 0.59  labels [487]/[487, 492]
+  TWO  cam5_0700_m5   outer t510 nested t514  frames   3  bottom gap -0.01  top gap +0.34  width 0.90  labels [509]/[510]
+  TWO  cam5_0700_m5   outer t508 nested t514  frames   3  bottom gap +0.02  top gap +0.09  width 0.69  labels [508]/[510]
+
+TWO  n=  25  bottom gap q10/50/90 -0.02 / +0.00 / +0.05   top gap median +0.15   width median 0.69
+      bottom gap <= 0.05: 22 of 25
+      bottom gap <= 0.10: 23 of 25
+      bottom gap <= 0.15: 23 of 25
+      bottom gap <= 0.20: 23 of 25
+UNCL n=  98  bottom gap q10/50/90 -0.01 / +0.02 / +0.15   top gap median +0.09   width median 0.66
+      bottom gap <= 0.05: 68 of 98
+      bottom gap <= 0.10: 80 of 98
+      bottom gap <= 0.15: 87 of 98
+      bottom gap <= 0.20: 90 of 98
+ONE  n=   6  bottom gap q10/50/90 -0.02 / +0.02 / +0.19   top gap median +0.03   width median 0.61
+      bottom gap <= 0.05: 4 of 6
+      bottom gap <= 0.10: 4 of 6
+      bottom gap <= 0.15: 5 of 6
+      bottom gap <= 0.20: 5 of 6

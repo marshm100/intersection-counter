@@ -1,0 +1,57 @@
+
+== cam1_0700_m50 (mm1; fps 10; frame ~640x480)
+      own track t3356 ended +0.6s before
+  car  581 exit  legs 23->22  CONTESTED  det conf 0.69 w  31.3px  edge   140px  nearest track +0.00s t3357  (taken by car [582])  [other click's track counted the right movement]
+      no other track
+  car  583 entry legs 23->22  CONTESTED  det conf 0.64 w 177.9px  edge   197px  nearest track +0.00s t3310  (taken by car [584])
+      no other track
+  car  583 exit  legs 23->22  CONTESTED  det conf 0.51 w  30.1px  edge   110px  nearest track +0.00s t3357  (taken by car [584])
+      own track t3382 HERE, 0.7 box widths from the click
+  car  596 entry legs 23->22  CONTESTED  det conf 0.88 w  95.6px  edge   127px  nearest track +0.00s t3310  (taken by car [595, 598])
+      own track t3379 HERE, 0.1 box widths from the click
+  car  599 exit  legs 22->23  CONTESTED  det conf 0.50 w 103.3px  edge    40px  nearest track +0.00s t3310  (taken by car [598])  [other click's track counted the right movement]
+      no other track
+  car  620 entry legs 23->22  CONTESTED  det conf 0.84 w 112.6px  edge   151px  nearest track +0.00s t3310  (taken by car [622, 632])
+      no other track
+  car  620 exit  legs 23->22  CONTESTED  det conf 0.71 w  25.4px  edge   107px  nearest track +0.00s t3411  (taken by car [632])
+      own track t3446 born +0.4s after
+  car  637 entry legs 22->23  DET_STRONG det conf 0.87 w  54.5px  edge   212px  nearest track +0.00s t3435  [other click's track counted the right movement]
+      own track t3459 ended +3.9s before
+  car  646 exit  legs 22->23  CONTESTED  det conf 0.79 w  69.7px  edge    70px  nearest track -0.10s t3458  (taken by car [650])  [other click's track counted the right movement]
+
+== cam2_1600_m50 (mm1; fps 25; frame ~640x468)
+      own track t6453 HERE, 0.2 box widths from the click
+  car  674 exit  legs 27->28  CONTESTED  det conf 0.93 w  97.0px  edge    66px  nearest track +0.00s t6406  (taken by car [671, 677, 679])  [other click's track counted the right movement]
+      no other track
+  car  685 entry legs 27->29  CONTESTED  det conf 0.79 w 107.8px  edge    29px  nearest track +0.00s t6408  (taken by car [682])
+      no other track
+  car  685 exit  legs 27->29  CONTESTED  det conf 0.92 w  71.2px  edge   108px  nearest track +0.00s t6416  (taken by car [691])
+      own track t6508 born +1.3s after
+  car  702 entry legs 27->29  CONTESTED  det conf 0.88 w  69.5px  edge    54px  nearest track +0.00s t6408  (taken by car [703])  [other click's track counted the right movement]
+      own track t6664 born +2.2s after
+  car  768 entry legs 27->29  CONTESTED  det conf 0.81 w  80.7px  edge    21px  nearest track +0.00s t6628  (taken by car [769])  [other click's track counted the right movement]
+      own track t6657 HERE, 0.4 box widths from the click
+  car  767 entry legs 27->26  CONTESTED  det conf 0.83 w  84.4px  edge    26px  nearest track +0.00s t6628  (taken by car [769])  [other click's track counted the right movement]
+      own track t6678 HERE, 1.2 box widths from the click
+  car  778 entry legs 27->29  CONTESTED  det conf 0.74 w  74.7px  edge    25px  nearest track +0.00s t6645  (taken by car [779, 780])  [other click's track counted the right movement]
+      own track t6709 born -0.9s after
+  car  796 entry legs 27->28  NO_DET     det conf 0.00 w   0.0px  edge    18px  nearest track -0.12s t6709  [other click's track counted the right movement]
+      own track t6788 HERE, 3.2 box widths from the click
+  car  840 entry legs 29->28  CONTESTED  det conf 0.72 w  77.1px  edge   115px  nearest track +0.00s t6526  (taken by car [817])
+
+TOTALS (buckets are per missing click):
+  CONTESTED                                          16
+  CONTESTED | entry                                  9
+  CONTESTED | exit                                   7
+  CONTESTED | own track absent at the click          4
+  CONTESTED | own track present at the click         6
+  CONTESTED | own track within 1 box of the click    4
+  DET_STRONG                                         1
+  DET_STRONG | entry                                 1
+  DET_STRONG | own track absent at the click         1
+  NO_DET                                             1
+  NO_DET | entry                                     1
+  NO_DET | own track absent at the click             1
+  NO_DET | within 20px of the edge                   1
+  vehicles                                           15
+  vehicles counted right via the other click         10
