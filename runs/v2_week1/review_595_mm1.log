@@ -1,0 +1,47 @@
+cam1 study_0700: 4691 counts, 2907 flagged tracks, 74 open production flags
+cam1 study_1600: 5661 counts, 3050 flagged tracks, 74 open production flags
+cam2 study_0700: 5895 counts, 4148 flagged tracks, 194 open production flags
+cam2 study_1100: 4575 counts, 3093 flagged tracks, 194 open production flags
+cam2 study_1600: 7429 counts, 5597 flagged tracks, 194 open production flags
+cam3 study_0600: 28593 counts, 6760 flagged tracks, 117 open production flags
+cam4 study_0700: 4912 counts, 2122 flagged tracks, 60 open production flags
+cam4 study_1100: 3317 counts, 494 flagged tracks, 60 open production flags
+cam4 study_1600: 5557 counts, 3331 flagged tracks, 60 open production flags
+cam5 study_0700: 4975 counts, 3132 flagged tracks, 103 open production flags
+cam5 study_1100: 3530 counts, 2273 flagged tracks, 103 open production flags
+cam5 study_1600: 5931 counts, 3868 flagged tracks, 103 open production flags
+
+=== MOVEMENT cell-bins: 98 failing of 1228; vehicles beyond tolerance 884
+  Q1 production queue: flags 88/98 failing cell-bins (90%); also on 843/1130 passing ones
+  Q1 encounter rank: review the top 10% of cell-bins (123) by flagged counts -> 17/98 failing cell-bins (17%), 184/884 excess vehicles; flagged counts to review 22869
+  Q1 encounter rank: review the top 20% of cell-bins (246) by flagged counts -> 49/98 failing cell-bins (50%), 440/884 excess vehicles; flagged counts to review 32915
+  Q1 encounter rank: review the top 30% of cell-bins (368) by flagged counts -> 76/98 failing cell-bins (78%), 779/884 excess vehicles; flagged counts to review 37104
+  Q2 OVER  66 failing cell-bins (excess 543): flagged counts >= excess in 65, >= 3x excess in 50; median flagged/excess 6.5
+  Q2 UNDER 32 failing cell-bins (excess 342): encounter flags cannot add a car; production flag present on 25
+     cam3 study_0600 15:30 NB thru    UNDER excess 107.3  counts  229  flagged  43  prod-flag Y
+     cam3 study_0600 15:15 NB thru    UNDER excess  49.5  counts  246  flagged  62  prod-flag Y
+     cam3 study_0600 06:45 NB thru    UNDER excess  32.7  counts  315  flagged 149  prod-flag Y
+     cam3 study_0600 09:30 NB thru    OVER  excess  32.5  counts  212  flagged  34  prod-flag Y
+     cam3 study_0600 09:15 NB thru    OVER  excess  30.8  counts  225  flagged  45  prod-flag Y
+     cam3 study_0600 12:45 NB thru    OVER  excess  29.2  counts  213  flagged  39  prod-flag Y
+     cam3 study_0600 06:00 NB thru    OVER  excess  24.5  counts  244  flagged 141  prod-flag Y
+     cam3 study_0600 07:45 NB thru    UNDER excess  24.3  counts  349  flagged  80  prod-flag Y
+     cam3 study_0600 09:00 NB thru    OVER  excess  23.9  counts  216  flagged  25  prod-flag Y
+     cam3 study_0600 15:00 NB thru    UNDER excess  23.8  counts  247  flagged  47  prod-flag Y
+
+=== APPROACH cell-bins: 79 failing of 487; vehicles beyond tolerance 795
+  Q1 encounter rank: review the top 10% of cell-bins (49) by flagged counts -> 5/79 failing cell-bins (6%), 27/795 excess vehicles; flagged counts to review 12656
+  Q1 encounter rank: review the top 20% of cell-bins (97) by flagged counts -> 11/79 failing cell-bins (14%), 95/795 excess vehicles; flagged counts to review 21842
+  Q1 encounter rank: review the top 30% of cell-bins (146) by flagged counts -> 22/79 failing cell-bins (28%), 219/795 excess vehicles; flagged counts to review 29110
+  Q2 OVER  61 failing cell-bins (excess 490): flagged counts >= excess in 61, >= 3x excess in 53; median flagged/excess 15.6
+  Q2 UNDER 18 failing cell-bins (excess 305): encounter flags cannot add a car
+     cam3 study_0600 15:30 NB         UNDER excess 107.2  counts  230  flagged  43  prod-flag .
+     cam3 study_0600 15:15 NB         UNDER excess  50.3  counts  248  flagged  63  prod-flag .
+     cam3 study_0600 06:45 NB         UNDER excess  32.7  counts  315  flagged 149  prod-flag .
+     cam3 study_0600 09:30 NB         OVER  excess  32.4  counts  213  flagged  34  prod-flag .
+     cam3 study_0600 09:15 NB         OVER  excess  30.8  counts  225  flagged  45  prod-flag .
+     cam3 study_0600 12:45 NB         OVER  excess  28.0  counts  217  flagged  42  prod-flag .
+     cam3 study_0600 06:00 NB         OVER  excess  24.5  counts  245  flagged 141  prod-flag .
+     cam3 study_0600 07:45 NB         UNDER excess  24.3  counts  349  flagged  80  prod-flag .
+     cam3 study_0600 09:00 NB         OVER  excess  23.8  counts  217  flagged  25  prod-flag .
+     cam3 study_0600 15:00 NB         UNDER excess  23.7  counts  248  flagged  48  prod-flag .

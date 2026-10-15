@@ -4251,3 +4251,17 @@ clips: 120 of 157 count errors (76%) sit on a flag (double 19/19, wrong 13/17, p
 3/13); PRECISION 39% of flags touch an error. Even a PERFECT queue is bounded by the error volume itself: 157 errors
 in 21 min of labelled video (~450 per hour, about one per five cars) = ~75 min of review per hour of video.
 READING: not a practical product step as a full review; the fleet's 92% is errors cancelling at ~1 error per 5 cars.
+
+### CAN A REVIEWER CLOSE THE 5/95 GAP? (2026-10-15, operator: "the data we bring humans in the loop to do must be able
+### to get the bar above the 5/95 rule"; scripts/research_595_review.py -> runs/v2_week1/review_595_mm1.log)
+The gap (shipped default, 12 windows): movement 98 / 1228 cell-bins failing, 884 vehicles beyond tolerance (~25 / h of
+video); approach 79 / 487, 795. In July raw compliance was 47-76%; the gap is now small enough to aim a review at.
+DIRECTION: OVER-counted failing cell-bins (66, excess 543) hold enough flagged counts to remove in 65 (median 6.5x the
+excess) - removable on review. UNDER-counted ones (32, excess 342 - 39% of the gap, mostly cam3 NB thru in alternate
+bins) cannot be closed from encounter flags (they sit on counted events and cannot add a car).
+TARGETING (the blocker): without Miovision the app cannot yet tell which cell-bins fail. The production queue flags
+90% of failing cell-bins but also 75% of passing ones (843 / 1130). Ranking cell-bins by flagged counts is ranking by
+traffic: the top 30% hold 78% of failing movement cell-bins (88% of the excess) but carry 37,104 flagged counts;
+approach level only 28%.
+READING: in striking distance on the SIZE of the gap; not yet on FINDING it, nor on the under-counts. Needed: a
+label-free per-cell-bin risk that separates failing from passing cell-bins, and a missed-car review for UNDER cells.
