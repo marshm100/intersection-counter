@@ -4170,3 +4170,8 @@ Re-scored on the true working DBs (vl3_l1_study_0700 / _1600, serial, same day):
   16:00        93.9 / 83.3               100.0 / 95.7  (42 / 42 cells; WB thru phantom 18 -> 2 vs Mio 0, NB thru 780 -> 795 vs 811)
 FM 51 NOT WORSE: PASS (+3.1 / +6.1 movement, +0.0 / +12.4 approach). The default's true FM 51 standing is 89.4 / 93.9
 movement (approach 87.0 / 83.3), not the stale 85.7 / 89.8. Remaining for mm1: held-out labels once; operator's go.
+
+### ARM mm1 HELD-OUT LABELS (2026-10-15, run once; runs/v2_week1/journeys_mm1_heldout.log)
+  mm1c 271 / 304 -> mm1 272 / 304 (only-ctrl 1, only-mm1 2; p 1.0): cam1 0700 107 -> 108, cam2 1600 164 -> 164 (one won,
+  one lost). Phantoms 22 and broken 31 unchanged. NOT WORSE: PASS. Every declared bar for mm1 now passes; the fleet
+  approach dip (83.54 -> 82.72) is the one open item. Ship only on the operator's go.
