@@ -1,0 +1,71 @@
+cam1 cam1_0700_m5   label   16 t358->t360 birth f255546  id-box IoU 0.00  det-det IoU 0.00 (match 0.97/1.00)  ride 0%  w 35/11  conf 0.15  -> SWAP SIDE BY SIDE  meet f255626 dist 0.70w IoU 0.20 dets 3
+cam1 cam1_0700_m5   label   28 t381->t378 birth f255676  id-box IoU 0.00  det-det IoU 0.00 (match 0.34/1.00)  ride 100%  w 129/46  conf 0.49  -> SWAP AT OCCLUSION  meet f255693 dist 0.12w IoU 0.74 dets 4
+cam1 cam1_0700_m5   label   60 t422->t438 birth f256020  id-box IoU 0.04  det-det IoU 0.07 (match 0.80/0.83)  ride 33%  w 54/81  conf 0.58  -> SWAP SIDE BY SIDE  meet f256021 dist 0.62w IoU 0.14 dets 5
+cam1 cam1_0700_m5   label   67 t439->t447 birth f256054  id-box IoU 0.26  det-det IoU 0.26 (match 1.00/1.00)  ride 25%  w 128/69  conf 0.11  -> RIDE (distinct dets)
+cam1 cam1_0700_m5   label   68 t433->t439 birth f256014  id-box IoU 0.00  det-det IoU 0.00 (match 0.96/1.00)  ride 0%  w 18/9  conf 0.10  -> SWAP AT OCCLUSION  meet f256049 dist 0.17w IoU 0.32 dets 4
+cam1 cam1_0700_m50  label  539 t3291->t3296 birth f281992  id-box IoU 0.00  det-det IoU 0.00 (match 0.18/1.00)  ride 0%  w 88/37  conf 0.20  -> SWAP AT OCCLUSION  meet f282004 dist 0.20w IoU 0.60 dets 6
+cam1 cam1_0700_m50  label  567 t3328->t3331 birth f282356  id-box IoU 0.00  det-det IoU 0.11 (match 0.04/1.00)  ride 0%  w 23/25  conf 0.10  -> SWAP SIDE BY SIDE  meet f282359 dist 1.02w IoU 0.03 dets 2
+cam1 cam1_0700_m50  label  568 t3331->t3328 birth f282329  id-box IoU 0.00  det-det IoU 0.00 (match 0.19/1.00)  ride 0%  w 25/15  conf 0.12  -> SWAP SIDE BY SIDE  meet f282358 dist 0.63w IoU 0.04 dets 2
+cam1 cam1_0700_m50  label  595 t3382->t3385 birth f282840  id-box IoU 0.03  det-det IoU 0.02 (match 0.97/1.00)  ride 22%  w 37/35  conf 0.23  -> SWAP AT OCCLUSION  meet f282868 dist 0.17w IoU 0.42 dets 2
+cam1 cam1_0700_m50  label  598 t3383->t3379 birth f282806  id-box IoU 0.00  det-det IoU 0.00 (match 0.00/1.00)  ride 0%  w 132/13  conf 0.11  -> SWAP SIDE BY SIDE  meet f282836 dist 0.53w IoU 0.00 dets 3
+cam1 cam1_0700_m50  label  609 t3384->t3404 birth f282902  id-box IoU 0.00  det-det IoU 0.00 (match 0.89/1.00)  ride 0%  w 45/39  conf 0.12  -> SWAP SIDE BY SIDE  meet f282923 dist 0.51w IoU 0.13 dets 3
+cam1 cam1_0700_m50  label  611 t3400->t3406 birth f282910  id-box IoU 0.00  det-det IoU 0.00 (match 1.00/1.00)  ride 0%  w 43/22  conf 0.11  -> SWAP SIDE BY SIDE  meet f282913 dist 0.55w IoU 0.07 dets 2
+cam1 cam1_0700_m50  label  615 t3408->t3410 birth f282927  id-box IoU 0.15  det-det IoU 0.18 (match 0.75/1.00)  ride 91%  w 97/70  conf 0.76  -> RIDE (distinct dets)
+cam1 cam1_0700_m50  label  616 t3410->t3408 birth f282922  id-box IoU 0.00  det-det IoU 0.00 (match 0.00/1.00)  ride 100%  w 70/133  conf 0.34  -> SWAP SIDE BY SIDE  meet f282934 dist 0.45w IoU 0.21 dets 4
+cam1 cam1_0700_m50  label  617 t3413->t3384 birth f282835  id-box IoU 0.00  det-det IoU 0.00 (match 0.22/1.00)  ride 0%  w 42/13  conf 0.13  -> SWAP SIDE BY SIDE  meet f282948 dist 0.28w IoU 0.12 dets 2
+cam1 cam1_0700_m50  label  618 t3404->t3413 birth f282935  id-box IoU 0.30  det-det IoU 1.00 (match 0.30/1.00)  ride 11%  w 40/42  conf 0.14  -> ONE DET, TWO IDS
+cam1 cam1_0700_m50  label  651 t3467->t3469 birth f283660  id-box IoU 0.00  det-det IoU 0.00 (match 0.84/1.00)  ride 0%  w 26/13  conf 0.26  -> SWAP AT OCCLUSION  meet f283702 dist 0.44w IoU 0.33 dets 2
+cam1 cam1_0700_m50  label  652 t3469->t3467 birth f283645  id-box IoU 0.00  det-det IoU 0.00 (match 0.00/1.00)  ride 0%  w 13/13  conf 0.10  -> SWAP AT OCCLUSION  meet f283702 dist 0.35w IoU 0.33 dets 2
+cam2 cam2_1600_m5   label  145 t750->t753 birth f1449325  id-box IoU 0.05  det-det IoU 0.02 (match 0.86/1.00)  ride 0%  w 82/49  conf 0.32  -> SWAP SIDE BY SIDE  meet f1449325 dist 0.70w IoU 0.05 dets 3
+cam2 cam2_1600_m5   label  191 t816->t818 birth f1449942  id-box IoU 0.27  det-det IoU 0.35 (match 0.76/1.00)  ride 100%  w 166/81  conf 0.11  -> DUP-DET
+cam2 cam2_1600_m5   label  192 t818->t823 birth f1449958  id-box IoU 0.12  det-det IoU 0.13 (match 0.95/1.00)  ride 29%  w 118/51  conf 0.16  -> RIDE (distinct dets)
+cam2 cam2_1600_m5   label  228 t872->t841 birth f1450122  id-box IoU 0.00  det-det IoU 0.00 (match 0.05/1.00)  ride 0%  w 11/52  conf 0.13  -> SWAP AT OCCLUSION  meet f1450712 dist 0.13w IoU 0.45 dets 4
+cam2 cam2_1600_m50  label  679 t6461->t6453 birth f1515001  id-box IoU 0.63  det-det IoU 0.54 (match 0.60/0.62)  ride 0%  w 19/16  conf 0.61  -> DUP-DET
+cam2 cam2_1600_m50  label  683 t6465->t6461 birth f1515064  id-box IoU 0.15  det-det IoU 1.00 (match 0.15/1.00)  ride 0%  w 7/19  conf 0.19  -> ONE DET, TWO IDS
+cam2 cam2_1600_m50  label  684 t6466->t6465 birth f1515108  id-box IoU 0.24  det-det IoU 1.00 (match 0.24/1.00)  ride 0%  w 6/7  conf 0.13  -> ONE DET, TWO IDS
+cam2 cam2_1600_m50  label  689 t6484->t6406 birth f1514715  id-box IoU 0.00  det-det IoU 0.00 (match 0.00/1.00)  ride 0%  w 7/16  conf 0.27  -> SWAP AT OCCLUSION  meet f1515333 dist 0.10w IoU 0.51 dets 3
+cam2 cam2_1600_m50  label  708 t6516->t6504 birth f1515289  id-box IoU 0.00  det-det IoU 0.00 (match 0.38/1.00)  ride 0%  w 12/9  conf 0.12  -> SWAP APART  meet f1515534 dist 2.32w IoU 0.02 dets 2
+cam2 cam2_1600_m50  label  724 t6539->t6530 birth f1515592  id-box IoU 0.00  det-det IoU 0.99 (match 0.00/0.98)  ride 0%  w 10/29  conf 0.27  -> SWAP AT OCCLUSION  meet f1515970 dist 0.09w IoU 0.59 dets 4
+cam2 cam2_1600_m50  label  730 t6557->t6565 birth f1516074  id-box IoU 0.00  det-det IoU 0.00 (match 0.94/1.00)  ride 0%  w 37/26  conf 0.16  -> SWAP AT OCCLUSION  meet f1516152 dist 0.15w IoU 0.39 dets 4
+cam2 cam2_1600_m50  label  736 t6591->t6557 birth f1515954  id-box IoU 0.00  det-det IoU 0.00 (match 0.38/0.91)  ride 0%  w 22/12  conf 0.49  -> SWAP SIDE BY SIDE  meet f1516372 dist 0.39w IoU 0.28 dets 4
+cam2 cam2_1600_m50  label  750 t6609->t6600 birth f1516537  id-box IoU 0.00  det-det IoU 0.00 (match 0.25/1.00)  ride 0%  w 11/20  conf 0.10  -> SWAP AT OCCLUSION  meet f1516675 dist 0.19w IoU 0.36 dets 4
+cam2 cam2_1600_m50  label  751 t6600->t6609 birth f1516669  id-box IoU 0.17  det-det IoU 0.15 (match 0.93/1.00)  ride 100%  w 17/11  conf 0.13  -> RIDE (distinct dets)
+cam2 cam2_1600_m50  label  766 t6656->t6668 birth f1517695  id-box IoU 0.00  det-det IoU 0.00 (match 0.94/0.91)  ride 0%  w 30/24  conf 0.58  -> SWAP APART  meet f1517695 dist 4.09w IoU 0.00 dets 3
+cam2 cam2_1600_m50  label  769 t6657->t6662 birth f1517645  id-box IoU 0.20  det-det IoU 0.21 (match 0.94/1.00)  ride 91%  w 90/70  conf 0.34  -> RIDE (distinct dets)
+cam2 cam2_1600_m50  label  772 t6666->t6673 birth f1517731  id-box IoU 0.00  det-det IoU 0.00 (match 0.94/1.00)  ride 0%  w 29/51  conf 0.32  -> SWAP APART  meet f1517731 dist 2.13w IoU 0.00 dets 3
+cam2 cam2_1600_m50  label  777 t6678->t6682 birth f1517810  id-box IoU 0.23  det-det IoU 0.26 (match 0.89/0.91)  ride 100%  w 60/34  conf 0.32  -> RIDE (distinct dets)
+cam2 cam2_1600_m50  label  814 t15492->t6731 birth f1518203  id-box IoU 0.00  det-det IoU 0.00 (match 0.87/1.00)  ride 0%  w 35/20  conf 0.21  -> SWAP AT OCCLUSION  meet f1518352 dist 0.21w IoU 0.41 dets 2
+cam2 cam2_1600_m50  label  815 t6731->t15492 birth f1518147  id-box IoU 0.00  det-det IoU 0.00 (match 0.37/0.81)  ride 0%  w 20/28  conf 0.65  -> SWAP SIDE BY SIDE  meet f1518360 dist 0.15w IoU 0.27 dets 2
+cam3 cam3_0600_m5   label  251 t374->t384 birth f218983  id-box IoU 0.01  det-det IoU 0.03 (match 0.82/1.00)  ride 0%  w 23/26  conf 0.83  -> SWAP SIDE BY SIDE  meet f218985 dist 0.95w IoU 0.02 dets 3
+cam3 cam3_0600_m5   label  255 t392->t403 birth f219163  id-box IoU 0.00  det-det IoU 0.00 (match 0.98/1.00)  ride 0%  w 59/28  conf 0.95  -> SWAP SIDE BY SIDE  meet f219165 dist 0.90w IoU 0.00 dets 2
+cam3 cam3_0600_m5   label  256 t403->t405 birth f219165  id-box IoU 0.06  det-det IoU 0.05 (match 0.97/1.00)  ride 29%  w 31/31  conf 0.16  -> SWAP AT OCCLUSION  meet f219170 dist 0.19w IoU 0.42 dets 2
+cam3 cam3_0600_m5   label  262 t435->t440 birth f219543  id-box IoU 0.26  det-det IoU 0.28 (match 0.89/1.00)  ride 100%  w 19/41  conf 0.18  -> RIDE (distinct dets)
+cam3 cam3_0600_m5   label  264 t451->t444 birth f219682  id-box IoU 0.00  det-det IoU 0.00 (match 0.00/1.00)  ride 0%  w 13/9  conf 0.34  -> SWAP APART  meet f219758 dist 1.69w IoU 0.00 dets 3
+cam3 cam3_0600_m5   label  275 t456->t474 birth f219861  id-box IoU 0.13  det-det IoU 0.11 (match 1.00/0.82)  ride 64%  w 28/36  conf 0.96  -> RIDE (distinct dets)
+cam3 cam3_0600_m5   label  280 t464->t486 birth f219897  id-box IoU 0.00  det-det IoU 0.00 (match 0.92/1.00)  ride 33%  w 20/20  conf 0.21  -> SWAP AT OCCLUSION  meet f219910 dist 0.20w IoU 0.55 dets 3
+cam3 cam3_0600_m5   label  281 t491->t485 birth f219889  id-box IoU 0.00  det-det IoU 0.00 (match 0.00/0.90)  ride 0%  w 27/16  conf 0.85  -> SWAP AT OCCLUSION  meet f219915 dist 0.27w IoU 0.43 dets 2
+cam3 cam3_0600_m5   label  282 t447->t493 birth f219924  id-box IoU 0.00  det-det IoU 0.00 (match 0.06/1.00)  ride 0%  w 55/27  conf 0.45  -> SWAP SIDE BY SIDE  meet f219926 dist 1.49w IoU 0.00 dets 3
+cam3 cam3_0600_m5   label  285 t498->t496 birth f219933  id-box IoU 0.00  det-det IoU 0.00 (match 0.00/1.00)  ride 0%  w 51/19  conf 0.11  -> SWAP SIDE BY SIDE  meet f219946 dist 0.25w IoU 0.28 dets 2
+cam3 cam3_0600_m5   label  288 t497->t511 birth f219988  id-box IoU 0.25  det-det IoU 0.26 (match 0.90/1.00)  ride 100%  w 49/26  conf 0.15  -> RIDE (distinct dets)
+cam3 cam3_0600_m5   label  290 t516->t503 birth f219952  id-box IoU 0.00  det-det IoU 0.00 (match 0.35/1.00)  ride 0%  w 19/18  conf 0.19  -> SWAP AT OCCLUSION  meet f220043 dist 0.16w IoU 0.59 dets 2
+cam3 cam3_0600_m5   label  291 t503->t519 birth f220049  id-box IoU 0.38  det-det IoU 0.38 (match 0.98/1.00)  ride 100%  w 95/57  conf 0.13  -> DUP-DET
+cam3 cam3_0600_m5   label  303 t542->t550 birth f220587  id-box IoU 0.36  det-det IoU 0.39 (match 0.82/1.00)  ride 86%  w 39/21  conf 0.24  -> DUP-DET
+cam3 cam3_0600_m5   label  306 t557->t564 birth f220632  id-box IoU 0.00  det-det IoU 0.00 (match 0.61/1.00)  ride 0%  w 30/61  conf 0.21  -> SWAP APART  meet f220633 dist 2.16w IoU 0.00 dets 4
+cam3 cam3_0600_m5   label  308 t552->t569 birth f220641  id-box IoU 0.56  det-det IoU 0.55 (match 0.98/1.00)  ride 100%  w 19/28  conf 0.11  -> DUP-DET
+cam4 cam4_1600_m5   label  318 t356->t363 birth f579133  id-box IoU 0.20  det-det IoU 0.22 (match 0.90/1.00)  ride 100%  w 91/53  conf 0.55  -> RIDE (distinct dets)
+cam4 cam4_1600_m5   label  319 t358->t356 birth f579094  id-box IoU 0.00  det-det IoU 1.00 (match 0.00/1.00)  ride 0%  w 16/16  conf 0.28  -> SWAP AT OCCLUSION  meet f579125 dist 0.39w IoU 0.35 dets 2
+cam5 cam5_0700_m5   label  442 t384->t386 birth f255389  id-box IoU 0.00  det-det IoU 0.00 (match 1.00/1.00)  ride 90%  w 105/59  conf 0.26  -> SWAP AT OCCLUSION  meet f255391 dist 0.28w IoU 0.46 dets 2
+cam5 cam5_0700_m5   label  446 t391->t392 birth f255435  id-box IoU 0.02  det-det IoU 0.10 (match 0.83/0.86)  ride 0%  w 106/77  conf 0.64  -> SWAP SIDE BY SIDE  meet f255435 dist 0.82w IoU 0.02 dets 5
+cam5 cam5_0700_m5   label  447 t392->t391 birth f255425  id-box IoU 0.00  det-det IoU 0.00 (match 0.00/1.00)  ride 0%  w 77/27  conf 0.30  -> SWAP SIDE BY SIDE  meet f255479 dist 0.94w IoU 0.01 dets 3
+cam5 cam5_0700_m5   label  469 t432->t433 birth f255693  id-box IoU 0.00  det-det IoU 0.06 (match 0.97/0.76)  ride 64%  w 43/33  conf 0.75  -> SWAP AT OCCLUSION  meet f255704 dist 0.12w IoU 0.48 dets 5
+cam5 cam5_0700_m5   label  478 t439->t436 birth f255734  id-box IoU 0.00  det-det IoU 0.00 (match 0.00/1.00)  ride 0%  w 8/8  conf 0.10  -> SWAP SIDE BY SIDE  meet f255753 dist 1.20w IoU 0.00 dets 2
+cam5 cam5_0700_m5   label  479 t436->t439 birth f255741  id-box IoU 0.00  det-det IoU 0.00 (match 0.93/1.00)  ride 0%  w 8/8  conf 0.15  -> SWAP APART  meet f255744 dist 2.38w IoU 0.00 dets 3
+cam5 cam5_0700_m5   label  487 t442->t453 birth f255832  id-box IoU 0.00  det-det IoU 0.00 (match 1.00/1.00)  ride 10%  w 19/10  conf 0.13  -> SWAP AT OCCLUSION  meet f255910 dist 0.19w IoU 0.60 dets 2
+cam5 cam5_0700_m5   label  492 t453->t466 birth f255891  id-box IoU 0.00  det-det IoU 0.00 (match 0.99/1.00)  ride 0%  w 136/14  conf 0.31  -> SWAP SIDE BY SIDE  meet f255927 dist 0.51w IoU 0.05 dets 4
+
+   20  SWAP SIDE BY SIDE
+   20  SWAP AT OCCLUSION
+   10  RIDE (distinct dets)
+    6  SWAP APART
+    5  DUP-DET
+    3  ONE DET, TWO IDS

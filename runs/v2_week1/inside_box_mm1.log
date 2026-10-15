@@ -1,0 +1,138 @@
+  cam1 cam1_0700_m5 label 16: BROKEN HANDOFF t358->t360 gap -84f det 100% ids between 0 break at 98% of the way
+  cam1 cam1_0700_m5 label 19: NO TRACK OUT: DETECTED
+  cam1 cam1_0700_m5 label 20: NO TRACK OUT: DETECTED
+  cam1 cam1_0700_m5 label 28: BROKEN HANDOFF t381->t378 gap -18f det 100% ids between 0 break at 17% of the way
+  cam1 cam1_0700_m5 label 33: NO TRACK IN: DETECTED
+  cam1 cam1_0700_m5 label 60: BROKEN HANDOFF t422->t438 gap -3f det 100% ids between 0 break at 97% of the way
+  cam1 cam1_0700_m5 label 62: NO TRACK IN: DETECTED
+  cam1 cam1_0700_m5 label 67: BROKEN HANDOFF t439->t447 gap -6f det 100% ids between 0 break at 100% of the way
+  cam1 cam1_0700_m5 label 68: BROKEN HANDOFF t433->t439 gap -41f det 100% ids between 0 break at 44% of the way
+  cam1 cam1_0700_m50 label 539: BROKEN SWAP t3291->t3296 gap -34f det 100% ids between 0 break at 177% of the way
+  cam1 cam1_0700_m50 label 567: BROKEN HANDOFF t3328->t3331 gap -15f det 100% ids between 0 break at 107% of the way
+  cam1 cam1_0700_m50 label 568: BROKEN HANDOFF t3331->t3328 gap -41f det 100% ids between 0 break at 80% of the way
+  cam1 cam1_0700_m50 label 581: NO TRACK OUT: DETECTED
+  cam1 cam1_0700_m50 label 583: NO TRACK IN: DETECTED
+  cam1 cam1_0700_m50 label 583: NO TRACK OUT: DETECTED
+  cam1 cam1_0700_m50 label 595: BROKEN SWAP t3382->t3385 gap -28f det 100% ids between 0 break at 228% of the way
+  cam1 cam1_0700_m50 label 596: NO TRACK IN: DETECTED
+  cam1 cam1_0700_m50 label 598: BROKEN HANDOFF t3383->t3379 gap -40f det 100% ids between 0 break at 33% of the way
+  cam1 cam1_0700_m50 label 599: NO TRACK OUT: DETECTED
+  cam1 cam1_0700_m50 label 609: BROKEN HANDOFF t3384->t3404 gap -51f det 100% ids between 0 break at 50% of the way
+  cam1 cam1_0700_m50 label 611: BROKEN HANDOFF t3400->t3406 gap -9f det 100% ids between 0 break at 112% of the way
+  cam1 cam1_0700_m50 label 615: BROKEN SWAP t3408->t3410 gap -56f det 100% ids between 0 break at 362% of the way
+  cam1 cam1_0700_m50 label 616: BROKEN SWAP t3410->t3408 gap -42f det 100% ids between 0 break at 238% of the way
+  cam1 cam1_0700_m50 label 617: BROKEN HANDOFF t3413->t3384 gap -117f det 100% ids between 0 break at 72% of the way
+  cam1 cam1_0700_m50 label 618: BROKEN SWAP t3404->t3413 gap -82f det 100% ids between 0 break at 600% of the way
+  cam1 cam1_0700_m50 label 620: NO TRACK IN: DETECTED
+  cam1 cam1_0700_m50 label 620: NO TRACK OUT: DETECTED
+  cam1 cam1_0700_m50 label 637: NO TRACK IN: DETECTED
+  cam1 cam1_0700_m50 label 646: NO TRACK OUT: NOT DETECTED
+  cam1 cam1_0700_m50 label 651: BROKEN SWAP t3467->t3469 gap -46f det 100% ids between 0 break at 109% of the way
+  cam1 cam1_0700_m50 label 652: BROKEN HANDOFF t3469->t3467 gap -58f det 100% ids between 0 break at 94% of the way
+  cam2 cam2_1600_m5 label 109: NO TRACK OUT: DETECTED
+  cam2 cam2_1600_m5 label 123: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m5 label 123: NO TRACK OUT: DETECTED
+  cam2 cam2_1600_m5 label 144: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m5 label 145: BROKEN SWAP t750->t753 gap -103f det 100% ids between 0 break at 115% of the way
+  cam2 cam2_1600_m5 label 153: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m5 label 164: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m5 label 182: NO TRACK OUT: DETECTED
+  cam2 cam2_1600_m5 label 183: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m5 label 191: BROKEN SWAP t816->t818 gap -290f det 100% ids between 0 break at 523% of the way
+  cam2 cam2_1600_m5 label 192: BROKEN SWAP t818->t823 gap -2392f det 100% ids between 0 break at 3087% of the way
+  cam2 cam2_1600_m5 label 228: BROKEN SWAP t872->t841 gap -1297f det 100% ids between 0 break at 1046% of the way
+  cam2 cam2_1600_m5 label 238: NO TRACK OUT: DETECTED
+  cam2 cam2_1600_m5 label 240: NO TRACK OUT: NOT DETECTED
+  cam2 cam2_1600_m5 label 241: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m5 label 248: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m5 label 248: NO TRACK OUT: DETECTED
+  cam2 cam2_1600_m50 label 674: NO TRACK OUT: DETECTED
+  cam2 cam2_1600_m50 label 679: BROKEN SWAP t6461->t6453 gap -375f det 100% ids between 0 break at 759% of the way
+  cam2 cam2_1600_m50 label 683: BROKEN SWAP t6465->t6461 gap -165f det 100% ids between 0 break at 149% of the way
+  cam2 cam2_1600_m50 label 682: BROKEN GAP-MISS t6462->t6473 gap +3f det 50% ids between 0 break at 98% of the way
+  cam2 cam2_1600_m50 label 684: BROKEN HANDOFF t6466->t6465 gap -86f det 100% ids between 0 break at 67% of the way
+  cam2 cam2_1600_m50 label 685: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m50 label 685: NO TRACK OUT: DETECTED
+  cam2 cam2_1600_m50 label 689: BROKEN SWAP t6484->t6406 gap -625f det 100% ids between 0 break at 185% of the way
+  cam2 cam2_1600_m50 label 702: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m50 label 708: BROKEN SWAP t6516->t6504 gap -316f det 100% ids between 0 break at 226% of the way
+  cam2 cam2_1600_m50 label 724: BROKEN SWAP t6539->t6530 gap -493f det 100% ids between 0 break at 249% of the way
+  cam2 cam2_1600_m50 label 730: BROKEN SWAP t6557->t6565 gap -374f det 100% ids between 0 break at 474% of the way
+  cam2 cam2_1600_m50 label 736: BROKEN HANDOFF t6591->t6557 gap -478f det 100% ids between 0 break at 78% of the way
+  cam2 cam2_1600_m50 label 750: BROKEN SWAP t6609->t6600 gap -1462f det 100% ids between 0 break at 1739% of the way
+  cam2 cam2_1600_m50 label 751: BROKEN SWAP t6600->t6609 gap -144f det 100% ids between 0 break at 255% of the way
+  cam2 cam2_1600_m50 label 766: BROKEN SWAP t6656->t6668 gap -583f det 100% ids between 0 break at 761% of the way
+  cam2 cam2_1600_m50 label 768: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m50 label 767: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m50 label 769: BROKEN SWAP t6657->t6662 gap -75f det 100% ids between 0 break at 128% of the way
+  cam2 cam2_1600_m50 label 772: BROKEN SWAP t6666->t6673 gap -535f det 100% ids between 0 break at 747% of the way
+  cam2 cam2_1600_m50 label 777: BROKEN SWAP t6678->t6682 gap -77f det 100% ids between 0 break at 175% of the way
+  cam2 cam2_1600_m50 label 778: NO TRACK IN: DETECTED
+  cam2 cam2_1600_m50 label 796: NO TRACK IN: NOT DETECTED
+  cam2 cam2_1600_m50 label 814: BROKEN SWAP t15492->t6731 gap -163f det 100% ids between 0 break at 106% of the way
+  cam2 cam2_1600_m50 label 815: BROKEN HANDOFF t6731->t15492 gap -216f det 100% ids between 0 break at 98% of the way
+  cam2 cam2_1600_m50 label 840: NO TRACK IN: DETECTED
+  cam3 cam3_0600_m5 label 251: BROKEN HANDOFF t374->t384 gap -8f det 100% ids between 0 break at 85% of the way
+  cam3 cam3_0600_m5 label 255: BROKEN HANDOFF t392->t403 gap -6f det 100% ids between 0 break at 85% of the way
+  cam3 cam3_0600_m5 label 256: BROKEN HANDOFF t403->t405 gap -8f det 100% ids between 0 break at 85% of the way
+  cam3 cam3_0600_m5 label 259: NO TRACK OUT: DETECTED
+  cam3 cam3_0600_m5 label 262: BROKEN HANDOFF t435->t440 gap -5f det 100% ids between 0 break at 47% of the way
+  cam3 cam3_0600_m5 label 264: BROKEN HANDOFF t451->t444 gap -76f det 100% ids between 0 break at 38% of the way
+  cam3 cam3_0600_m5 label 275: BROKEN HANDOFF t456->t474 gap -10f det 100% ids between 0 break at 92% of the way
+  cam3 cam3_0600_m5 label 280: BROKEN HANDOFF t464->t486 gap -15f det 100% ids between 0 break at 80% of the way
+  cam3 cam3_0600_m5 label 281: BROKEN HANDOFF t491->t485 gap -26f det 100% ids between 0 break at 82% of the way
+  cam3 cam3_0600_m5 label 282: BROKEN HANDOFF t447->t493 gap -7f det 100% ids between 0 break at 77% of the way
+  cam3 cam3_0600_m5 label 284: NO TRACK OUT: NOT DETECTED
+  cam3 cam3_0600_m5 label 285: BROKEN HANDOFF t498->t496 gap -14f det 100% ids between 0 break at 21% of the way
+  cam3 cam3_0600_m5 label 287: NO TRACK IN: DETECTED
+  cam3 cam3_0600_m5 label 287: NO TRACK OUT: DETECTED
+  cam3 cam3_0600_m5 label 288: BROKEN HANDOFF t497->t511 gap -8f det 100% ids between 0 break at 81% of the way
+  cam3 cam3_0600_m5 label 290: BROKEN HANDOFF t516->t503 gap -97f det 100% ids between 0 break at 47% of the way
+  cam3 cam3_0600_m5 label 291: BROKEN HANDOFF t503->t519 gap -6f det 100% ids between 0 break at 77% of the way
+  cam3 cam3_0600_m5 label 303: BROKEN HANDOFF t542->t550 gap -9f det 100% ids between 0 break at 69% of the way
+  cam3 cam3_0600_m5 label 306: BROKEN HANDOFF t557->t564 gap -1f det 100% ids between 0 break at 38% of the way
+  cam3 cam3_0600_m5 label 308: BROKEN HANDOFF t552->t569 gap -14f det 100% ids between 0 break at 47% of the way
+  cam4 cam4_1600_m5 label 315: NO TRACK IN: NOT DETECTED
+  cam4 cam4_1600_m5 label 318: BROKEN HANDOFF t356->t363 gap -1f det 100% ids between 0 break at 108% of the way
+  cam4 cam4_1600_m5 label 319: BROKEN HANDOFF t358->t356 gap -31f det 100% ids between 0 break at 38% of the way
+  cam4 cam4_1600_m5 label 347: NO TRACK IN: DETECTED
+  cam4 cam4_1600_m5 label 357: NO TRACK IN: NOT DETECTED
+  cam4 cam4_1600_m5 label 357: NO TRACK OUT: NOT DETECTED
+  cam4 cam4_1600_m5 label 389: NO TRACK IN: DETECTED
+  cam4 cam4_1600_m5 label 399: NO TRACK IN: DETECTED
+  cam4 cam4_1600_m5 label 400: NO TRACK OUT: DETECTED
+  cam4 cam4_1600_m5 label 409: NO TRACK IN: DETECTED
+  cam5 cam5_0700_m5 label 430: NO TRACK OUT: NOT DETECTED
+  cam5 cam5_0700_m5 label 442: BROKEN HANDOFF t384->t386 gap -14f det 100% ids between 0 break at 60% of the way
+  cam5 cam5_0700_m5 label 446: BROKEN SWAP t391->t392 gap -44f det 100% ids between 0 break at 178% of the way
+  cam5 cam5_0700_m5 label 447: BROKEN SWAP t392->t391 gap -92f det 100% ids between 0 break at 340% of the way
+  cam5 cam5_0700_m5 label 450: NO TRACK OUT: NOT DETECTED
+  cam5 cam5_0700_m5 label 452: NO TRACK OUT: DETECTED
+  cam5 cam5_0700_m5 label 454: NO TRACK OUT: NOT DETECTED
+  cam5 cam5_0700_m5 label 469: BROKEN HANDOFF t432->t433 gap -11f det 100% ids between 0 break at 47% of the way
+  cam5 cam5_0700_m5 label 475: NO TRACK OUT: NOT DETECTED
+  cam5 cam5_0700_m5 label 478: BROKEN SWAP t439->t436 gap -79f det 100% ids between 0 break at 119% of the way
+  cam5 cam5_0700_m5 label 479: BROKEN HANDOFF t436->t439 gap -68f det 100% ids between 0 break at 57% of the way
+  cam5 cam5_0700_m5 label 485: NO TRACK OUT: NOT DETECTED
+  cam5 cam5_0700_m5 label 487: BROKEN HANDOFF t442->t453 gap -146f det 100% ids between 0 break at 74% of the way
+  cam5 cam5_0700_m5 label 492: BROKEN SWAP t453->t466 gap -123f det 100% ids between 0 break at 586% of the way
+  cam5 cam5_0700_m5 label 519: NO TRACK OUT: DETECTED
+
+INSIDE THE BOX (mm1), labelled full journeys, dev + held-out
+  cam1: cars  213  ONE TRACK 184  BROKEN SWAP 6  BROKEN HANDOFF 12  NO TRACK IN: DETECTED 6  NO TRACK OUT: DETECTED 6  NO TRACK OUT: NOT DETECTED 1
+  cam2: cars  326  ONE TRACK 286  BROKEN SWAP 17  BROKEN HANDOFF 3  BROKEN GAP-MISS 1  NO TRACK IN: DETECTED 13  NO TRACK IN: NOT DETECTED 1  NO TRACK OUT: DETECTED 7  NO TRACK OUT: NOT DETECTED 1
+  cam3: cars   61  ONE TRACK 42  BROKEN HANDOFF 16  NO TRACK IN: DETECTED 1  NO TRACK OUT: DETECTED 2  NO TRACK OUT: NOT DETECTED 1
+  cam4: cars  112  ONE TRACK 103  BROKEN HANDOFF 2  NO TRACK IN: DETECTED 4  NO TRACK IN: NOT DETECTED 2  NO TRACK OUT: DETECTED 1  NO TRACK OUT: NOT DETECTED 1
+  cam5: cars  104  ONE TRACK 89  BROKEN SWAP 4  BROKEN HANDOFF 4  NO TRACK OUT: DETECTED 2  NO TRACK OUT: NOT DETECTED 5
+  ALL : cars  816
+     ONE TRACK                     704  (86.3%)
+     BROKEN SWAP                    27  (3.3%)
+     BROKEN HANDOFF                 37  (4.5%)
+     BROKEN GAP-MISS                 1  (0.1%)
+     NO TRACK IN: DETECTED          24  (2.9%)
+     NO TRACK IN: NOT DETECTED       3  (0.4%)
+     NO TRACK OUT: DETECTED         18  (2.2%)
+     NO TRACK OUT: NOT DETECTED      9  (1.1%)
+  BROKEN HANDOFF: break at median 77% of the way from entry to exit (quartiles 47% / 85%)
+  BROKEN SWAP: break at median 249% of the way from entry to exit (quartiles 176% / 593%)
+  BROKEN GAP-MISS: break at median 98% of the way from entry to exit (quartiles 98% / 98%)

@@ -4199,3 +4199,19 @@ event count equals the mm1 arm's (e.g. cam1 0700 4730, cam3 0600 29231, cam5 160
 backup: data/projects/97a7849a/backups/project_20261015T115417_pre_default_reprocess_mm1.db.
 Standings: fleet 91.92 (from 89.06), approach 82.72 (from 83.54), labels 448 dev / 272 held-out,
 FM 51 92.5 / 100.0. Next: double counting (one car on two tracks), one rule for every camera.
+
+## INSIDE THE BOX, CAR BY CAR (2026-10-15, operator: "double counts are cars we miss ... tracking still sucks ...
+## ignore noise from tracking outside of the intersection and keep signal that is found inside the intersection")
+Count-level double-count rules (np1 nested partial, ho1-3 overlapping handoff; Step 9.113) are STOPPED: they trade
+doubles for misses. The yardstick is now one track per car from its entry click to its exit click.
+scripts/research_inside_box.py (runs/v2_week1/inside_box_mm1.log), 816 labelled full journeys, dev + held-out:
+  ONE TRACK 704 (86.3%); BROKEN: SWAP 27, two ids at once 37, gap 1; NO TRACK at a line but the car DETECTED 42;
+  the detector missing the car 13 (1.6%). The detector is not the problem; identity inside the box is.
+scripts/research_break_mechanism.py (break_mechanism_mm1.log), the 64 broken cars: ids swapped where two cars MEET -
+side by side 20, one hiding the other 20, apart 6 - with the detector still drawing BOTH boxes (2-6 dets); a second
+id on the car's own extra box 18 (distinct-det ride 10, duplicate det 5, one det two ids 3).
+scripts/research_encounters.py (encounters_mm1.log): at every meeting of two labelled cars' tracks, the motion of the
+swapped pairing vs the tracker's: true swaps - swap smoother in 3, keep smoother in 12, too short to judge 46 (the swap
+coincides with an id ending / starting); true keeps - keep smoother 943 / 27. MOTION CANNOT TELL THE CARS APART where
+they meet: the tracker's choice is already the smooth one. Every motion / geometry rule (tracker or counting) is
+working in the dark there - why av1 / T1 / dt2 / np1 / ho3 each trade one error for another.
