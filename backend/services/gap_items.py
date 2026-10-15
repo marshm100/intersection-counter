@@ -113,6 +113,20 @@ def items_for_flag(project_id: str, flag: dict) -> dict:
     gates = build_gates(mouths, list_paths_for_camera(project_id, cam),
                         heads, leg_gates=drawn or None)
 
+    items, n_eventless = candidate_items(sl, kept, rej, gates, legs_full, fps,
+                                         approach)
+    items.sort(key=lambda i: i["t_cross"])
+    capped = len(items) > MAX_ITEMS
+    return {"variant": variant, "items": items[:MAX_ITEMS],
+            "n_eventless": n_eventless, "capped": capped}
+
+
+def candidate_items(sl, kept: set, rej: set, gates, legs_full: dict,
+                    fps: float, approach: str = "") -> tuple[list, int]:
+    """The candidate filter of items_for_flag over dump rows ``sl``, factored out
+    (2026-10-15, cell risk / missed-car review) so a 15-min CELL can be asked the
+    same question as a gap flag, and a research script can ask it of a working DB.
+    Returns (items unsorted, n_eventless)."""
     by_tid: dict[int, list] = {}
     for r in sl:
         by_tid.setdefault(int(r[0]), []).append(
@@ -176,7 +190,4 @@ def items_for_flag(project_id: str, flag: dict) -> dict:
             "y": round(float(pos[1]), 1),
         })
 
-    items.sort(key=lambda i: i["t_cross"])
-    capped = len(items) > MAX_ITEMS
-    return {"variant": variant, "items": items[:MAX_ITEMS],
-            "n_eventless": n_eventless, "capped": capped}
+    return items, n_eventless

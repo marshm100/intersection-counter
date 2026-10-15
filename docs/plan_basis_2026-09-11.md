@@ -4265,3 +4265,20 @@ traffic: the top 30% hold 78% of failing movement cell-bins (88% of the excess) 
 approach level only 28%.
 READING: in striking distance on the SIZE of the gap; not yet on FINDING it, nor on the under-counts. Needed: a
 label-free per-cell-bin risk that separates failing from passing cell-bins, and a missed-car review for UNDER cells.
+
+## REVIEW THAT CLOSES 5/95 (2026-10-15, operator: "plan it out and build both"; plan
+## C:\Users\marsh\.claude\plans\proud-wiggling-swan.md)
+PHASE 0 DONE (Step 9.119): two_pass._apply_window_events keeps reviewer ADDs and replays edits / rejects onto the same
+track across a re-apply (rulings on vanished tracks reported in result["review_replay"]). gap_items.candidate_items
+factored out of items_for_flag (same filter, callable for any bin / working DB).
+### PHASE 1a - THE CELL RISK SCORE: GATE R FAIL (scripts/research_cell_risk.py -> runs/v2_week1/cell_risk_mm1.log)
+Features per cell-bin, runtime-only: ENC (counts on encounter flags), PART (counts from partial journeys), MISS
+(gap-card candidates: tracked, moving, uncounted), LINK (lagged corridor residual; lags 0-4 min, r 0.30-0.94).
+est = a*ENC + b*PART - c*MISS - d*LINK, one nonneg weight set, leave-one-camera-out. Weights stable across folds
+(ENC ~0.01, PART ~0.13, MISS 0.2-0.6, LINK 0.03-0.12) - but the score does not aim:
+  movement, top 20% of cell-bins: RISK 41% of the failing excess (baseline "our count" = traffic 65%); per camera
+  30-74%; FM 51 17%. Approach: RISK 14% (traffic 13%). Direction (over vs under) on failing cell-bins 50/98 and
+  45/79 - a coin.
+READING: every runtime signal measures how much is UNCERTAIN in a cell, not which way its errors NET; the 5/95 failures
+are cells where the errors happened not to cancel, which the uncertainty does not predict. Per the plan, phases 1c,
+2 and 3 are NOT built on a score that cannot aim.

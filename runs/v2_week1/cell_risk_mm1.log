@@ -1,0 +1,67 @@
+CORRIDOR LINKS (lag in minutes chosen by correlation):
+  cam1 -> cam2: lag 1 min  r 0.34
+  cam2 -> cam1: lag 0 min  r 0.30
+  cam2 -> cam3: lag 0 min  r 0.56
+  cam3 -> cam2: lag 1 min  r 0.31
+  cam3 -> cam4: lag 0 min  r 0.94
+  cam4 -> cam3: lag 0 min  r 0.44
+  cam4 -> cam5: lag 1 min  r 0.61
+  cam5 -> cam4: lag 4 min  r 0.49
+cam1 study_0700: 66 movement cell-bins; ENC 2907 PART 227 MISS 39 LINK -108
+cam1 study_1600: 75 movement cell-bins; ENC 3050 PART 191 MISS 34 LINK +372
+cam2 study_0700: 100 movement cell-bins; ENC 4155 PART 43 MISS 109 LINK -380
+cam2 study_1100: 101 movement cell-bins; ENC 3099 PART 45 MISS 71 LINK -15
+cam2 study_1600: 109 movement cell-bins; ENC 5602 PART 39 MISS 160 LINK +110
+cam3 study_0600: 325 movement cell-bins; ENC 6760 PART 533 MISS 485 LINK +477
+cam4 study_0700: 44 movement cell-bins; ENC 2122 PART 300 MISS 22 LINK -254
+cam4 study_1100: 47 movement cell-bins; ENC 494 PART 163 MISS 25 LINK -153
+cam4 study_1600: 53 movement cell-bins; ENC 3331 PART 383 MISS 53 LINK -202
+cam5 study_0700: 103 movement cell-bins; ENC 3132 PART 123 MISS 84 LINK +67
+cam5 study_1100: 104 movement cell-bins; ENC 2273 PART 43 MISS 57 LINK -14
+cam5 study_1600: 101 movement cell-bins; ENC 3868 PART 43 MISS 61 LINK -21
+FM51 vl3_l1_study_0700: 40 movement cell-bins
+FM51 vl3_l1_study_1600: 42 movement cell-bins
+
+=== MOVEMENT cell-bins: 1228, failing 98, excess 884
+  fold cam1: weights ENC 0.001 PART 0.124 MISS 0.356 LINK 0.121
+  fold cam2: weights ENC 0.005 PART 0.166 MISS 0.593 LINK 0.063
+  fold cam3: weights ENC 0.009 PART 0.130 MISS 0.200 LINK 0.034
+  fold cam4: weights ENC 0.004 PART 0.126 MISS 0.442 LINK 0.049
+  fold cam5: weights ENC 0.014 PART 0.119 MISS 0.457 LINK 0.064
+  FLEET (each camera scored with weights fit on the other four):
+    baseline: our count        top10%: 14/98 fail,  19% excess  top20%: 38/98 fail,  65% excess  top30%: 72/98 fail,  87% excess
+    baseline: ENC / tolerance  top10%: 20/98 fail,  19% excess  top20%: 49/98 fail,  40% excess  top30%: 74/98 fail,  84% excess
+    RISK (leave-one-camera-out) top10%: 16/98 fail,  14% excess  top20%: 38/98 fail,  41% excess  top30%: 49/98 fail,  52% excess
+      cam1                     top10%: 1/9 fail,  13% excess  top20%: 3/9 fail,  68% excess  top30%: 3/9 fail,  68% excess
+      cam2                     top10%: 7/49 fail,  26% excess  top20%: 11/49 fail,  30% excess  top30%: 16/49 fail,  42% excess
+      cam3                     top10%: 9/21 fail,  40% excess  top20%: 15/21 fail,  56% excess  top30%: 17/21 fail,  87% excess
+      cam4                     top10%: 1/10 fail,   4% excess  top20%: 4/10 fail,  41% excess  top30%: 5/10 fail,  68% excess
+      cam5                     top10%: 2/9 fail,  24% excess  top20%: 5/9 fail,  74% excess  top30%: 5/9 fail,  74% excess
+  weights on all 5 cameras: ENC 0.008 PART 0.134 MISS 0.462 LINK 0.066
+  FM 51 (82 cell-bins, failing 3, excess 11):
+    baseline: our count        top10%: 0/3 fail,   0% excess  top20%: 1/3 fail,  17% excess  top30%: 2/3 fail,  72% excess
+    RISK (corridor weights)    top10%: 1/3 fail,  17% excess  top20%: 1/3 fail,  17% excess  top30%: 1/3 fail,  17% excess
+  direction on failing cell-bins (over vs under): 50/98 right
+
+=== APPROACH cell-bins: 487, failing 79, excess 795
+  fold cam1: weights ENC 0.017 PART 0.053 MISS 0.393 LINK 0.084
+  fold cam2: weights ENC 0.017 PART 0.088 MISS 0.666 LINK 0.048
+  fold cam3: weights ENC 0.020 PART 0.023 MISS 0.177 LINK 0.020
+  fold cam4: weights ENC 0.018 PART 0.000 MISS 0.391 LINK 0.035
+  fold cam5: weights ENC 0.029 PART 0.000 MISS 0.471 LINK 0.041
+  FLEET (each camera scored with weights fit on the other four):
+    baseline: our count        top10%: 2/79 fail,   3% excess  top20%: 8/79 fail,  13% excess  top30%: 15/79 fail,  19% excess
+    baseline: ENC / tolerance  top10%: 15/79 fail,  11% excess  top20%: 23/79 fail,  18% excess  top30%: 31/79 fail,  28% excess
+    RISK (leave-one-camera-out) top10%: 11/79 fail,   8% excess  top20%: 20/79 fail,  14% excess  top30%: 33/79 fail,  30% excess
+      cam1                     top10%: 0/5 fail,   0% excess  top20%: 2/5 fail,  48% excess  top30%: 3/5 fail,  69% excess
+      cam2                     top10%: 6/39 fail,  18% excess  top20%: 10/39 fail,  26% excess  top30%: 13/39 fail,  34% excess
+      cam3                     top10%: 6/21 fail,  34% excess  top20%: 11/21 fail,  56% excess  top30%: 16/21 fail,  84% excess
+      cam4                     top10%: 2/11 fail,   9% excess  top20%: 4/11 fail,  44% excess  top30%: 4/11 fail,  44% excess
+      cam5                     top10%: 1/3 fail,  21% excess  top20%: 1/3 fail,  21% excess  top30%: 1/3 fail,  21% excess
+  weights on all 5 cameras: ENC 0.022 PART 0.023 MISS 0.461 LINK 0.046
+  FM 51 (46 cell-bins, failing 4, excess 16):
+    baseline: our count        top10%: 1/4 fail,  27% excess  top20%: 1/4 fail,  27% excess  top30%: 2/4 fail,  38% excess
+    RISK (corridor weights)    top10%: 2/4 fail,  30% excess  top20%: 2/4 fail,  30% excess  top30%: 2/4 fail,  30% excess
+  direction on failing cell-bins (over vs under): 45/79 right
+GATE R MOVEMENT: fleet top-20% >= 80% excess FAIL; every camera >= 60% FAIL; FM 51 >= 80% FAIL
+GATE R APPROACH: fleet top-20% >= 80% excess FAIL; every camera >= 60% FAIL; FM 51 >= 80% FAIL
