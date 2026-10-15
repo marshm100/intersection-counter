@@ -4175,3 +4175,18 @@ movement (approach 87.0 / 83.3), not the stale 85.7 / 89.8. Remaining for mm1: h
   mm1c 271 / 304 -> mm1 272 / 304 (only-ctrl 1, only-mm1 2; p 1.0): cam1 0700 107 -> 108, cam2 1600 164 -> 164 (one won,
   one lost). Phantoms 22 and broken 31 unchanged. NOT WORSE: PASS. Every declared bar for mm1 now passes; the fleet
   approach dip (83.54 -> 82.72) is the one open item. Ship only on the operator's go.
+
+### WHY mm1 LOWERS cam2's APPROACH SCORE (2026-10-15, operator: "look at camera 2's problem first";
+### scripts/research_mm1_approach.py -> runs/v2_week1/mm1_approach_cam2.log)
+The approach score is 32 cells a window (4 approaches x 8 bins); 3.1 points = one cell. Across cam2's three windows mm1
+flips 12 approach cells: LOST 8, WON 4, every one by a margin of 1-9 cars at the edge of the 5/95 band. 6 of the 8 lost
+are EB. The EB approach is ALREADY over Miovision before mm1 (ctrl 594 / 901 / 1698 vs Mio 517 / 853 / 1650) because EB
+right is over-counted (264 / 407 / 798 vs 167 / 351 / 699 - mechanism B, one queued car on two tracks, untouched by mm1).
+mm1 then moves traffic INTO EB: EB thru 103 -> 107 (Mio 119), 166 -> 195 (176), 401 -> 473 (454) - toward Mio at 07:00,
+past it at 11:00 / 16:00 - mainly SB left -> EB thru by lane (27 at 16:00, 7 at 11:00; SB left 338 -> 319 vs Mio 307,
+toward) and EB right / EB left -> EB thru by the ray. Each added EB car, right or wrong, tips an already-high EB cell
+over the band. Flip volume per window: 148 / 146 / 347 changed events, most of it the SB thru <-> EB right corner
+traded both ways.
+Reading: the dip is mostly the EB right duplicates (a pre-existing fault) showing through; mm1 does overshoot EB thru by
+~19 at 11:00 and 16:00, so a minority of its SB -> EB lane decisions are likely wrong. The lever with the most on it is
+the EB right double-count (mechanism B), which needs a count-once rule that does not merge side-by-side cars.

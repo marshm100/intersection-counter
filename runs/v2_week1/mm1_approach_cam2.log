@@ -1,0 +1,50 @@
+
+== cam2 study_0700
+  07:15  EB: LOST  Mio 56  ctrl 61  mm1 64
+        EB  left: Mio   19  ctrl   18  mm1   20
+        EB right: Mio   23  ctrl   27  mm1   28
+  07:15  SB: WON   Mio 235  ctrl 247  mm1 246
+        SB right: Mio   52  ctrl   52  mm1   50
+        SB  thru: Mio  175  ctrl  187  mm1  188
+  07:45  WB: LOST  Mio 86  ctrl 91  mm1 93
+        WB  left: Mio   11  ctrl   10  mm1   11
+        WB right: Mio   40  ctrl   44  mm1   43
+        WB  thru: Mio   35  ctrl   37  mm1   39
+
+== cam2 study_1100
+  11:00  EB: LOST  Mio 90  ctrl 94  mm1 100
+        EB  left: Mio   32  ctrl   35  mm1   34
+        EB right: Mio   42  ctrl   40  mm1   45
+        EB  thru: Mio   16  ctrl   19  mm1   21
+  11:30  EB: LOST  Mio 107  ctrl 106  mm1 113
+        EB  left: Mio   38  ctrl   38  mm1   40
+        EB right: Mio   45  ctrl   47  mm1   50
+        EB  thru: Mio   24  ctrl   21  mm1   23
+  11:45  EB: WON   Mio 108  ctrl 116  mm1 112
+        EB right: Mio   46  ctrl   54  mm1   47
+        EB  thru: Mio   25  ctrl   24  mm1   27
+  12:00  EB: LOST  Mio 115  ctrl 118  mm1 121
+        EB  left: Mio   46  ctrl   45  mm1   44
+        EB right: Mio   41  ctrl   45  mm1   46
+        EB  thru: Mio   28  ctrl   28  mm1   31
+  12:00  SB: WON   Mio 197  ctrl 207  mm1 201
+        SB right: Mio   49  ctrl   56  mm1   53
+        SB  thru: Mio  124  ctrl  130  mm1  127
+  12:15  WB: LOST  Mio 48  ctrl 53  mm1 54
+        WB  thru: Mio   24  ctrl   25  mm1   26
+
+== cam2 study_1600
+  16:15  SB: WON   Mio 215  ctrl 257  mm1 219
+        SB  left: Mio   12  ctrl   18  mm1   15
+        SB right: Mio   26  ctrl   34  mm1   35
+        SB  thru: Mio  177  ctrl  204  mm1  169
+        SB uturn: Mio    0  ctrl    1  mm1    0
+  16:30  EB: LOST  Mio 247  ctrl 258  mm1 267
+        EB right: Mio   94  ctrl  123  mm1  122
+        EB  thru: Mio   69  ctrl   53  mm1   63
+  17:00  EB: LOST  Mio 208  ctrl 217  mm1 224
+        EB  left: Mio   72  ctrl   68  mm1   65
+        EB right: Mio   85  ctrl  101  mm1  104
+        EB  thru: Mio   51  ctrl   48  mm1   55
+
+approach cells flipped: lost 8  won 4
