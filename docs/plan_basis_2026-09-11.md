@@ -4282,3 +4282,20 @@ est = a*ENC + b*PART - c*MISS - d*LINK, one nonneg weight set, leave-one-camera-
 READING: every runtime signal measures how much is UNCERTAIN in a cell, not which way its errors NET; the 5/95 failures
 are cells where the errors happened not to cancel, which the uncertainty does not predict. Per the plan, phases 1c,
 2 and 3 are NOT built on a score that cannot aim.
+
+## THE FAILURE PREDICTOR (2026-10-15, operator: "identify when we think the program is going to break and in what
+## instances ... only pull instances where we must have a human"; plan proud-wiggling-swan; option (b), budget 15 min/h)
+Built: backend/services/encounter_flags.py (moved from research_review_queue), backend/services/failure_features.py
+(runtime-only features of a counted journey C / uncounted candidate U - no camera or site constant),
+scripts/build_failure_dataset.py (-> runs/v2_week1/failure_dataset_mm1.parquet), scripts/train_failure_model.py
+(-> data/models/failure_v1.json, plain numbers, no pickle; failure_v1_report.json). FM 51 label clip defined
+(journey_clips.py 0acb12c0: cam2_0700_m5); cam3 / cam4 / cam5 _m50 await labels too.
+DATASET (dev clips): 517 counted journeys, 46 errors (8.9%: WRONG 11, DOUBLE 13, PHANTOM 22). U instances almost
+absent (5; 2 MISSED): a missed car rarely leaves an uncounted track of its own - its box rode another car's track -
+so misses have no instance to pull.
+FIRST FIT, leave one camera out (runs/v2_week1/train_failure_model.log): the budget is 4 pulls per 3-min clip
+(15 min/h at 10 s) against ~9 errors per clip. Logistic: 9 of 20 pulls real (45% precision), 20% of errors caught,
+average precision 0.24 vs base 0.09 (2.7x chance); boosted 40% / 17%, AP 0.34; logistic kept (boosted does not win
+every fold). Calibration: the top decile predicts 0.53, observes 0.29. GATE P (precision >= 60%, calibration within
+10 points) NOT MET on the dev folds; the held-out clips are not scored yet (scored once, after the new labels, with
+a refit on the larger dev set).

@@ -1,0 +1,22 @@
+DEV: 517 counted journeys, 46 errors (8.9%); 37 features; budget 4 pulls per 3-min clip (15 min/h at 10 s)
+
+== logistic (leave one camera out) ==
+  cam1: 94 journeys, 9 errors | pulled 4: 1 real (25% precision), 11% of errors | avg precision 0.30 (base rate 0.10)
+  cam2: 134 journeys, 11 errors | pulled 4: 1 real (25% precision), 9% of errors | avg precision 0.12 (base rate 0.08)
+  cam3: 69 journeys, 15 errors | pulled 4: 3 real (75% precision), 20% of errors | avg precision 0.58 (base rate 0.22)
+  cam4: 113 journeys, 3 errors | pulled 4: 2 real (50% precision), 67% of errors | avg precision 0.46 (base rate 0.03)
+  cam5: 107 journeys, 8 errors | pulled 4: 2 real (50% precision), 25% of errors | avg precision 0.42 (base rate 0.07)
+  ALL: pulled 20: 9 real (45% precision), 20% of errors; avg precision 0.24 (base 0.09)
+  calibration (n, predicted, observed): (52,0.00,0.12)  (52,0.00,0.08)  (51,0.00,0.00)  (52,0.01,0.02)  (51,0.01,0.02)  (52,0.01,0.00)  (52,0.02,0.00)  (51,0.05,0.12)  (52,0.15,0.25)  (52,0.53,0.29)
+
+== boosted (leave one camera out) ==
+  cam1: 94 journeys, 9 errors | pulled 4: 3 real (75% precision), 33% of errors | avg precision 0.34 (base rate 0.10)
+  cam2: 134 journeys, 11 errors | pulled 4: 1 real (25% precision), 9% of errors | avg precision 0.24 (base rate 0.08)
+  cam3: 69 journeys, 15 errors | pulled 4: 1 real (25% precision), 7% of errors | avg precision 0.42 (base rate 0.22)
+  cam4: 113 journeys, 3 errors | pulled 4: 1 real (25% precision), 33% of errors | avg precision 0.53 (base rate 0.03)
+  cam5: 107 journeys, 8 errors | pulled 4: 2 real (50% precision), 25% of errors | avg precision 0.49 (base rate 0.07)
+  ALL: pulled 20: 8 real (40% precision), 17% of errors; avg precision 0.34 (base 0.09)
+  calibration (n, predicted, observed): (52,0.00,0.04)  (52,0.00,0.04)  (51,0.01,0.04)  (52,0.01,0.00)  (51,0.01,0.08)  (52,0.02,0.00)  (52,0.03,0.08)  (51,0.06,0.10)  (52,0.14,0.17)  (52,0.49,0.35)
+
+CHOICE: logistic
+strongest features (standardised coef): path_rel -0.80, turn_abs -0.56, src_rescue -0.54, tag_full -0.54, dest_conf +0.46, dest_margin -0.44, straight -0.43, det_conf -0.43, w_rel +0.40, tag_entry_only +0.36, tag_exit_only +0.34, traj_conf -0.34

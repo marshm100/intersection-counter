@@ -1,0 +1,21 @@
+97a7849a cam1_0700_m5   (dev): C:DOUBLE 2, C:OK 85, C:PHANTOM 2, C:WRONG 5
+97a7849a cam1_0700_m50  (heldout): C:OK 112, C:PHANTOM 1, C:WRONG 4
+97a7849a cam2_1600_m5   (dev): C:DOUBLE 2, C:OK 123, C:PHANTOM 5, C:WRONG 4, U:NOT 2
+97a7849a cam2_1600_m50  (heldout): C:DOUBLE 5, C:OK 166, C:PHANTOM 10, C:WRONG 3, U:NOT 1
+97a7849a cam3_0600_m5   (dev): C:DOUBLE 7, C:OK 54, C:PHANTOM 8, U:MISSED 1, U:NOT 1
+97a7849a cam4_1600_m5   (dev): C:OK 110, C:PHANTOM 3
+97a7849a cam5_0700_m5   (dev): C:DOUBLE 2, C:OK 99, C:PHANTOM 4, C:WRONG 2, U:MISSED 1
+
+824 instances -> runs\v2_week1\failure_dataset_mm1.parquet
+part     type  truth  
+dev      C     DOUBLE      13
+               OK         471
+               PHANTOM     22
+               WRONG       11
+         U     MISSED       2
+               NOT          3
+heldout  C     DOUBLE       5
+               OK         278
+               PHANTOM     11
+               WRONG        7
+         U     NOT          1
