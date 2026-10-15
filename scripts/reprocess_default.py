@@ -33,7 +33,8 @@ RULES = ("GATE_GROUND_ANCHOR", "STRAIGHT_FRAGMENT_RULE",
          "STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS", "FRACTURE_DEDUP",
          "GATE_EXIT_ONLY_BINDING", "BOUND_CHAIN_CONSERVE",
          "TRACKLET_LINKER", "TRACKLET_LINKER_EXCLUSIVE", "NOCROSS_NO_FALLBACK",
-         "THEFT_SPLIT", "FULL_JOURNEY_RESCUE", "NOCROSS_DROP_SMALL")
+         "THEFT_SPLIT", "FULL_JOURNEY_RESCUE", "NOCROSS_DROP_SMALL",
+         "MOUTH_FROM_MOTION")
 assert all(getattr(cfg, r) for r in RULES), "the default is not ON in config"
 assert not cfg.LINKER_STOPPED_LEVEL, "the linker ships with the stopped level OFF"
 import os  # noqa: E402
@@ -51,11 +52,11 @@ WINDOWS = [(1, "study_0700"), (1, "study_1600"),
            (3, "study_0600"),
            (4, "study_0700"), (4, "study_1100"), (4, "study_1600"),
            (5, "study_0700"), (5, "study_1100"), (5, "study_1600")]
-NOTE = ("operator go 2026-10-01: reprocess under THE DEFAULT "
-        "(small no-crossing tracks dropped, arm nc2, on the fr3 default)")
+NOTE = ("operator go 2026-10-15: reprocess under THE DEFAULT "
+        "(the mouth from motion, arm mm1, on the nc2 default)")
 ARM = Path("data/projects/97a7849a/_replay_scratch/fleet_20260908")
-ARM_STEM = "nc2"   # the arm this reprocess must reproduce
-# nc2 ran every camera on the promoted study_* dumps
+ARM_STEM = "mm1"   # the arm this reprocess must reproduce
+# mm1 ran every camera on the promoted study_* dumps
 ARM_VARIANT: dict = {}
 
 
@@ -65,7 +66,7 @@ def main() -> int:
     con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     con.close()
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
-    backup = proj_db.parent / "backups" / f"project_{ts}_pre_default_reprocess_nc2.db"
+    backup = proj_db.parent / "backups" / f"project_{ts}_pre_default_reprocess_mm1.db"
     shutil.copy2(proj_db, backup)
     print(f"pre-reprocess backup: {backup} ({backup.stat().st_size // 2**20} MB)",
           flush=True)

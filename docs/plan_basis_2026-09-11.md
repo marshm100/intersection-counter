@@ -4190,3 +4190,12 @@ traded both ways.
 Reading: the dip is mostly the EB right duplicates (a pre-existing fault) showing through; mm1 does overshoot EB thru by
 ~19 at 11:00 and 16:00, so a minority of its SB -> EB lane decisions are likely wrong. The lever with the most on it is
 the EB right double-count (mechanism B), which needs a count-once rule that does not merge side-by-side cars.
+
+## SHIPPED 2026-10-15 — the mouth from motion (arm mm1), operator go
+
+MOUTH_FROM_MOTION default ON (backend/config.py). All 12 production windows reprocessed under the
+default (scripts/reprocess_default.py, log runs/v2_week1/reprocess_default_mm1.log); every window's
+event count equals the mm1 arm's (e.g. cam1 0700 4730, cam3 0600 29231, cam5 1600 5993). Pre-reprocess
+backup: data/projects/97a7849a/backups/project_20261015T115417_pre_default_reprocess_mm1.db.
+Standings: fleet 91.92 (from 89.06), approach 82.72 (from 83.54), labels 448 dev / 272 held-out,
+FM 51 92.5 / 100.0. Next: double counting (one car on two tracks), one rule for every camera.

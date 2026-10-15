@@ -33,8 +33,12 @@ instead of dropped by the u-turn branch; labels 438 -> 444 with none worse, appr
 missed the window clause on its far-band W line, shipped by ruling); SMALL NO-CROSSING TRACKS NOT COUNTED
 NOCROSS_DROP_SMALL default ON (2026-10-01, operator go after arm nc2, from the event audit: a track that
 crosses no gate line with a median box under 5% of the frame width is a duplicate piece or off-intersection;
-letter PASS, FM 51 identical). FOURTEEN rules.
-(fleet 89.06 / approach 83.54 after nc2 on 2026-10-01; 88.84 / 82.03 after fr3 on 2026-10-01; 87.01 after ts1 on 2026-10-01; 86.87 after nf1b on 2026-10-01, approach 74.29; journey labels 521 vehicles, phantoms 47 -> 25,
+letter PASS, FM 51 identical); THE MOUTH FROM MOTION MOUTH_FROM_MOTION default ON (2026-10-15, operator go after arm
+mm1: a partial track's unseen entry or exit line is decided from the car's own motion against the lanes of the window's
+fully seen journeys - waited in a queue, lane cells only one movement uses, a ray that does not graze a line, a U-turn
+only if seen; fleet 89.06 -> 91.92, letter PASS, labels 445 -> 448 / held-out 271 -> 272 with none lost net, FM 51
+89.4 / 93.9 -> 92.5 / 100.0; approach 83.54 -> 82.72, the dip traced to cam2's EB-right double count). FIFTEEN rules.
+(fleet 91.92 / approach 82.72 after mm1 on 2026-10-15; 89.06 / 83.54 after nc2 on 2026-10-01; 88.84 / 82.03 after fr3 on 2026-10-01; 87.01 after ts1 on 2026-10-01; 86.87 after nf1b on 2026-10-01, approach 74.29; journey labels 521 vehicles, phantoms 47 -> 25,
 real cars unchanged. Fleet 82.68 after the linker on 2026-09-30 — against the HONEST control 80.81, every camera on
 the default tracker; the 83.50 below had cams 1-3 on one-off BoT-SORT recipes, which the
 one-default ruling of 2026-09-29 retired: "we ship one default to all intersections and if it
@@ -42,13 +46,17 @@ cant handle it we need to make the default better". Fleet 83.50 after G-EX-2 + t
 2026-09-12; 76.97 after G-BAR-1 on 09-11; 77.08 before it; 75.86 after the heading rulings;
 75.70 on 09-10). Env vars are overrides for experiments
 (X=0 turns a rule off); nothing in production needs them set.
+FM 51 NOTE (2026-10-15): scripts/fm51_arm.py scored a STALE working DB (last written 2026-09-20) from the
+linker on - every "FM 51 identical / unchanged" in this file and the plan docs after that date is VOID. Fixed
+(it copies pass 2's out_db). The default's true FM 51 before mm1: 89.4 / 93.9 movement (87.0 / 83.3 approach).
+Never run two fleet_flags.py fleets at once: they share the arm/ working dir and corrupt each other.
 NOTE on the gx2 ship: it MISSED the G-DEF-1 letter by 0.20 on one clause (cam1's camera mean
 -1.20 against the -1.0 bar) and was shipped by operator ruling anyway — fleet +4.12, cam4
 +15.20, no window worse than -1.3 against the -3.0 bar, FM 51 unchanged. The letter's camera
 clause was written to stop a default that RUINS a window; that is not this. Do not treat the
 miss as precedent for arguing a letter down without a ruling. Older plan docs' "operating
 notes" that require env flags are superseded. To improve the default: change it, run all
-12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 89.06, ship on a
+12 windows (scripts/fleet_flags.py, FLEET_WORKERS parallel), compare to 91.92, ship on a
 fleet PASS (docs/plan_default_2026-09-10.md). The four windows shipped by hand on 09-09
 and the fleet reprocess on 09-10 are the last per-window applies. (cam4 1600's 70.2-by-ruling
 note is SUPERSEDED: the recovery tracker plus G-EX-2 took that window to 84.9, and the

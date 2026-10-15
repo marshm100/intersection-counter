@@ -647,9 +647,11 @@ ON_SCREEN_ONLY = _os2.environ.get("ON_SCREEN_ONLY", "0") in ("1", "true", "on")
 # lane maps of the window's fully seen journeys - waited in a queue zone,
 # lane fit, the backward ray, the occluder - never from movement popularity
 # (operator 2026-10-13). COUNT ONCE: two counted tracks of one movement that
-# reach every spot of their path together are one car. Default OFF pending
-# the arm.
-MOUTH_FROM_MOTION = _os2.environ.get("MOUTH_FROM_MOTION", "0") in ("1", "true", "on")
+# reach every spot of their path together are one car. MOUTH_FROM_MOTION
+# SHIPPED default ON 2026-10-15 (operator go after arm mm1, mo7 switches:
+# fleet 89.06 -> 91.92, labels 445 -> 448 / held-out 271 -> 272, FM 51
+# 89.4 / 93.9 -> 92.5 / 100.0; approach 83.54 -> 82.72). COUNT_ONCE stays OFF.
+MOUTH_FROM_MOTION = _os2.environ.get("MOUTH_FROM_MOTION", "1") in ("1", "true", "on")
 COUNT_ONCE = _os2.environ.get("COUNT_ONCE", "0") in ("1", "true", "on")
 LANE_CELL_PX = 10.0          # lane-map cell (the far corner's boxes are 15-30 px)
 MOTION_FIT_S = 2.0           # seconds of motion compared against the lanes
