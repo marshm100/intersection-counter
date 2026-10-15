@@ -4215,3 +4215,17 @@ swapped pairing vs the tracker's: true swaps - swap smoother in 3, keep smoother
 coincides with an id ending / starting); true keeps - keep smoother 943 / 27. MOTION CANNOT TELL THE CARS APART where
 they meet: the tracker's choice is already the smooth one. Every motion / geometry rule (tracker or counting) is
 working in the dark there - why av1 / T1 / dt2 / np1 / ho3 each trade one error for another.
+
+### APPEARANCE AT THE ENCOUNTERS - GATE A FAIL (2026-10-15; plan C:\Users\marsh\.claude\plans\proud-wiggling-swan.md
+### step 1; scripts/research_encounter_appearance.py -> runs/v2_week1/encounter_appearance_mm1.log)
+Each car's look (verifier_v1_all .ver1 embeddings) over CLEAN boxes before vs after every in-box meeting of two
+labelled cars' tracks. 34 true swaps (20 dev / 14 held-out), ~200 true keeps.
+- STARVED: 28 of 34 swaps have no clean view on the sides needed (dev 19 of 20 unjudgeable at every M). The join is
+  fine (99% of dump rows find their detection); the cars are not: where ids swap, both cars are packed - cam2 16:00
+  only 28% of boxes are clean at all, ~0 around its swaps - and many swapped ids END at the meeting (no "after").
+- WHERE JUDGEABLE, NO SIGNAL: true swaps' margin median ~0 (dev -0.01, held-out -0.05 to -0.15 at M 1-2 s); true
+  keeps it would flip at D 0: 16-32 per ~70-90. No (M, D) on dev catches at 2x what it breaks. GATE A FAIL; the
+  never-saw-cam2 check is moot. No arm (step 2 not built).
+READING: where two cars meet inside the box, neither the motion (research_encounters) nor the look of the car over
+the nearest clean frames tells them apart in this video (640x480; small, packed boxes). The switch is decided where
+the information is not.

@@ -1,0 +1,61 @@
+  cam1_0700_m5   SWAP t358/t360 f255625-255627  margin -  -  -
+  cam1_0700_m5   SWAP t422/t438 f256021-256021  margin -  -  -
+  cam1_0700_m5   SWAP t439/t447 f256054-256056  margin -  -  -
+cam1_0700_m5: 3 swaps, 11 keeps
+  cam1_0700_m50  SWAP t3291/t3296 f282004-282004  margin -  -  -
+  cam1_0700_m50  SWAP t3382/t3385 f282840-282842  margin -  -  -
+  cam1_0700_m50  SWAP t3384/t3404 f282919-282923  margin -  +0.575  +0.591
+  cam1_0700_m50  SWAP t3384/t3413 f282944-282951  margin -  -  -
+  cam1_0700_m50  SWAP t3400/t3406 f282913-282917  margin -0.588  -0.561  -0.561
+  cam1_0700_m50  SWAP t3408/t3410 f282927-282934  margin -  -  -
+  cam1_0700_m50  SWAP t3467/t3469 f283701-283702  margin -0.324  -0.346  -0.348
+cam1_0700_m50: 7 swaps, 21 keeps
+  cam2_1600_m5   SWAP t816/t818 f1449942-1449947  margin -  -  -
+  cam2_1600_m5   SWAP t818/t823 f1449959-1449959  margin -  -  -
+  cam2_1600_m5   SWAP t841/t872 f1450704-1450718  margin -  -  -
+cam2_1600_m5: 3 swaps, 59 keeps
+  cam2_1600_m50  SWAP t6406/t6484 f1515252-1515255  margin -  -  -
+  cam2_1600_m50  SWAP t6461/t6465 f1515171-1515188  margin -  -0.145  -0.022
+  cam2_1600_m50  SWAP t6465/t6466 f1515171-1515180  margin -  -0.116  -0.086
+  cam2_1600_m50  SWAP t6530/t6539 f1515958-1515972  margin -  -  -
+  cam2_1600_m50  SWAP t6557/t6565 f1516152-1516171  margin -  -  -
+  cam2_1600_m50  SWAP t6657/t6662 f1517645-1517653  margin -  -  +0.298
+  cam2_1600_m50  SWAP t6678/t6682 f1517810-1517826  margin -  -  -
+cam2_1600_m50: 7 swaps, 87 keeps
+  cam3_0600_m5   SWAP t374/t384 f218985-218986  margin -  -  -
+  cam3_0600_m5   SWAP t403/t405 f219167-219171  margin -  -  -
+  cam3_0600_m5   SWAP t435/t440 f219543-219548  margin -  -  -
+  cam3_0600_m5   SWAP t456/t474 f219865-219871  margin -  -  -
+  cam3_0600_m5   SWAP t464/t486 f219905-219912  margin -  -  -
+  cam3_0600_m5   SWAP t485/t491 f219914-219915  margin -  -  -
+  cam3_0600_m5   SWAP t496/t498 f219946-219947  margin -  -  -
+  cam3_0600_m5   SWAP t497/t511 f219988-219996  margin -  -  -
+  cam3_0600_m5   SWAP t503/t516 f220043-220043  margin +0.028  -0.007  -0.033
+  cam3_0600_m5   SWAP t503/t519 f220049-220053  margin -  -  -
+  cam3_0600_m5   SWAP t542/t550 f220590-220596  margin -  -  -
+cam3_0600_m5: 11 swaps, 2 keeps
+cam4_1600_m5: 0 swaps, 14 keeps
+  cam5_0700_m5   SWAP t384/t386 f255391-255391  margin -  -  -
+  cam5_0700_m5   SWAP t432/t433 f255698-255704  margin -  -  -
+  cam5_0700_m5   SWAP t442/t453 f255903-255978  margin -  -  -
+cam5_0700_m5: 3 swaps, 11 keeps
+
+RESULTS  (caught = true swaps the look would flip; broken = true keeps it would flip)
+
+  DEV (_m5 clips)
+    M 0.5s  swaps   1 judged (19 not)  keeps   51 judged (46 not)   caught/broken  D0.00   1/  6  D0.05   0/  6  D0.10   0/  5  D0.15   0/  4  D0.20   0/  1
+             margin SWAP median +0.028 (q25 +0.028)  KEEP median -0.435 (q95 +0.158)
+    M 1.0s  swaps   1 judged (19 not)  keeps   64 judged (33 not)   caught/broken  D0.00   0/ 16  D0.05   0/ 15  D0.10   0/ 13  D0.15   0/ 11  D0.20   0/  7
+             margin SWAP median -0.007 (q25 -0.007)  KEEP median -0.248 (q95 +0.320)
+    M 2.0s  swaps   1 judged (19 not)  keeps   68 judged (29 not)   caught/broken  D0.00   0/ 23  D0.05   0/ 19  D0.10   0/ 17  D0.15   0/ 13  D0.20   0/ 11
+             margin SWAP median -0.033 (q25 -0.033)  KEEP median -0.160 (q95 +0.387)
+
+  HELD-OUT (_m50 clips)
+    M 0.5s  swaps   2 judged (12 not)  keeps   61 judged (47 not)   caught/broken  D0.00   0/  7  D0.05   0/  6  D0.10   0/  4  D0.15   0/  3  D0.20   0/  2
+             margin SWAP median -0.456 (q25 -0.522)  KEEP median -0.544 (q95 +0.142)
+    M 1.0s  swaps   5 judged (9 not)  keeps   82 judged (26 not)   caught/broken  D0.00   1/ 17  D0.05   1/ 16  D0.10   1/ 14  D0.15   1/ 13  D0.20   1/ 11
+             margin SWAP median -0.145 (q25 -0.346)  KEEP median -0.297 (q95 +0.375)
+    M 2.0s  swaps   6 judged (8 not)  keeps   91 judged (17 not)   caught/broken  D0.00   2/ 32  D0.05   2/ 29  D0.10   2/ 26  D0.15   2/ 26  D0.20   2/ 23
+             margin SWAP median -0.054 (q25 -0.282)  KEEP median -0.086 (q95 +0.535)
+
+GATE A: FAIL - no (M, D) on dev catches swaps at >= 2x the keeps it breaks
