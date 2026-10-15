@@ -33,7 +33,10 @@ def main() -> int:
         res = run_pass2(PROJ, CAM, variant=variant, workdir=wd, apply=False)
         rep = res.get("replay") or {}
         act = res.get("evidence_activation") or {}
-        src = wd / f"twopass_cam{CAM}_{variant}.db"
+        # pass 2's own working DB: since the linker its name carries the
+        # linked variant (twopass_cam2_lk..._VARIANT.db) - the old fixed
+        # name scored a stale 2026-09-20 DB for every arm (found 2026-10-15)
+        src = Path(res["out_db"])
         dst = BASE / f"{stem}_cam{CAM}_{variant}.db"
         shutil.copy2(src, dst)
         out = subprocess.run([sys.executable, "-X", "utf8", "scripts/v2_score_dev.py",
