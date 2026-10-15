@@ -4165,7 +4165,7 @@ lk2, ts1, fr3, nc2, eg1, ...) is the same stale DB and is VOID as a witness. Fix
 Found because mm1's pass stats showed 12 + 19 changed events while the scored DB carried no motion_* sources.
 Re-scored on the true working DBs (vl3_l1_study_0700 / _1600, serial, same day):
                mm1c (today's default)    mm1
-  07:00        89.4 / 87.0               92.5 / 87.0   (37 -> ? of 40 cells; NB left 3 -> 0, uturns 7 -> 4, WB thru 16 -> 10,
+  07:00        89.4 / 87.0               92.5 / 87.0   (cells 42 of 47 -> 37 of 40; NB left 3 -> 0, uturns 7 -> 4, WB thru 16 -> 10,
                                                         WB right 32 -> 35 toward Mio 46; SB left 19 -> 21, NB thru 863 -> 870 away)
   16:00        93.9 / 83.3               100.0 / 95.7  (42 / 42 cells; WB thru phantom 18 -> 2 vs Mio 0, NB thru 780 -> 795 vs 811)
 FM 51 NOT WORSE: PASS (+3.1 / +6.1 movement, +0.0 / +12.4 approach). The default's true FM 51 standing is 89.4 / 93.9
