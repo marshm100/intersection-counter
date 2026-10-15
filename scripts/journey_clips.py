@@ -36,6 +36,11 @@ CLIPS = [  # (camera, window variant, label)
     (3, "study_0600", "cam3 06:05 (dawn)"),
 ]
 OFFSETS_MIN = (5, 50)          # development set, held-out set
+# FM 51 (project 0acb12c0, the never-tuned-on site; 2026-10-15, failure predictor plan): ONE clip by the same
+# rule, minute 5 of the 07:00 window. Every FM 51 clip is HELD OUT - the site is never used to build anything.
+if PROJ == "0acb12c0":
+    CLIPS = [(2, "vl3_l1_study_0700", "FM 51 07:05 (held-out site)")]
+    OFFSETS_MIN = (5,)
 LENGTH_S = 3 * 60
 
 
@@ -52,7 +57,7 @@ def main() -> int:
         end = int(start + LENGTH_S * fps)
         clip_id = f"cam{cam}_{variant.split('_')[-1]}_m{off}"
         hh, mm = int(variant.split("_")[-1][:2]), off
-        lab = (label if off == 5 else
+        lab = (label if off == 5 or PROJ == "0acb12c0" else
                f"cam{cam} {hh:02d}:{mm:02d} (held out){' (dawn)' if cam == 3 else ''}")
         c = upsert_clip(PROJ, clip_id, cam, vid, start, end, float(fps), lab)
         print(f"{clip_id}: video {vid}, frames {c['start_frame']}-{c['end_frame']} "
