@@ -1,0 +1,25 @@
+WORKLOAD (every window, the shipped default)
+  cam1 study_0700:   3596 flags in  2.0 h =  1798 / h (~300 min of review per hour of video at 10 s each)  {'partial': 2276, 'id ends': 1320}
+  cam1 study_1600:   3980 flags in  2.0 h =  1990 / h (~332 min of review per hour of video at 10 s each)  {'partial': 3165, 'id ends': 815}
+  cam2 study_0700:   7448 flags in  2.0 h =  3724 / h (~621 min of review per hour of video at 10 s each)  {'partial': 4052, 'id ends': 3396}
+  cam2 study_1100:   5347 flags in  2.0 h =  2674 / h (~446 min of review per hour of video at 10 s each)  {'partial': 3561, 'id ends': 1786}
+  cam2 study_1600:  11441 flags in  2.0 h =  5721 / h (~953 min of review per hour of video at 10 s each)  {'id ends': 2954, 'partial': 8487}
+  cam3 study_0600:   7156 flags in 14.0 h =   511 / h (~ 85 min of review per hour of video at 10 s each)  {'partial': 5803, 'id ends': 1353}
+  cam4 study_0700:   1763 flags in  2.0 h =   882 / h (~147 min of review per hour of video at 10 s each)  {'partial': 593, 'id ends': 1170}
+  cam4 study_1100:    338 flags in  2.0 h =   169 / h (~ 28 min of review per hour of video at 10 s each)  {'partial': 222, 'id ends': 116}
+  cam4 study_1600:   3870 flags in  2.0 h =  1935 / h (~323 min of review per hour of video at 10 s each)  {'id ends': 1971, 'partial': 1899}
+  cam5 study_0700:   4536 flags in  2.0 h =  2268 / h (~378 min of review per hour of video at 10 s each)  {'partial': 2621, 'id ends': 1915}
+  cam5 study_1100:   2919 flags in  2.0 h =  1460 / h (~243 min of review per hour of video at 10 s each)  {'partial': 1447, 'id ends': 1472}
+  cam5 study_1600:   5908 flags in  2.0 h =  2954 / h (~492 min of review per hour of video at 10 s each)  {'partial': 3015, 'id ends': 2893}
+  ALL: 1620 flags per hour of video
+
+RECALL / PRECISION on the labelled clips
+  cam1_0700_m5     42 flags in 3 min; errors flagged double 2/2, no_track 4/4, phantom 3/4, wrong 1/4
+  cam1_0700_m50    85 flags in 3 min; errors flagged missed 1/1, no_track 5/7, phantom 6/6, wrong 4/4
+  cam2_1600_m5    204 flags in 3 min; errors flagged double 2/2, missed 0/1, no_track 10/11, phantom 7/10, wrong 4/4
+  cam2_1600_m50   263 flags in 3 min; errors flagged double 5/5, missed 1/4, no_track 8/8, phantom 17/20, wrong 3/3
+  cam3_0600_m5     39 flags in 3 min; errors flagged double 8/8, missed 0/6, no_track 1/3, phantom 5/9
+  cam4_1600_m5     63 flags in 3 min; errors flagged no_track 3/7, phantom 2/3
+  cam5_0700_m5     80 flags in 3 min; errors flagged double 2/2, missed 1/1, no_track 7/7, phantom 7/9, wrong 1/2
+  ALL: double 19/19, missed 3/13, no_track 38/47, phantom 47/61, wrong 13/17
+  RECALL 120/157 = 76% of the labelled count errors sit on a flag;  PRECISION 302/776 = 39% of the clips' flags touch one

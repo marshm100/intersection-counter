@@ -4242,3 +4242,12 @@ the information is not.
   edge too (22 of 25 within 0.05 of the outer height) - the outer box is a detection spanning both cars and the nested
   one is the front car. Nested-box suppression costs ~4 real cars per duplicate on the labels - dt2's label loss.
 READING: box geometry, motion and appearance each fail to tell one car from two where boxes overlap in this video.
+
+### THE REVIEW QUEUE, MEASURED (2026-10-15, operator: "1"; scripts/research_review_queue.py -> review_queue_mm1.log)
+FLAG = two counted tracks meeting (centres within 1 box width) where a count can change (one journey partial, or an id
+born / dying within 1 s of the meeting); label-free. WORKLOAD: 1620 flags per hour of video over the 12 windows (cam4
+11:00 169/h ... cam2 16:00 5721/h) = 0.5-16 h of review per hour of video at 10 s a flag. RECALL on the labelled
+clips: 120 of 157 count errors (76%) sit on a flag (double 19/19, wrong 13/17, phantom 47/61, no_track 38/47, missed
+3/13); PRECISION 39% of flags touch an error. Even a PERFECT queue is bounded by the error volume itself: 157 errors
+in 21 min of labelled video (~450 per hour, about one per five cars) = ~75 min of review per hour of video.
+READING: not a practical product step as a full review; the fleet's 92% is errors cancelling at ~1 error per 5 cars.
