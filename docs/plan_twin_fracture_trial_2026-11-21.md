@@ -90,3 +90,12 @@ The two flags act at different stages, so "both off together on existing dumps" 
 - eval_journeys NOT run on arm T: the fleet gate already decides KEEP; labels would only spend operator-labelled clips.
 - Unproven: why cam5 0700 gains +1.9 with it off (a wrongly rejected real second car there is the likely reading; not checked).
   Worth one look at the rejected pairs on cam5 0700 if the dedup is ever tuned, not now.
+
+## Arm F determinism check (2026-11-21)
+- Re-tracked cam4 1100 with the flag ON under prefix sfon (retrack_default_tracker.py, cached detections, 53 s): rows.npy
+  bitwise-equal to study_1100.tracks (228558 rows, np.array_equal True), stop_fracture_pairs.json byte-identical, meta 1 pair collapsed.
+  So the pass-1 re-track is deterministic on this window and a separate flag-on control re-track is NOT needed for the other windows
+  (cost saved: about half of the 2 h). Caveat: one window, the smallest; cam3 0600 (74 pairs) not checked.
+- The sfon_study_1100 parquet alias + tracks dir is scratch under data/projects/97a7849a/detections/4/<hash>/; delete when arm F is done.
+- Next: re-track the 11 windows with STOP_FRACTURE_COLLAPSE=0 under prefix sf0, pass 2 over them (fleet stem sf0), compare to fodg.
+  Needs an operator go (about 2 h GPU, then a fleet).
