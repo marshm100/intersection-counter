@@ -77,3 +77,16 @@ The two flags act at different stages, so "both off together on existing dumps" 
   (228k rows); cam3 0600 and cam2 windows 700-3400 s. Whole fleet is roughly 2 h serial. Needs a new prefix and a way to pass
   STOP_FRACTURE_COLLAPSE=0 (env var works: it is read at import). Not started: waits for arm T, so the two do not compete for the GPU.
   Still to check before running: that a flag-ON re-track reproduces the fodg dump (determinism).
+
+## RESULT arm T (2026-11-21) - gate FAILED, COEXISTING_TWIN_DEDUP STAYS
+- tw0 (COEXISTING_TWIN_DEDUP=0, pass 2 over existing dumps, 11 windows, fresh score files 03:14-03:33) vs fodg: fleet 91.88 -> 90.17 (-1.71).
+- Per window: cam1 1600 -1.2; cam2 0700 -3.0, 1100 -2.0, 1600 -0.9; cam3 0600 -2.1; cam4 0700 -4.6, 1100 -2.1, 1600 -3.8;
+  cam5 0700 +1.9, 1100 -1.0, 1600 0.0. Camera means: cam2 -2.0, cam3 -2.1, cam4 -3.5. Declared bars: fleet not > 0.5 down, camera not
+  > 1.0 down, window not > 3.0 down. Three bars missed (fleet, cam2/cam3/cam4 means, cam4 0700 and 1600 windows).
+- The rule is not dead weight and is not made unnecessary by the linker: it removes real doubles. cam4 (far-field, weakest-tracked
+  windows) leans on it most.
+- "events=" in the fleet line is identical in both arms (the dedup is write-then-reject, so rejected events are still written); do not read
+  event counts as a difference test for this flag. Score files are the evidence.
+- eval_journeys NOT run on arm T: the fleet gate already decides KEEP; labels would only spend operator-labelled clips.
+- Unproven: why cam5 0700 gains +1.9 with it off (a wrongly rejected real second car there is the likely reading; not checked).
+  Worth one look at the rejected pairs on cam5 0700 if the dedup is ever tuned, not now.
