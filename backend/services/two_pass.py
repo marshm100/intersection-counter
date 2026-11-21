@@ -653,6 +653,16 @@ def _detector_head_recipe() -> dict:
             "half": bool(getattr(c, "DETECT_HALF", False))}
 
 
+def flag_linker_failed(result: dict, error: str, stats_p: Path) -> dict:
+    """A run whose tracklet linker raised: flagged, never applied (the caller
+    returns before the apply gate) and never cached (any prior sidecar is
+    removed), so the next run recomputes. Operator ruling 2026-11-20."""
+    result["linker_failed"] = error
+    result["applied"] = False
+    Path(stats_p).unlink(missing_ok=True)
+    return result
+
+
 def _record_linked_fates(out_db, camera_id: int, families: dict) -> int:
     """Fate-ledger rows for the pieces the tracklet linker absorbed: each gets
     disposition 'dropped', reason 'linked_into', and linked_to_tid = the
@@ -680,30 +690,6 @@ def _record_linked_fates(out_db, camera_id: int, families: dict) -> int:
     finally:
         conn.close()
     return len(rows_out)
-
-
-def fracture_pass(project_id: str, camera_id: int, rows: np.ndarray,
-                  fps: float, out_db: str | Path) -> dict:
-    """THE FRACTURE RULE over a dump: pinned gates from the project
-    geometry (the conserve_pass construction), then
-    turn_merge.fracture_track_dedup."""
-    from backend.services.turn_merge import fracture_track_dedup
-    gates, skip = _pinned_gates(project_id, camera_id, rows)
-    if skip is not None:
-        return skip
-    return fracture_track_dedup(out_db, camera_id, rows, fps, gates)
-
-
-def bound_chain_pass(project_id: str, camera_id: int, rows: np.ndarray,
-                     fps: float, out_db: str | Path) -> dict:
-    """THE BOUND-CHAIN CONSERVATION GUARD over a dump: the same pinned gates,
-    then turn_merge.bound_chain_dedup — one vehicle is one count, applied to
-    the journeys G-EX-2 binds to their observed exit."""
-    from backend.services.turn_merge import bound_chain_dedup
-    gates, skip = _pinned_gates(project_id, camera_id, rows)
-    if skip is not None:
-        return skip
-    return bound_chain_dedup(out_db, camera_id, rows, fps, gates)
 
 
 def conserve_pass(project_id: str, camera_id: int, rows: np.ndarray,
@@ -1764,10 +1750,14 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     # docs/research_tracking_2026-09-29.md phase 2): join the pieces a
     # vehicle's track broke into BEFORE the bank, the replays and every
     # post-pass read `rows`, via a derived dump lk{sig}_{variant}.tracks (one per linker setting) (the
-    # ensure_cut_dump pattern). Fail-safe: any error falls back to the
-    # unlinked dump (processing never breaks on the linker).
+    # ensure_cut_dump pattern). Processing never stops on a linker error, but
+    # the run is FLAGGED (result["linker_failed"]), is NOT applied and its
+    # stats sidecar is not cached, so it has to be re-run (operator ruling
+    # 2026-11-20: a visible failure beats a silent ~11-point-worse count; the
+    # old fracture / bound-chain / turn-merge fallback was deleted).
     from backend.config import TRACKLET_LINKER as _lk_on
     _lk_families = None
+    _lk_failed = None
     if _lk_on:
         try:
             from backend.services.tracklet_linker import ensure_linked_dump
@@ -1783,9 +1773,10 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                         {k: v for k, v in (meta.get("linker") or {}).items()
                          if isinstance(v, int)})
         except Exception as e:                      # pragma: no cover
-            logger.warning("tracklet linker failed for cam%s %s: %s — "
-                           "falling back to the unlinked dump",
-                           camera_id, variant, e)
+            _lk_failed = f"{type(e).__name__}: {e}"
+            logger.error("tracklet linker FAILED for cam%s %s: %s — run "
+                         "flagged, will not be applied; re-run needed",
+                         camera_id, variant, e)
 
     # --- 0. reuse: a prior compute of THIS dump is still valid ----------------
     # (apply=True used to recompute the whole pass-2 — 2x wall time for
@@ -1801,7 +1792,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     flags_fp = flags_fingerprint()
     out_db = workdir / f"twopass_cam{camera_id}_{variant}.db"
     stats_p = workdir / f"twopass_cam{camera_id}_{variant}.stats.json"
-    if out_db.exists() and stats_p.exists():
+    if _lk_failed is None and out_db.exists() and stats_p.exists():
         prior = json.loads(stats_p.read_text())
         if sidecar_reusable(prior, meta, fingerprint, schema_fp, flags_fp):
             logger.info("two-pass cam%s %s: reusing computed working DB", camera_id, variant)
@@ -2015,35 +2006,14 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                     stats["twin_dedup"])
     # THE FRACTURE RULE (flag-gated, 2026-09-11): drop-and-recapture pairs
     # de-duplicated BEFORE the merge, same reason as the twin dedup.
-    # With the linker on (and exclusive), the fragment rules it replaces
-    # are skipped: fracture, bound-chain guard, turn merge.
-    from backend.config import TRACKLET_LINKER_EXCLUSIVE as _lk_excl
-    _lk_replaces = bool(_lk_families is not None and _lk_excl)
+    # The tracklet linker is the only fragment rule: the fracture rule, the
+    # bound-chain guard and the turn merge were deleted (2026-11-20).
     if _lk_families is not None:
         stats["linker"] = {k: v for k, v in (meta.get("linker") or {}).items()
                            if isinstance(v, int)}
         _record_linked_fates(out_db, camera_id, _lk_families)
-    from backend.config import FRACTURE_DEDUP as _frac_on
-    if _frac_on and not _lk_replaces:
-        stats["fracture_dedup"] = fracture_pass(project_id, camera_id, rows,
-                                                fps, out_db)
-        logger.info("two-pass cam%s %s: fracture dedup %s", camera_id,
-                    variant, stats["fracture_dedup"])
-    # THE BOUND-CHAIN CONSERVATION GUARD (flag-gated, 2026-09-20): a
-    # G-EX-2 bound journey whose fragment chain already holds a counted
-    # event is the TAIL HALF of a vehicle counted from its head. Runs
-    # AFTER the fracture rule so that rule's behaviour is byte-identical
-    # and this one only cleans the residue, and before the merge for the
-    # same reason the two dedups above are.
-    from backend.config import BOUND_CHAIN_CONSERVE as _bc_on
-    if _bc_on and not _lk_replaces:
-        stats["bound_chain"] = bound_chain_pass(project_id, camera_id, rows,
-                                                fps, out_db)
-        logger.info("two-pass cam%s %s: bound-chain guard %s", camera_id,
-                    variant, stats["bound_chain"])
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
-                               expected_by_cell=expected, fps=fps,
-                               enabled=(False if _lk_replaces else None))
+                               expected_by_cell=expected, fps=fps)
     # V2 MERGE RESCUE (block-2 item 1, diagnosis 2026-08-06): a merged-away
     # turn whose track is a GATE-VERIFIED FULL JOURNEY in a DIFFERENT cell
     # was a misclassified real vehicle (35 gate-verified SB-thrus deleted as
@@ -2136,6 +2106,8 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         # Census-ratio demotion record (None when V2_DEMOTION off).
         "demotion": demotion,
     }
+    if _lk_failed is not None:
+        return flag_linker_failed(result, _lk_failed, stats_p)
     stats_p.write_text(json.dumps({"dump_meta": meta,
                                    "calib_fingerprint": fingerprint,
                                    "schema_fingerprint": schema_fp,

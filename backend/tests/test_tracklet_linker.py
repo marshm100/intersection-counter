@@ -98,7 +98,7 @@ def test_a_three_piece_car_is_one_track(gates):
 
 def test_shipped_default(gates):
     import backend.config as cfg
-    assert cfg.TRACKLET_LINKER is True and cfg.TRACKLET_LINKER_EXCLUSIVE is True
+    assert cfg.TRACKLET_LINKER is True
     assert cfg.LINKER_STOPPED_LEVEL is False                   # lk1 broke cam3
     # with the stopped level off, the red-light case stays two pieces
     stop = [(float(f), 50.0, min(-5.0 + 2.0 * f, 40.0)) for f in range(60)]

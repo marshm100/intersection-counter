@@ -297,3 +297,71 @@ class TestApplyUnderWindowName:
         tp.run_pass2(pid, cid, variant="study_0700", workdir=wd, apply=True)
         assert seen["variant"] == "study_0700"
         assert seen["out_db"] == f"twopass_cam{cid}_lk_study_0700.db"
+
+
+class TestLinkerFailureFlagsTheRun:
+    """Operator ruling 2026-11-20: a linker error flags the run for re-run; it
+    is never applied, never cached, and never falls back to deleted rules."""
+
+    def test_flag_helper_marks_and_uncaches(self, tmp_path):
+        import backend.services.two_pass as tp
+        sp = tmp_path / "x.stats.json"
+        sp.write_text("{}")
+        res = tp.flag_linker_failed({"applied": True}, "ValueError: boom", sp)
+        assert res["linker_failed"] == "ValueError: boom"
+        assert res["applied"] is False and not sp.exists()
+
+    def test_failure_blocks_reuse_and_apply(self, proj, tmp_path, monkeypatch):
+        import json
+        import numpy as np
+        import pytest
+        import backend.config as cfg
+        import backend.services.tracklet_linker as tl
+        import backend.services.two_pass as tp
+        pid, cid = proj
+        conn = get_connection(pid)
+        with conn:
+            conn.execute(
+                "INSERT INTO videos (camera_id, sort_order, path, filename, fps, width, "
+                "height, total_frames, duration_seconds, file_size_bytes, "
+                "recording_start_datetime, added_at) VALUES "
+                "(?, 0, 'v.mp4', 'v.mp4', 10, 640, 480, 100, 10, 1, "
+                "'2026-07-10T07:00:00', '2026-07-10')", (cid,))
+        conn.close()
+        tdir = tmp_path / "study_0700.tracks"
+        tdir.mkdir()
+        (tdir / "count.txt").write_text("0")
+        (tdir / "meta.json").write_text(json.dumps({"frames": [0, 100]}))
+        monkeypatch.setattr(tp, "resolve_content_hash", lambda *a, **k: ("h", "m"))
+        monkeypatch.setattr(tp, "tracks_dir", lambda p: tdir)
+        monkeypatch.setattr(tp, "load_dump", lambda d: np.zeros((0, 8)))
+        monkeypatch.setattr(cfg, "TRACKLET_LINKER", True)
+        monkeypatch.setattr(cfg, "A3_CUT_DUMPS", False)
+
+        def boom(*a, **k):
+            raise RuntimeError("linker exploded")
+        monkeypatch.setattr(tl, "ensure_linked_dump", boom)
+        # a prior, reusable result for the UNLINKED variant must not be used
+        wd = tmp_path / "wd"
+        wd.mkdir()
+        (wd / f"twopass_cam{cid}_study_0700.db").write_bytes(b"")
+        (wd / f"twopass_cam{cid}_study_0700.stats.json").write_text(
+            json.dumps({"result": {"events": 0}}))
+        monkeypatch.setattr(tp, "sidecar_reusable", lambda *a, **k: True)
+        applied = []
+        monkeypatch.setattr(tp, "_gated_finish_apply",
+                            lambda *a, **k: applied.append(1) or {"applied": True})
+
+        class Reached(Exception):
+            pass
+
+        def stop(*a, **k):
+            raise Reached
+        import sys
+        import types
+        fake = types.ModuleType("build_bank_gtfree")
+        fake.build_gtfree_bank = stop
+        monkeypatch.setitem(sys.modules, "build_bank_gtfree", fake)
+        with pytest.raises(Reached):          # recomputed, not reused
+            tp.run_pass2(pid, cid, variant="study_0700", workdir=wd, apply=True)
+        assert not applied

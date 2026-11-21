@@ -104,7 +104,7 @@ def _mk_db(tmp_path):
 
 
 class TestMergeReplayTurns:
-    def test_merge_rejects_fragments_and_spares_throughs(self, tmp_path):
+    def test_keeps_every_turn_and_throughs(self, tmp_path):
         db, c = _mk_db(tmp_path)
         with c:
             # bank: expect 1 left per 1800s -> window 1800 -> threshold 1.3
@@ -119,13 +119,12 @@ class TestMergeReplayTurns:
                           (10 + i, i * 20, i * 20 + 10, traj))
         c.close()
         stats = merge_replay_turns(db, 7, window_seconds=1800)
-        assert stats["turns"] == 3 and stats["merged_away"] == 2
+        assert stats["turns"] == 3 and stats["merged_away"] == 0
         c = sqlite3.connect(db)
         rej = {r[0]: r[1] for r in c.execute(
             "SELECT event_id, rejected FROM vehicle_events")}
         c.close()
-        assert rej[1] == 0 and rej[2] == 1 and rej[3] == 1     # rejected, not deleted
-        assert rej[10] == rej[11] == rej[12] == 0              # throughs untouched
+        assert set(rej.values()) == {0}      # the merge is retired: nothing rejected
 
     def test_window_scaling_disarms_gate(self, tmp_path):
         # Same 3 fragments, but the counting window is 3x the sample window ->
@@ -279,37 +278,3 @@ class TestMergeExcessOnly:
         b = merge_turn_fragments(turns, 30.0, 40.0, expected_by_cell={(1, 2): 1},
                                  pairs_out=[])
         assert a == b == {1}
-
-    def test_default_off(self):
-        import backend.config as cfg
-        assert cfg.MERGE_EXCESS_ONLY is False
-
-
-class TestTurnMergeSwitch:
-    def test_default_on(self):
-        import backend.config as cfg
-        assert cfg.TURN_MERGE is True
-
-    def test_off_keeps_every_turn(self, tmp_path, monkeypatch):
-        import backend.config as cfg
-        from backend.database import SCHEMA
-        db = str(tmp_path / "p.db")
-        conn = sqlite3.connect(db)
-        conn.executescript(SCHEMA)
-        for i in range(3):   # three same-cell fragments that would merge
-            conn.execute(
-                "INSERT INTO vehicle_events (camera_id, vehicle_track_id, "
-                "origin_leg_id, destination_leg_id, movement, trajectory_data, "
-                "trajectory_confidence, vehicle_class, detection_confidence, "
-                "timestamp_video, frame_number, start_frame, rejected) VALUES "
-                "(1, ?, 1, 2, 'left', '[[100,100],[110,110]]', 0.9, 'car', 0.9, "
-                "1.0, ?, ?, 0)", (i, 10 + 20 * i, 20 * i))
-        conn.commit(); conn.close()
-        monkeypatch.setattr(cfg, "TURN_MERGE", False)
-        st = merge_replay_turns(db, 1, window_seconds=60.0,
-                                expected_by_cell={(1, 2): 1})
-        assert st["merged_away"] == 0 and st["kept"] == 3
-        monkeypatch.setattr(cfg, "TURN_MERGE", True)
-        st = merge_replay_turns(db, 1, window_seconds=60.0,
-                                expected_by_cell={(1, 2): 1})
-        assert st["merged_away"] == 2

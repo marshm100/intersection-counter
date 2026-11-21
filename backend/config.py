@@ -462,49 +462,6 @@ STRAIGHT_FRAGMENT_INCLUDE_PATH_FITS = _os2.environ.get(
 GATE_EXIT_ONLY_BINDING = _os2.environ.get(
     "GATE_EXIT_ONLY_BINDING", "1") in ("1", "true", "on")
 
-# THE BOUND-CHAIN CONSERVATION GUARD (2026-09-20, iteration 2 of the G-EX
-# cycle). GATE_EXIT_ONLY_BINDING only ever ADDS events. Where the tracker
-# leaves a real deficit those are real missing vehicles (cam4 1100 NB_thru
-# -190 -> +29 against Miovision); where the count is already complete they
-# are surplus (cam1 0700 SB_thru -41 -> +129, cam3 SB_thru +105 -> +312),
-# and arm gx1 failed the G-DEF-1 letter on cam1 -5.20 / cam3 -1.20 for
-# exactly that reason.
-# The surplus has ONE shape: a vehicle tracked in two halves — a head with a
-# witnessed entry and no exit, already counted, and a tail with a witnessed
-# exit and no entry, which G-EX-2 now counts as well. Measured on gx1: of
-# cam1 study_0700's 219 bound events, 95 have an already-counted entry_only
-# track dying within 1.5 box lengths of their birth; on cam4 study_1100, 4 of
-# 219. cams 1-3 run BoT-SORT recipes with no recovery tracker and fragment;
-# cam4/cam5 hold one track per vehicle. That is why the rule's sign flips by
-# camera.
-# When ON, a bound journey whose fragment chain ALREADY holds another counted
-# event is rejected (write-then-reject, reviewable). The chaining is
-# track_chains.chain_tracks UNMODIFIED — it already encodes this pairing
-# (A_OK entry_only/no_crossing -> B_OK exit_only/no_crossing, a moving-break
-# window of (-0.48, 3.0) s commented "occlusion break mid-box" within 70 px,
-# and no full journey may ever chain). THIS RULE ADDS NO CONSTANTS: the July
-# window and the September measurement of the real pairs (gap p10 -0.20,
-# p50 0.85 s) agree independently.
-# Scope, and why it cannot cost a legacy vehicle: it may only reject rows
-# whose posterior_source is 'rescue_exit', so its worst case is reverting
-# part of what G-EX-2 added. Inert unless GATE_EXIT_ONLY_BINDING is on.
-# SHIPPED default-ON 2026-09-24 with GATE_EXIT_ONLY_BINDING (arm gx2). It
-# took cam1 77.0 -> 83.8 / 93.0 -> 94.2 and cam3 87.3 -> 89.0 while costing
-# cam2, cam4 and cam5 exactly nothing (bit-identical to the unguarded arm).
-BOUND_CHAIN_CONSERVE = _os2.environ.get(
-    "BOUND_CHAIN_CONSERVE", "1") in ("1", "true", "on")
-# THE CHAIN GUARD FOR ALL PARTIALS (2026-09-27, arm cg1, declared in
-# docs/plan_basis_2026-09-11.md before scoring). cam4 SB through runs ~5%
-# over Miovision while its FULL journeys alone sit under it: the excess is
-# partial tracks on top. Operator ruling (2 of 2): a LONE exit-only track is a
-# real car counted once. The identifiable surplus is a partial track that the
-# frozen chain rule (chain_tracks, unmodified) links to a car already counted.
-# When ON, every exit_only / no_crossing counted event is in the guard's
-# scope, and each chain keeps exactly one counted event (the witnessed head
-# if any). Dry run (pre keep-one): fleet +1.68 / approach +4.04, cam2 -2.20.
-# NO NEW CONSTANTS. Default OFF pending the arm.
-CHAIN_GUARD_ALL_PARTIALS = _os2.environ.get(
-    "CHAIN_GUARD_ALL_PARTIALS", "0") in ("1", "true", "on")
 
 # THE FULL-JOURNEY RESCUE (2026-09-25, arm fr1, declared in
 # docs/plan_basis_2026-09-11.md before scoring). classify_trajectory reads
@@ -567,41 +524,6 @@ EMERGENCE_SIZE_FLOOR = 0.35   # veto bound floor as a share of own box
 MOTION_QUALIFIED_EVIDENCE = _os2.environ.get(
     "MOTION_QUALIFIED_EVIDENCE", "1") in ("1", "true", "on")
 
-# Counted-path campaign (operator diagnosis 2026-08-27,
-# docs/diag_waste_reel_2026-08-27.md). SHIPPED default-ON 2026-08-27
-# after the G-CP-1 PASS (70.6 pooled vs 64.8; every window above its
-# control). Cams 1/3/4/5 feel these only on their next operator-
-# triggered apply — blocked by the standing fleet-gates caveat.
-# A — queue-aware merge: the turn-fragment merge's pair predicate
-# additionally requires near-disjoint time spans. Real fragments of
-# one vehicle occupy disjoint spans; queue successors COEXIST (born
-# at the same queue-tail pixel while the dweller still lives) — the
-# measured discard engine (177 SB_right merged-away vs that cell's
-# 141-vehicle deficit at 0700).
-QUEUE_AWARE_MERGE = _os2.environ.get(
-    "QUEUE_AWARE_MERGE", "1") in ("1", "true", "on")
-# MERGE ONLY THE EXCESS (2026-09-25, arms mg0/mg1/fr2, declared in
-# docs/plan_basis_2026-09-11.md before scoring). The turn merge's volume
-# gate is ALL-OR-NOTHING: at or under VOL_FACTOR x expected every event is
-# kept, above it the fragment merge runs over the whole cell. On cam1
-# study_1600 W->S right (expected 393, gate 511) production sits at ~497
-# (Miovision 497); arm fr1 added ~20 real turns, the gate tripped and 119
-# were merged away (-> 397). When ON, a cell over its gate gives up only
-# its excess: the predicate loop is unchanged, its absorptions are ranked
-# by strength (start distance / MERGE_PX + gap / MERGE_GAP) and only the
-# strongest (count - floor(gate)) apply. NO NEW CONSTANTS. (The MERGE_GAP
-# "units" suspicion is RETRACTED: 40 frames was validated on cam1 at its
-# native 10 fps.) Default OFF pending the arms.
-MERGE_EXCESS_ONLY = _os2.environ.get(
-    "MERGE_EXCESS_ONLY", "0") in ("1", "true", "on")
-# THE TURN MERGE ITSELF (switch added 2026-09-26 for arm mo1). Default ON =
-# production unchanged. The mg0 pair census found 398 of production's 407
-# merge absorptions are FOLLOWERS (a different track born back at the root's
-# start after the root moved > 30 px: the next car), 4 continuations. The
-# merge was built (2026-06-01) to join BoT-SORT fragments of one turning car;
-# the fracture / chain / bound-chain dedups upstream now catch those.
-# TURN_MERGE=0 skips it (every turn kept); S5 borderline flags unchanged.
-TURN_MERGE = _os2.environ.get("TURN_MERGE", "1") in ("1", "true", "on")
 # DETECTOR HEAD (2026-09-30, docs/research_tracking_2026-09-29.md phase 4a).
 # DETECT_DEDUP_HEAD: one-to-many head + class-agnostic NMS at DETECT_DEDUP_IOU
 # instead of YOLO26's one-to-one head (which ignores iou= and emits car+truck
@@ -653,11 +575,6 @@ COUNT_ONCE_HEADWAY_FRAC = 0.5  # one car only under HALF that: two ids on one ca
 # window -1.4, FM 51 identical. Shipped EXCLUSIVE and with the stopped level
 # OFF (arm lk1 with it on broke cam3: -11.2).
 TRACKLET_LINKER = _os2.environ.get("TRACKLET_LINKER", "1") in ("1", "true", "on")
-# With the linker on, the fragment rules it replaces (fracture, bound-chain
-# guard, turn merge) are switched off unless this is 0 (arm lk0
-# keeps them on to isolate the linker's own effect).
-TRACKLET_LINKER_EXCLUSIVE = _os2.environ.get(
-    "TRACKLET_LINKER_EXCLUSIVE", "1") in ("1", "true", "on")
 LINKER_LEVEL1_GAP_S = 0.5        # first pass: short breaks only
 LINKER_MOVE_GAP_MIN_S = -0.5     # a head may start up to 0.5 s before the tail ends
 LINKER_MOVE_GAP_MAX_S = 3.0      # moving breaks up to 3 s (the occlusion scale)
@@ -754,32 +671,6 @@ STOP_FRACTURE_COLLAPSE = _os2.environ.get(
 COEXISTING_TWIN_DEDUP = _os2.environ.get(
     "COEXISTING_TWIN_DEDUP", "1") in ("1", "true", "on")
 
-# THE FRACTURE RULE (operator rulings 2026-09-11, cam5 fragment reel,
-# docs/plan_basis_2026-09-11.md): a detection drop and recapture of the
-# same vehicle - a track dies and a new one is born within a second at
-# the same spot, heading the same way - is ONE vehicle (clips 1-2: gaps
-# 0.1 / 0.7 s, re-birth 0.64 / 0.91 box lengths from the death point,
-# both halves counted through). A re-birth many seconds later at the
-# same queue position is the NEXT vehicle (clips 3-5: 9 / 23 / 46 s).
-# The chain rule refuses these pairs on purpose (the recapture already
-# owns a full journey; ungated chaining merged followers, the
-# dedup_ceiling lesson) and the conservation pass only ever rejects
-# posterior-sourced events, so nothing in pass 2 touched them. This
-# rule admits ONLY the short-gap, same-spot, same-heading pair whose
-# earlier half lacks its exit, measured in BOX LENGTHS so the far field
-# and the near field are held to the same test on a blank site.
-# Write-then-reject of the shorter track's event (the twin-dedup
-# pattern; rejected=1, reviewable).
-# DEFAULT ON since 2026-09-12 (operator go after arm d17: fleet 76.97 ->
-# 77.97, nine windows up, two flat; 10/10 ruled pairs one vehicle; cam4
-# 1600 75.4 -> 70.2 accepted by ruling - its old score was ~366
-# duplicate NB throughs cancelling an equal far-field detection deficit
-# that is not in the dump; FM51 b7 +2.0 / 0). Env-overridable
-# (FRACTURE_DEDUP=0 turns it off for an experiment).
-FRACTURE_DEDUP = _os2.environ.get(
-    "FRACTURE_DEDUP", "1") in ("1", "true", "on")
-FRACTURE_GAP_S = 1.0          # re-birth within this of the death
-FRACTURE_DIST_BOXES = 1.0     # ... within this many box lengths of it
 APPLY_GATE_HEADROOM = 0.03    # incumbent must under-claim vs census by >= this
 APPLY_GATE_FLOOD_MAX = 0.15   # candidate per-cell excess mass / census cap
 APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)
