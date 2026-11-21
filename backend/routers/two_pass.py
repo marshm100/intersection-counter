@@ -229,6 +229,18 @@ def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
                             should_cancel=should_cancel)
             results.append(res)
         _s5_union_if_needed()
+        failed = [f"cam{r.get('camera_id')}" for r in results
+                  if r.get("linker_failed")]
+        if failed:
+            # Operator ruling 2026-11-20: a linker failure is a visible
+            # failure, not a normal-looking run. Those windows were not applied.
+            msg = ("Tracklet linker failed for "
+                   + ", ".join(failed) + " - not applied; re-run needed.")
+            set_v3_run_state(project_id, intersection_id, "error", msg)
+            with _lock:
+                _jobs[key] = {"status": "error", "kind": "process",
+                              "error": msg, "results": results}
+            return
         set_v3_run_state(project_id, intersection_id, "complete")
         with _lock:
             _jobs[key] = {"status": "complete", "kind": "process",

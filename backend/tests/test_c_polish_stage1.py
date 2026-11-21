@@ -90,6 +90,29 @@ class TestProcessCancel:
         assert get_v3_run_state(proj, iid)["status"] == "cancelled"
         tpr._jobs.pop(key, None)
 
+    def test_linker_failure_is_an_error_not_complete(self, proj, monkeypatch):
+        """Ruling 2026-11-20: a window whose linker failed was not applied, so
+        the card must read 'error' with the camera named, never 'complete'."""
+        import backend.routers.two_pass as tpr
+        import backend.services.two_pass as tps
+        iid, cid = _mk_cam(proj)
+        key = (proj, f"i{iid}")
+
+        def fake_pass2(pid, camera_id, *, variant, workdir, apply=False,
+                       should_cancel=None):
+            return {"camera_id": camera_id, "intersection_id": iid,
+                    "variant": variant, "borderline": [], "applied": False,
+                    "linker_failed": "RuntimeError: boom"}
+
+        monkeypatch.setattr(tps, "run_pass2", fake_pass2)
+        tpr._jobs[key] = {"status": "running", "kind": "process"}
+        tpr._run_process_job(proj, iid, tpr.ProcessBody(windows={cid: "w1"}))
+        assert tpr._jobs[key]["status"] == "error"
+        assert f"cam{cid}" in tpr._jobs[key]["error"]
+        st = get_v3_run_state(proj, iid)
+        assert st["status"] == "error" and "re-run" in st["error_message"]
+        tpr._jobs.pop(key, None)
+
     def test_pass1_ingest_cancel_is_resumable(self, proj, tmp_path, monkeypatch):
         """Cancel mid-chunk == the crash-resume path: open part unreadable,
         resume re-enters at the chunk start and completes."""
