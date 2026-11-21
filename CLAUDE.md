@@ -119,7 +119,21 @@ See docs/Implementation_Plan_v3.md.
   path. Diagnostics only. It is the counting analogue of the tracker's miss log and it is how
   the gx1 failure was diagnosed in one query with no dump re-read.
 
+## How we work (ported 2026-11-20 from the Votr code factory, MP-054)
+Every arm/change runs the five-step algorithm IN ORDER; docs/ARM_TEMPLATE.md is the one-page form:
+1 question the requirement (a named ruling or person behind it; no owner = candidate to delete) ·
+2 delete what it makes unnecessary, in the same arm (under 10% added back means too little was cut) ·
+3 simplify what survived (fewest constants) · 4 accelerate the arm's slowest stage · 5 automate last.
+- First principles / thinking in the limit are how steps 1, 3, 4 are answered, not extra paperwork.
+- Never a repo-wide overhaul or audit. Improve the infrastructure you are standing in, in the same piece
+  of work (small: same arm; big: one open item).
+- A builder's "done" is not evidence: judge with `/review-arm <plan>` (fresh session, ground truth first).
+- docs/LESSONS.md: one line per measured failure, with its WHY and a review date; read before an arm plan.
+  A rule/flag that never changed a result goes to a removal trial.
+- Reports: bad news first, plain words, say what is unproven.
+
 ## Docs
+- docs/ARM_TEMPLATE.md, docs/LESSONS.md — the working method above
 - docs/PRD_v2.md — Requirements and business rules
 - docs/Implementation_Plan_v2.md — Earlier multi-video plan (v2)
 - docs/Implementation_Plan_v3.md — Current plan (multi-intersection, multi-camera, multi-trim)

@@ -706,17 +706,6 @@ def bound_chain_pass(project_id: str, camera_id: int, rows: np.ndarray,
     return bound_chain_dedup(out_db, camera_id, rows, fps, gates)
 
 
-def continuation_pass(project_id: str, camera_id: int, rows: np.ndarray,
-                      fps: float, out_db: str | Path) -> dict:
-    """THE PREDICTED-CONTINUATION RULE over a dump: the same pinned gates,
-    then turn_merge.continuation_dedup."""
-    from backend.services.turn_merge import continuation_dedup
-    gates, skip = _pinned_gates(project_id, camera_id, rows)
-    if skip is not None:
-        return skip
-    return continuation_dedup(out_db, camera_id, rows, fps, gates)
-
-
 def conserve_pass(project_id: str, camera_id: int, rows: np.ndarray,
                   fps: float, out_db: str | Path) -> dict:
     """Convenience wrapper for run_pass2 + the ablation harness: build the
@@ -2027,7 +2016,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     # THE FRACTURE RULE (flag-gated, 2026-09-11): drop-and-recapture pairs
     # de-duplicated BEFORE the merge, same reason as the twin dedup.
     # With the linker on (and exclusive), the fragment rules it replaces
-    # are skipped: fracture, bound-chain guard, continuation, turn merge.
+    # are skipped: fracture, bound-chain guard, turn merge.
     from backend.config import TRACKLET_LINKER_EXCLUSIVE as _lk_excl
     _lk_replaces = bool(_lk_families is not None and _lk_excl)
     if _lk_families is not None:
@@ -2052,16 +2041,6 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                                                 fps, out_db)
         logger.info("two-pass cam%s %s: bound-chain guard %s", camera_id,
                     variant, stats["bound_chain"])
-    # THE PREDICTED-CONTINUATION RULE (flag-gated, 2026-09-25): a fragment
-    # lacking its exit whose counted continuation is born where the fragment
-    # would be by then. AFTER the fracture rule and the bound-chain guard so
-    # both stay byte-identical; before the merge for the same reason.
-    from backend.config import CONTINUATION_DEDUP as _cont_on
-    if _cont_on and not _lk_replaces:
-        stats["continuation"] = continuation_pass(project_id, camera_id,
-                                                  rows, fps, out_db)
-        logger.info("two-pass cam%s %s: continuation rule %s", camera_id,
-                    variant, stats["continuation"])
     merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
                                expected_by_cell=expected, fps=fps,
                                enabled=(False if _lk_replaces else None))
