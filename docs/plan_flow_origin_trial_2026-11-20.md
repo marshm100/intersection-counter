@@ -61,3 +61,6 @@
   the sidecar/study_health "origin_flow_inferred" field, test class TestFlowOriginInference (5 tests), and the flag
   pin in the origin-rescue test. Suite 1389 passed (1394 - 5).
 - NOT DONE: confirming fleet run (needs operator go) and /review-arm in a fresh session.
+- CONFIRMING FLEET (stem fodel, post-deletion code, 11 windows, fresh score files 2026-11-21): movement 91.88 -> 91.88 (+0.00),
+  every window and camera mean delta 0.0; cam3 0600 events=29220 dropped=7997, the same as the flag-off arm. The code removal
+  reproduces the trial arm. Still open: /review-arm in a fresh session; cam1 0700 (12th window) not in this fleet.
