@@ -150,7 +150,7 @@ def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
     from backend.database import set_v3_run_state
     from backend.services.pass2_replay import JobCancelled
     from backend.services.two_pass import (
-        plan_intersection, rebuild_s5_union, run_pass1, run_pass2,
+        plan_intersection, run_pass1, run_pass2,
     )
     key = (project_id, f"i{intersection_id}")
     workdir = PROJECTS_DIR / project_id / "two_pass"
@@ -160,20 +160,6 @@ def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
         # Lock-free read of a bool under the GIL — this runs inside the hot
         # pass-1/replay frame loops.
         return bool(_jobs.get(key, {}).get("cancel_requested"))
-
-    def _s5_union_if_needed():
-        # One rebuild with ALL applied windows' S5 rows (plan_C_polish §B).
-        # Single-window runs keep the per-window rebuild's identical result.
-        # APPLIED only: a window the apply gate stood down on keeps its
-        # incumbent's flags — its working DB's S5 rows must not leak in
-        # (plan_v2_apply_gate_2026-08-07).
-        applied = [r for r in results if r.get("applied")]
-        if body.apply and len(applied) > 1:
-            with _lock:
-                j = _jobs.get(key)
-                if j is not None:
-                    j["stage"] = "s5-union"
-            rebuild_s5_union(project_id, intersection_id, applied)
 
     try:
         set_v3_run_state(project_id, intersection_id, "running")
@@ -228,7 +214,6 @@ def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
                             workdir=workdir, apply=body.apply,
                             should_cancel=should_cancel)
             results.append(res)
-        _s5_union_if_needed()
         failed = [f"cam{r.get('camera_id')}" for r in results
                   if r.get("linker_failed")]
         if failed:
@@ -247,13 +232,7 @@ def _run_process_job(project_id: str, intersection_id: int, body: ProcessBody):
                           "results": results}
     except JobCancelled as exc:
         logger.info("two-pass process i%s cancelled: %s", intersection_id, exc)
-        # Applied windows stay applied (each apply was atomic with its own
-        # backup); keep their S5 rows coherent before parking the job.
-        try:
-            _s5_union_if_needed()
-        except Exception:
-            logger.exception("s5 union after cancel failed (queue keeps the "
-                             "last per-window rebuild)")
+        # Applied windows stay applied (each apply was atomic with its own backup).
         set_v3_run_state(project_id, intersection_id, "cancelled")
         with _lock:
             prior = _jobs.get(key, {})

@@ -157,8 +157,6 @@ def collect_signals(project_id: str, camera_id: int, variant: str, *,
         sig["insufficient"] = rep.get("insufficient_data")
         sig["origin_flow_inferred"] = rep.get("origin_flow_inferred")
         sig["twin_pairs"] = (rep.get("twin_dedup") or {}).get("twin_pairs")
-        sig["merged_away"] = (res.get("merge") or {}).get("merged_away")
-        sig["borderline_cells"] = len(res.get("borderline") or [])
 
     # ---- DB: counted events by cell + provenance ---------------------
     dbp = str(db_path) if db_path else \

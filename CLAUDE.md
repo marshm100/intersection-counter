@@ -38,6 +38,9 @@ mm1: a partial track's unseen entry or exit line is decided from the car's own m
 fully seen journeys - waited in a queue, lane cells only one movement uses, a ray that does not graze a line, a U-turn
 only if seen; fleet 89.06 -> 91.92, letter PASS, labels 445 -> 448 / held-out 271 -> 272 with none lost net, FM 51
 89.4 / 93.9 -> 92.5 / 100.0; approach 83.54 -> 82.72, the dip traced to cam2's EB-right double count). FIFTEEN rules.
+NOTE 2026-11-20 (Steps 9.124-9.126): the fracture rule, bound-chain guard, turn merge, the S5 merge_borderline flag and
+TRACKLET_LINKER_EXCLUSIVE are DELETED; the linker is the only fragment rule and a linker failure flags the run (state 'error',
+not applied). Mentions of them above are history.
 (fleet 91.92 / approach 82.72 after mm1 on 2026-10-15; 89.06 / 83.54 after nc2 on 2026-10-01; 88.84 / 82.03 after fr3 on 2026-10-01; 87.01 after ts1 on 2026-10-01; 86.87 after nf1b on 2026-10-01, approach 74.29; journey labels 521 vehicles, phantoms 47 -> 25,
 real cars unchanged. Fleet 82.68 after the linker on 2026-09-30 — against the HONEST control 80.81, every camera on
 the default tracker; the 83.50 below had cams 1-3 on one-off BoT-SORT recipes, which the

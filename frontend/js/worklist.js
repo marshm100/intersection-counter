@@ -218,7 +218,6 @@ const _WL_QUESTIONS = {
     ambiguous_origin: 'Where did it come from?',
     echo_suspect: 'Are these separate vehicles?',
     bank_coverage_hole: 'Is this movement really this small?',
-    merge_borderline: 'Fragments or separate vehicles?',
 };
 
 function _wlQuestionFor(f) {

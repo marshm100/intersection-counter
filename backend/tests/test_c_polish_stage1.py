@@ -184,31 +184,6 @@ class TestProcessCancel:
         assert json.loads((tdir / "meta.json").read_text())["complete"] is True
 
 
-class TestS5Union:
-    def test_union_across_windows_dedup_max_impact(self, proj):
-        from backend.services.two_pass import rebuild_s5_union
-        iid, cid = _mk_cam(proj)
-        l1 = _add_leg(proj, cid, "N")
-        l2 = _add_leg(proj, cid, "S")
-        mk = lambda raw, exp: {"cell": [l1, l2], "raw": raw, "expected": exp,
-                               "threshold": exp * 1.3, "merges": raw > exp * 1.3}
-        results = [
-            {"camera_id": cid, "borderline": [mk(10, 8.0)]},                  # impact 2
-            {"camera_id": cid, "borderline": [mk(20, 8.0),                    # same cell, impact 12
-                                              {"cell": [l2, l1], "raw": 5,
-                                               "expected": 4.0, "threshold": 5.2,
-                                               "merges": False}]},            # 2nd cell
-        ]
-        rebuild_s5_union(proj, iid, results)
-        conn = get_connection(proj)
-        rows = conn.execute(
-            "SELECT impact FROM review_flags WHERE intersection_id = ? AND "
-            "subtype = 'merge_borderline' ORDER BY impact DESC", (iid,)).fetchall()
-        conn.close()
-        assert len(rows) == 2                       # both cells, deduped
-        assert rows[0][0] == pytest.approx(12.0)    # max-impact instance kept
-
-
 class TestProcessingStatusMerge:
     def test_two_pass_block_merged(self, proj):
         import backend.routers.two_pass as tpr

@@ -12,7 +12,7 @@ Pass 2 = ALL semantics, minutes from cache, re-runnable:
   2. replay-classify through the production chain (A2 parity: exact);
   3. volume-gated turn-fragment merge, corpus expecteds (A4a: cam5 beat its
      live baseline with exactly this split);
-  4. QA: rebuild_flags with the S5 merge-borderline rows (B4/A4b).
+  4. QA: rebuild_flags.
 
 Everything lands in a WORKING DB first; `apply=True` swaps the camera's
 events + bank into project.db atomically with a backup — the established
@@ -46,11 +46,9 @@ from backend.database import get_connection, get_db_path
 from backend.services.detection_cache import (
     compute_video_content_hash, parquet_path, resolve_content_hash)
 from backend.services.flag_feeders import rebuild_flags
-from backend.services.cardinals import bound_approach
 from backend.services.pass2_replay import (
     JobCancelled, load_dump, replay_camera, tracks_dir,
 )
-from backend.services.turn_merge import merge_replay_turns, s5_flags
 
 logger = logging.getLogger(__name__)
 
@@ -2012,8 +2010,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         stats["linker"] = {k: v for k, v in (meta.get("linker") or {}).items()
                            if isinstance(v, int)}
         _record_linked_fates(out_db, camera_id, _lk_families)
-    merge = merge_replay_turns(out_db, camera_id, window_seconds=window_seconds,
-                               expected_by_cell=expected, fps=fps)
+    merge: dict = {}     # the V2 merge rescue below is its only writer now
     # V2 MERGE RESCUE (block-2 item 1, diagnosis 2026-08-06): a merged-away
     # turn whose track is a GATE-VERIFIED FULL JOURNEY in a DIFFERENT cell
     # was a misclassified real vehicle (35 gate-verified SB-thrus deleted as
@@ -2091,9 +2088,8 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
         "variant": variant, "window_seconds": window_seconds,
         "corpus_bank_paths": len(bank_res["paths"]),
         "missing_movements": bank_res.get("missing_movements"),
-        "replay": stats, "merge": {k: v for k, v in merge.items()
-                                   if k != "borderline"},
-        "borderline": merge["borderline"], "out_db": str(out_db),
+        "replay": stats, "merge": merge,
+        "out_db": str(out_db),
         # The turn-merge volume-gate basis, recorded so control/arm
         # geometry pairs can diff WHY merges (de)activated (the W1a
         # coupling: paths move the corpus bank, which moves these).
@@ -2119,39 +2115,6 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     return _gated_finish_apply(project_id, camera_id, intersection_id,
                                window, out_db, f_lo, f_hi, fps, result,
                                chash)
-
-
-def rebuild_s5_union(project_id: str, intersection_id: int,
-                     results: list[dict]) -> dict:
-    """One flag-queue rebuild carrying the UNION of S5 merge-borderline rows
-    across every window a process run applied. A per-window _finish_apply
-    rebuild only carries its own window's rows, so a multi-window apply used
-    to leave the LAST window's S5 flags only (stage-3.4 dry-run finding).
-    Dedup by (camera, cell) keeping the max-|raw−expected| instance; cells
-    round-trip through JSON sidecars as lists, so normalize to tuples."""
-    best: dict[tuple, dict] = {}
-    for res in results:
-        cam = res["camera_id"]
-        for b in res.get("borderline") or []:
-            b = dict(b, cell=tuple(b["cell"]))
-            key = (cam, b["cell"])
-            if (key not in best or abs(b["raw"] - b["expected"])
-                    > abs(best[key]["raw"] - best[key]["expected"])):
-                best[key] = b
-    by_cam: dict[int, list[dict]] = {}
-    for (cam, _), b in best.items():
-        by_cam.setdefault(cam, []).append(b)
-    extras: list[dict] = []
-    conn = get_connection(project_id)
-    try:
-        for cam, borderline in by_cam.items():
-            card = {lid: cd for lid, cd in conn.execute(
-                "SELECT leg_id, cardinal_direction FROM legs WHERE camera_id = ?",
-                (cam,))}
-            extras.extend(s5_flags(cam, borderline, card, bound_approach))
-    finally:
-        conn.close()
-    return rebuild_flags(project_id, intersection_id, extra_flags=extras)
 
 
 BACKUP_KEEP = 12   # pre-apply project.db copies kept per project (~380 MB
@@ -2252,16 +2215,8 @@ def _finish_apply(project_id: str, camera_id: int, intersection_id: int,
     _rotate_backups(backup.parent)
     review_replay = _apply_window_events(proj_db, out_db, camera_id,
                                          f_lo / fps, f_hi / fps)
-    c = sqlite3.connect(proj_db)
-    card = {lid: cd for lid, cd in c.execute(
-        "SELECT leg_id, cardinal_direction FROM legs WHERE camera_id = ?",
-        (camera_id,))}
-    c.close()
 
-    # borderline cells round-trip through the stats sidecar as lists
-    borderline = [dict(b, cell=tuple(b["cell"])) for b in result["borderline"]]
-    extra = s5_flags(camera_id, borderline, card, bound_approach)
-    flag_summary = rebuild_flags(project_id, intersection_id, extra_flags=extra)
+    flag_summary = rebuild_flags(project_id, intersection_id)
     result = dict(result)
     result.update({"applied": True, "backup": str(backup), "flags": flag_summary,
                    "review_replay": review_replay})

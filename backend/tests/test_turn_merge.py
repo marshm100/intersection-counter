@@ -1,19 +1,12 @@
-"""A4a — production turn merge + S5 signal (backend/services/turn_merge.py).
-
-The mechanism itself (merge_turn_fragments) is the validated hybrid_ocbot port;
-these tests pin the PORT's behavior + the new DB post-pass semantics: volume
-gate scaling via sample_window_seconds, rejected=1 (not deleted), throughs
-untouched by construction, borderline S5 output, s5_flags dict contract.
-"""
+"""turn_merge.py: merge_turn_fragments / borderline_merge_cells (kept for the
+hybrid_ocbot recipe script) and twin_track_dedup (live)."""
 import json
 import sqlite3
 
 import pytest
 
-from backend.services.cardinals import bound_approach
 from backend.services.turn_merge import (
-    bank_expecteds, borderline_merge_cells, merge_replay_turns,
-    merge_turn_fragments, s5_flags,
+    bank_expecteds, borderline_merge_cells, merge_turn_fragments,
 )
 
 
@@ -102,63 +95,6 @@ def _mk_db(tmp_path):
     """)
     return db, c
 
-
-class TestMergeReplayTurns:
-    def test_keeps_every_turn_and_throughs(self, tmp_path):
-        db, c = _mk_db(tmp_path)
-        with c:
-            # bank: expect 1 left per 1800s -> window 1800 -> threshold 1.3
-            c.execute("INSERT INTO intersection_paths VALUES (7, 1, 2, 1, 1800)")
-            traj = json.dumps([[100, 100], [110, 110]])
-            for i, (s, e) in enumerate(((0, 10), (20, 30), (45, 55))):
-                c.execute("INSERT INTO vehicle_events VALUES (?,7,1,2,'left',?,?,?,0)",
-                          (i + 1, s, e, traj))
-            # a THROUGH pile in the same cell geometry — must never be touched
-            for i in range(3):
-                c.execute("INSERT INTO vehicle_events VALUES (?,7,1,2,'through',?,?,?,0)",
-                          (10 + i, i * 20, i * 20 + 10, traj))
-        c.close()
-        stats = merge_replay_turns(db, 7, window_seconds=1800)
-        assert stats["turns"] == 3 and stats["merged_away"] == 0
-        c = sqlite3.connect(db)
-        rej = {r[0]: r[1] for r in c.execute(
-            "SELECT event_id, rejected FROM vehicle_events")}
-        c.close()
-        assert set(rej.values()) == {0}      # the merge is retired: nothing rejected
-
-    def test_window_scaling_disarms_gate(self, tmp_path):
-        # Same 3 fragments, but the counting window is 3x the sample window ->
-        # expected scales 1 -> 3 -> threshold 3.9 >= 3 raw -> NO merge.
-        db, c = _mk_db(tmp_path)
-        with c:
-            c.execute("INSERT INTO intersection_paths VALUES (7, 1, 2, 1, 1800)")
-            traj = json.dumps([[100, 100], [110, 110]])
-            for i, (s, e) in enumerate(((0, 10), (20, 30), (45, 55))):
-                c.execute("INSERT INTO vehicle_events VALUES (?,7,1,2,'left',?,?,?,0)",
-                          (i + 1, s, e, traj))
-        c.close()
-        stats = merge_replay_turns(db, 7, window_seconds=5400)
-        assert stats["merged_away"] == 0
-
-    def test_null_sample_window_falls_back(self, tmp_path):
-        db, c = _mk_db(tmp_path)
-        with c:
-            c.execute("INSERT INTO intersection_paths VALUES (7, 1, 2, 1, NULL)")
-        expected = bank_expecteds(c, 7, window_seconds=1800)
-        c.close()
-        assert expected[(1, 2)] == pytest.approx(1.0)   # 1800/1800 via fallback
-
-
-class TestS5Flags:
-    def test_flag_dict_contract(self):
-        borderline = [{"cell": (22, 24), "raw": 134, "expected": 110.0,
-                       "threshold": 143.0, "merges": False}]
-        flags = s5_flags(1, borderline, {22: "S"}, bound_approach)
-        assert len(flags) == 1
-        f = flags[0]
-        assert f["kind"] == "suspected_gap" and f["subtype"] == "merge_borderline"
-        assert f["approach"] == "N" and f["impact"] == pytest.approx(24.0)
-        assert f["evidence"]["raw"] == 134 and f["batch_key"] is None
 
 class TestTwinTrackDedup:
     """Counted-path C2: coexisting twins (two tracks on one vehicle)."""

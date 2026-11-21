@@ -498,16 +498,9 @@ def feed_health(project_id: str, intersection_id: int) -> list[dict]:
     return out
 
 
-def rebuild_flags(project_id: str, intersection_id: int,
-                  extra_flags: list[dict] | None = None) -> dict:
+def rebuild_flags(project_id: str, intersection_id: int) -> dict:
     """Clear the intersection's open flags, run both feeders, insert the
     results, and return {created, ...flag_summary}.
-
-    extra_flags: additional insert_flags dicts computed by the CALLER's
-    context and inserted atomically with the feeders' — the S5
-    merge_borderline rows from the pass-2 turn merge (A4a), whose raw
-    pre-merge counts exist only at combine time. A manual rebuild (the
-    router) has no merge context, so S5 flags refresh on pass-2 runs only.
 
     Before insert, the Stage-2 auto-resolution rules run over the fresh
     set (queue_autoresolve: scope / bin-exemplar cap / tiny holes) and
@@ -520,7 +513,6 @@ def rebuild_flags(project_id: str, intersection_id: int,
     flags += feed_uncertain_events(project_id, intersection_id)
     flags += feed_suspected_gaps(project_id, intersection_id)
     flags += feed_health(project_id, intersection_id)
-    flags += list(extra_flags or [])
     conn = get_connection(project_id)
     try:
         auto_counts = queue_autoresolve.apply_to_feeder_dicts(

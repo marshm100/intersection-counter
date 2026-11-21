@@ -1,24 +1,10 @@
-"""Production turn-fragment merge + S5 borderline signal (A4a,
-docs/plan_A4_stage3_2026-07-10.md).
+"""Turn-fragment merge mechanics + twin-track dedup + bank expecteds.
 
-BoT/ByteTrack fragment one turning vehicle into several same-cell events (the
-tracker coasts the sharp curve, the pipeline finalizes the stub, the exit
-re-tracks). `merge_turn_fragments` collapses same-(origin,dest,movement)
-events that start within merge_px of each other within merge_gap frames —
-guarded by the VOLUME GATE: only cells whose raw count clearly exceeds
-expectation merge at all, so sparse well-counted cells can't lose distinct
-vehicles. Mechanism and constants ported VERBATIM from scripts/hybrid_ocbot.py
-(the validated offline recipe; scripts re-import from here).
-
-The expecteds are GT-FREE: the applied bank's supporting_count per (origin,
-dest), scaled to the counting window via sample_window_seconds (blind gate,
-validated 2026-07-08 — the honest cam1 cost was 10.0% vs 6.7% GT-gated, and
-Miovision appears nowhere).
-
-`borderline_merge_cells` is the S5 flag-queue signal: a cell whose raw count
-sits within ±band of the gate threshold is one noise-vehicle from the merge
-decision flipping (cam1 NB-left blind: 134 raw vs threshold 143 → no merge →
-+38 shipped). Only computable HERE, where raw pre-merge counts exist.
+The production turn merge and its S5 merge_borderline flag were deleted
+2026-11-20: the tracklet linker joins fragments, so no merge runs in pass 2.
+`merge_turn_fragments` and `borderline_merge_cells` stay ONLY because the
+offline recipe scripts/hybrid_ocbot.py re-imports them; `twin_track_dedup`
+and `bank_expecteds` are live.
 """
 from __future__ import annotations
 
@@ -272,54 +258,3 @@ def bank_expecteds(conn: sqlite3.Connection, camera_id: int,
             sw = FALLBACK_SAMPLE_SECONDS
         out[(o, d)] = float(sc) * (window_seconds / float(sw))
     return out
-
-
-def merge_replay_turns(db: str | Path, camera_id: int, *,
-                       window_seconds: float,
-                       expected_by_cell: dict | None = None,
-                       fps: float | None = None) -> dict:
-    """S5 borderline signal over a pass-2 replay DB. The volume-gated turn
-    merge itself was retired 2026-11-20 (the tracklet linker joins a vehicle's
-    pieces before counting), so nothing is rejected here: every turn is kept
-    and `merged_away` is always 0.
-
-    expected_by_cell overrides the bank expecteds (tests); default = the
-    replay DB's own applied bank, time-scaled. Returns stats incl. the S5
-    borderline cells for the caller to emit as review_flags."""
-    conn = sqlite3.connect(str(db))
-    try:
-        turns = _load_turns(conn, camera_id)
-        expected = (expected_by_cell if expected_by_cell is not None
-                    else bank_expecteds(conn, camera_id, window_seconds))
-        borderline = borderline_merge_cells(turns, expected, VOL_FACTOR)
-    finally:
-        conn.close()
-    return {"camera_id": camera_id, "turns": len(turns), "kept": len(turns),
-            "merged_away": 0, "borderline": borderline,
-            "window_seconds": window_seconds}
-
-
-def s5_flags(camera_id: int, borderline: list[dict],
-             leg_cardinals: dict[int, str], bound_approach) -> list[dict]:
-    """Turn `borderline_merge_cells` output into insert_flags(**f) dicts
-    (kind suspected_gap, subtype merge_borderline) — the S5 feeder
-    (plan_flagqueue_B_2026-07-09). Called inside the rebuild path so the
-    flags survive clear_open_flags."""
-    flags = []
-    for b in borderline:
-        o, d = b["cell"]
-        ap = bound_approach(leg_cardinals.get(o, ""))
-        flags.append({
-            "kind": "suspected_gap", "subtype": "merge_borderline",
-            "camera_id": camera_id, "approach": ap, "movement": None,
-            "impact": float(abs(b["raw"] - b["expected"])),
-            "reason": (f"{ap}B turn cell {o}->{d}: {b['raw']} raw fragments vs "
-                       f"merge threshold {b['threshold']} (expected "
-                       f"{round(b['expected'])}) — the merge decision is one "
-                       f"noise-vehicle from flipping; spot-check this cell."),
-            "evidence": {"origin_leg_id": o, "destination_leg_id": d,
-                         "raw": b["raw"], "expected": round(b["expected"], 1),
-                         "threshold": b["threshold"], "merges": b["merges"]},
-            "batch_key": None,
-        })
-    return flags
