@@ -99,3 +99,20 @@ The two flags act at different stages, so "both off together on existing dumps" 
 - The sfon_study_1100 parquet alias + tracks dir is scratch under data/projects/97a7849a/detections/4/<hash>/; delete when arm F is done.
 - Next: re-track the 11 windows with STOP_FRACTURE_COLLAPSE=0 under prefix sf0, pass 2 over them (fleet stem sf0), compare to fodg.
   Needs an operator go (about 2 h GPU, then a fleet).
+
+## RESULT arm F (2026-11-21) - gate PASSED, deletion NOT yet done
+- sf0: 11 windows re-tracked with STOP_FRACTURE_COLLAPSE=0 from cached detections (prefix sf0; meta has no stop_fracture_collapsed key,
+  i.e. the collapse did not run), then pass 2 (stem sf0, fresh score files 05:27-05:50) vs fodg (flag on, same code).
+- Fleet 91.88 -> 91.88 (+0.00); every window +0.0 at one decimal. Score files byte-identical on 7 of 11 windows; the 4 that differ
+  (cam2 0700, cam2 1600, cam3 0600, cam5 1600) differ below the decimal: events 29220 -> 29223 and dropped 7997 -> 8052 (cam3 0600),
+  cam5 1600 events 5992 -> 5994, cam2 dropped 2627 -> 2641 / 4255 -> 4282. Order 0.01-0.5 % of events.
+- eval_journeys fodg vs sf0, 4 clips (cam2 1600, cam3 0600, cam4 1600, cam5 0700; 419 vehicles): every outcome identical (365
+  correct both, broken 30 both, phantoms 28 both), only-fodg-right 0, only-sf0-right 0, McNemar p = 1.000. cam1 0700 (102 vehicles)
+  has no DB: unchecked.
+- Verdict under the declared gate: DELETE. Power caveat: the labelled 3-minute clips hold few collapse events (163 pairs over 12
+  whole windows), so identical labels say "no visible harm on 419 vehicles", not "proved harmless".
+- BASIS PROBLEM before deleting: the production study_* dumps were built with the collapse and still contain it. Deleting the code
+  alone leaves them collapsed, and a fresh pass 1 would differ from them. Either promote the sf0 dumps to study_* (renaming the old
+  aside, as at the lk2 and gx2 ships) or accept that pass-1 output changes only on re-track. Needs an operator ruling.
+- Scratch to delete after the decision: sf0_* and sfon_* parquet aliases + .tracks under data/projects/97a7849a/detections/*/<hash>/,
+  fleet DBs tw0_*/sf0_*.
