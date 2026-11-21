@@ -16,7 +16,7 @@ TRACKER_WEAK_BIRTH, TRACKER_FUSE_SCORE — are judged on the tracking chains per
 ## B. Default ON with NO ship ruling or measurement found — first removal-trial candidates
 | Flag | What it does | Why it is a candidate |
 |---|---|---|
-| FLOW_ORIGIN_INFERENCE | entry-less track gets an origin from birth position + dominant-flow structure (pipeline.py:1054) | Uses other cars' flow, which the on-screen-only ruling (2026-09-29/30) forbids. ON_SCREEN_ONLY is still OFF "pending an arm", so the two disagree. Highest priority: it needs an operator ruling, not just a trial. |
+| FLOW_ORIGIN_INFERENCE | entry-less track gets an origin from its own birth point + own first-8-point bearing matched to fitted path templates; a unique claim only, never popularity (pipeline.py:1158) | CORRECTED same day after reading the code: this fits the on-screen-only ruling's allowance ("its own path matched against fitted path templates"), so no ruling is needed on principle. Still a trial candidate: shipped 2026-08-27 on the old basis, never re-measured since the linker, and fires 3-1755 times per window in the 10-15 health sidecars (cam3 0600: 1755). See plan_flow_origin_trial_2026-11-20.md. |
 | STOP_FRACTURE_COLLAPSE | post-pass merges red-light twin births (two_pass.py:1343) | A post-hoc count patch for fractures; the linker is now the only fragment rule (Step 9.124). Fix-tracking-not-count-patches memory applies. |
 | COEXISTING_TWIN_DEDUP | event-level dedup of simultaneous twin tracks (two_pass.py:1999) | Same: a post-hoc patch. Tracker twin handling (TRACKER_TWIN_RETIRE, held-box guard) covers the cause. |
 | GATE_FULL_SUPREMACY, APPLY_GATE_ENABLED, MOTION_QUALIFIED_EVIDENCE, EVIDENCE_ACTIVATION_ENABLED, MOUTH_FROM_GATE_HEADING | gate/evidence plumbing | Used widely (docs 4-9 mentions); EVIDENCE_ACTIVATION is part of the 0.20-coverage rule in CLAUDE.md. Likely keep; confirm owner. Lower priority. |
@@ -47,7 +47,7 @@ Several of these have a live shipped successor (state machine, mm1, linker). The
 whether the successor already does its job.
 
 ## Proposed order of the follow-up arms (each its own plan + gate)
-1. **Operator ruling (no run):** FLOW_ORIGIN_INFERENCE vs the on-screen-only ruling. Then a trial if kept.
+1. **Trial FLOW_ORIGIN_INFERENCE** (no ruling needed after the code read): control vs flag-off on the fleet.
 2. **Delete group C** (8 flags, all with a written negative): code removal, tests, one fleet run to confirm default
    unchanged (they are OFF, so by construction identical; the fleet run proves it). Template step 2 says delete in the
    same arm as something that makes it unnecessary; group C is itself that arm.
