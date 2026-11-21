@@ -36,9 +36,8 @@ RULES = ("GATE_GROUND_ANCHOR", "STRAIGHT_FRAGMENT_RULE",
          "THEFT_SPLIT", "FULL_JOURNEY_RESCUE", "NOCROSS_DROP_SMALL",
          "MOUTH_FROM_MOTION")
 assert all(getattr(cfg, r) for r in RULES), "the default is not ON in config"
-assert not cfg.LINKER_STOPPED_LEVEL, "the linker ships with the stopped level OFF"
 import os  # noqa: E402
-assert not any(os.environ.get(r) for r in RULES + ("LINKER_STOPPED_LEVEL",)), \
+assert not any(os.environ.get(r) for r in RULES), \
     "env overrides set — the reprocess must run on the DEFAULT alone"
 
 from backend.config import PROJECTS_DIR  # noqa: E402

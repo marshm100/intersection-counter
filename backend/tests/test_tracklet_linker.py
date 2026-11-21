@@ -66,17 +66,6 @@ def test_opposite_heading_is_not_linked(gates):
     assert ids == {1, 2}
 
 
-def test_a_car_stopped_at_a_red_light_is_rejoined_across_the_wait(gates, monkeypatch):
-    import backend.config as cfg
-    monkeypatch.setattr(cfg, "LINKER_STOPPED_LEVEL", True)     # shipped OFF
-    stop = [(float(f), 50.0, min(-5.0 + 2.0 * f, 40.0)) for f in range(60)]  # stopped at y 40
-    go = [(260.0 + f, 50.0, 40.0 + 3.0 * f) for f in range(25)]            # 20 s later, same spot
-    out, fams, stats, ids = _run(gates, _rows(1, stop), _rows(2, go))
-    assert ids == {1} and stats["bridged_links"] == 1
-    fr = np.sort(out[:, 1])
-    assert np.max(np.diff(fr)) <= 10              # held rows keep the replay from splitting it
-
-
 def test_the_same_scene_at_25_fps_gives_the_same_answer(gates):
     k = 2.5
     a25 = [(f * k, x, y) for f, x, y in A]
@@ -99,8 +88,7 @@ def test_a_three_piece_car_is_one_track(gates):
 def test_shipped_default(gates):
     import backend.config as cfg
     assert cfg.TRACKLET_LINKER is True
-    assert cfg.LINKER_STOPPED_LEVEL is False                   # lk1 broke cam3
-    # with the stopped level off, the red-light case stays two pieces
+    # the linker has no stopped level, so the red-light case stays two pieces
     stop = [(float(f), 50.0, min(-5.0 + 2.0 * f, 40.0)) for f in range(60)]
     go = [(260.0 + f, 50.0, 40.0 + 3.0 * f) for f in range(25)]
     out, fams, stats, ids = _run(gates, _rows(1, stop), _rows(2, go))

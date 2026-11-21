@@ -276,7 +276,6 @@ class TestApplyUnderWindowName:
         monkeypatch.setattr(tp, "tracks_dir", lambda p: tdir)
         monkeypatch.setattr(tp, "load_dump", lambda d: np.zeros((0, 8)))
         monkeypatch.setattr(cfg, "TRACKLET_LINKER", True)
-        monkeypatch.setattr(cfg, "A3_CUT_DUMPS", False)
         monkeypatch.setattr(
             tl, "ensure_linked_dump",
             lambda pid_, cid_, v, fps, td, rows, meta, frame_size=None:
@@ -336,7 +335,6 @@ class TestLinkerFailureFlagsTheRun:
         monkeypatch.setattr(tp, "tracks_dir", lambda p: tdir)
         monkeypatch.setattr(tp, "load_dump", lambda d: np.zeros((0, 8)))
         monkeypatch.setattr(cfg, "TRACKLET_LINKER", True)
-        monkeypatch.setattr(cfg, "A3_CUT_DUMPS", False)
 
         def boom(*a, **k):
             raise RuntimeError("linker exploded")

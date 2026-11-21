@@ -255,8 +255,6 @@ def link_rows(rows: np.ndarray, fps: float, gates, frame_size=None):
     bridges = []
     levels = [("move", c.LINKER_MOVE_GAP_MIN_S, c.LINKER_LEVEL1_GAP_S, True),
               ("move", c.LINKER_MOVE_GAP_MIN_S, c.LINKER_MOVE_GAP_MAX_S, True)]
-    if c.LINKER_STOPPED_LEVEL:
-        levels.append(("stop", 0.0, c.LINKER_STOP_GAP_S, False))
     tags = _tags(pieces, fps, gates)
     for lvl, (_name, g_lo, g_hi, moving) in enumerate(levels, 1):
         live = {t: p for t, p in pieces.items() if root(t) == t and len(p) >= 2}
@@ -376,7 +374,7 @@ def ensure_linked_dump(project_id: str, camera_id: int, variant: str,
                        fps: float, base_tdir, base_rows, base_meta: dict,
                        frame_size=None):
     """Materialise (or reuse) the linked dump lk{sig}_{variant}.tracks beside the
-    base dump (the track_cut.ensure_cut_dump pattern). Returns (variant',
+    base dump (the derived-dump pattern). Returns (variant',
     tdir', meta', rows'). The base dump is never touched."""
     import json
     from pathlib import Path
@@ -423,11 +421,9 @@ def linker_signature() -> dict:
     c = _cfg()
     return {k: getattr(c, k) for k in (
         "LINKER_LEVEL1_GAP_S", "LINKER_MOVE_GAP_MIN_S", "LINKER_MOVE_GAP_MAX_S",
-        "LINKER_STOP_GAP_S",
         "LINKER_OVERLAP_MAX_S", "LINKER_OVERLAP_MAX_FRAC", "LINKER_RESID_BASE",
         "LINKER_RESID_PER_S", "LINKER_SIGMA_BASE", "LINKER_SIGMA_PER_S",
         "LINKER_FOLLOWER_RATIO", "LINKER_STOP_DIST_BOXES", "LINKER_MIDBOX_COST",
-        "LINKER_STOPPED_LEVEL",
         "STITCH_STAT_SPEED_PXS", "CHAIN_DIR_TOL_DEG", "CHAIN_BEARING_END_S",
         "THEFT_SPLIT", "THEFT_SAMPLE_S", "THEFT_MOVE_WPS", "THEFT_RUN_S",
         "THEFT_RUN_BOXES", "THEFT_REVERSE_DEG", "THEFT_TURN_SIZE_FRAC")}

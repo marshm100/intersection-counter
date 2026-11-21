@@ -124,13 +124,6 @@ class TestAdjudicateCounts:
         d, r, _ = adjudicate_counts({}, _spread(1100, 680), {}, 0.0)
         assert (d, r) == ("apply", ["fresh_window"])
 
-    def test_fail_open_env_restores_unverified_apply(self, monkeypatch):
-        import backend.services.apply_gate as AG
-        monkeypatch.setattr(AG, "APPLY_GATE_FAIL_OPEN", True)
-        d, r, _ = AG.adjudicate_counts(_spread(50, 50), _spread(60, 60),
-                                       {}, 0.0)
-        assert (d, r) == ("apply", ["not_adjudicable"])
-
     def test_gate_pass(self):
         from backend.services.apply_gate import adjudicate_counts
         # incumbent 15% under census; candidate recovers within the envelope

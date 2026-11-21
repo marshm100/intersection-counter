@@ -57,3 +57,8 @@ whether the successor already does its job.
 ## Unproven
 - Group C "negative" results come from config comments; the arm records they cite were not re-read.
 - The doc-mention counts were by name only. A flag renamed in an old doc would show zero.
+
+
+## Update 2026-11-21
+- FLOW_ORIGIN_INFERENCE: deleted (Step 9.129, fleet-confirmed).
+- Group C: 7 of 8 deleted in docs/plan_delete_negative_flags_2026-11-21.md (fleet confirm pending). TRACKER_WEAK_BIRTH_PROMOTE deferred: recipe key is in the pass-1 reuse fingerprint; needs a tracker-evidence arm.

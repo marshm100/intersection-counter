@@ -292,57 +292,6 @@ def _path_hausdorff_oneway(
     return total / len(trajectory)
 
 
-def _projects_inside(p, polyline) -> bool:
-    """True when the nearest point of `polyline` to `p` is not clamped to the
-    polyline's first or last vertex, i.e. the line actually runs alongside p
-    rather than p lying beyond one of its ends."""
-    best_d, best_clamp = float("inf"), True
-    n = len(polyline)
-    for i in range(n - 1):
-        ax, ay = polyline[i][0], polyline[i][1]
-        bx, by = polyline[i + 1][0], polyline[i + 1][1]
-        dx, dy = bx - ax, by - ay
-        L = dx * dx + dy * dy
-        t = 0.0 if L == 0 else ((p[0] - ax) * dx + (p[1] - ay) * dy) / L
-        clamp = (i == 0 and t < 0.0) or (i == n - 2 and t > 1.0)
-        t = max(0.0, min(1.0, t))
-        d = math.hypot(p[0] - ax - t * dx, p[1] - ay - t * dy)
-        if d < best_d:
-            best_d, best_clamp = d, clamp
-    return not best_clamp
-
-
-def score_destination_by_polyline_extent(
-    trajectory: list[tuple],
-    origin_leg_id: int,
-    paths: list[dict],
-    *,
-    max_avg_distance_px: float = 20.0,
-) -> dict:
-    """score_destination_by_polyline, but a line only votes where it EXISTS
-    (config.NOCROSS_EXTENT_FALLBACK, arm nf2). The plain fallback measures
-    a point beyond a line's end to that end point, so a stub upstream of
-    where one candidate line begins is won by whichever line reaches
-    further upstream (cam5: left starts at x ~ 536, through at x ~ 508).
-    Here only trajectory points that lie alongside EVERY candidate line
-    are compared; with fewer than two such points the track cannot show
-    its movement and no destination is returned. Same metric, same
-    threshold, same tie-break as the plain fallback; no new constants."""
-    none = {"destination_leg_id": None, "movement_label": None,
-            "distance": float("inf"), "path_id": None, "considered": 0}
-    candidates = [p for p in paths if p.get("origin_leg_id") == origin_leg_id
-                  and len(p.get("polyline") or []) >= 2]
-    if not candidates or len(trajectory) < 2:
-        return none
-    shared = [pt for pt in trajectory
-              if all(_projects_inside(pt, c["polyline"]) for c in candidates)]
-    if len(shared) < 2:
-        return {**none, "considered": len(candidates)}
-    return score_destination_by_polyline(
-        shared, origin_leg_id, candidates,
-        max_avg_distance_px=max_avg_distance_px)
-
-
 def score_destination_by_polyline(
     trajectory: list[tuple],
     origin_leg_id: int,

@@ -156,13 +156,6 @@ V2_DEMOTION_RATIO = 2.0
 # same-cell rejects keep the volume gate's excess semantics). Default OFF.
 V2_MERGE_RESCUE = _os2.environ.get("V2_MERGE_RESCUE", "0") in ("1", "true", "on")
 
-# V2 time-local allocation (block-2 item 4): LEDGERED-DEAD 2026-08-06 —
-# segment-level strict-census mixes inherit the segment's recall bias
-# (PM dest-29 segments lean EB because SB-thru fulls are starved there;
-# passes any count floor). Window-global supports average the bias out.
-# Kept for the record; never enable without a debiasing design.
-V2_TIMELOCAL = _os2.environ.get("V2_TIMELOCAL", "0") in ("1", "true", "on")
-
 # V2 track-derived GATE ORIENTATION (plan_v2_gate_axis_2026-08-10): the
 # gate at a leg mouth must lie ACROSS the road, and both operator-drawn
 # sources for that direction are measured unreliable (channel tangents
@@ -193,34 +186,6 @@ APPLY_GATE_ENABLED = _os2.environ.get("APPLY_GATE", "1") in ("1", "true", "on")
 # per cam2 window, top flip = gate-said-through relabeled right (55/80/139),
 # mirroring the Miovision error table. Env-overridable for A/B replays.
 GATE_FULL_SUPREMACY = _os2.environ.get("GATE_FULL_SUPREMACY", "1") in ("1", "true", "on")
-
-# Track Repair Stage 1 (operator ruling 2026-08-24: every cut ends a vehicle
-# identity — a track cannot exit mouth-to-gate and "return" as the same
-# vehicle; segments are separate vehicles): pass-2 resolves base study_*
-# windows to an a3_-cut derived dump (the validated A3 splice cutter applied
-# to every track, segments renumbered tid*10+k) before classification.
-# Geom-hash pinned; rebuilt when gates/paths/channels change. Fail-safe: any
-# resolution error falls back to the base dump with a warning.
-# DEFAULT OFF (2026-08-24 Demo-1 negative): blanket Type-1 cutting on the
-# full-span DRAWN gates decapitates legitimate journeys — long gate lines
-# cross each other's traffic mid-box, and a mid-box graze of another
-# leg's line fires the geometry cut (SB_thru projected -479 -> -1126 at
-# 1600). The A3 validation predated drawn gates (short derived stubs were
-# rarely grazed). Awaiting the operator-ruled graze amendment + G-TR gate.
-A3_CUT_DUMPS = _os2.environ.get("A3_CUT_DUMPS", "0") in ("1", "true", "on")
-
-# Track Repair Stage 2 (2026-08-24): within the a3_ repair, glue chained
-# fragments back into one bridged track (one vehicle = one event). DEFAULT
-# OFF after the Demo-2 negative (2026-08-24): on real cam2 dumps the frozen
-# stationary chain rule daisy-chains QUEUE DEBRIS of different counted
-# vehicles (rendered: a 9-member caterpillar of 8 counted vehicles minting
-# a phantom EB_right; every sampled 2-member glue merged two counted
-# vehicles), and linear bridges CROSS drawn gates, minting crossings no
-# vehicle made. Census: EB_right error +246 -> +429 at 1600. Re-enable only
-# behind a redesign (extrapolation-continuity across the gap + bridge-gate
-# veto), gated like everything else. Only consulted when A3_CUT_DUMPS
-# resolves a derived dump.
-CHAIN_GLUE = _os2.environ.get("CHAIN_GLUE", "0") in ("1", "true", "on")
 
 # Anti-theft campaign (2026-09-06, docs/plan_anti_theft_2026-09-06.md).
 # The vanish-zone census + operator scene rulings: ~71% of moving
@@ -578,10 +543,6 @@ TRACKLET_LINKER = _os2.environ.get("TRACKLET_LINKER", "1") in ("1", "true", "on"
 LINKER_LEVEL1_GAP_S = 0.5        # first pass: short breaks only
 LINKER_MOVE_GAP_MIN_S = -0.5     # a head may start up to 0.5 s before the tail ends
 LINKER_MOVE_GAP_MAX_S = 3.0      # moving breaks up to 3 s (the occlusion scale)
-LINKER_STOP_GAP_S = 60.0         # a stopped car's break, up to about a red light
-# The stopped level can be switched off (arm lk2): on cam3's long queues it
-# joined distinct queued cars (lk1: 5,052 stopped links, SB/NB through -930/-590).
-LINKER_STOPPED_LEVEL = _os2.environ.get("LINKER_STOPPED_LEVEL", "0") in ("1", "true", "on")
 # THE THEFT SPLIT (2026-10-01, item 5; docs/plan_basis_2026-09-11.md "ITEM 1"):
 # the journey labels' identity thefts are smooth far-field hand-offs - a track
 # follows a car driving away until its box is 12-20 px and nearly still, then
@@ -627,22 +588,6 @@ LINKER_MIDBOX_COST = 6.0         # cost of a piece ending / starting mid-box
 # labels: phantoms 47 -> 25, real cars 434 -> 433).
 NOCROSS_NO_FALLBACK = _os2.environ.get(
     "NOCROSS_NO_FALLBACK", "1") in ("1", "true", "on")
-# arm nf2 (2026-09-26): instead of closing the side door, the fallback may
-# only compare path lines over the stretch of the track that lies alongside
-# ALL of them (trajectory_classifier.score_destination_by_polyline_extent).
-# A stub upstream of where one candidate line begins has no such stretch and
-# drops; a far-field track past its turn (cam2's SB rights at the W exit)
-# keeps its label. Arm nf1 (the blanket refusal) failed on cam2 (-6.64).
-# No new constants. Default OFF.
-NOCROSS_EXTENT_FALLBACK = _os2.environ.get(
-    "NOCROSS_EXTENT_FALLBACK", "0") in ("1", "true", "on")
-# NO GATE, NO COUNT (2026-10-01, arm nc1): the event audit (batch a1, 135
-# counted events judged on the video) put tracks that crossed NO gate line at
-# 37% precision (full journeys 96%, exit-only 89%, entry-only 83%); 14 of 30
-# were a second piece of a vehicle already counted. When ON (evidence mode
-# "on"), a no_crossing track is never counted, even with a matched path
-# shape. Default OFF.
-NOCROSS_DROP_ALL = _os2.environ.get("NOCROSS_DROP_ALL", "0") in ("1", "true", "on")
 # arm nc1 tied (fleet -0.07): dropping every no_crossing count removes real
 # near vehicles as often as doubles. In the audit the two differ by SIZE: the
 # 14 doubles and 3 off-intersection tracks had median box widths 11-56 px
@@ -677,14 +622,10 @@ APPLY_GATE_SATURATION = 0.25  # confusion contrast ceiling (shared w/ demotion)
 # 12 validation windows sit at incumbent/census -11.9%..+4.7%, FM51 at +371%
 # — a 20x gap either side of this bound.
 APPLY_GATE_MAX_OVERCLAIM = 1.0
-# What to do when the census cannot adjudicate (degenerate or absent) AND an
-# incumbent table exists. Default FAIL-CLOSED: the gate's contract is that
-# every apply WINS its window, and an unmeasurable window cannot be won, so
-# the incumbent stands and the operator decides (disposition 'force_once').
-# Fresh windows are unaffected — they apply at rule 1, before this. Set
-# APPLY_GATE_FAIL_OPEN=1 for the old behavior (unverified applies proceed).
-APPLY_GATE_FAIL_OPEN = _os2.environ.get("APPLY_GATE_FAIL_OPEN", "0") in (
-    "1", "true", "on")
+# When the census cannot adjudicate (degenerate or absent) AND an incumbent
+# table exists the gate FAILS CLOSED: its contract is that every apply WINS its
+# window, and an unmeasurable window cannot be won, so the incumbent stands and
+# the operator decides (disposition 'force_once'). Fresh windows apply at rule 1.
 
 
 def get_processing_mode_config(mode: str | None) -> dict:

@@ -822,7 +822,7 @@ def _collapse_stop_fractures(arr, drawn, fps):
     - B is pinned to the rest position at BOTH ends: birth within
       STITCH_STAT_DIST of A's last pre-gap point AND death within
       STITCH_STAT_DIST of A's first post-gap point. (One-end proximity
-      is the ledgered CHAIN_GLUE caterpillar predicate — forbidden.
+      is the ledgered (deleted) chain-glue caterpillar predicate — forbidden.
       Queue neighbors fail an end; the twin fails neither.)
     - Neither sub-chord (A_end -> B_birth, B_death -> A_resume) may
       cross a drawn gate (the A2 physical-crossing law).
@@ -1724,31 +1724,11 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
     # force_once set on study_0700 was never seen under lk_study_0700).
     window = variant
 
-    # --- Track Repair Stage 1 (operator ruling 2026-08-24): resolve base
-    # study_* windows to the a3_-CUT derived dump before anything reads the
-    # rows. Every cut ends a vehicle identity — segments are separate
-    # vehicles, classified by their own gate crossings; classify() and every
-    # census/threshold downstream see the same cut tid space. Fail-safe:
-    # resolution errors fall back to the base dump (processing never breaks
-    # on the repair layer).
-    from backend.config import A3_CUT_DUMPS
-    if A3_CUT_DUMPS and variant.startswith("study_"):
-        try:
-            from backend.services.track_cut import ensure_cut_dump
-            variant, tdir, meta, rows = ensure_cut_dump(
-                project_id, camera_id, variant, chash, fps, tdir, rows, meta)
-            f_lo, f_hi = meta["frames"]
-            window_seconds = (f_hi - f_lo) / fps
-        except Exception as e:                      # pragma: no cover
-            logger.warning("a3 cut-dump resolution failed for cam%s %s: %s "
-                           "— falling back to the base dump",
-                           camera_id, variant, e)
-
     # THE GLOBAL TRACKLET LINKER (flag-gated, 2026-09-30,
     # docs/research_tracking_2026-09-29.md phase 2): join the pieces a
     # vehicle's track broke into BEFORE the bank, the replays and every
     # post-pass read `rows`, via a derived dump lk{sig}_{variant}.tracks (one per linker setting) (the
-    # ensure_cut_dump pattern). Processing never stops on a linker error, but
+    # derived-dump pattern). Processing never stops on a linker error, but
     # the run is FLAGGED (result["linker_failed"]), is NOT applied and its
     # stats sidecar is not cached, so it has to be re-run (operator ruling
     # 2026-11-20: a visible failure beats a silent ~11-point-worse count; the
@@ -1948,24 +1928,6 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
                                   / direct[cell]))
             for cell in flooded}
         if flooded:
-            # TIME-LOCAL allocation mix (block-2 item 4): per-15-min-segment
-            # origin proportions from the BASE dump's strict-census fulls
-            # (scale-1 per segment by construction; add-one smoothed;
-            # sampler falls back to window-global bank supports when a
-            # segment is thin). Bins-only change by design.
-            seg_frames = 900.0 * fps
-            seg_supports: dict = {}
-            for _tid, g in _full_map.items():
-                if g[2] is None:
-                    continue
-                seg = int((g[2] - f_lo) / seg_frames)
-                key = (int(g[1]), seg)
-                seg_supports.setdefault(key, {})
-                seg_supports[key][int(g[0])] = \
-                    seg_supports[key].get(int(g[0]), 0) + 1
-            timelocal = ({"f_lo": float(f_lo), "seg_frames": seg_frames,
-                          "supports": seg_supports}
-                         if getattr(_cfg, "V2_TIMELOCAL", False) else None)
             ev_final = ("on" if (activation and activation.get("activated"))
                         else ("probe" if activation is not None else None))
             logger.info("two-pass cam%s %s: demotion re-replay, cells=%s",
@@ -1973,8 +1935,7 @@ def run_pass2(project_id: str, camera_id: int, *, variant: str,
             stats = replay_camera(project_id, camera_id, variant=variant,
                                   out_db=out_db, should_cancel=should_cancel,
                                   evidence_mode=ev_final,
-                                  demoted_cells=demote_frac,
-                                  demotion_timelocal=timelocal)
+                                  demoted_cells=demote_frac)
         demotion = {"cells": sorted(list(c) for c in flooded),
                     "dose": {f"{k[0]}->{k[1]}": round(v, 3)
                              for k, v in sorted(demote_frac.items())},

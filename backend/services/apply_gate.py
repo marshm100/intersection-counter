@@ -28,7 +28,6 @@ import sqlite3
 from pathlib import Path
 
 from backend.config import (
-    APPLY_GATE_FAIL_OPEN,
     APPLY_GATE_FLOOD_MAX,
     APPLY_GATE_HEADROOM,
     APPLY_GATE_MAX_OVERCLAIM,
@@ -96,8 +95,6 @@ def adjudicate_counts(inc: dict, cand: dict, census: dict,
     if t > 0:
         metrics["R_inc"] = round(n_inc / t - 1, 4)
     if t <= 0 or n_inc / t - 1 > APPLY_GATE_MAX_OVERCLAIM:
-        if APPLY_GATE_FAIL_OPEN:
-            return "apply", ["not_adjudicable"], metrics
         return "stand_down", ["census_degenerate"], metrics
 
     cells = set(inc) | set(cand) | set(census)

@@ -56,10 +56,8 @@ from backend.config import (
     GATE_EXIT_ONLY_BINDING,
     FULL_JOURNEY_RESCUE,
     NOCROSS_NO_FALLBACK,
-    NOCROSS_DROP_ALL,
     NOCROSS_DROP_SMALL,
     NOCROSS_SMALL_FRAC,
-    NOCROSS_EXTENT_FALLBACK,
     FULL_RESCUE_MIN_STRAIGHTNESS,
     TRACK_FATE_LEDGER,
     USE_JOINT_PARTIAL_FRECHET_SCORER,
@@ -79,7 +77,6 @@ from backend.services.track_filter import track_quality
 from backend.services.tracker import VehicleTracker
 from backend.services.trajectory_classifier import (
     classify_trajectory, derive_movement, score_destination_by_polyline,
-    score_destination_by_polyline_extent,
     score_destination_leg, score_path_joint,
 )
 
@@ -239,7 +236,6 @@ class ProcessingPipeline:
         self._demoted_cells: dict[tuple, float] = {}
         # item 4: per-15-min-segment origin mixes for the sampler
         # ({"f_lo", "seg_frames", "supports": {(dest,seg): {origin: n}}})
-        self._demotion_timelocal: dict | None = None
 
         # Components (lazy-loaded to avoid loading YOLO in tests)
         self._detector: VehicleDetector | None = None
@@ -1870,18 +1866,6 @@ class ProcessingPipeline:
                     if cur is None or w > (float(cur["path"].get(
                             "supporting_count") or 0) + 1.0):
                         best_by[leg] = c
-                # item 4 — TIME-LOCAL mix: the event's own 15-min segment's
-                # strict-census origin counts (add-one) override the window
-                # weights when the segment holds enough evidence (>=30;
-                # 8 admitted PM's fragment-starved unrepresentative mixes
-                # — item-4 gate failure, one declared floor correction).
-                tl = self._demotion_timelocal
-                if tl and dest_pin is not None:
-                    seg = int((frame_number - tl["f_lo"]) / tl["seg_frames"])
-                    seg_mix = tl["supports"].get((int(dest_pin), seg))
-                    if seg_mix and sum(seg_mix.values()) >= 30:
-                        totals = {leg: float(seg_mix.get(leg, 0)) + 1.0
-                                  for leg in totals}
                 z = sum(totals.values())
                 marg = {leg: w / z for leg, w in totals.items()} if z else {}
                 tid = int(track_id)
@@ -1950,15 +1934,6 @@ class ProcessingPipeline:
                         and gate_tag == "no_crossing"
                         and polyline_dest is None)
         nocross_refused = NOCROSS_NO_FALLBACK and nocross_side
-        # NO GATE, NO COUNT (config.NOCROSS_DROP_ALL, arm nc1): the event
-        # audit (batch a1) found a track that crossed no gate line counted
-        # right 37% of the time - 14 of 30 were a second piece of a vehicle
-        # already counted. With no gate evidence of its own, even a matched
-        # path shape does not count it.
-        if (NOCROSS_DROP_ALL and self._evidence_mode == "on"
-                and gate_tag == "no_crossing"):
-            polyline_dest = None
-            nocross_refused = True
         # SMALL BOXES, NO GATE (config.NOCROSS_DROP_SMALL, arm nc2): the
         # audit's no_crossing doubles and off-intersection tracks were small,
         # far-off boxes (14 of 17 at <= 30 px of 640); the correct ones were
@@ -1970,15 +1945,6 @@ class ProcessingPipeline:
                 self._nocross_fw = (self._video_frame_size() or (640, 480))[0]
             import statistics as _st
             if float(_st.median(widths)) < NOCROSS_SMALL_FRAC * self._nocross_fw:
-                polyline_dest = None
-                nocross_refused = True
-        # arm nf2 (config.NOCROSS_EXTENT_FALLBACK): the side door stays open
-        # only where a line actually runs alongside the track.
-        if (NOCROSS_EXTENT_FALLBACK and nocross_side and not nocross_refused
-                and self._paths):
-            polyline_dest = score_destination_by_polyline_extent(
-                trajectory, origin_leg_id, self._paths)
-            if polyline_dest.get("destination_leg_id") is None:
                 polyline_dest = None
                 nocross_refused = True
         if nocross_refused:
