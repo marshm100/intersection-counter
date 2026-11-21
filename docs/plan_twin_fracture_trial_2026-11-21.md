@@ -70,4 +70,10 @@ The two flags act at different stages, so "both off together on existing dumps" 
 2027-02-21.
 
 ## STATUS (2026-11-21)
-Plan drafted only. Arm T ready to run on an operator go. Arm F needs a decision on re-track cost (see Accelerate).
+- Arm T STARTED (operator go): COEXISTING_TWIN_DEDUP=0, stem tw0, FLEET_WORKERS=4, log runs/v2_week1/tw0_fleet.log (last line
+  "exit N" when done). Confirmed off: the flag is absent from the run's "flags ON" line.
+- Arm F re-track cost (read-only look): the pass-1 re-track runs from the cached detection parquet, NO video
+  (scripts/retrack_default_tracker.py PROJ CAM VARIANT PREFIX aliases the cache and calls run_pass1). Past logs: cam4 1100 120 s
+  (228k rows); cam3 0600 and cam2 windows 700-3400 s. Whole fleet is roughly 2 h serial. Needs a new prefix and a way to pass
+  STOP_FRACTURE_COLLAPSE=0 (env var works: it is read at import). Not started: waits for arm T, so the two do not compete for the GPU.
+  Still to check before running: that a flag-ON re-track reproduces the fodg dump (determinism).
