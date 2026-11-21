@@ -43,4 +43,7 @@
 2027-02-21.
 
 ## STATUS (2026-11-21)
-Code deleted, suite 1368 passed (1389 - 21 tests of deleted code). Fleet confirm NOT yet run. Review NOT yet run.
+Code deleted, suite 1368 passed (1389 - 21 tests of deleted code).
+FLEET CONFIRM PASS (stem fodg, 2026-11-21, 11 windows, FLEET_WORKERS=4): fleet 91.88 -> 91.88 (+0.00); all 11 score_fodg_*.json
+are byte-identical to score_fodel_*.json (fresh mtimes 02:05-02:32); cam3 0600 events=29220 dropped=7997. Not covered: cam1 0700 (outside
+the default 11-window list). Review NOT yet run.
