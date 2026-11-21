@@ -167,7 +167,6 @@ class TestConcealerOrigin:
         p._paths = []
         p.legs = [{"leg_id": 7, "gate_segment": None, "origin_zone": None,
                    "reference_heading": 0.0}]
-        p.n_origin_flow_inferred = 0
         p.n_origin_concealer_inherited = 0
         # newborn at (100, 100) starting frame 50; concealer tid=1
         # alive there moving the same way (east)

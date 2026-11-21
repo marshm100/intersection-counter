@@ -653,12 +653,6 @@ NOCROSS_DROP_ALL = _os2.environ.get("NOCROSS_DROP_ALL", "0") in ("1", "true", "o
 # +1/-0, FM 51 identical).
 NOCROSS_DROP_SMALL = _os2.environ.get("NOCROSS_DROP_SMALL", "1") in ("1", "true", "on")
 NOCROSS_SMALL_FRAC = 0.05
-# B — flow-informed origin inference: entry-less tracks (born past
-# the gate: occlusion/faint far band; 41% of the deficit corridor)
-# get their origin inferred from birth position + the dominant-flow
-# structure, guarded by the operator's pertinence law.
-FLOW_ORIGIN_INFERENCE = _os2.environ.get(
-    "FLOW_ORIGIN_INFERENCE", "1") in ("1", "true", "on")
 # C — stop-fracture collapse: the red-light dup engine (track lost at
 # a stop; twin births at the rest position; both counted). Dump
 # post-pass; both-end pinning to the rest position.

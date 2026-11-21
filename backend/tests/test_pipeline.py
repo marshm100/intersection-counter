@@ -343,11 +343,7 @@ class TestPipelineInit:
         assert p.n_origin_rescued == 1
 
         # Flag OFF -> no rescue, dropped as insufficient_data, no new event.
-        # (Since the 2026-08-27 ship, FLOW_ORIGIN_INFERENCE defaults ON and
-        # would rescue this track via the flow tier — pin the LEGACY path
-        # with both tiers off.)
         monkeypatch.setattr(mod, "ORIGIN_CLAIM_VETO_ENABLED", False)
-        monkeypatch.setattr(mod, "FLOW_ORIGIN_INFERENCE", False)
         p2 = ProcessingPipeline(
             project_id="test", db_path=pipeline_env["db_path"],
             video_path=pipeline_env["video_path"], legs=legs, fps=30.0,
@@ -1483,79 +1479,3 @@ class TestPerCameraKnobs:
         p = self._pipeline(pipeline_env, tracker_match_threshold=0.65,
                            calibration_params={"tracker_match_threshold": None})
         assert p.tracker._backend._init_kwargs["match_thresh"] == 0.65
-
-class TestFlowOriginInference:
-    """Counted-path B: flow-informed origin inference for entry-less
-    births (_origin_flow_infer — pure geometry, tested directly)."""
-
-    def _pipe(self, paths, legs):
-        from backend.services.pipeline import ProcessingPipeline
-        pipe = ProcessingPipeline.__new__(ProcessingPipeline)
-        pipe._paths = paths
-        pipe.legs = legs
-        pipe.n_origin_flow_inferred = 0
-        return pipe
-
-    def _geometry(self):
-        import json
-        # N leg 10 (flow southbound along x=200), S leg 11; drawn gate
-        # for leg 10 across y=50
-        legs = [
-            {"leg_id": 10, "origin_zone": [[200, 10]],
-             "gate_segment": json.dumps([[100, 50], [300, 50]]),
-             "reference_heading": 0.0},
-            {"leg_id": 11, "origin_zone": [[200, 390]],
-             "gate_segment": None, "reference_heading": 180.0},
-        ]
-        paths = [{"origin_leg_id": 10, "destination_leg_id": 11,
-                  "movement_label": "through",
-                  "polyline": [[200.0, 20.0], [200.0, 400.0]]}]
-        return paths, legs
-
-    def test_unambiguous_past_gate_birth_inferred(self):
-        paths, legs = self._geometry()
-        pipe = self._pipe(paths, legs)
-        # born at y=100 (past the gate), moving south with the flow
-        got = pipe._origin_flow_infer((200.0, 100.0),
-                                      [(200.0, 100.0), (200.0, 130.0)])
-        assert got == 10
-        assert pipe.n_origin_flow_inferred == 1
-
-    def test_two_claiming_legs_ambiguous(self):
-        paths, legs = self._geometry()
-        paths.append({"origin_leg_id": 12, "destination_leg_id": 11,
-                      "movement_label": "left",
-                      "polyline": [[190.0, 20.0], [190.0, 400.0]]})
-        legs.append({"leg_id": 12, "origin_zone": [[10, 200]],
-                     "gate_segment": None, "reference_heading": 90.0})
-        pipe = self._pipe(paths, legs)
-        got = pipe._origin_flow_infer((200.0, 100.0),
-                                      [(200.0, 100.0), (200.0, 130.0)])
-        assert got is None
-
-    def test_against_flow_refused(self):
-        paths, legs = self._geometry()
-        pipe = self._pipe(paths, legs)
-        # moving NORTH against the southbound flow
-        got = pipe._origin_flow_infer((200.0, 100.0),
-                                      [(200.0, 130.0), (200.0, 100.0)])
-        assert got is None
-
-    def test_periphery_birth_refused_pertinence(self):
-        paths, legs = self._geometry()
-        pipe = self._pipe(paths, legs)
-        # born UPSTREAM of the drawn gate (y=30): outside the
-        # intersection -> the operator's pertinence law refuses
-        got = pipe._origin_flow_infer((200.0, 30.0),
-                                      [(200.0, 30.0), (200.0, 45.0)])
-        assert got is None
-
-    def test_flag_off_dispatcher_inert(self, monkeypatch):
-        import backend.services.pipeline as pl
-        monkeypatch.setattr(pl, "FLOW_ORIGIN_INFERENCE", False)
-        monkeypatch.setattr(pl, "ORIGIN_CLAIM_VETO_ENABLED", False)
-        paths, legs = self._geometry()
-        pipe = self._pipe(paths, legs)
-        assert pipe._origin_rescue((200.0, 100.0),
-                                   [(200.0, 100.0), (200.0, 130.0)]) is None
-

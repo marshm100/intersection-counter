@@ -25,7 +25,6 @@ from backend.config import (
     NATIVE_SINGLE_UNIT_CLASS_ID,
     NATIVE_SINGLE_UNIT_MIN_FRAMES,
     CONCEALER_ORIGIN_INHERITANCE,
-    FLOW_ORIGIN_INFERENCE,
     ORIGIN_CLAIM_VETO_ENABLED,
     ORIGIN_VETO_D_MAIN_PX,
     ORIGIN_VETO_D_MOUTH_PX,
@@ -293,7 +292,6 @@ class ProcessingPipeline:
         # sits ON (no-drop principle); and joint-scorer rewrites blocked from
         # re-stealing origin to a vetoed leg (the finalize-time leak).
         self.n_origin_rescued: int = 0
-        self.n_origin_flow_inferred: int = 0
         self.n_origin_concealer_inherited: int = 0
         self.n_straight_rerouted: int = 0
         self.n_straight_dropped: int = 0
@@ -1042,17 +1040,14 @@ class ProcessingPipeline:
         the origin of the track that concealed this newborn — the
         operator's rule (2026-09-06): a vehicle materializing
         mid-scene was almost always hidden by the vehicle beside it,
-        same mouth, same direction. Tier 2 (counted-path B,
-        FLOW_ORIGIN_INFERENCE): flow-informed origin inference for
-        entry-less births. All default off -> returns None,
-        byte-identical. vehicle/track_id are keyword-optional (the
+        same mouth, same direction. (Tier 2, flow-informed origin
+        inference, was deleted 2026-11-21: flag-off equalled the
+        control on 11 windows and 419 labelled vehicles.) vehicle/track_id are keyword-optional (the
         pinned two-positional call shape)."""
         rescued = self._rescue_through_road(birth, prefix)
         if rescued is None and CONCEALER_ORIGIN_INHERITANCE:
             rescued = self._origin_concealer_infer(birth, prefix,
                                                    vehicle, track_id)
-        if rescued is None and FLOW_ORIGIN_INFERENCE:
-            rescued = self._origin_flow_infer(birth, prefix)
         return rescued
 
     def _birth_pertinent(self, birth, origin_leg):
@@ -1153,52 +1148,6 @@ class ProcessingPipeline:
             return None
         self.n_origin_concealer_inherited = getattr(
             self, "n_origin_concealer_inherited", 0) + 1
-        return o
-
-    def _origin_flow_infer(self, birth, prefix):
-        """Counted-path B: infer the origin of an entry-less track from
-        birth position + the dominant-flow structure. A leg CLAIMS the
-        birth when one of its bank paths passes within
-        ORIGIN_VETO_D_MAIN_PX of the birth point AND the track's early
-        motion bearing agrees with the path's local flow direction
-        within CHAIN_DIR_TOL_DEG (both frozen constants). Exactly one
-        claiming leg -> inferred; two or more -> None (no counting by
-        popularity — the ledgered posterior risk). PERTINENCE GUARD
-        (the operator's law): the birth must lie on the INTERSECTION
-        side of the claiming leg's drawn gate — periphery and parking
-        births are never inferred."""
-        if len(prefix) < 2:
-            return None
-        mx = prefix[-1][0] - prefix[0][0]
-        my = prefix[-1][1] - prefix[0][1]
-        if math.hypot(mx, my) < 1.0:
-            return None
-        from backend.services.entry_gates import (
-            _closest_on_polyline, parse_gate_segment)
-        from backend.services.track_chains import CHAIN_DIR_TOL_DEG
-        mb = math.degrees(math.atan2(my, mx)) % 360.0
-        paths = getattr(self, "_gate_paths", None) or self._paths
-        claiming = set()
-        for pth in (paths or []):
-            o = pth.get("origin_leg_id")
-            poly = pth.get("polyline")
-            if o is None or not poly:
-                continue
-            cpt, tan, dist = _closest_on_polyline(poly, birth)
-            if cpt is None or dist >= ORIGIN_VETO_D_MAIN_PX:
-                continue
-            tb = math.degrees(math.atan2(tan[1], tan[0])) % 360.0
-            if abs((mb - tb + 180.0) % 360.0 - 180.0) > CHAIN_DIR_TOL_DEG:
-                continue
-            claiming.add(int(o))
-        if len(claiming) != 1:
-            return None
-        o = next(iter(claiming))
-        if next((lg for lg in self.legs if lg["leg_id"] == o), None) is None:
-            return None
-        if not self._birth_pertinent(birth, o):
-            return None          # upstream/periphery side: not pertinent
-        self.n_origin_flow_inferred += 1
         return o
 
     def _rescue_through_road(self, birth, prefix):

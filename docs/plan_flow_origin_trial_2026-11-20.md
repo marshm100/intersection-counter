@@ -51,3 +51,13 @@
 - Verdict under the declared gate: DELETE. Remaining before the code removal: eval_journeys control vs arm, then
   /review-arm. Deletion = `_origin_flow_infer`, FLOW_ORIGIN_INFERENCE, n_origin_flow_inferred, the two tests that patch it
   (backend/tests/test_pipeline.py:350, :1555), and the counter in pass2_replay.py:282.
+
+## PER-VEHICLE CHECK + DELETION (2026-11-21)
+- eval_journeys foctl vs fooff: 4 of 5 clips (cam2 1600, cam3 0600, cam4 1600, cam5 0700; 419 vehicles) identical on every
+  outcome, 0 discordant, McNemar p = 1.000. cam1 0700's clip has no DB in either stem: its 102 labelled vehicles are UNCHECKED.
+- cam3 0600: control counts 5 more events than the arm, all 30->31 through, tracks 37864, 38038, 38376, 38548, 48152 (frames
+  589751+, outside the labelled clip, so unjudged). The 7443 -> 7997 "dropped" figure is a counter, not 554 tracks.
+- Code removed: _origin_flow_infer, FLOW_ORIGIN_INFERENCE (config + import + dispatch), n_origin_flow_inferred,
+  the sidecar/study_health "origin_flow_inferred" field, test class TestFlowOriginInference (5 tests), and the flag
+  pin in the origin-rescue test. Suite 1389 passed (1394 - 5).
+- NOT DONE: confirming fleet run (needs operator go) and /review-arm in a fresh session.

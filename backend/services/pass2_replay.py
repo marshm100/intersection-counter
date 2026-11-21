@@ -278,8 +278,6 @@ def replay_camera(project_id: str, camera_id: int, *, variant: str,
         # through-road their birth sits on; and joint-scorer origin rewrites
         # blocked from re-stealing to a vetoed leg. Bookkeeping for the re-gate.
         "origin_rescued": int(getattr(pipe, "n_origin_rescued", 0)),
-        "origin_flow_inferred": int(
-            getattr(pipe, "n_origin_flow_inferred", 0)),
         "origin_concealer_inherited": int(
             getattr(pipe, "n_origin_concealer_inherited", 0)),
         "straight_rerouted": int(
