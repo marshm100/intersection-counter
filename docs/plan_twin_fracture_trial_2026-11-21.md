@@ -116,3 +116,15 @@ The two flags act at different stages, so "both off together on existing dumps" 
   aside, as at the lk2 and gx2 ships) or accept that pass-1 output changes only on re-track. Needs an operator ruling.
 - Scratch to delete after the decision: sf0_* and sfon_* parquet aliases + .tracks under data/projects/97a7849a/detections/*/<hash>/,
   fleet DBs tw0_*/sf0_*.
+
+## DELETION + PROMOTION (2026-11-23, operator chose option 1: promote the sf0 dumps)
+- Dumps: for the 11 default windows, study_<w>.tracks -> pre_sf0_study_<w>.tracks and sf0_study_<w>.tracks -> study_<w>.tracks; the same
+  swap for the linked dump lka2190b_study_<w>.tracks (else the stale linked dump of the collapsed basis would be reused). Parquet
+  detection caches untouched (identical detections). NOT swapped: cam1 0700 and cam3 0000 (not in the default 11; still collapsed).
+- Code removed: _collapse_stop_fractures (two_pass.py), STOP_FRACTURE_COLLAPSE (config), the pass-1 call site, the
+  stop_fracture_pairs.json writer, meta "stop_fracture_collapsed" (study_health signature field, research_breaks print), the
+  TestStopFractureCollapse class (5 tests). STITCH_STAT_* stay: atr_counts, mouth_from_motion, tracker and pipeline still read them.
+  Suite 1363 passed (1368 - 5).
+- NOT DONE: confirming fleet on the promoted study_* dumps with the deleted code (needs an operator go; it should reproduce sf0 =
+  91.88 and the sf0 score files), and /review-arm of this plan in a fresh session. Scratch still on disk: sfon_* aliases/dumps, the
+  sf0_* parquet aliases, pre_sf0_* backups (keep until review), tw0_*/sf0_* fleet DBs.

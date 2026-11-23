@@ -598,11 +598,6 @@ NOCROSS_NO_FALLBACK = _os2.environ.get(
 # +1/-0, FM 51 identical).
 NOCROSS_DROP_SMALL = _os2.environ.get("NOCROSS_DROP_SMALL", "1") in ("1", "true", "on")
 NOCROSS_SMALL_FRAC = 0.05
-# C — stop-fracture collapse: the red-light dup engine (track lost at
-# a stop; twin births at the rest position; both counted). Dump
-# post-pass; both-end pinning to the rest position.
-STOP_FRACTURE_COLLAPSE = _os2.environ.get(
-    "STOP_FRACTURE_COLLAPSE", "1") in ("1", "true", "on")
 # C2 — coexisting-twin dedup: two simultaneous tracks on ONE vehicle
 # (operator scenes 1-2; measured anatomy: overlapping spans, boxes
 # riding together frame-by-frame), both minting events. Event-level

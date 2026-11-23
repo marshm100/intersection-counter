@@ -10,7 +10,7 @@ those fingerprints per camera-window and renders a verdict
 READ-ONLY over surfaces that already exist:
 - the pass-2 stats sidecar (provenance counters, activation, merge,
   twin dedup) — two_pass workdir twopass_cam{cid}_{variant}.stats.json
-- the dump meta (stop_fracture_collapsed)
+- the dump meta (backend)
 - the events DB (counted events by posterior_source per cell)
 - the bank flow priors (turn_merge.bank_expecteds)
 - the per-window chain census (footage_rating.census_for_variant)
@@ -143,8 +143,6 @@ def collect_signals(project_id: str, camera_id: int, variant: str, *,
 
     sig: dict = {"camera_id": camera_id, "variant": variant,
                  "window_seconds": win_s,
-                 "stop_fracture_collapsed":
-                     dmeta.get("stop_fracture_collapsed"),
                  "dump_backend": dmeta.get("backend")}
 
     # ---- stats sidecar: provenance counters + activation + twin ------

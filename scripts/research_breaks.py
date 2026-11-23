@@ -162,7 +162,7 @@ def main() -> int:
         arr = np.load(bf)
         backfill = {(int(r[0]), int(r[1])) for r in arr}
     print(f"{proj} cam{cam} {variant}: {len(rows)} dump rows, {len(veh)} yardstick vehicles, "
-          f"{len(backfill)} back-fill rows, stop-fracture relabels {meta.get('stop_fracture_collapsed')}")
+          f"{len(backfill)} back-fill rows")
 
     inputs, by_box, match, match_by_frame, miss, miss_by_id, be = run(
         proj, cam, variant, meta, (int(vw), int(vh)) if vw and vh else None)
