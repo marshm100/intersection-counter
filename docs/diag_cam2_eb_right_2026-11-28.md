@@ -129,3 +129,36 @@ Unproven: WB worst minutes not classified. 1100 (excess grows after 12:15) and 1
 
 What it points at: before any arm, an operator ruling on the reference. 2-3 minutes of video (08:31-08:33, cam2) counted
 by hand for EB-right decides whether cam2 0700 EB is a tracking problem or a Miovision one.
+
+## ADDENDUM 3 2026-11-28 (night): the EB-right excess is right-on-red, and our tracks do not change at 08:00
+Scripts (read-only, sf0 DBs): movbins.py (per-movement 15-min bins), ebr_phase.py (EB-right split by EB phase),
+ebr_permin.py (per-minute EB-right), ebr_origin.py (start/end/wait/source of EB-right tracks, match vs excess bins).
+
+Bad news first:
+- **Nothing here is a tracking cause.** No arm is proposed. The reference question is now sharper, not answered.
+- **WB is not doubles either** (nested.py: co-moving WB doubles 4 / 2 / 1 vs WB excess +62 / +43 / +58). The WB excess
+  is spread over every WB movement at +5..+10 % per bin (movbins.py), all three windows. Not classified further.
+
+Findings:
+- **The EB-right excess is in EB-red minutes.** Phase proxy: a minute is "red" when Miovision EB thru+left <= 2
+  (those match ours, so the proxy does not lean on the disputed cell). EB-right Mio/ours:
+  0700 07-08 red 57/61 (+4), green 69/81 | 08-09 red 7/64 (+57), green 34/52
+  1100 red 88/130 (+42), green 263/267 (+4)
+  1600 red 172/238 (+66), green 527/562 (+35)
+  At 1600 the per-minute pattern alternates with the cycle: green minutes match (11/13, 12/11, 15/14), red minutes are
+  0/5, 0/6, 1/6, 0/3.
+- **Our EB-right population does not change at 08:00; Miovision's does.** Our red-minute EB-right is 61 in 07-08 and 64
+  in 08-09; Miovision's is 57 then 7. The tracks counted in the post-08:00 excess bins start, end, wait and are decided
+  exactly like those in the bins that match (ebr_origin.py, 0700: start x median 467 vs 490, y 121 vs 121; end x 117 vs
+  98; duration 14 s vs 14 s; still 4 s vs 3 s; same mix of posterior sources). If the tracker were inventing ~20 cars
+  a bin from 08:00, something in the scene or the tracks would have to change at 08:00. Nothing does.
+- 1100/1600 excess bins have somewhat longer waits than matching bins (1600 still-time p90 19 s vs 9 s; more branch1 /
+  rescue_supports). This is the only hint left of a queue-related tracking cause, and the ceiling test (Addendum 1:
+  dropping theft-signature + still tracks) already bounds it at a few points of approach.
+
+What it points at: the dispute is right-turn-on-red from the EB approach. Either Miovision under-counts / excludes
+RTOR (consistently after 08:00 at 0700, partially at 1100/1600), or our red-phase EB-right tracks include vehicles
+a stop-bar count rightly excludes (e.g. driveway traffic at the far corner). The hand count should therefore count
+EB right turns made while EB is red, separately from those on green.
+Unproven: everything above about which side is right. Journey labels (16:05-08, 16:50-53) agree with Miovision on
+EB-right (15 vs 14, 10 vs 10) but contain few red-phase minutes.
