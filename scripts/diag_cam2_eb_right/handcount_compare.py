@@ -2,7 +2,7 @@
 Also matches each press to our counted EB-right events within TOL s. Our time is the track's first crossing of the
 exit (NB-out, leg 29) line from the dump, else the event timestamp (which is the track's FIRST SIGHTING, often in the
 queue - Step 9.139: matching on it made 3 real cars look unmatched). Presses lead the exit crossing by ~1-2 s. Read-only.
-usage: handcount_compare.py SESSION [WINDOW=study_0700] [TOL=4]"""
+usage: handcount_compare.py SESSION [WINDOW=study_0700] [TOL=4] [FROM TO]  (FROM/TO HH:MM:SS override the session's span)"""
 import sys, json, sqlite3
 from datetime import datetime, timedelta, time as dtime
 sys.path.insert(0,'scripts'); sys.path.insert(0,'.')
@@ -13,7 +13,8 @@ site=S.SITES[S.CORRIDOR]; ld=S.leg_dir_for(S.CORRIDOR,2,site); mio=S.load_miovis
 con=sqlite3.connect('file:data/projects/97a7849a/project.db?mode=ro',uri=True)
 start=datetime.fromisoformat(con.execute('select recording_start_datetime from videos where video_id=?',(doc['video_id'],)).fetchone()[0])
 wall=lambda t: start+timedelta(seconds=t)
-f0=datetime.combine(start.date(),dtime.fromisoformat(doc['from_wall'])); f1=datetime.combine(start.date(),dtime.fromisoformat(doc['to_wall']))
+fw,tw=(sys.argv[4],sys.argv[5]) if len(sys.argv)>5 else (doc['from_wall'],doc['to_wall'])
+f0=datetime.combine(start.date(),dtime.fromisoformat(fw)); f1=datetime.combine(start.date(),dtime.fromisoformat(tw))
 taps=[(wall(t['t']),t['kind']) for t in doc['taps'] if f0<=wall(t['t'])<f1]
 db=f'data/projects/97a7849a/_replay_scratch/fleet_20260908/sf0_cam2_sf0_{W}.db'
 d=sqlite3.connect(f'file:{db}?mode=ro',uri=True)
@@ -31,10 +32,11 @@ def exit_time(tid,fallback):
     s=np.sign((b[0]-a[0])*(p[:,1]-a[1])-(b[1]-a[1])*(p[:,0]-a[0])); i=np.where(s[:-1]*s[1:]<0)[0]
     return start+timedelta(seconds=r[i[0]+1,1]/fps) if len(i) else fallback
 ours=[(exit_time(tid,t),tid,src+('' if exit_time(tid,None) else ' [no exit crossing: first-sighting time]')) for t,tid,src in ours]
-print(f'{sess}  {doc["from_wall"]}-{doc["to_wall"]}  presses in window {len(taps)}')
-print('minute   Mio  ours | hand: red green other  (red+green)')
-m=f0
-while m<f1:
+print(f'{sess}  {fw}-{tw}  presses in window {len(taps)}')
+print('minute   Mio  ours | hand: red green other  (red+green)   (minute rows cover whole minutes only)')
+m=f0.replace(second=0,microsecond=0)
+if m<f0: m+=timedelta(minutes=1)
+while m+timedelta(minutes=1)<=f1:
     n=m+timedelta(minutes=1); c=lambda k: sum(1 for t,kk in taps if kk==k and m<=t<n)
     print(f'{m:%H:%M}   {mio.get(m.time(),{}).get(("EB","right"),0):3}  {sum(1 for e in ours if m<=e[0]<n):4} | '
           f'{c("red"):9} {c("green"):5} {c("other"):5}  ({c("red")+c("green")})')

@@ -213,3 +213,23 @@ Findings:
   the clip (6801, 6822: not phantoms); 6798 (n 22, rescue_supports) is a second id on a near-field van that 6801 also
   carries - one double. Too few to classify the window-level WB excess.
 Unproven: which side is right on WB (no WB hand count yet); whether the timestamp fix helps the fleet (not run).
+
+## ADDENDUM 6 2026-11-28: hand counts at 16:32 and 12:15 - at 1100/1600 the red-minute EB-right excess is OURS
+Sessions cam2_ebr_163200 (presses 16:31:40-16:34:24, 24) and cam2_ebr_121500 (12:14:48-12:16:08, 8); handcount_compare.py now
+takes [FROM TO] and aligns minute rows to whole minutes (the old code looked Mio up at the span's start SECOND and read 0).
+Bad news first: **this reverses Addendum 4's generalisation.** Only the 08:31 sample shows a Miovision RTOR gap.
+| minute | Mio | ours | hand |
+| 16:32 (EB red) | 0 | 6 | 1 |
+| 16:33 | 15 | 17 | 15 |
+| 12:15 (red until ~:55) | 0 | 4 | 2 (both green, 12:15:56/58) |
+- 16:32-16:34: 22 of 24 presses match our tracks (exit-line time, 1-2 s lag); 2 presses missed. 10 of ours unmatched, 7 of them inside
+  the 66 s red gap 16:32:01-16:33:07 where the operator pressed nothing and Mio has 0: 3873 motion_lane, 3907, 3928 motion_lane,
+  3952, 4008, 4014 rescue_supports, 4052 branch1. Four (3873, 3907, 3952, 4008) are FULL journeys: they cross the EB line's upper
+  (far-road) end and then the exit line, running right-to-left along the far road (stills: paths.py study_1600 1488150 / 1488735).
+  i.e. cross-street traffic moving while EB is red is being given origin 28 (EB) where the EB gate's far end reaches across the far
+  lanes. The same shape is in the labelled-clip phantoms (16:05: 655, 686, 929) and in 27->29 labels counted as 28->29 (16:50: 689, 772).
+- 12:15: the 2 unmatched (5566 motion_wait, 5606 branch1) are partial tracks with no exit crossing, in red.
+- Where they really come from is NOT shown: SB-left is not under-counted (+4 / +0 / +12), NB-left is (-21 / -33 / -29). Needs the
+  far-road tracks' full paths against all four gates (which leg's line do they cross before 28?).
+Next: classify the 1600 red-minute EB-right tracks by where they are born and which gates they cross (far-road right-to-left vs EB
+queue); if far-road traffic is the bulk, that is a tracking/origin cause -> one-page arm (no line redraws: solve in software).
