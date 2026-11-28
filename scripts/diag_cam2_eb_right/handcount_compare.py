@@ -1,5 +1,7 @@
 """Score a hand-count session (frontend/handcount.html) against Miovision and ours, per minute, EB-right.
-Also matches each press to our counted EB-right events (origin-crossing time within TOL s). Read-only.
+Also matches each press to our counted EB-right events within TOL s. Our time is the track's first crossing of the
+exit (NB-out, leg 29) line from the dump, else the event timestamp (which is the track's FIRST SIGHTING, often in the
+queue - Step 9.139: matching on it made 3 real cars look unmatched). Presses lead the exit crossing by ~1-2 s. Read-only.
 usage: handcount_compare.py SESSION [WINDOW=study_0700] [TOL=4]"""
 import sys, json, sqlite3
 from datetime import datetime, timedelta, time as dtime
@@ -19,6 +21,16 @@ ours=[(datetime.fromisoformat(ts),int(tid),src or '-') for tid,o,de,ts,src in d.
     "select vehicle_track_id,origin_leg_id,destination_leg_id,timestamp_real,posterior_source from vehicle_events "
     "where camera_id=2 and coalesce(rejected,0)=0") if (o,de)==(28,29)]
 ours=[e for e in ours if f0<=e[0]<f1]
+import numpy as np, cv2
+sys.path.insert(0,'scripts'); import eval_journeys as EJ
+path,chash=con.execute('select path,content_hash from videos where video_id=2').fetchone()
+fps=cv2.VideoCapture(path).get(cv2.CAP_PROP_FPS); _,rows=EJ.locate('sf0',{2:'sf0_'},2,W,chash)
+a,b=np.array(json.loads(con.execute('select gate_segment from legs where leg_id=29').fetchone()[0]),float)
+def exit_time(tid,fallback):
+    r=rows[rows[:,0]==tid]; r=r[np.argsort(r[:,1])]; p=np.c_[r[:,2],r[:,3]+r[:,5]/2]
+    s=np.sign((b[0]-a[0])*(p[:,1]-a[1])-(b[1]-a[1])*(p[:,0]-a[0])); i=np.where(s[:-1]*s[1:]<0)[0]
+    return start+timedelta(seconds=r[i[0]+1,1]/fps) if len(i) else fallback
+ours=[(exit_time(tid,t),tid,src+('' if exit_time(tid,None) else ' [no exit crossing: first-sighting time]')) for t,tid,src in ours]
 print(f'{sess}  {doc["from_wall"]}-{doc["to_wall"]}  presses in window {len(taps)}')
 print('minute   Mio  ours | hand: red green other  (red+green)')
 m=f0

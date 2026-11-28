@@ -181,3 +181,35 @@ Tool: frontend/handcount.html (Step 9.137), session cam2_ebr_083100; scored by s
   (Mio 0, ours 6) would show whether Mio's RTOR under-count also explains 1600.
 Consequence: cam2 0700 EB-right after 08:00 (~+75) should be treated as a Miovision defect when judging cam2; no tracking arm
 follows from it.
+
+## ADDENDUM 5 2026-11-28: the 3+3 are the same cars; event time is first sighting; WB is not phase-bound
+Scripts (read-only): hc_cars.py (who is at the EB line at each press), handcount_compare.py (now matches on the exit-line
+crossing), retime.py (re-times every event at its track's LAST origin-line crossing and rescores; PHASE=WB|EB adds the
+red/green split both ways), phase_split.py (phase_split for any approach).
+
+Bad news first:
+- **Our event timestamps are not crossing times.** `timestamp_real` comes from `vehicle["origin_frame"]`, which is set when
+  the origin is ASSIGNED (path-shape prefix match after 4-8 points, pipeline.py:1223; rescues stamp `start_frame`,
+  :1530/:2152) - for a queued car that is its first sighting, up to minutes before it leaves the stop line. The comment at
+  pipeline.py:2218 says the intent is the crossing. This is a production timing defect on every camera.
+- **Fixing it does not fix cam2.** Re-timed at the stop-line departure, only 21 / 32 / 32 events change 15-min bin;
+  cam2 movement / approach 5/95 86.0/50.0 -> 85.0/56.2 (0700), 89.1/62.5 -> 87.1/62.5 (1100), 78.0/65.6 -> 78.9/62.5 (1600).
+- Addendum 3's WB red/green split was mostly this artefact (below). No tracking cause found; no arm.
+
+Findings:
+- **Hand count 08:31-08:33: all 8 presses are our 8 cars.** Matched on the exit-line crossing, 7 of 8 presses lead our
+  track's exit crossing by 1.0-2.1 s (9073, 9136, 9144, 9169, 9203, 9228, 9263); per minute 5/1/2 = hand 5/1/2. The 8th car
+  (press 08:31:27) is one car in two pieces: 9098 (queue fragment 08:31:10-15, x 524->431, never reaches a line, COUNTED
+  by rescue_supports) and 9117 (starts 3 s later at x 420 where 9098 ended, makes the turn, DROPPED classifier_insufficient).
+  Counted once, timestamped 14 s early. Not a miss, not a false count. The earlier "3+3 unmatched" was the comparator
+  matching on the first-sighting timestamp.
+- **WB excess is not right-on-red.** Stamped: WB-right red +28 / green -2 (0700), WB-thru red +20. Re-timed: WB-right red +7 /
+  green +19, thru red +7 / green +11; 1100 and 1600 the same way. Queued WB cars first seen in a red minute were binned
+  into it. Re-timed, the WB excess is spread over phases and movements: a uniform over-count of fully seen journeys
+  (partial-track rescues are only 30 / 33 / 60 WB events against +62 / +43 / +58). Still unclassified.
+- **EB-right red-minute excess survives re-timing** (+61 -> +71, +42 -> +32, +66 -> +72) while the control cells move as they
+  should (0700 EB thru / left on red +30 / +45 -> +1 / +11). Addendum 3-4's right-on-red reading stands.
+- Labelled clips, WB: 16:05 labels 7 = ours 7; 16:50 labels 13, ours 16 (+2 26->27, +1 26->29). Of the +3, two tracks end after
+  the clip (6801, 6822: not phantoms); 6798 (n 22, rescue_supports) is a second id on a near-field van that 6801 also
+  carries - one double. Too few to classify the window-level WB excess.
+Unproven: which side is right on WB (no WB hand count yet); whether the timestamp fix helps the fleet (not run).
