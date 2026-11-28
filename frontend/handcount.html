@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hand count</title>
+<style>
+  :root { --bg:#111827; --panel:#1f2937; --line:#374151; --ink:#e5e7eb; --muted:#9ca3af;
+          --red:#f43f5e; --green:#10b981; --other:#f59e0b; --gate:#e879f9; --accent:#60a5fa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--ink);
+         display: flex; height: 100vh; overflow: hidden; font-size: 13px; }
+  #side { width: 340px; padding: 14px; background: var(--panel); overflow-y: auto; flex-shrink: 0;
+          display: flex; flex-direction: column; gap: 12px; }
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
+           background: #000; min-height: 0; }
+  #wrap { position: relative; }
+  video, canvas { display: block; }
+  canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  h1 { font-size: 16px; margin: 0; }
+  h2 { font-size: 12px; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  select, button, input { font: inherit; color: var(--ink); background: #111827; border: 1px solid var(--line);
+                          border-radius: 5px; padding: 6px 9px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .muted { color: var(--muted); }
+  .how { line-height: 1.5; padding: 10px; border-radius: 6px; background: #111827; border: 1px solid var(--line); }
+  .kinds { display: grid; gap: 6px; }
+  .kinds button { text-align: left; padding: 9px 10px; display: flex; justify-content: space-between; align-items: center; }
+  .kinds button kbd { font-family: ui-monospace, Consolas, monospace; background: var(--line); padding: 0 6px; border-radius: 3px; }
+  .kinds .n { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; margin-left: auto; margin-right: 10px; }
+  #k-red { border-color: var(--red); } #k-green { border-color: var(--green); } #k-other { border-color: var(--other); }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 3px 6px; text-align: right; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  #taps { max-height: 220px; overflow-y: auto; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  #taps div { display: flex; gap: 8px; align-items: center; padding: 2px 0; }
+  #taps div.out { opacity: .45; }
+  #taps .tm { cursor: pointer; text-decoration: underline dotted; }
+  #taps button { padding: 0 6px; font-size: 11px; margin-left: auto; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  #bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px;
+         background: var(--panel); border-top: 1px solid var(--line); }
+  #clock { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 15px; min-width: 22ch; }
+  #scrub { flex: 1; min-width: 160px; accent-color: var(--accent); }
+  .keys { font-size: 12px; color: var(--muted); line-height: 1.8; }
+  .keys b { color: var(--ink); font-family: ui-monospace, Consolas, monospace; background: var(--line); padding: 0 5px; border-radius: 3px; }
+  #status { font-size: 12px; }
+  #flash { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 5px;
+           font-weight: 600; opacity: 0; transition: opacity .25s; pointer-events: none; color: #fff; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div id="side">
+  <div>
+    <h1>Hand count</h1>
+    <div class="muted" id="what"></div>
+  </div>
+  <div class="how">
+    Count every vehicle that comes down the <b>EB approach</b> and <b>turns right</b> (onto the <span id="destName">S leg</span>).
+    Press the key when its back tyres cross the <b style="color:var(--gate)">highlighted EB line</b>.
+    Point the mouse at the car while you press, if you can — it lets the count be matched car by car.
+    <br><span class="muted">Count from the white time bar, not the clock burned into the video (that one runs ~13 s behind).
+    The video starts 20 s early so you can see the queue; presses outside the window are kept but not totalled.</span>
+  </div>
+  <div>
+    <h2>Count it</h2>
+    <div class="kinds">
+      <button id="k-red" type="button" data-k="red"><span>Right turn while EB is <b>red</b></span><span class="n" id="n-red">0</span><kbd>R</kbd></button>
+      <button id="k-green" type="button" data-k="green"><span>Right turn while EB is <b>green</b></span><span class="n" id="n-green">0</span><kbd>G</kbd></button>
+      <button id="k-other" type="button" data-k="other"><span>Turns right but did <b>not</b> come down the EB approach<br><span class="muted">(driveway, lot, far corner) or can't tell</span></span><span class="n" id="n-other">0</span><kbd>O</kbd></button>
+    </div>
+  </div>
+  <div>
+    <h2>Per minute (inside the window)</h2>
+    <table><thead><tr><th>minute</th><th>red</th><th>green</th><th>other</th></tr></thead><tbody id="perMin"></tbody></table>
+  </div>
+  <div>
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Presses</h2>
+      <span class="muted">click a time to go back there</span></div>
+    <div id="taps"></div>
+  </div>
+  <div class="row">
+    <button id="undoBtn" type="button">Undo last (Z)</button>
+    <button id="saveBtn" type="button">Save now</button>
+    <span id="status" class="muted"></span>
+  </div>
+  <div class="keys">
+    <b>Space</b> play / pause &nbsp; <b>&larr;</b><b>&rarr;</b> 2 s &nbsp; <b>,</b> <b>.</b> one frame (paused)<br>
+    <b>R</b> <b>G</b> <b>O</b> count &nbsp; <b>Z</b> undo last &nbsp; <b>1</b>-<b>4</b> speed
+  </div>
+</div>
+
+<div id="main">
+  <div id="stage">
+    <div id="wrap">
+      <video id="vid" preload="auto" muted playsinline></video>
+      <canvas id="cv"></canvas>
+    </div>
+    <div id="flash"></div>
+  </div>
+  <div id="bar">
+    <button id="playBtn" type="button">Play</button>
+    <select id="speed" aria-label="Playback speed">
+      <option value="0.25">&frac14;&times;</option>
+      <option value="0.5">&frac12;&times;</option>
+      <option value="1" selected>1&times;</option>
+      <option value="2">2&times;</option>
+    </select>
+    <input id="scrub" type="range" min="0" max="10" step="0.04" value="0" aria-label="Position">
+    <span id="clock"></span>
+  </div>
+</div>
+
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const pid = q.get('pid') || '97a7849a', videoId = Number(q.get('video') || 2);
+  const fromWall = q.get('from') || '08:31:00', toWall = q.get('to') || '08:34:00';
+  const session = q.get('session') || `cam${videoId}_ebr_${fromWall.replace(/:/g, '')}`;
+  const gateWord = (q.get('gate') || 'EB').toUpperCase();
+  const LEAD = 20, TAIL = 10;
+  const $ = id => document.getElementById(id);
+  const vid = $('vid'), cv = $('cv'), ctx = cv.getContext('2d'), stage = $('stage');
+  const COL = { red: '#f43f5e', green: '#10b981', other: '#f59e0b' };
+  let info = null, legs = [], taps = [], startSec = 0, mouse = null, saveTimer = null, dirty = false;
+
+  const hms = s => { const d = new Date(Math.round(s * 1000)); return d.toISOString().substr(11, 8); };
+  const hmsd = s => { const d = new Date(Math.round(s * 10) * 100); return d.toISOString().substr(11, 10); };
+  const toSec = w => { const [h, m, s] = w.split(':').map(Number); return h * 3600 + m * 60 + (s || 0); };
+  const wallOf = t => startSec + t;                     // seconds of day, same base as the software's event times
+  const tOf = w => toSec(w) - startSec;
+  const t0 = () => tOf(fromWall), t1 = () => tOf(toWall);
+  const inWin = tp => tp.t >= t0() && tp.t < t1();
+
+  async function api(path, opts) {
+    const r = await fetch(path, opts);
+    if (!r.ok) { let d = r.statusText; try { d = (await r.json()).detail || d; } catch (e) {} throw new Error(d); }
+    return r.json();
+  }
+  function flash(msg, col) {
+    const f = $('flash'); f.textContent = msg; f.style.background = col; f.style.opacity = 1;
+    clearTimeout(flash._h); flash._h = setTimeout(() => f.style.opacity = 0, 700);
+  }
+
+  function layout() {
+    if (!vid.videoWidth) return;
+    const k = Math.min(stage.clientWidth / vid.videoWidth, stage.clientHeight / vid.videoHeight);
+    vid.style.width = cv.style.width = Math.floor(vid.videoWidth * k) + 'px';
+    vid.style.height = cv.style.height = Math.floor(vid.videoHeight * k) + 'px';
+    cv.width = vid.videoWidth * 2; cv.height = vid.videoHeight * 2;
+  }
+  window.addEventListener('resize', layout);
+  $('wrap').addEventListener('mousemove', e => {
+    const r = vid.getBoundingClientRect();
+    mouse = { x: (e.clientX - r.left) / r.width * vid.videoWidth, y: (e.clientY - r.top) / r.height * vid.videoHeight };
+  });
+  $('wrap').addEventListener('mouseleave', () => mouse = null);
+
+  const isGate = lg => (lg.label || '').toUpperCase().startsWith(gateWord);
+  function draw() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const s = cv.width / vid.videoWidth || 2;
+    ctx.save(); ctx.scale(s, s);
+    for (const lg of legs) {
+      if (!lg.gate_segment || lg.gate_segment.length !== 2) continue;
+      const hot = isGate(lg);
+      ctx.strokeStyle = hot ? 'rgba(232,121,249,1)' : 'rgba(255,255,255,0.35)'; ctx.lineWidth = hot ? 2.5 : 1;
+      ctx.beginPath(); ctx.moveTo(...lg.gate_segment[0]); ctx.lineTo(...lg.gate_segment[1]); ctx.stroke();
+      const mx = (lg.gate_segment[0][0] + lg.gate_segment[1][0]) / 2, my = (lg.gate_segment[0][1] + lg.gate_segment[1][1]) / 2;
+      ctx.font = `${hot ? 'bold ' : ''}10px system-ui`; const txt = lg.label || ('leg ' + lg.leg_id);
+      const tw = ctx.measureText(txt).width;
+      ctx.fillStyle = 'rgba(17,24,39,0.75)'; ctx.fillRect(mx - tw / 2 - 3, my - 9, tw + 6, 13);
+      ctx.fillStyle = hot ? '#f5d0fe' : '#d1d5db'; ctx.fillText(txt, mx - tw / 2, my + 1);
+    }
+    // presses from the last 3 s, where the mouse was
+    for (const tp of taps) {
+      const age = vid.currentTime - tp.t;
+      if (tp.x == null || age < 0 || age > 3) continue;
+      ctx.globalAlpha = 1 - age / 3; ctx.strokeStyle = COL[tp.kind]; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(tp.x, tp.y, 9, 0, 2 * Math.PI); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+  function tick() {
+    if (info) {
+      const t = vid.currentTime, w = wallOf(t), inside = t >= t0() && t < t1();
+      $('clock').innerHTML = `${hmsd(w)} <span class="muted">${inside ? 'counting' : (t < t0() ? 'lead-in' : 'window over')}</span>`;
+      $('clock').style.color = inside ? '#fff' : 'var(--muted)';
+      if (document.activeElement !== $('scrub')) $('scrub').value = (t - (t0() - LEAD)).toFixed(2);
+      $('playBtn').textContent = vid.paused ? 'Play' : 'Pause';
+      if (!vid.paused && t >= t1() + TAIL) vid.pause();
+      draw();
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function render() {
+    for (const k of ['red', 'green', 'other']) $('n-' + k).textContent = taps.filter(tp => tp.kind === k && inWin(tp)).length;
+    const mins = [];
+    for (let m = Math.floor(toSec(fromWall) / 60); m * 60 < toSec(toWall); m++) mins.push(m);
+    $('perMin').innerHTML = mins.map(m => {
+      const c = k => taps.filter(tp => tp.kind === k && inWin(tp) && Math.floor(wallOf(tp.t) / 60) === m).length;
+      return `<tr><td>${hms(m * 60).substr(0, 5)}</td><td>${c('red')}</td><td>${c('green')}</td><td>${c('other')}</td></tr>`;
+    }).join('') + `<tr><th>total</th><th>${$('n-red').textContent}</th><th>${$('n-green').textContent}</th><th>${$('n-other').textContent}</th></tr>`;
+    const sorted = taps.map((tp, i) => ({ tp, i })).sort((a, b) => b.tp.t - a.tp.t);
+    $('taps').innerHTML = sorted.map(({ tp, i }) =>
+      `<div class="${inWin(tp) ? '' : 'out'}"><span class="dot" style="background:${COL[tp.kind]}"></span>` +
+      `<span class="tm" data-t="${tp.t}">${hmsd(wallOf(tp.t))}</span><span>${tp.kind}</span>` +
+      `<button type="button" data-del="${i}" aria-label="Delete this press">&times;</button></div>`).join('') ||
+      '<span class="muted">none yet</span>';
+  }
+  $('taps').addEventListener('click', e => {
+    const t = e.target.dataset.t, d = e.target.dataset.del;
+    if (t != null) { vid.pause(); vid.currentTime = Math.max(0, Number(t) - 2); }
+    if (d != null) { taps.splice(Number(d), 1); changed(); }
+  });
+
+  function changed() {
+    render(); dirty = true;
+    localStorage.setItem('handcount:' + pid + ':' + session, JSON.stringify(taps));
+    $('status').textContent = 'unsaved…';
+    clearTimeout(saveTimer); saveTimer = setTimeout(save, 800);
+  }
+  async function save() {
+    clearTimeout(saveTimer);
+    try {
+      const r = await api(`/api/projects/${pid}/hand-counts/${encodeURIComponent(session)}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_id: videoId, from_wall: fromWall, to_wall: toWall, taps })
+      });
+      dirty = false; $('status').textContent = `saved ${r.saved} presses ✓`;
+    } catch (e) { $('status').textContent = 'NOT saved: ' + e.message + ' (kept in this browser)'; }
+  }
+  window.addEventListener('beforeunload', e => { if (dirty) { save(); e.preventDefault(); e.returnValue = ''; } });
+
+  function count(kind) {
+    if (!info) return;
+    const tp = { t: Math.round(vid.currentTime * 100) / 100, kind };
+    if (mouse) { tp.x = Math.round(mouse.x); tp.y = Math.round(mouse.y); }
+    taps.push(tp); changed();
+    flash(`${kind}  ${hms(wallOf(tp.t))}${inWin(tp) ? '' : '  (outside window)'}`, COL[kind]);
+  }
+  function undo() { if (taps.length) { const tp = taps.pop(); changed(); flash('undid ' + tp.kind, '#374151'); } }
+
+  document.querySelectorAll('.kinds button').forEach(b => b.addEventListener('click', () => count(b.dataset.k)));
+  $('undoBtn').addEventListener('click', undo);
+  $('saveBtn').addEventListener('click', save);
+  $('playBtn').addEventListener('click', () => vid.paused ? vid.play().catch(() => {}) : vid.pause());
+  $('speed').addEventListener('change', e => vid.playbackRate = Number(e.target.value));
+  $('scrub').addEventListener('input', e => vid.currentTime = t0() - LEAD + Number(e.target.value));
+  document.addEventListener('keydown', ev => {
+    if (ev.target.tagName === 'INPUT' && ev.target.type !== 'range') return;
+    const k = ev.key.toLowerCase();
+    if (k === ' ') { ev.preventDefault(); vid.paused ? vid.play().catch(() => {}) : vid.pause(); }
+    else if (k === 'r') count('red');
+    else if (k === 'g') count('green');
+    else if (k === 'o') count('other');
+    else if (k === 'z' || k === 'backspace') { ev.preventDefault(); undo(); }
+    else if (k === 'arrowleft') { ev.preventDefault(); vid.currentTime = Math.max(t0() - LEAD, vid.currentTime - 2); }
+    else if (k === 'arrowright') { ev.preventDefault(); vid.currentTime = vid.currentTime + 2; }
+    else if (k === ',' && vid.paused) vid.currentTime -= 1 / (info.fps || 25);
+    else if (k === '.' && vid.paused) vid.currentTime += 1 / (info.fps || 25);
+    else if (['1', '2', '3', '4'].includes(k)) { $('speed').selectedIndex = Number(k) - 1; vid.playbackRate = Number($('speed').value); }
+  });
+
+  async function init() {
+    info = null;
+    const v = await api(`/api/projects/${pid}/hand-counts/video/${videoId}`);
+    const st = new Date(v.recording_start.replace('Z', ''));
+    startSec = st.getHours() * 3600 + st.getMinutes() * 60 + st.getSeconds() + st.getMilliseconds() / 1000;
+    legs = (await api(`/api/projects/${pid}/cameras/${v.camera_id}/calibration`)).legs || [];
+    const dest = legs.find(l => /^NB/i.test(l.label || '')); if (dest && gateWord === 'EB') $('destName').textContent = 'S leg (' + dest.label + ' line)';
+    $('what').textContent = `Camera ${v.camera_id} · ${fromWall}–${toWall} · session ${session}`;
+    const saved = await api(`/api/projects/${pid}/hand-counts/${encodeURIComponent(session)}`);
+    const local = JSON.parse(localStorage.getItem('handcount:' + pid + ':' + session) || 'null');
+    taps = saved.exists ? saved.taps : (local || []);
+    if (!saved.exists && local && local.length) { dirty = true; $('status').textContent = 'restored from this browser; unsaved'; }
+    else if (saved.exists) $('status').textContent = `loaded ${taps.length} saved presses`;
+    info = v; render();
+    $('scrub').max = (LEAD + (t1() - t0()) + TAIL).toFixed(2);
+    vid.src = `/api/projects/${pid}/videos/${videoId}/stream`;
+    vid.addEventListener('loadedmetadata', () => { layout(); vid.currentTime = t0() - LEAD; }, { once: true });
+    requestAnimationFrame(tick);
+  }
+  init().catch(e => { $('what').textContent = 'Could not load: ' + e.message; });
+})();
+</script>
+</body>
+</html>

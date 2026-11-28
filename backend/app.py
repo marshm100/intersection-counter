@@ -8,7 +8,7 @@ from backend.config import APP_DIR, FRONTEND_DIR
 from backend.routers import (
     projects, video, videos, processing, dashboard,
     review, calibration, export, intersections, qa, flags, bank,
-    two_pass, labeler, journeys, audit,
+    two_pass, labeler, journeys, audit, hand_count,
 )
 
 
@@ -73,6 +73,7 @@ app.include_router(two_pass.router, prefix="/api")
 app.include_router(labeler.router, prefix="/api")
 app.include_router(journeys.router, prefix="/api")
 app.include_router(audit.router, prefix="/api")
+app.include_router(hand_count.router, prefix="/api")
 
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
