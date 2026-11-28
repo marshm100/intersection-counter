@@ -162,3 +162,22 @@ a stop-bar count rightly excludes (e.g. driveway traffic at the far corner). The
 EB right turns made while EB is red, separately from those on green.
 Unproven: everything above about which side is right. Journey labels (16:05-08, 16:50-53) agree with Miovision on
 EB-right (15 vs 14, 10 vs 10) but contain few red-phase minutes.
+
+## ADDENDUM 4 2026-11-28: operator hand count, 08:31:00-08:33:59 — Miovision under-counts EB right-on-red
+Tool: frontend/handcount.html (Step 9.137), session cam2_ebr_083100; scored by scripts/diag_cam2_eb_right/handcount_compare.py.
+| minute | Miovision | ours | hand red | hand green |
+| 08:31 | 0 | 5 | 5 | 0 |
+| 08:32 | 1 | 2 | 0 | 1 |
+| 08:33 | 0 | 1 | 2 | 0 |
+| total | 1 | 8 | 7 | 1 |
+- The hand count is 8 (7 on red, 1 on green). Miovision has 1. Ours has 8. **This is a reference defect, not ours**: in this
+  sample Miovision misses EB right-on-red after 08:00 (consistent with Addendum 3: Mio red-minute EB-right 57 -> 7 at 08:00
+  while ours stays 61 -> 64).
+- Car by car (press time vs our origin-crossing time, <= 4 s): 5 of 8 match (9136, 9144, 9169, 9203, 9263). 3 presses
+  (08:31:22, 08:31:49, 08:33:42) and 3 of our events (9073 08:31:00, 9098 08:31:13, 9228 08:32:50) are unmatched at 4 s.
+  The totals agree; whether the 3 + 3 are the same cars with a late or inferred timestamp (9098 rescue_supports,
+  9228 branch1) or 3 misses + 3 false counts is NOT shown. Not yet checked on video.
+- Unproven: one 3-minute sample, one counter. 1100 / 1600 red-minute excess (+42 / +66) are not covered; a 16:32 count
+  (Mio 0, ours 6) would show whether Mio's RTOR under-count also explains 1600.
+Consequence: cam2 0700 EB-right after 08:00 (~+75) should be treated as a Miovision defect when judging cam2; no tracking arm
+follows from it.
