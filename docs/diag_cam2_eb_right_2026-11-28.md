@@ -66,3 +66,33 @@ slow at a small box, come back). The physical fact a fix can use without proport
 full speed and double its image size in one frame.
 Still tracks counted as turns are a separate, smaller leak in rescue_supports / branch1: a track whose whole path
 spans under two box widths crossed nothing.
+
+## ADDENDUM 2026-11-28 (later): where cam2 actually fails, and what will NOT fix it
+Scripts: scripts/diag_cam2_eb_right/{ceiling,bins,bysrc,wide,worst,shift,sheet,phantoms}.py (read-only, sf0 DBs of 2026-11-21).
+Stills: screenshots/cam2_phantoms_2026-11-28/ (local).
+
+Bad news first:
+- **Removing the diagnosed causes does not pass cam2.** Dropping every still track AND every theft-signature track
+  (ceiling.py) moves approach 50.0 / 62.5 / 65.6 -> 65.6 / 68.8 / 71.9 and movement 86.0 / 89.1 / 78.0 -> 88.0 / 87.1 / 78.0.
+  Even with the signature's low recall, the theft arm (docs/plan_far_queue_theft_2026-11-28.md) is not the path to 5/95 on cam2 alone.
+- **No single counting path is the culprit** (bysrc.py): dropping any one posterior source / gate tag raises approach by
+  at most ~12 points in one window and lowers it elsewhere. Most counts (and most excess) are ordinary full journeys.
+- **The journey labels cannot see the over-count.** Most cam2 "phantoms" (29 on the two clips) are cars that finish after
+  the clip ends (6773, 6737, 6805, 6801, 6822, 6790, 796: smooth real EB-left / WB paths), as Step 9.103 found.
+  Inside labelled minutes we match labels within 1-3 per approach-minute.
+- **Not a clock offset** (shift.py): shifting our timestamps by -60..+90 s, shift 0 is best or tied on all 11 windows.
+  (Miovision's per-minute split differs from the labels — 16:50 EB labels 11 / Mio 3; 16:51 labels 12 / Mio 19 — but this
+  washes out in 15-min bins.)
+
+Where it fails (bins.py, approach level): almost every failing bin is an OVER-count on the two light approaches,
+EB +5..+21 per bin in every window, WB +4..+16. NB passes; SB fails some bins (+11..+27 at 0700/1100).
+EB per-minute (worst.py, 1600): +244 in over-minutes vs -126 in under-minutes; the over-minutes are packed with
+28->26 / 28->27 / 28->29 full journeys from the far EB queue.
+
+Seen on video (sheet.py): near-field WB queue at the left edge, big boxes (130-250 px): tracks hop between neighbouring
+queued cars (6801 red car -> white SUV, 6798 pickup -> red car, 6790 parked silver car for 50 s then a far box).
+Far EB queue: tracks sit 20-60 s on queued cars; their exits are smooth and look real.
+
+Unproven / next: which extra EB/WB full journeys are doubles (one car, two tracks) vs hops vs real. The fastest test is
+an operator-free look at every counted EB event in the 3 worst minutes (worst.py lists them: 17:14, 16:50, 16:37) -
+26+12+12 events - classifying each as real / double / hop.
