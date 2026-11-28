@@ -96,3 +96,36 @@ Far EB queue: tracks sit 20-60 s on queued cars; their exits are smooth and look
 Unproven / next: which extra EB/WB full journeys are doubles (one car, two tracks) vs hops vs real. The fastest test is
 an operator-free look at every counted EB event in the 3 worst minutes (worst.py lists them: 17:14, 16:50, 16:37) -
 26+12+12 events - classifying each as real / double / hop.
+
+## ADDENDUM 2 2026-11-28 (evening): the worst-minute classification, and a reference question
+Scripts (read-only, sf0 DBs): pairs, nested, seqdbl, cross, cycles, onset, sheet2, xsheet, paths .py in
+scripts/diag_cam2_eb_right/. Stills: screenshots/cam2_worst_2026-11-28/ (local).
+
+Bad news first:
+- **Doubles and hops are NOT the bulk of the EB excess.** Counted tracks co-moving on one car (nested.py: overlap
+  >= 0.7 of the smaller box for >= 0.5 s, both moving >= 1 width, offset steady): EB 3 / 6 / 13 per window against an
+  EB excess of +83 / +72 / +118. Sequential fragment doubles (seqdbl.py: B born <= 3 s after A dies, at A's extrapolated
+  position, same heading): EB 2 / 2 / 5. A tracking fix for doubles cannot pass cam2 EB.
+- **The whole EB excess is EB-right.** EB thru+left, Mio vs ours: 347/337, 502/524, 950/968 (fine). EB-right:
+  167/258, 351/397, 699/800.
+- **0700: EB-right matches until 08:00, then Miovision drops 4x at the hour boundary.** Per 15-min bin, Mio/ours:
+  07:00 27/30, 07:15 23/28, 07:30 36/40, 07:45 40/44 | 08:00 11/33, 08:15 8/22, 08:30 11/26, 08:45 11/35.
+  No other Mio movement absorbs it (all 16 slots printed; Lights/Mediums/Trucks all drop together). In red minutes
+  07:01-07:47 Mio and we agree (~49 vs ~47); from 07:49 Mio has 0 EB-right in almost every red minute, we have 1-5.
+- The 7 post-08:00 extras inspected on video (9228, 9263, 9073, 9098, 9136, 9144, 9169): all are real vehicles that come
+  from the far right on the W leg, (some wait ~20 s at the far corner), and leave along the S leg. onset.py: none sat
+  still then jumped, no box-size jump at motion onset, no other track died on its box. No theft, no double.
+  Whether they are EB approach right turns (Mio missed them, or right-on-red is excluded) or e.g. driveway traffic at
+  the far corner that a stop-bar count would not include is NOT decidable from the data; it needs a person on the video.
+- 1600, cycle 17:14 (+17 vs Mio): line-28 crossings (cross.py) come at 1.6-3.6 s headways per lane position, i.e.
+  saturation flow of distinct cars; on video 1 co-moving double (9553/9550), 1 nested box (9569 in 9548), 1 still car
+  (9502, counted motion_lane). The rest look like real distinct cars. Mio per-minute split (16+15 over 17:14-15
+  against our 26+15) cannot be checked further without labels.
+- Side finding (not EB): an SB car leaving over line 29 often gets a second, same-heading fragment counted 29>27
+  (NB) or 29>28: 27>29 -> 29>27 is the top sequential pair (15 / 4 / 9). One instance seen: 9271 (29>28) on 9228's car.
+
+Unproven: WB worst minutes not classified. 1100 (excess grows after 12:15) and 1600 bins not checked against the
+0700 pattern.
+
+What it points at: before any arm, an operator ruling on the reference. 2-3 minutes of video (08:31-08:33, cam2) counted
+by hand for EB-right decides whether cam2 0700 EB is a tracking problem or a Miovision one.
